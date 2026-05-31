@@ -1,7 +1,7 @@
 // crosbynews.com — Crosby, TX weather, served from the edge.
 //
-// scheduled(): every 15 min, pull the NWS forecast + active alerts and cache
-//   the result as JSON in KV under "weather".
+// scheduled(): every 15 min, pull the NWS forecast (daily + hourly) and active
+//   alerts and cache the result as JSON in KV under "weather".
 // fetch(): render that cached JSON as HTML. On a cold cache (before the first
 //   cron run) it fetches live, renders, and warms the cache.
 
@@ -15,6 +15,7 @@ const NWS_HEADERS = {
 };
 
 const KV_KEY = "weather";
+const TZ = "America/Chicago";
 
 async function getJson(url) {
   const res = await fetch(url, { headers: NWS_HEADERS });
@@ -24,21 +25,25 @@ async function getJson(url) {
   return res.json();
 }
 
-// Pull the forecast (two-step) and active alerts for Crosby, TX.
+// Pull the daily + hourly forecast and active alerts for Crosby, TX.
 async function fetchWeather() {
-  // 1. Resolve the point to its forecast endpoint.
+  // 1. Resolve the point to its forecast endpoints.
   const points = await getJson(`https://api.weather.gov/points/${LAT},${LON}`);
-  const forecastUrl = points.properties.forecast;
+  const { forecast: forecastUrl, forecastHourly: hourlyUrl } = points.properties;
+  const place = points.properties.relativeLocation?.properties;
 
-  // 2. Forecast periods + active alerts are independent — fetch together.
-  const [forecast, alertsData] = await Promise.all([
+  // 2. Daily forecast, hourly forecast, and active alerts are independent.
+  const [forecast, hourly, alertsData] = await Promise.all([
     getJson(forecastUrl),
+    getJson(hourlyUrl),
     getJson(`https://api.weather.gov/alerts/active?point=${LAT},${LON}`),
   ]);
 
   return {
     updated: new Date().toISOString(),
+    place: place ? `${place.city}, ${place.state}` : "Crosby, TX",
     periods: forecast.properties.periods ?? [],
+    hourly: (hourly.properties.periods ?? []).slice(0, 12),
     alerts: (alertsData.features ?? []).map((f) => f.properties),
   };
 }
@@ -55,136 +60,185 @@ function nl2br(value) {
   return esc(value).replace(/\n/g, "<br>");
 }
 
-function renderAlerts(alerts) {
-  if (!alerts.length) {
-    return `<p class="none">No active alerts.</p>`;
+// Probability of precipitation as a whole number (NWS gives {value:null|number}).
+function pop(period) {
+  const v = period?.probabilityOfPrecipitation?.value;
+  return typeof v === "number" ? Math.round(v) : 0;
+}
+
+// NWS icon URLs carry a ?size= param; bump it for crisper rendering.
+function iconUrl(url, size) {
+  return url ? esc(url.replace(/size=\w+/, `size=${size}`)) : "";
+}
+
+function fmt(iso, opts) {
+  try {
+    return new Date(iso).toLocaleString("en-US", { timeZone: TZ, ...opts });
+  } catch {
+    return "";
   }
-  return alerts
+}
+const fullTime = (iso) => fmt(iso, { dateStyle: "medium", timeStyle: "short" });
+const clockTime = (iso) => fmt(iso, { hour: "numeric", minute: "2-digit" });
+const hourLabel = (iso) => fmt(iso, { hour: "numeric" });
+
+function renderAlerts(alerts) {
+  if (!alerts.length) return "";
+  const cards = alerts
     .map(
       (a) => `
       <article class="alert">
-        <h3>${esc(a.event)}</h3>
+        <h3>&#9888; ${esc(a.event)}</h3>
         ${a.headline ? `<p class="headline">${esc(a.headline)}</p>` : ""}
         ${a.description ? `<p>${nl2br(a.description)}</p>` : ""}
         ${a.instruction ? `<p class="instruction"><strong>What to do:</strong> ${nl2br(a.instruction)}</p>` : ""}
-        ${a.expires ? `<p class="meta">Expires ${esc(formatTime(a.expires))}</p>` : ""}
+        ${a.expires ? `<p class="meta">In effect until ${esc(fullTime(a.expires))}</p>` : ""}
       </article>`
     )
     .join("");
+  return `<section class="alerts" aria-label="Active weather alerts">${cards}</section>`;
 }
 
-function renderPeriods(periods) {
-  if (!periods.length) {
-    return `<p class="none">No forecast available.</p>`;
-  }
-  return periods
+function renderHero(data) {
+  const now = data.hourly?.[0];
+  const lead = data.periods?.[0];
+  if (!now) return "";
+  return `
+    <section class="hero">
+      ${now.icon ? `<img class="hero-icon" src="${iconUrl(now.icon, "large")}" alt="${esc(now.shortForecast)}" width="128" height="128" fetchpriority="high">` : ""}
+      <div class="hero-now">
+        <p class="hero-temp">${esc(now.temperature)}&deg;<span>${esc(now.temperatureUnit)}</span></p>
+        <p class="hero-cond">${esc(now.shortForecast)}</p>
+        <p class="hero-meta">${esc(data.place)} &middot; as of ${esc(clockTime(now.startTime))} CT${pop(now) ? ` &middot; ${pop(now)}% precip` : ""}</p>
+      </div>
+    </section>
+    ${lead ? `<p class="lead"><strong>${esc(lead.name)}:</strong> ${esc(lead.detailedForecast)}</p>` : ""}`;
+}
+
+function renderHourly(hourly) {
+  if (!hourly?.length) return "";
+  const cells = hourly
+    .map(
+      (h) => `
+      <div class="hour">
+        <span class="hour-time">${esc(hourLabel(h.startTime))}</span>
+        ${h.icon ? `<img src="${iconUrl(h.icon, "small")}" alt="${esc(h.shortForecast)}" width="44" height="44" loading="lazy">` : ""}
+        <span class="hour-temp">${esc(h.temperature)}&deg;</span>
+        <span class="hour-pop${pop(h) >= 30 ? " wet" : ""}">${pop(h)}%</span>
+      </div>`
+    )
+    .join("");
+  return `<section class="card">
+    <h2>Next 12 hours</h2>
+    <div class="hourly">${cells}</div>
+  </section>`;
+}
+
+function renderDaily(periods) {
+  if (!periods.length) return `<p class="none">No forecast available.</p>`;
+  const cards = periods
     .map(
       (p) => `
-      <article class="period${p.isDaytime ? " day" : " night"}">
-        <h3>${esc(p.name)}</h3>
-        <p class="temp">${esc(p.temperature)}&deg;${esc(p.temperatureUnit)}</p>
+      <article class="period ${p.isDaytime ? "day" : "night"}">
+        <div class="period-head">
+          <h3>${esc(p.name)}</h3>
+          ${p.icon ? `<img src="${iconUrl(p.icon, "medium")}" alt="${esc(p.shortForecast)}" width="52" height="52" loading="lazy">` : ""}
+        </div>
+        <p class="temp">${p.isDaytime ? "High" : "Low"} ${esc(p.temperature)}&deg;${esc(p.temperatureUnit)}</p>
         <p class="short">${esc(p.shortForecast)}</p>
-        <p class="wind">Wind ${esc(p.windSpeed)} ${esc(p.windDirection)}</p>
+        <p class="meta">${pop(p) ? `${pop(p)}% precip &middot; ` : ""}Wind ${esc(p.windSpeed)} ${esc(p.windDirection)}</p>
         <p class="detail">${esc(p.detailedForecast)}</p>
       </article>`
     )
     .join("");
-}
-
-function formatTime(iso) {
-  try {
-    return new Date(iso).toLocaleString("en-US", {
-      timeZone: "America/Chicago",
-      dateStyle: "medium",
-      timeStyle: "short",
-    });
-  } catch {
-    return iso;
-  }
+  return `<section class="daily-sec">
+    <h2>7-Day Forecast</h2>
+    <div class="periods">${cards}</div>
+  </section>`;
 }
 
 function renderHtml(data) {
-  const updated = data.updated ? `${formatTime(data.updated)} CT` : "unknown";
-  const alertCount = (data.alerts ?? []).length;
+  const hasAlerts = (data.alerts ?? []).length > 0;
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Crosby, TX Weather &mdash; crosbynews.com</title>
+<meta name="description" content="Live weather forecast and active alerts for Crosby, Texas, refreshed every 15 minutes from the U.S. National Weather Service.">
+<meta name="theme-color" content="#0b3d61">
+<meta property="og:title" content="Crosby, TX Weather">
+<meta property="og:description" content="Live forecast and active alerts for Crosby, Texas.">
+<meta property="og:type" content="website">
+<meta http-equiv="refresh" content="900">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='13' cy='15' r='8' fill='%23f5b301'/><ellipse cx='19' cy='20' rx='10' ry='6' fill='%23dfe7ee'/></svg>">
 <style>
-  :root { color-scheme: light dark; }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    line-height: 1.5;
-    background: #f4f6f8;
-    color: #1a2733;
-  }
-  header {
-    background: #0b3d61;
-    color: #fff;
-    padding: 1.5rem 1rem;
-    text-align: center;
-  }
-  header h1 { margin: 0; font-size: 1.6rem; }
-  header p { margin: 0.25rem 0 0; opacity: 0.8; font-size: 0.9rem; }
-  main { max-width: 880px; margin: 0 auto; padding: 1rem; }
-  h2 { font-size: 1.2rem; border-bottom: 2px solid #d0d7de; padding-bottom: 0.3rem; }
-  .none { color: #5a6b7b; font-style: italic; }
-  .alert {
-    background: #fff4f4;
-    border-left: 4px solid #c0392b;
-    border-radius: 6px;
-    padding: 0.75rem 1rem;
-    margin: 0.75rem 0;
-  }
-  .alert h3 { margin: 0 0 0.25rem; color: #a3271b; }
-  .alert .headline { font-weight: 600; }
-  .alert .instruction { background: #fff; border-radius: 4px; padding: 0.5rem; }
-  .meta { font-size: 0.8rem; color: #5a6b7b; }
-  .periods { display: grid; gap: 0.75rem; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
-  .period {
-    background: #fff;
-    border-radius: 8px;
-    padding: 0.85rem 1rem;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-  }
-  .period.night { background: #eef1f6; }
-  .period h3 { margin: 0 0 0.25rem; font-size: 1.05rem; }
-  .period .temp { margin: 0; font-size: 1.8rem; font-weight: 700; color: #0b3d61; }
-  .period .short { margin: 0.25rem 0; font-weight: 600; }
-  .period .wind { margin: 0.25rem 0; font-size: 0.85rem; color: #5a6b7b; }
-  .period .detail { margin: 0.5rem 0 0; font-size: 0.9rem; }
-  footer { max-width: 880px; margin: 1rem auto; padding: 0 1rem 2rem; font-size: 0.8rem; color: #5a6b7b; text-align: center; }
+  :root { color-scheme: light dark; --blue:#0b3d61; --accent:#2c7fb8; --sun:#f5b301; --bg:#eef2f6; --card:#fff; --ink:#16222e; --muted:#5a6b7b; --line:#d8dee5; }
   @media (prefers-color-scheme: dark) {
-    body { background: #0f1620; color: #e3e8ee; }
-    main h2 { border-color: #2a3744; }
-    .period { background: #1a2430; box-shadow: none; }
-    .period.night { background: #141d27; }
-    .period .temp { color: #5aa9e6; }
-    .alert { background: #2a1715; }
+    :root { --bg:#0f1620; --card:#1a2430; --ink:#e6ebf1; --muted:#94a3b2; --line:#2a3744; }
   }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; line-height:1.5; background:var(--bg); color:var(--ink); }
+  .topbar { display:flex; justify-content:space-between; align-items:center; gap:1rem; background:var(--blue); color:#fff; padding:0.7rem 1rem; }
+  .topbar .brand { font-weight:700; letter-spacing:0.02em; }
+  .topbar .loc { opacity:0.85; font-size:0.9rem; }
+  main { max-width:920px; margin:0 auto; padding:1rem; }
+  h2 { font-size:1.1rem; margin:1.4rem 0 0.6rem; }
+  .none { color:var(--muted); font-style:italic; }
+
+  .hero { display:flex; align-items:center; gap:1rem; background:linear-gradient(135deg,var(--blue),var(--accent)); color:#fff; border-radius:16px; padding:1.1rem 1.3rem; margin-top:0.5rem; }
+  .hero-icon { border-radius:12px; background:rgba(255,255,255,0.12); flex:none; }
+  .hero-temp { margin:0; font-size:3.4rem; font-weight:800; line-height:1; }
+  .hero-temp span { font-size:1.2rem; font-weight:600; vertical-align:super; opacity:0.85; }
+  .hero-cond { margin:0.2rem 0 0; font-size:1.2rem; font-weight:600; }
+  .hero-meta { margin:0.35rem 0 0; font-size:0.85rem; opacity:0.85; }
+  .lead { margin:0.8rem 0 0; color:var(--muted); }
+
+  .card { background:var(--card); border-radius:12px; padding:0.8rem 1rem; margin-top:1rem; box-shadow:0 1px 3px rgba(0,0,0,0.07); }
+  .card h2 { margin:0 0 0.6rem; }
+  .hourly { display:flex; gap:0.4rem; overflow-x:auto; padding-bottom:0.3rem; }
+  .hour { flex:0 0 auto; width:62px; display:flex; flex-direction:column; align-items:center; gap:0.15rem; text-align:center; }
+  .hour-time { font-size:0.8rem; color:var(--muted); }
+  .hour-temp { font-weight:700; }
+  .hour-pop { font-size:0.75rem; color:var(--muted); }
+  .hour-pop.wet { color:var(--accent); font-weight:700; }
+
+  .periods { display:grid; gap:0.75rem; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); }
+  .period { background:var(--card); border-radius:12px; padding:0.85rem 1rem; box-shadow:0 1px 3px rgba(0,0,0,0.07); }
+  .period.night { background:color-mix(in srgb,var(--card) 92%, var(--blue)); }
+  .period-head { display:flex; justify-content:space-between; align-items:center; gap:0.5rem; }
+  .period-head h3 { margin:0; font-size:1.02rem; }
+  .period .temp { margin:0.2rem 0; font-size:1.5rem; font-weight:800; color:var(--accent); }
+  .period .short { margin:0.2rem 0; font-weight:600; }
+  .period .meta { margin:0.2rem 0; font-size:0.82rem; color:var(--muted); }
+  .period .detail { margin:0.5rem 0 0; font-size:0.9rem; }
+
+  .alerts { display:grid; gap:0.6rem; margin-top:0.5rem; }
+  .alert { background:#fff4f3; border-left:5px solid #c0392b; border-radius:10px; padding:0.8rem 1rem; }
+  .alert h3 { margin:0 0 0.3rem; color:#a3271b; }
+  .alert .headline { font-weight:700; }
+  .alert .instruction { background:rgba(255,255,255,0.65); border-radius:6px; padding:0.5rem 0.7rem; }
+  .alert .meta { font-size:0.8rem; color:var(--muted); }
+  @media (prefers-color-scheme: dark) { .alert { background:#2a1715; } .alert .instruction { background:rgba(0,0,0,0.25); } }
+
+  footer { max-width:920px; margin:1rem auto; padding:0 1rem 2rem; font-size:0.8rem; color:var(--muted); text-align:center; }
+  footer a { color:inherit; }
 </style>
 </head>
 <body>
-<header>
-  <h1>Crosby, TX Weather</h1>
-  <p>crosbynews.com</p>
+<header class="topbar">
+  <span class="brand">crosbynews.com</span>
+  <span class="loc">${esc(data.place)}</span>
 </header>
 <main>
-  <section>
-    <h2>Active Alerts${alertCount ? ` (${alertCount})` : ""}</h2>
-    ${renderAlerts(data.alerts ?? [])}
-  </section>
-  <section>
-    <h2>Forecast</h2>
-    <div class="periods">${renderPeriods(data.periods ?? [])}</div>
-  </section>
+  ${renderAlerts(data.alerts ?? [])}
+  ${renderHero(data)}
+  ${renderHourly(data.hourly ?? [])}
+  ${renderDaily(data.periods ?? [])}
 </main>
 <footer>
-  Data from the U.S. National Weather Service (weather.gov). Updated ${esc(updated)}.
+  ${hasAlerts ? "" : "No active weather alerts. "}Data from the U.S. National Weather Service (<a href="https://weather.gov">weather.gov</a>).<br>
+  Updated ${esc(fullTime(data.updated))} CT &middot; refreshes every 15 minutes.
 </footer>
 </body>
 </html>`;
@@ -207,7 +261,10 @@ export default {
     try {
       let cache = "hit";
       let data = await env.WEATHER.get(KV_KEY, "json");
-      if (!data) {
+      // Treat a missing OR stale-shaped cache (e.g. an older entry written
+      // before the hourly forecast was added) as a miss, so a deploy that
+      // changes the cached shape self-heals on the next request.
+      if (!data || !Array.isArray(data.hourly)) {
         // Cold cache (before the first cron run): fetch live and warm KV.
         // Await the write so the cache is actually populated. A write failure
         // shouldn't break the page, so it's caught and surfaced separately
@@ -222,7 +279,11 @@ export default {
         }
       }
       return new Response(renderHtml(data), {
-        headers: { "content-type": "text/html; charset=utf-8", "x-cache": cache },
+        headers: {
+          "content-type": "text/html; charset=utf-8",
+          "cache-control": "public, max-age=300",
+          "x-cache": cache,
+        },
       });
     } catch (err) {
       return new Response(renderError(err), {
