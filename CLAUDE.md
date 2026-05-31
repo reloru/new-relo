@@ -1,0 +1,37 @@
+# crosbynews.com — Cloudflare Worker
+
+## Deploy
+- Deploy with `npx wrangler deploy`. Never run `wrangler login` — auth comes
+  from CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID, already set in the cloud
+  environment.
+- This repo is the source of truth. Cloud sessions deploy from committed code,
+  so commit before expecting a deploy to reflect a change.
+
+## Token / permissions
+- The API token is deliberately scoped to a Worker deploy, not the whole account.
+- If a deploy fails with an auth/permission error after adding a binding
+  (D1, Queues, Vectorize, etc.), the token is missing that permission — widen it
+  in the Cloudflare dashboard. Don't assume it's a code bug.
+
+## Domain
+- The Worker serves on its *.workers.dev URL today.
+- crosbynews.com attaches via a Workers route: add the route to the wrangler
+  config and redeploy. The token already carries Workers Routes edit.
+
+## Conventions
+- Plain Workers, ES modules (`export default { fetch, scheduled }`). No
+  framework and no runtime dependencies — standard `fetch` + Workers KV only.
+- Layout: `src/index.js` is the single entry point; `wrangler.jsonc` is config.
+- Content: live data from the U.S. National Weather Service (api.weather.gov)
+  for Crosby, TX (lat 29.9119, lon -95.0608). NWS requires a `User-Agent` on
+  every request — we send "crosbynews.com".
+- Caching: the cron (`*/15 * * * *`) writes the forecast + active alerts to the
+  WEATHER KV namespace under key "weather" as JSON. `fetch()` serves that cache
+  and falls back to a live fetch + warm on a cold cache.
+- Styling: an inline `<style>` block in the rendered HTML — no build step,
+  no static assets.
+
+## KV gotcha
+- `wrangler kv key get/put/list` default to *local* (miniflare) state. To read
+  or write the real production namespace, pass `--remote`. (A get without it can
+  say "Value not found" even when the deployed Worker is reading the key fine.)

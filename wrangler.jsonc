@@ -1,0 +1,24 @@
+{
+  // crosbynews.com — Crosby, TX weather Worker.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "crosbynews",
+  "main": "src/index.js",
+  "compatibility_date": "2025-09-01",
+
+  // Cached NWS forecast + alerts JSON live here under the "weather" key.
+  "kv_namespaces": [
+    {
+      "binding": "WEATHER",
+      "id": "da96de7daed84b69b32778058b374d5f"
+    }
+  ],
+
+  // Refresh the cached weather every 15 minutes.
+  "triggers": {
+    "crons": ["*/15 * * * *"]
+  },
+
+  "observability": {
+    "enabled": true
+  }
+}
