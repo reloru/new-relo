@@ -69,9 +69,14 @@ function pop(period) {
   return typeof v === "number" ? Math.round(v) : 0;
 }
 
-// NWS icon URLs carry a ?size= param; bump it for crisper rendering.
+// NWS icon URLs carry a ?size= param; bump it for crisper rendering, and
+// rewrite api.weather.gov hotlinks to our own /icons proxy. NWS's robots.txt
+// disallows all crawling, so hotlinked images are uncrawlable (and slower) —
+// serving them from our origin makes them indexable and edge-cacheable.
 function iconUrl(url, size) {
-  return url ? esc(url.replace(/size=\w+/, `size=${size}`)) : "";
+  if (!url) return "";
+  const sized = url.replace(/size=\w+/, `size=${size}`);
+  return esc(sized.replace("https://api.weather.gov/icons/", "/icons/"));
 }
 
 function fmt(iso, opts) {
@@ -882,6 +887,29 @@ export default {
           headers: { "content-type": "application/json; charset=utf-8", "access-control-allow-origin": "*" },
         });
       }
+    }
+
+    // Proxy NWS weather icons through our (crawlable) origin. NWS's robots.txt
+    // disallows all crawling, so hotlinked icons can't be indexed; serving them
+    // here makes them crawlable and edge-cacheable. Locked to /icons/ only, so
+    // it can never become an open proxy.
+    if (path.startsWith("/icons/")) {
+      if (request.method !== "GET" && request.method !== "HEAD") {
+        return new Response("Method Not Allowed", { status: 405, headers: { allow: "GET, HEAD" } });
+      }
+      const upstream = `https://api.weather.gov${path}${url.search}`;
+      const res = await fetch(upstream, {
+        headers: { "User-Agent": "crosbynews.com", Accept: "image/png,image/*" },
+        cf: { cacheTtl: 604800, cacheEverything: true },
+      });
+      if (!res.ok) {
+        return new Response("Icon unavailable", { status: res.status === 404 ? 404 : 502 });
+      }
+      const headers = new Headers();
+      headers.set("content-type", res.headers.get("content-type") || "image/png");
+      // Cache hard at the edge and in the browser; icons are effectively static.
+      headers.set("cache-control", "public, max-age=86400, s-maxage=604800, immutable");
+      return new Response(res.body, { status: 200, headers });
     }
 
     // Single-document site: only the root serves the page.

@@ -47,6 +47,11 @@
 - `/mcp` — stateless MCP server (Streamable HTTP, JSON-RPC) with tools
   `get_current_conditions`, `get_forecast`, `get_alerts`. Discovery card at
   `/.well-known/mcp/server-card.json`.
+- `/icons/...` — proxies NWS weather icons from `api.weather.gov/icons/`
+  through our origin (locked to that prefix, not an open proxy). NWS's
+  robots.txt disallows all crawling, so hotlinked icons are uncrawlable;
+  proxying makes them indexable and edge-cacheable. The HTML rewrites icon
+  URLs to this path via `iconUrl()`.
 - `/.well-known/agent-skills/index.json` (agentskills.io v0.2.0) lists the real
   `crosby-weather` SKILL.md (served alongside it). The index `digest` is a
   runtime SHA-256 of the file, so the two can't drift. The homepage also
