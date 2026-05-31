@@ -45,9 +45,15 @@
   `/openapi.json` (OpenAPI 3.1) describe the API. All read from the same KV
   cache via `loadWeather()`.
 - Any other path 404s. Canonical origin is the `SITE` constant in `src/index.js`.
-- Not done in code: DNS-AID (SVCB/HTTPS DNS records + DNSSEC) needs Zone DNS
-  edit / DNSSEC, not a Worker deploy. OAuth/MCP/auth.md were intentionally
-  skipped — the site has no protected APIs or MCP server to describe.
+
+## DNS-AID (lives in Cloudflare DNS, not the Worker)
+- Published as an SVCB record `_index._agents.crosbynews.com`
+  (`1 crosbynews.com. alpn="h2,h3" port=443`) — the org-level agent discovery
+  entry point. Zone DNSSEC is active, so it resolves authenticated (AD=true).
+- Reproduce with `node scripts/dns-aid.mjs` using a token that has
+  `Zone:DNS:Edit` (the Worker deploy token does not need this).
+- Intentionally skipped: OAuth/OIDC, oauth-protected-resource, auth.md, and an
+  MCP server card — the site has no protected APIs or MCP server to describe.
 
 ## KV gotcha
 - `wrangler kv key get/put/list` default to *local* (miniflare) state. To read
