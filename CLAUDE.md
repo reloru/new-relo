@@ -44,16 +44,20 @@
 - `/.well-known/api-catalog` (`application/linkset+json`, RFC 9727) and
   `/openapi.json` (OpenAPI 3.1) describe the API. All read from the same KV
   cache via `loadWeather()`.
+- `/mcp` — stateless MCP server (Streamable HTTP, JSON-RPC) with tools
+  `get_current_conditions`, `get_forecast`, `get_alerts`. Discovery card at
+  `/.well-known/mcp/server-card.json`.
 - Any other path 404s. Canonical origin is the `SITE` constant in `src/index.js`.
 
 ## DNS-AID (lives in Cloudflare DNS, not the Worker)
-- Published as an SVCB record `_index._agents.crosbynews.com`
-  (`1 crosbynews.com. alpn="h2,h3" port=443`) — the org-level agent discovery
-  entry point. Zone DNSSEC is active, so it resolves authenticated (AD=true).
+- Published as SVCB records `_index._agents.crosbynews.com` (org-level entry
+  point) and `_mcp._agents.crosbynews.com` (MCP server), each
+  `1 crosbynews.com. alpn="h2,h3" port=443`. Zone DNSSEC is active, so they
+  resolve authenticated (AD=true).
 - Reproduce with `node scripts/dns-aid.mjs` using a token that has
   `Zone:DNS:Edit` (the Worker deploy token does not need this).
-- Intentionally skipped: OAuth/OIDC, oauth-protected-resource, auth.md, and an
-  MCP server card — the site has no protected APIs or MCP server to describe.
+- Intentionally skipped: OAuth/OIDC, oauth-protected-resource, and auth.md —
+  the site has no protected APIs to authenticate against.
 
 ## KV gotcha
 - `wrangler kv key get/put/list` default to *local* (miniflare) state. To read

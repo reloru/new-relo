@@ -1,17 +1,16 @@
 #!/usr/bin/env node
-// Publish the DNS-AID (DNS for AI Discovery) entry point for crosbynews.com.
+// Publish the DNS-AID (DNS for AI Discovery) entry points for crosbynews.com.
 //
-// This is NOT part of the Worker — DNS records live in Cloudflare, not the
-// Worker runtime — so it's run out-of-band with a token that has Zone:DNS:Edit
-// (the deploy token does not need this):
+// DNS records live in Cloudflare, not the Worker, so this runs out-of-band with
+// a token that has Zone:DNS:Edit (the deploy token does not need this):
 //
 //   CLOUDFLARE_API_TOKEN=... node scripts/dns-aid.mjs
 //
-// It publishes an SVCB ServiceMode record at _index._agents.crosbynews.com
-// (the org-level agent registry entry point per draft-mozleywilliams-dnsop-
-// dnsaid) pointing at the site, which serves the discovery docs
-// (/.well-known/api-catalog and /openapi.json). The zone has DNSSEC active, so
-// the record resolves authenticated. Safe to re-run: it updates in place.
+// Publishes SVCB ServiceMode records under _agents.crosbynews.com per
+// draft-mozleywilliams-dnsop-dnsaid, pointing at the site (which serves the
+// discovery docs: /.well-known/api-catalog, /openapi.json, and the MCP server
+// card at /.well-known/mcp/server-card.json). Zone DNSSEC is active, so the
+// records resolve authenticated. Safe to re-run: it updates in place.
 
 const token = process.env.CLOUDFLARE_API_TOKEN;
 if (!token) {
@@ -19,14 +18,18 @@ if (!token) {
   process.exit(1);
 }
 
-const NAME = "_index._agents.crosbynews.com";
-const RECORD = {
+// SVCB ServiceMode → crosbynews.com over HTTPS (h2/h3). The exact service
+// endpoint paths are advertised by the discovery docs the site serves.
+const svcb = (comment) => ({
   type: "SVCB",
-  name: NAME,
   ttl: 3600,
   data: { priority: 1, target: "crosbynews.com", value: 'alpn="h2,h3" port=443' },
-  comment: "DNS-AID agent discovery entry point",
-};
+  comment,
+});
+const RECORDS = [
+  { name: "_index._agents.crosbynews.com", ...svcb("DNS-AID org-level agent discovery entry point") },
+  { name: "_mcp._agents.crosbynews.com", ...svcb("DNS-AID MCP server discovery (see /.well-known/mcp/server-card.json)") },
+];
 
 const cf = (path, init) =>
   fetch(`https://api.cloudflare.com/client/v4${path}`, {
@@ -41,15 +44,15 @@ if (!zone) {
   process.exit(1);
 }
 
-const existing = await cf(`/zones/${zone}/dns_records?type=SVCB&name=${encodeURIComponent(NAME)}`);
-const hit = existing.result?.[0];
-const res = hit
-  ? await cf(`/zones/${zone}/dns_records/${hit.id}`, { method: "PUT", body: JSON.stringify(RECORD) })
-  : await cf(`/zones/${zone}/dns_records`, { method: "POST", body: JSON.stringify(RECORD) });
-
-if (!res.success) {
-  console.error((hit ? "update" : "create") + " failed:", JSON.stringify(res.errors));
-  process.exit(1);
+for (const rec of RECORDS) {
+  const existing = await cf(`/zones/${zone}/dns_records?type=SVCB&name=${encodeURIComponent(rec.name)}`);
+  const hit = existing.result?.[0];
+  const res = hit
+    ? await cf(`/zones/${zone}/dns_records/${hit.id}`, { method: "PUT", body: JSON.stringify(rec) })
+    : await cf(`/zones/${zone}/dns_records`, { method: "POST", body: JSON.stringify(rec) });
+  if (!res.success) {
+    console.error(`${hit ? "update" : "create"} failed for ${rec.name}:`, JSON.stringify(res.errors));
+    process.exit(1);
+  }
+  console.log(`${hit ? "updated" : "created"} ${res.result.type} ${res.result.name} -> ${res.result.content}`);
 }
-console.log(`${hit ? "updated" : "created"} ${res.result.type} ${res.result.name}`);
-console.log("content:", res.result.content);

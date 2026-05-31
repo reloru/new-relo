@@ -528,6 +528,142 @@ function openApiSpec() {
   };
 }
 
+// --- MCP server (Streamable HTTP transport) -------------------------------
+// A stateless Model Context Protocol server exposing the weather as callable
+// tools. Single endpoint at /mcp: POST a JSON-RPC message, get one back.
+const MCP_PROTOCOL_VERSION = "2025-06-18";
+const MCP_SERVER_INFO = { name: "crosbynews-weather", version: "1.0.0", title: "Crosby, TX Weather" };
+const MCP_CORS = {
+  "access-control-allow-origin": "*",
+  "access-control-allow-methods": "POST, OPTIONS",
+  "access-control-allow-headers": "content-type, mcp-protocol-version, mcp-session-id, authorization",
+  "access-control-max-age": "86400",
+};
+
+const rpcResult = (id, result) => ({ jsonrpc: "2.0", id, result });
+const rpcError = (id, code, message) => ({ jsonrpc: "2.0", id, error: { code, message } });
+
+function mcpJson(payload, status) {
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: { "content-type": "application/json", "mcp-protocol-version": MCP_PROTOCOL_VERSION, ...MCP_CORS },
+  });
+}
+
+function mcpTools() {
+  return [
+    {
+      name: "get_current_conditions",
+      title: "Current conditions",
+      description: "Current weather for Crosby, TX: temperature, sky, and precip chance.",
+      inputSchema: { type: "object", properties: {}, additionalProperties: false },
+    },
+    {
+      name: "get_forecast",
+      title: "Forecast",
+      description:
+        "Forecast for Crosby, TX from the U.S. National Weather Service. Returns the 7-day day/night forecast, or upcoming hourly periods if `hours` is given.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          hours: { type: "integer", minimum: 1, maximum: 12, description: "Return this many upcoming hourly periods instead of the daily forecast." },
+        },
+        additionalProperties: false,
+      },
+    },
+    {
+      name: "get_alerts",
+      title: "Active alerts",
+      description: "Active NWS weather alerts for Crosby, TX. Returns an empty list when none are active.",
+      inputSchema: { type: "object", properties: {}, additionalProperties: false },
+    },
+  ];
+}
+
+function mcpServerCard() {
+  return {
+    serverInfo: MCP_SERVER_INFO,
+    protocolVersion: MCP_PROTOCOL_VERSION,
+    description:
+      "Live weather for Crosby, Texas (U.S. National Weather Service): current conditions, forecast, and active alerts.",
+    transport: { type: "streamable-http", endpoint: `${SITE}/mcp` },
+    capabilities: { tools: { listChanged: false } },
+    tools: mcpTools().map((t) => ({ name: t.name, title: t.title, description: t.description })),
+    documentation: `${SITE}/`,
+  };
+}
+
+async function mcpCallTool(name, args, env) {
+  const { data } = await loadWeather(env);
+  if (name === "get_current_conditions") {
+    const now = data.hourly?.[0] ?? null;
+    const text = now
+      ? `Crosby, TX: ${now.temperature}°${now.temperatureUnit}, ${now.shortForecast}` +
+        `${pop(now) ? `, ${pop(now)}% precip` : ""} (as of ${clockTime(now.startTime)} CT).`
+      : "Current conditions are unavailable.";
+    return { content: [{ type: "text", text }], structuredContent: { location: data.place, updated: data.updated, current: now } };
+  }
+  if (name === "get_forecast") {
+    const hours = Number(args?.hours) || 0;
+    if (hours > 0) {
+      const slice = (data.hourly ?? []).slice(0, Math.min(hours, 12));
+      const text =
+        slice.map((h) => `${hourLabel(h.startTime)}: ${h.temperature}°${h.temperatureUnit}, ${h.shortForecast}${pop(h) ? `, ${pop(h)}% precip` : ""}`).join("\n") ||
+        "No hourly data.";
+      return { content: [{ type: "text", text }], structuredContent: { location: data.place, hourly: slice } };
+    }
+    const text =
+      (data.periods ?? [])
+        .map((p) => `${p.name}: ${p.isDaytime ? "High" : "Low"} ${p.temperature}°${p.temperatureUnit}, ${p.shortForecast}. ${p.detailedForecast}`)
+        .join("\n\n") || "No forecast data.";
+    return { content: [{ type: "text", text }], structuredContent: { location: data.place, forecast: data.periods ?? [] } };
+  }
+  if (name === "get_alerts") {
+    const alerts = data.alerts ?? [];
+    const text = alerts.length
+      ? alerts.map((a) => `${a.event}${a.headline ? ` — ${a.headline}` : ""}${a.expires ? ` (until ${fullTime(a.expires)} CT)` : ""}`).join("\n")
+      : "No active weather alerts for Crosby, TX.";
+    return { content: [{ type: "text", text }], structuredContent: { location: data.place, count: alerts.length, alerts } };
+  }
+  const err = new Error(`Unknown tool: ${name}`);
+  err.code = -32602;
+  throw err;
+}
+
+async function mcpHandle(msg, env) {
+  if (!msg || msg.jsonrpc !== "2.0" || typeof msg.method !== "string") {
+    return msg && msg.id != null ? rpcError(msg.id, -32600, "Invalid Request") : null;
+  }
+  const { id, method, params } = msg;
+  const isRequest = id !== undefined && id !== null;
+  switch (method) {
+    case "initialize":
+      return rpcResult(id, {
+        protocolVersion: typeof params?.protocolVersion === "string" ? params.protocolVersion : MCP_PROTOCOL_VERSION,
+        capabilities: { tools: { listChanged: false } },
+        serverInfo: MCP_SERVER_INFO,
+        instructions: "Live weather for Crosby, Texas from the U.S. National Weather Service.",
+      });
+    case "ping":
+      return rpcResult(id, {});
+    case "tools/list":
+      return rpcResult(id, { tools: mcpTools() });
+    case "tools/call":
+      try {
+        const res = await mcpCallTool(params?.name, params?.arguments ?? {}, env);
+        return rpcResult(id, res);
+      } catch (e) {
+        if (e && typeof e.code === "number") return rpcError(id, e.code, e.message);
+        return rpcResult(id, { content: [{ type: "text", text: `Error: ${(e && e.message) || e}` }], isError: true });
+      }
+    default:
+      // Notifications (e.g. notifications/initialized) get no response.
+      if (!isRequest) return null;
+      return rpcError(id, -32601, `Method not found: ${method}`);
+  }
+}
+// --- end MCP server -------------------------------------------------------
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -573,6 +709,33 @@ export default {
           "access-control-allow-origin": "*",
         },
       });
+    }
+
+    if (path === "/.well-known/mcp/server-card.json") {
+      return new Response(JSON.stringify(mcpServerCard(), null, 2), {
+        headers: { "content-type": "application/json; charset=utf-8", "cache-control": "public, max-age=3600", "access-control-allow-origin": "*" },
+      });
+    }
+
+    if (path === "/mcp") {
+      if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: MCP_CORS });
+      if (request.method !== "POST") {
+        return new Response("Method Not Allowed", { status: 405, headers: { allow: "POST, OPTIONS", ...MCP_CORS } });
+      }
+      let body;
+      try {
+        body = await request.json();
+      } catch {
+        return mcpJson(rpcError(null, -32700, "Parse error"), 400);
+      }
+      const batch = Array.isArray(body);
+      const out = [];
+      for (const m of batch ? body : [body]) {
+        const r = await mcpHandle(m, env);
+        if (r) out.push(r);
+      }
+      if (out.length === 0) return new Response(null, { status: 202, headers: MCP_CORS });
+      return mcpJson(batch ? out : out[0], 200);
     }
 
     if (path === "/api/health") {
