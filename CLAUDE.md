@@ -34,10 +34,16 @@
 ## Routes (agent-readiness)
 - `/` — the weather page. Content-negotiated: `Accept: text/markdown` (or
   `?format=md`) returns a markdown rendering; browsers get HTML. `Vary: Accept`.
-  The homepage also sends `Link` headers (markdown alternate + sitemap).
+  The homepage `Link` header advertises the markdown alternate, sitemap,
+  api-catalog, and OpenAPI service-desc.
 - `/robots.txt` — RFC 9309 rules, explicit AI-crawler allows, `Content-Signal`
   preferences, and a `Sitemap:` reference. Open by default (public NWS data).
 - `/sitemap.xml` — single canonical URL.
+- `/api/weather` — public JSON (location, current, hourly, forecast, alerts),
+  CORS `*`. `/api/health` — status + cache freshness.
+- `/.well-known/api-catalog` (`application/linkset+json`, RFC 9727) and
+  `/openapi.json` (OpenAPI 3.1) describe the API. All read from the same KV
+  cache via `loadWeather()`.
 - Any other path 404s. Canonical origin is the `SITE` constant in `src/index.js`.
 - Not done in code: DNS-AID (SVCB/HTTPS DNS records + DNSSEC) needs Zone DNS
   edit / DNSSEC, not a Worker deploy. OAuth/MCP/auth.md were intentionally

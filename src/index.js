@@ -368,7 +368,165 @@ function renderMarkdown(data) {
 }
 
 // Shared cache + discovery headers for the homepage in either representation.
-const LINK_HEADER = `<${SITE}/>; rel="alternate"; type="text/markdown", <${SITE}/sitemap.xml>; rel="sitemap"`;
+// Homepage discovery headers: markdown alternate, sitemap, API catalog, and
+// the OpenAPI service description (RFC 8288 Link relations).
+const LINK_HEADER =
+  `<${SITE}/>; rel="alternate"; type="text/markdown", ` +
+  `<${SITE}/sitemap.xml>; rel="sitemap", ` +
+  `<${SITE}/.well-known/api-catalog>; rel="api-catalog", ` +
+  `<${SITE}/openapi.json>; rel="service-desc"; type="application/json"`;
+
+// Shared loader: cached weather, refreshing on a missing or stale-shaped entry.
+async function loadWeather(env) {
+  let cache = "hit";
+  let data = await env.WEATHER.get(KV_KEY, "json");
+  if (!data || !Array.isArray(data.hourly)) {
+    data = await fetchWeather();
+    try {
+      await env.WEATHER.put(KV_KEY, JSON.stringify(data));
+      cache = "miss-warmed";
+    } catch (e) {
+      console.error("KV warm failed:", e && e.stack);
+      cache = "miss-warmfail";
+    }
+  }
+  return { data, cache };
+}
+
+// JSON shape served at /api/weather.
+function apiWeather(data) {
+  return {
+    location: data.place || "Crosby, TX",
+    coordinates: { lat: LAT, lon: LON },
+    source: "U.S. National Weather Service (api.weather.gov)",
+    updated: data.updated ?? null,
+    current: data.hourly?.[0] ?? null,
+    hourly: data.hourly ?? [],
+    forecast: data.periods ?? [],
+    alerts: data.alerts ?? [],
+  };
+}
+
+// RFC 9727 / RFC 9264 API catalog (application/linkset+json).
+function apiCatalog() {
+  return {
+    linkset: [
+      {
+        anchor: `${SITE}/api/weather`,
+        "service-desc": [{ href: `${SITE}/openapi.json`, type: "application/json" }],
+        "service-doc": [{ href: `${SITE}/`, type: "text/html" }],
+        status: [{ href: `${SITE}/api/health`, type: "application/json" }],
+      },
+    ],
+  };
+}
+
+// OpenAPI 3.1 description of the weather API.
+function openApiSpec() {
+  const HourlyPeriod = {
+    type: "object",
+    properties: {
+      startTime: { type: "string", format: "date-time" },
+      isDaytime: { type: "boolean" },
+      temperature: { type: "number" },
+      temperatureUnit: { type: "string" },
+      shortForecast: { type: "string" },
+      icon: { type: "string", format: "uri" },
+    },
+  };
+  const Period = {
+    type: "object",
+    properties: {
+      name: { type: "string" },
+      isDaytime: { type: "boolean" },
+      temperature: { type: "number" },
+      temperatureUnit: { type: "string" },
+      shortForecast: { type: "string" },
+      detailedForecast: { type: "string" },
+      windSpeed: { type: "string" },
+      windDirection: { type: "string" },
+      icon: { type: "string", format: "uri" },
+    },
+  };
+  const Alert = {
+    type: "object",
+    properties: {
+      event: { type: "string" },
+      headline: { type: "string" },
+      severity: { type: "string" },
+      description: { type: "string" },
+      instruction: { type: "string" },
+      expires: { type: "string", format: "date-time" },
+    },
+  };
+  return {
+    openapi: "3.1.0",
+    info: {
+      title: "crosbynews.com Weather API",
+      version: "1.0.0",
+      description:
+        "Current conditions, hourly and 7-day forecast, and active alerts for Crosby, Texas, sourced from the U.S. National Weather Service. Public, no authentication.",
+      contact: { url: `${SITE}/` },
+      license: { name: "Public domain (NWS source data)", url: "https://www.weather.gov/disclaimer" },
+    },
+    servers: [{ url: SITE }],
+    paths: {
+      "/api/weather": {
+        get: {
+          operationId: "getWeather",
+          summary: "Current conditions, forecast, and alerts for Crosby, TX",
+          responses: {
+            "200": {
+              description: "Weather snapshot",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/Weather" } } },
+            },
+            "502": { description: "Upstream (NWS) unavailable" },
+          },
+        },
+      },
+      "/api/health": {
+        get: {
+          operationId: "getHealth",
+          summary: "Service health and cache freshness",
+          responses: {
+            "200": {
+              description: "OK",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: { status: { type: "string" }, updated: { type: ["string", "null"], format: "date-time" } },
+                    required: ["status"],
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    components: {
+      schemas: {
+        Weather: {
+          type: "object",
+          properties: {
+            location: { type: "string" },
+            coordinates: { type: "object", properties: { lat: { type: "number" }, lon: { type: "number" } } },
+            source: { type: "string" },
+            updated: { type: "string", format: "date-time" },
+            current: HourlyPeriod,
+            hourly: { type: "array", items: HourlyPeriod },
+            forecast: { type: "array", items: Period },
+            alerts: { type: "array", items: Alert },
+          },
+        },
+        HourlyPeriod,
+        Period,
+        Alert,
+      },
+    },
+  };
+}
 
 export default {
   async fetch(request, env, ctx) {
@@ -385,31 +543,82 @@ export default {
         headers: { "content-type": "application/xml; charset=utf-8", "cache-control": "public, max-age=3600" },
       });
     }
+    // CORS preflight for the public API.
+    if (request.method === "OPTIONS" && path.startsWith("/api/")) {
+      return new Response(null, {
+        status: 204,
+        headers: {
+          "access-control-allow-origin": "*",
+          "access-control-allow-methods": "GET, OPTIONS",
+          "access-control-max-age": "86400",
+        },
+      });
+    }
+
+    if (path === "/.well-known/api-catalog") {
+      return new Response(JSON.stringify(apiCatalog(), null, 2), {
+        headers: {
+          "content-type": "application/linkset+json; charset=utf-8",
+          "cache-control": "public, max-age=3600",
+          "access-control-allow-origin": "*",
+        },
+      });
+    }
+
+    if (path === "/openapi.json") {
+      return new Response(JSON.stringify(openApiSpec(), null, 2), {
+        headers: {
+          "content-type": "application/json; charset=utf-8",
+          "cache-control": "public, max-age=3600",
+          "access-control-allow-origin": "*",
+        },
+      });
+    }
+
+    if (path === "/api/health") {
+      let updated = null;
+      try {
+        const cached = await env.WEATHER.get(KV_KEY, "json");
+        updated = cached?.updated ?? null;
+      } catch {}
+      return new Response(JSON.stringify({ status: "ok", updated }), {
+        headers: {
+          "content-type": "application/json; charset=utf-8",
+          "access-control-allow-origin": "*",
+          "cache-control": "no-store",
+        },
+      });
+    }
+
+    if (path === "/api/weather") {
+      try {
+        const { data, cache } = await loadWeather(env);
+        return new Response(JSON.stringify(apiWeather(data)), {
+          headers: {
+            "content-type": "application/json; charset=utf-8",
+            "access-control-allow-origin": "*",
+            "cache-control": "public, max-age=300",
+            link: `<${SITE}/openapi.json>; rel="service-desc"; type="application/json"`,
+            "x-cache": cache,
+          },
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ error: "upstream_unavailable", message: err && err.message }), {
+          status: 502,
+          headers: { "content-type": "application/json; charset=utf-8", "access-control-allow-origin": "*" },
+        });
+      }
+    }
+
     // Single-document site: only the root serves the page.
     if (path !== "/") {
       return new Response("Not found", { status: 404, headers: { "content-type": "text/plain; charset=utf-8" } });
     }
 
     try {
-      let cache = "hit";
-      let data = await env.WEATHER.get(KV_KEY, "json");
-      // Treat a missing OR stale-shaped cache (e.g. an older entry written
-      // before the hourly forecast was added) as a miss, so a deploy that
-      // changes the cached shape self-heals on the next request.
-      if (!data || !Array.isArray(data.hourly)) {
-        // Cold cache (before the first cron run): fetch live and warm KV.
-        // Await the write so the cache is actually populated. A write failure
-        // shouldn't break the page, so it's caught and surfaced separately
-        // (an unawaited waitUntil rejection would be lost silently).
-        data = await fetchWeather();
-        try {
-          await env.WEATHER.put(KV_KEY, JSON.stringify(data));
-          cache = "miss-warmed";
-        } catch (e) {
-          console.error("KV warm failed:", e && e.stack);
-          cache = "miss-warmfail";
-        }
-      }
+      // loadWeather() reads the cache, refreshing on a missing/stale-shaped
+      // entry so a deploy that changes the cached shape self-heals.
+      const { data, cache } = await loadWeather(env);
 
       // Content negotiation: agents asking for markdown get markdown; the
       // default stays HTML for browsers. Vary: Accept keeps caches honest.
