@@ -244,6 +244,41 @@ function renderHtml(data) {
   ${hasAlerts ? "" : "No active weather alerts. "}Data from the U.S. National Weather Service (<a href="https://weather.gov">weather.gov</a>).<br>
   Updated ${esc(fullTime(data.updated))} CT &middot; refreshes every 15 minutes.
 </footer>
+<script>
+// WebMCP: expose Crosby weather as in-browser agent tools. Progressive
+// enhancement — a no-op in browsers without navigator.modelContext.
+(function () {
+  var mc = navigator.modelContext;
+  if (!mc) return;
+  async function weather() { return (await fetch("/api/weather")).json(); }
+  var tools = [
+    {
+      name: "get_crosby_forecast",
+      description: "Current conditions and forecast for Crosby, TX.",
+      inputSchema: { type: "object", properties: {}, additionalProperties: false },
+      execute: async function () {
+        var w = await weather(), c = w.current;
+        var text = c ? "Crosby, TX: " + c.temperature + "°" + c.temperatureUnit + ", " + c.shortForecast : "unavailable";
+        return { content: [{ type: "text", text: text }] };
+      },
+    },
+    {
+      name: "get_crosby_alerts",
+      description: "Active NWS weather alerts for Crosby, TX.",
+      inputSchema: { type: "object", properties: {}, additionalProperties: false },
+      execute: async function () {
+        var w = await weather();
+        var text = (w.alerts && w.alerts.length) ? w.alerts.map(function (a) { return a.event; }).join(", ") : "No active weather alerts.";
+        return { content: [{ type: "text", text: text }] };
+      },
+    },
+  ];
+  try {
+    if (typeof mc.provideContext === "function") mc.provideContext({ tools: tools });
+    else if (typeof mc.registerTool === "function") tools.forEach(function (t) { mc.registerTool(t); });
+  } catch (e) {}
+})();
+</script>
 </body>
 </html>`;
 }
@@ -664,6 +699,71 @@ async function mcpHandle(msg, env) {
 }
 // --- end MCP server -------------------------------------------------------
 
+// --- Agent Skills discovery (agentskills.io v0.2.0) -----------------------
+const SKILLS_SCHEMA = "https://schemas.agentskills.io/discovery/0.2.0/schema.json";
+
+// A real skill: it documents this site's actual public API + MCP server.
+const CROSBY_WEATHER_SKILL = `---
+name: crosby-weather
+description: Get current conditions, forecast, and active weather alerts for Crosby, Texas (USA).
+license: Public domain (U.S. National Weather Service source data)
+---
+
+# Crosby, TX Weather
+
+Live weather for Crosby, Texas (lat 29.9119, lon -95.0608), sourced from the
+U.S. National Weather Service and refreshed every 15 minutes.
+
+## When to use this skill
+
+Use it when a user asks about current conditions, the forecast, or active
+weather alerts for Crosby, TX (or the northeast Houston / Crosby area).
+
+## How to get the data
+
+REST API (public, no auth):
+
+- GET https://crosbynews.com/api/weather - JSON with these fields:
+  - current  - latest conditions (temperature, shortForecast, wind, ...)
+  - hourly   - next 12 hourly periods
+  - forecast - 7-day day/night forecast
+  - alerts   - active NWS alerts (empty array when none)
+- GET https://crosbynews.com/api/health - status and cache freshness
+- OpenAPI spec: https://crosbynews.com/openapi.json
+
+MCP server (Streamable HTTP, JSON-RPC):
+
+- Endpoint: https://crosbynews.com/mcp
+- Tools: get_current_conditions, get_forecast (optional hours 1-12), get_alerts
+
+## Notes
+
+- Public and unauthenticated; no rate limits.
+- Source data is public domain. Attribute "U.S. National Weather Service".
+`;
+
+async function sha256Hex(str) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
+  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function agentSkillsIndex() {
+  const digest = "sha256:" + (await sha256Hex(CROSBY_WEATHER_SKILL));
+  return {
+    $schema: SKILLS_SCHEMA,
+    skills: [
+      {
+        name: "crosby-weather",
+        type: "skill-md",
+        description: "Get current conditions, forecast, and active weather alerts for Crosby, Texas.",
+        url: "/.well-known/agent-skills/crosby-weather/SKILL.md",
+        digest,
+      },
+    ],
+  };
+}
+// --- end Agent Skills -----------------------------------------------------
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -708,6 +808,17 @@ export default {
           "cache-control": "public, max-age=3600",
           "access-control-allow-origin": "*",
         },
+      });
+    }
+
+    if (path === "/.well-known/agent-skills/index.json") {
+      return new Response(JSON.stringify(await agentSkillsIndex(), null, 2), {
+        headers: { "content-type": "application/json; charset=utf-8", "cache-control": "public, max-age=3600", "access-control-allow-origin": "*" },
+      });
+    }
+    if (path === "/.well-known/agent-skills/crosby-weather/SKILL.md") {
+      return new Response(CROSBY_WEATHER_SKILL, {
+        headers: { "content-type": "text/markdown; charset=utf-8", "cache-control": "public, max-age=3600", "access-control-allow-origin": "*" },
       });
     }
 

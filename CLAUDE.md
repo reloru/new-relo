@@ -47,6 +47,11 @@
 - `/mcp` — stateless MCP server (Streamable HTTP, JSON-RPC) with tools
   `get_current_conditions`, `get_forecast`, `get_alerts`. Discovery card at
   `/.well-known/mcp/server-card.json`.
+- `/.well-known/agent-skills/index.json` (agentskills.io v0.2.0) lists the real
+  `crosby-weather` SKILL.md (served alongside it). The index `digest` is a
+  runtime SHA-256 of the file, so the two can't drift. The homepage also
+  registers WebMCP tools (`get_crosby_forecast`, `get_crosby_alerts`) via
+  `navigator.modelContext`, backed by `/api/weather`.
 - Any other path 404s. Canonical origin is the `SITE` constant in `src/index.js`.
 
 ## DNS-AID (lives in Cloudflare DNS, not the Worker)
