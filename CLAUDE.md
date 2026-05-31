@@ -31,6 +31,18 @@
 - Styling: an inline `<style>` block in the rendered HTML — no build step,
   no static assets.
 
+## Routes (agent-readiness)
+- `/` — the weather page. Content-negotiated: `Accept: text/markdown` (or
+  `?format=md`) returns a markdown rendering; browsers get HTML. `Vary: Accept`.
+  The homepage also sends `Link` headers (markdown alternate + sitemap).
+- `/robots.txt` — RFC 9309 rules, explicit AI-crawler allows, `Content-Signal`
+  preferences, and a `Sitemap:` reference. Open by default (public NWS data).
+- `/sitemap.xml` — single canonical URL.
+- Any other path 404s. Canonical origin is the `SITE` constant in `src/index.js`.
+- Not done in code: DNS-AID (SVCB/HTTPS DNS records + DNSSEC) needs Zone DNS
+  edit / DNSSEC, not a Worker deploy. OAuth/MCP/auth.md were intentionally
+  skipped — the site has no protected APIs or MCP server to describe.
+
 ## KV gotcha
 - `wrangler kv key get/put/list` default to *local* (miniflare) state. To read
   or write the real production namespace, pass `--remote`. (A get without it can

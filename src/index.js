@@ -16,6 +16,9 @@ const NWS_HEADERS = {
 
 const KV_KEY = "weather";
 const TZ = "America/Chicago";
+// Canonical origin — used for robots.txt, sitemap, canonical link, and Link
+// headers so everything consolidates to the brand domain.
+const SITE = "https://crosbynews.com";
 
 async function getJson(url) {
   const res = await fetch(url, { headers: NWS_HEADERS });
@@ -170,6 +173,7 @@ function renderHtml(data) {
 <meta property="og:title" content="Crosby, TX Weather">
 <meta property="og:description" content="Live forecast and active alerts for Crosby, Texas.">
 <meta property="og:type" content="website">
+<link rel="canonical" href="${SITE}/">
 <meta http-equiv="refresh" content="900">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='13' cy='15' r='8' fill='%23f5b301'/><ellipse cx='19' cy='20' rx='10' ry='6' fill='%23dfe7ee'/></svg>">
 <style>
@@ -256,8 +260,136 @@ function renderError(err) {
 </body></html>`;
 }
 
+// /robots.txt — RFC 9309 crawl rules, AI-crawler entries, Content Signals,
+// and a sitemap reference. Open by design: this is public-domain NWS data and
+// the site wants to be discoverable by agents.
+function robotsTxt() {
+  return `# crosbynews.com — robots.txt (RFC 9309)
+# Crosby, TX weather, derived from the U.S. National Weather Service
+# (public-domain data). Crawlers and AI agents are welcome.
+
+User-agent: *
+Content-Signal: search=yes, ai-input=yes, ai-train=yes
+Allow: /
+
+# AI crawlers and agents — explicitly allowed.
+User-agent: GPTBot
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Claude-User
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+Sitemap: ${SITE}/sitemap.xml
+`;
+}
+
+// /sitemap.xml — single canonical URL (the page is one document).
+function sitemapXml() {
+  const today = new Date().toISOString().slice(0, 10);
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>${SITE}/</loc>
+    <lastmod>${today}</lastmod>
+    <changefreq>hourly</changefreq>
+    <priority>1.0</priority>
+  </url>
+</urlset>
+`;
+}
+
+// Markdown rendering of the same data, served when an agent sends
+// `Accept: text/markdown` (or ?format=md).
+function renderMarkdown(data) {
+  const cell = (s) => String(s ?? "").replace(/\|/g, "/").replace(/\s*\n\s*/g, " ");
+  const now = data.hourly?.[0];
+  const lead = data.periods?.[0];
+  const out = [];
+  out.push(`# ${data.place || "Crosby, TX"} Weather`, "");
+  out.push(`_Updated ${fullTime(data.updated)} CT — source: U.S. National Weather Service (weather.gov)_`, "");
+
+  if (now) {
+    out.push("## Now");
+    out.push(`**${now.temperature}°${now.temperatureUnit}** — ${now.shortForecast} (as of ${clockTime(now.startTime)} CT)${pop(now) ? ` · ${pop(now)}% precip` : ""}`, "");
+  }
+  if (lead) out.push(`**${lead.name}:** ${lead.detailedForecast}`, "");
+
+  out.push("## Active alerts");
+  const alerts = data.alerts ?? [];
+  if (alerts.length) {
+    for (const a of alerts) {
+      out.push(`- **${a.event}**${a.headline ? ` — ${a.headline}` : ""}${a.expires ? ` (until ${fullTime(a.expires)} CT)` : ""}`);
+      if (a.instruction) out.push(`  - What to do: ${cell(a.instruction)}`);
+    }
+  } else {
+    out.push("None.");
+  }
+  out.push("");
+
+  const hourly = data.hourly ?? [];
+  if (hourly.length) {
+    out.push("## Next 12 hours", "| Time | Temp | Conditions | Precip |", "| --- | --- | --- | --- |");
+    for (const h of hourly) {
+      out.push(`| ${cell(hourLabel(h.startTime))} | ${h.temperature}°${h.temperatureUnit} | ${cell(h.shortForecast)} | ${pop(h)}% |`);
+    }
+    out.push("");
+  }
+
+  out.push("## 7-day forecast");
+  for (const p of data.periods ?? []) {
+    out.push(`### ${p.name}`);
+    out.push(`${p.isDaytime ? "High" : "Low"} ${p.temperature}°${p.temperatureUnit} — ${p.shortForecast}. Wind ${p.windSpeed} ${p.windDirection}.${pop(p) ? ` ${pop(p)}% precip.` : ""}`, "");
+    out.push(p.detailedForecast, "");
+  }
+
+  out.push("---", `[crosbynews.com](${SITE}/) · data from the National Weather Service`);
+  return out.join("\n");
+}
+
+// Shared cache + discovery headers for the homepage in either representation.
+const LINK_HEADER = `<${SITE}/>; rel="alternate"; type="text/markdown", <${SITE}/sitemap.xml>; rel="sitemap"`;
+
 export default {
   async fetch(request, env, ctx) {
+    const url = new URL(request.url);
+    const path = url.pathname;
+
+    if (path === "/robots.txt") {
+      return new Response(robotsTxt(), {
+        headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "public, max-age=3600" },
+      });
+    }
+    if (path === "/sitemap.xml") {
+      return new Response(sitemapXml(), {
+        headers: { "content-type": "application/xml; charset=utf-8", "cache-control": "public, max-age=3600" },
+      });
+    }
+    // Single-document site: only the root serves the page.
+    if (path !== "/") {
+      return new Response("Not found", { status: 404, headers: { "content-type": "text/plain; charset=utf-8" } });
+    }
+
     try {
       let cache = "hit";
       let data = await env.WEATHER.get(KV_KEY, "json");
@@ -278,10 +410,32 @@ export default {
           cache = "miss-warmfail";
         }
       }
+
+      // Content negotiation: agents asking for markdown get markdown; the
+      // default stays HTML for browsers. Vary: Accept keeps caches honest.
+      const accept = (request.headers.get("accept") || "").toLowerCase();
+      const wantsMarkdown = accept.includes("text/markdown") || url.searchParams.get("format") === "md";
+
+      if (wantsMarkdown) {
+        const md = renderMarkdown(data);
+        return new Response(md, {
+          headers: {
+            "content-type": "text/markdown; charset=utf-8",
+            "cache-control": "public, max-age=300",
+            vary: "Accept",
+            link: LINK_HEADER,
+            "x-markdown-tokens": String(Math.ceil(md.length / 4)),
+            "x-cache": cache,
+          },
+        });
+      }
+
       return new Response(renderHtml(data), {
         headers: {
           "content-type": "text/html; charset=utf-8",
           "cache-control": "public, max-age=300",
+          vary: "Accept",
+          link: LINK_HEADER,
           "x-cache": cache,
         },
       });
