@@ -14,9 +14,20 @@
   in the Cloudflare dashboard. Don't assume it's a code bug.
 
 ## Domain
-- The Worker serves on its *.workers.dev URL today.
-- crosbynews.com attaches via a Workers route: add the route to the wrangler
-  config and redeploy. The token already carries Workers Routes edit.
+- Live on crosbynews.com (apex + www) and the *.workers.dev URL.
+- Attachment (verified via API, added out-of-band — dashboard/API, not wrangler):
+  apex `crosbynews.com` is a **Custom Domain**; `www.crosbynews.com/*` is a
+  **Workers Route**. Both bind to the `crosbynews` worker.
+- These are intentionally NOT in wrangler.jsonc. `wrangler deploy` with a
+  route-silent config leaves existing routes/custom-domains untouched (verified:
+  repeated deploys never disturbed routing). Keeping custom-domain management out
+  of the config also avoids deploy-time domain-reconciliation surprises. Inspect
+  with `/zones/{id}/workers/routes` and `/accounts/{id}/workers/domains`.
+- Hard canonicalization is on: "Always Use HTTPS" (zone) 301s http→https, and a
+  www→apex rule 301s www to the bare host. Net: http/www variants redirect to
+  the single `https://crosbynews.com/` 200, matching `<link rel="canonical">`
+  and the sitemap `<loc>`. (http://www takes 2 hops: →https, then →apex.) These
+  live in the zone/dashboard, not wrangler.jsonc or fetch().
 
 ## Conventions
 - Plain Workers, ES modules (`export default { fetch, scheduled }`). No
