@@ -20,6 +20,13 @@ const TZ = "America/Chicago";
 // headers so everything consolidates to the brand domain.
 const SITE = "https://crosbynews.com";
 
+// Brand favicon (a small sun behind a cloud). Served as a real file at
+// /favicon.ico and /favicon.svg, and inlined as a data URI in the page <head>.
+const FAVICON_SVG =
+  "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'>" +
+  "<circle cx='13' cy='15' r='8' fill='#f5b301'/>" +
+  "<ellipse cx='19' cy='20' rx='10' ry='6' fill='#dfe7ee'/></svg>";
+
 async function getJson(url) {
   const res = await fetch(url, { headers: NWS_HEADERS });
   if (!res.ok) {
@@ -180,7 +187,8 @@ function renderHtml(data) {
 <meta property="og:type" content="website">
 <link rel="canonical" href="${SITE}/">
 <meta http-equiv="refresh" content="900">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='13' cy='15' r='8' fill='%23f5b301'/><ellipse cx='19' cy='20' rx='10' ry='6' fill='%23dfe7ee'/></svg>">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="alternate icon" href="/favicon.ico">
 <style>
   :root { color-scheme: light dark; --blue:#0b3d61; --accent:#2c7fb8; --sun:#f5b301; --bg:#eef2f6; --card:#fff; --ink:#16222e; --muted:#5a6b7b; --line:#d8dee5; }
   @media (prefers-color-scheme: dark) {
@@ -782,6 +790,13 @@ export default {
     if (path === "/sitemap.xml") {
       return new Response(sitemapXml(), {
         headers: { "content-type": "application/xml; charset=utf-8", "cache-control": "public, max-age=3600" },
+      });
+    }
+    // Serve the favicon as a real file. Browsers and crawlers auto-request
+    // /favicon.ico; serving it (as SVG) avoids needless 404s in crawl stats.
+    if (path === "/favicon.ico" || path === "/favicon.svg") {
+      return new Response(FAVICON_SVG, {
+        headers: { "content-type": "image/svg+xml; charset=utf-8", "cache-control": "public, max-age=604800, immutable" },
       });
     }
     // CORS preflight for the public API.
