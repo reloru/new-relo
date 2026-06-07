@@ -23,11 +23,16 @@
   repeated deploys never disturbed routing). Keeping custom-domain management out
   of the config also avoids deploy-time domain-reconciliation surprises. Inspect
   with `/zones/{id}/workers/routes` and `/accounts/{id}/workers/domains`.
-- Hard canonicalization is on: "Always Use HTTPS" (zone) 301s http→https, and a
-  www→apex rule 301s www to the bare host. Net: http/www variants redirect to
-  the single `https://crosbynews.com/` 200, matching `<link rel="canonical">`
-  and the sitemap `<loc>`. (http://www takes 2 hops: →https, then →apex.) These
-  live in the zone/dashboard, not wrangler.jsonc or fetch().
+- Hard canonicalization is on via a single Cloudflare Redirect rule (Single
+  Redirects), so every variant reaches `https://crosbynews.com/` in ONE hop:
+  - expression: `(not ssl) or (http.host eq "www.crosbynews.com")`
+  - target: `concat("https://crosbynews.com", http.request.uri.path)`, 301,
+    preserve query string.
+  - `https://crosbynews.com` matches neither clause → serves 200, no loop.
+  "Always Use HTTPS" is intentionally OFF: the rule already upgrades http, and
+  having both caused a 2-hop chain for http://www (→https, then →apex). This
+  lives in the zone/dashboard, not wrangler.jsonc or fetch(). It matches
+  `<link rel="canonical">` and the sitemap `<loc>`.
 
 ## Conventions
 - Plain Workers, ES modules (`export default { fetch, scheduled }`). No
