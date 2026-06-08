@@ -182,6 +182,7 @@ function renderHtml(data) {
 <title>Crosby, TX Weather &mdash; crosbynews.com</title>
 <meta name="description" content="Live weather forecast and active alerts for Crosby, Texas, refreshed every 15 minutes from the U.S. National Weather Service.">
 <meta name="theme-color" content="#0b3d61">
+<meta name="msvalidate.01" content="71B0F51AEDA395D9136070A67436D4F9">
 <meta property="og:title" content="Crosby, TX Weather">
 <meta property="og:description" content="Live forecast and active alerts for Crosby, Texas.">
 <meta property="og:type" content="website">
