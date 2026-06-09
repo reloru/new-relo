@@ -122,6 +122,7 @@ function renderHero(data) {
     <section class="hero">
       ${now.icon ? `<img class="hero-icon" src="${iconUrl(now.icon, "large")}" alt="${esc(now.shortForecast)}" width="128" height="128" fetchpriority="high">` : ""}
       <div class="hero-now">
+        <h1 class="hero-h1">${esc(data.place)} Weather</h1>
         <p class="hero-temp">${esc(now.temperature)}&deg;<span>${esc(now.temperatureUnit)}</span></p>
         <p class="hero-cond">${esc(now.shortForecast)}</p>
         <p class="hero-meta">${esc(data.place)} &middot; as of ${esc(clockTime(now.startTime))} CT${pop(now) ? ` &middot; ${pop(now)}% precip` : ""}</p>
@@ -187,7 +188,6 @@ function renderHtml(data) {
 <meta property="og:description" content="Live forecast and active alerts for Crosby, Texas.">
 <meta property="og:type" content="website">
 <link rel="canonical" href="${SITE}/">
-<meta http-equiv="refresh" content="900">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="alternate icon" href="/favicon.ico">
 <style>
@@ -205,6 +205,7 @@ function renderHtml(data) {
   .none { color:var(--muted); font-style:italic; }
 
   .hero { display:flex; align-items:center; gap:1rem; background:linear-gradient(135deg,var(--blue),var(--accent)); color:#fff; border-radius:16px; padding:1.1rem 1.3rem; margin-top:0.5rem; }
+  .hero-h1 { margin:0 0 0.15rem; font-size:1rem; font-weight:600; opacity:0.9; letter-spacing:0.01em; }
   .hero-icon { border-radius:12px; background:rgba(255,255,255,0.12); flex:none; }
   .hero-temp { margin:0; font-size:3.4rem; font-weight:800; line-height:1; }
   .hero-temp span { font-size:1.2rem; font-weight:600; vertical-align:super; opacity:0.85; }
@@ -259,6 +260,16 @@ function renderHtml(data) {
   Updated ${esc(fullTime(data.updated))} CT &middot; refreshes every 15 minutes.
 </footer>
 <script>
+// Auto-refresh the page every 15 minutes to keep the forecast current.
+// (Done in JS rather than a meta-refresh http-equiv tag, which search engines
+// flag.) Only reloads a foreground tab, so a background tab isn't thrashed.
+setTimeout(function () {
+  if (document.visibilityState === "visible") location.reload();
+  else document.addEventListener("visibilitychange", function once() {
+    if (document.visibilityState === "visible") { document.removeEventListener("visibilitychange", once); location.reload(); }
+  });
+}, 900000);
+
 // WebMCP: expose Crosby weather as in-browser agent tools. Progressive
 // enhancement — a no-op in browsers without navigator.modelContext.
 (function () {
