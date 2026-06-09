@@ -173,6 +173,37 @@ function renderDaily(periods) {
   </section>`;
 }
 
+// Shared CSS used by every HTML page (weather + about), so styling can't drift.
+const BASE_CSS = `
+  :root { color-scheme: light dark; --blue:#0b3d61; --accent:#2c7fb8; --sun:#f5b301; --bg:#eef2f6; --card:#fff; --ink:#16222e; --muted:#5a6b7b; --line:#d8dee5; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0f1620; --card:#1a2430; --ink:#e6ebf1; --muted:#94a3b2; --line:#2a3744; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; line-height:1.5; background:var(--bg); color:var(--ink); }
+  .topbar { display:flex; justify-content:space-between; align-items:center; gap:1rem; background:var(--blue); color:#fff; padding:0.7rem 1rem; }
+  .topbar a { color:#fff; text-decoration:none; }
+  .topbar .brand { font-weight:700; letter-spacing:0.02em; }
+  .topbar nav { display:flex; gap:1rem; align-items:center; font-size:0.9rem; }
+  .topbar nav a { opacity:0.85; }
+  .topbar nav a:hover, .topbar nav a[aria-current="page"] { opacity:1; text-decoration:underline; }
+  main { max-width:920px; margin:0 auto; padding:1rem; }
+  h2 { font-size:1.1rem; margin:1.4rem 0 0.6rem; }
+  .none { color:var(--muted); font-style:italic; }
+  footer { max-width:920px; margin:1rem auto; padding:0 1rem 2rem; font-size:0.8rem; color:var(--muted); text-align:center; }
+  footer a { color:inherit; }
+`;
+
+// Site header with cross-page nav. \`current\` is "/" or "/about" for aria-current.
+function topbar(current) {
+  const link = (href, label) =>
+    `<a href="${href}"${current === href ? ' aria-current="page"' : ""}>${label}</a>`;
+  return `<header class="topbar">
+  <a class="brand" href="/">crosbynews.com</a>
+  <nav>${link("/", "Weather")} ${link("/about", "About")}</nav>
+</header>`;
+}
+
 function renderHtml(data) {
   const hasAlerts = (data.alerts ?? []).length > 0;
   return `<!DOCTYPE html>
@@ -190,20 +221,7 @@ function renderHtml(data) {
 <link rel="canonical" href="${SITE}/">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="alternate icon" href="/favicon.ico">
-<style>
-  :root { color-scheme: light dark; --blue:#0b3d61; --accent:#2c7fb8; --sun:#f5b301; --bg:#eef2f6; --card:#fff; --ink:#16222e; --muted:#5a6b7b; --line:#d8dee5; }
-  @media (prefers-color-scheme: dark) {
-    :root { --bg:#0f1620; --card:#1a2430; --ink:#e6ebf1; --muted:#94a3b2; --line:#2a3744; }
-  }
-  * { box-sizing: border-box; }
-  body { margin:0; font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; line-height:1.5; background:var(--bg); color:var(--ink); }
-  .topbar { display:flex; justify-content:space-between; align-items:center; gap:1rem; background:var(--blue); color:#fff; padding:0.7rem 1rem; }
-  .topbar .brand { font-weight:700; letter-spacing:0.02em; }
-  .topbar .loc { opacity:0.85; font-size:0.9rem; }
-  main { max-width:920px; margin:0 auto; padding:1rem; }
-  h2 { font-size:1.1rem; margin:1.4rem 0 0.6rem; }
-  .none { color:var(--muted); font-style:italic; }
-
+<style>${BASE_CSS}
   .hero { display:flex; align-items:center; gap:1rem; background:linear-gradient(135deg,var(--blue),var(--accent)); color:#fff; border-radius:16px; padding:1.1rem 1.3rem; margin-top:0.5rem; }
   .hero-h1 { margin:0 0 0.15rem; font-size:1rem; font-weight:600; opacity:0.9; letter-spacing:0.01em; }
   .hero-icon { border-radius:12px; background:rgba(255,255,255,0.12); flex:none; }
@@ -239,16 +257,10 @@ function renderHtml(data) {
   .alert .instruction { background:rgba(255,255,255,0.65); border-radius:6px; padding:0.5rem 0.7rem; }
   .alert .meta { font-size:0.8rem; color:var(--muted); }
   @media (prefers-color-scheme: dark) { .alert { background:#2a1715; } .alert .instruction { background:rgba(0,0,0,0.25); } }
-
-  footer { max-width:920px; margin:1rem auto; padding:0 1rem 2rem; font-size:0.8rem; color:var(--muted); text-align:center; }
-  footer a { color:inherit; }
 </style>
 </head>
 <body>
-<header class="topbar">
-  <span class="brand">crosbynews.com</span>
-  <span class="loc">${esc(data.place)}</span>
-</header>
+${topbar("/")}
 <main>
   ${renderAlerts(data.alerts ?? [])}
   ${renderHero(data)}
@@ -257,7 +269,7 @@ function renderHtml(data) {
 </main>
 <footer>
   ${hasAlerts ? "" : "No active weather alerts. "}Data from the U.S. National Weather Service (<a href="https://weather.gov">weather.gov</a>).<br>
-  Updated ${esc(fullTime(data.updated))} CT &middot; refreshes every 15 minutes.
+  Updated ${esc(fullTime(data.updated))} CT &middot; refreshes every 15 minutes. &middot; <a href="/about">About this site</a>
 </footer>
 <script>
 // Auto-refresh the page every 15 minutes to keep the forecast current.
@@ -375,9 +387,137 @@ function sitemapXml() {
     <changefreq>hourly</changefreq>
     <priority>1.0</priority>
   </url>
+  <url>
+    <loc>${SITE}/about</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
 </urlset>
 `;
 }
+
+// --- About page -----------------------------------------------------------
+// Static "what this site is" page. Content lives in one structured place so the
+// HTML and markdown renderings can't drift. Strengthens E-E-A-T (clear source,
+// authorship, and method) and gives the site a second indexable page.
+const ABOUT = {
+  title: "About crosbynews.com",
+  description:
+    "What crosbynews.com is, where its weather data comes from, how often it updates, and the public API and MCP server it offers.",
+  intro:
+    "crosbynews.com is a fast, no-frills weather page for Crosby, Texas. It shows current conditions, an hourly outlook, a 7-day forecast, and any active weather alerts — and nothing else. No ads, no trackers, no sign-up.",
+  sections: [
+    {
+      h: "Where the data comes from",
+      p: [
+        "Every forecast, conditions reading, and alert on this site comes directly from the U.S. National Weather Service (api.weather.gov) for Crosby, TX (latitude 29.9119, longitude -95.0608). NWS data is in the public domain.",
+        "We don't editorialize or adjust the numbers — the site is a clean presentation layer over the official government forecast for the Crosby area.",
+      ],
+    },
+    {
+      h: "How often it updates",
+      p: [
+        "The forecast and alerts are refreshed every 15 minutes from the National Weather Service. The page you load is served from a cached copy at the edge for speed, and an open browser tab reloads itself every 15 minutes to stay current.",
+      ],
+    },
+    {
+      h: "A weather API for developers and agents",
+      p: [
+        "The same data powering this page is available as a free, public, no-authentication JSON API:",
+      ],
+      links: [
+        { href: "/api/weather", label: "/api/weather", note: "current conditions, hourly, 7-day forecast, and alerts (JSON)" },
+        { href: "/api/health", label: "/api/health", note: "service status and cache freshness" },
+        { href: "/openapi.json", label: "/openapi.json", note: "OpenAPI 3.1 description of the API" },
+        { href: "/.well-known/api-catalog", label: "/.well-known/api-catalog", note: "RFC 9727 API catalog" },
+      ],
+    },
+    {
+      h: "Built for AI agents",
+      p: [
+        "This site is designed to be readable by AI agents as well as people. Every page is available as Markdown (send an Accept: text/markdown header, or add ?format=md to the URL), and there is a Model Context Protocol (MCP) server that exposes the weather as callable tools.",
+      ],
+      links: [
+        { href: "/mcp", label: "/mcp", note: "MCP server (Streamable HTTP): get_current_conditions, get_forecast, get_alerts" },
+        { href: "/.well-known/mcp/server-card.json", label: "MCP server card", note: "discovery metadata" },
+        { href: "/?format=md", label: "This site as Markdown", note: "the weather page, rendered for agents" },
+      ],
+    },
+    {
+      h: "Disclaimer",
+      p: [
+        "crosbynews.com is an independent project and is not affiliated with the National Weather Service, NOAA, or any government agency. Always rely on official sources and local authorities for life-safety decisions during severe weather.",
+      ],
+    },
+  ],
+};
+
+function aboutHtml() {
+  const body = ABOUT.sections
+    .map((s) => {
+      const paras = (s.p || []).map((t) => `<p>${esc(t)}</p>`).join("\n      ");
+      const links = s.links
+        ? `<ul class="links">${s.links
+            .map((l) => `<li><a href="${l.href}"><code>${esc(l.label)}</code></a> &mdash; ${esc(l.note)}</li>`)
+            .join("")}</ul>`
+        : "";
+      return `      <section class="card">
+        <h2>${esc(s.h)}</h2>
+        ${paras}
+        ${links}
+      </section>`;
+    })
+    .join("\n");
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${esc(ABOUT.title)} &mdash; Crosby, TX Weather</title>
+<meta name="description" content="${esc(ABOUT.description)}">
+<meta name="theme-color" content="#0b3d61">
+<meta property="og:title" content="${esc(ABOUT.title)}">
+<meta property="og:description" content="${esc(ABOUT.description)}">
+<meta property="og:type" content="website">
+<link rel="canonical" href="${SITE}/about">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="alternate icon" href="/favicon.ico">
+<style>${BASE_CSS}
+  .card { background:var(--card); border-radius:12px; padding:0.9rem 1.1rem; margin-top:1rem; box-shadow:0 1px 3px rgba(0,0,0,0.07); }
+  .card h2 { margin:0 0 0.5rem; }
+  .card p { margin:0.5rem 0; }
+  .lede { font-size:1.05rem; color:var(--ink); }
+  .links { margin:0.5rem 0 0; padding-left:1.1rem; }
+  .links li { margin:0.3rem 0; }
+  code { background:color-mix(in srgb,var(--ink) 10%, transparent); padding:0.05rem 0.3rem; border-radius:4px; font-size:0.9em; }
+</style>
+</head>
+<body>
+${topbar("/about")}
+<main>
+  <h1>${esc(ABOUT.title)}</h1>
+  <p class="lede">${esc(ABOUT.intro)}</p>
+${body}
+</main>
+<footer>
+  Data from the U.S. National Weather Service (<a href="https://weather.gov">weather.gov</a>). &middot; <a href="/">Back to the forecast</a>
+</footer>
+</body>
+</html>`;
+}
+
+function aboutMarkdown() {
+  const out = [`# ${ABOUT.title}`, "", ABOUT.intro, ""];
+  for (const s of ABOUT.sections) {
+    out.push(`## ${s.h}`, "");
+    for (const t of s.p || []) out.push(t, "");
+    for (const l of s.links || []) out.push(`- [${l.label}](${l.href}) — ${l.note}`);
+    if (s.links) out.push("");
+  }
+  out.push("---", `[crosbynews.com](${SITE}/) · weather for Crosby, Texas`);
+  return out.join("\n");
+}
+// --- end About page -------------------------------------------------------
 
 // Markdown rendering of the same data, served when an agent sends
 // `Accept: text/markdown` (or ?format=md).
@@ -939,7 +1079,22 @@ export default {
       return new Response(res.body, { status: 200, headers });
     }
 
-    // Single-document site: only the root serves the page.
+    // About page — content-negotiated like the homepage (HTML, or Markdown for
+    // agents via Accept: text/markdown / ?format=md). Static, so cache longer.
+    if (path === "/about") {
+      const accept = (request.headers.get("accept") || "").toLowerCase();
+      const wantsMarkdown = accept.includes("text/markdown") || url.searchParams.get("format") === "md";
+      if (wantsMarkdown) {
+        return new Response(aboutMarkdown(), {
+          headers: { "content-type": "text/markdown; charset=utf-8", "cache-control": "public, max-age=3600", vary: "Accept" },
+        });
+      }
+      return new Response(aboutHtml(), {
+        headers: { "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=3600", vary: "Accept" },
+      });
+    }
+
+    // Otherwise only the root serves a page.
     if (path !== "/") {
       return new Response("Not found", { status: 404, headers: { "content-type": "text/plain; charset=utf-8" } });
     }

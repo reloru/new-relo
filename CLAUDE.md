@@ -52,9 +52,13 @@
   `?format=md`) returns a markdown rendering; browsers get HTML. `Vary: Accept`.
   The homepage `Link` header advertises the markdown alternate, sitemap,
   api-catalog, and OpenAPI service-desc.
+- `/about` — static "what this site is" page (source, cadence, API/MCP, NWS
+  attribution, disclaimer). Same markdown negotiation. Content lives once in the
+  `ABOUT` object; `aboutHtml()`/`aboutMarkdown()` render it so the two can't
+  drift. Shared chrome (`BASE_CSS`, `topbar()` nav) is reused by both pages.
 - `/robots.txt` — RFC 9309 rules, explicit AI-crawler allows, `Content-Signal`
   preferences, and a `Sitemap:` reference. Open by default (public NWS data).
-- `/sitemap.xml` — single canonical URL.
+- `/sitemap.xml` — lists `/` and `/about`.
 - `/api/weather` — public JSON (location, current, hourly, forecast, alerts),
   CORS `*`. `/api/health` — status + cache freshness.
 - `/.well-known/api-catalog` (`application/linkset+json`, RFC 9727) and
