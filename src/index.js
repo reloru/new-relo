@@ -53,7 +53,8 @@ async function fetchWeather() {
     updated: new Date().toISOString(),
     place: place ? `${place.city}, ${place.state}` : "Crosby, TX",
     periods: forecast.properties.periods ?? [],
-    hourly: (hourly.properties.periods ?? []).slice(0, 12),
+    // Keep 48 hours: the homepage shows the first 12, /hourly shows them all.
+    hourly: (hourly.properties.periods ?? []).slice(0, 48),
     alerts: (alertsData.features ?? []).map((f) => f.properties),
   };
 }
@@ -96,6 +97,7 @@ function fmt(iso, opts) {
 const fullTime = (iso) => fmt(iso, { dateStyle: "medium", timeStyle: "short" });
 const clockTime = (iso) => fmt(iso, { hour: "numeric", minute: "2-digit" });
 const hourLabel = (iso) => fmt(iso, { hour: "numeric" });
+const dayLabel = (iso) => fmt(iso, { weekday: "long", month: "short", day: "numeric" });
 
 function renderAlerts(alerts) {
   if (!alerts.length) return "";
@@ -194,13 +196,13 @@ const BASE_CSS = `
   footer a { color:inherit; }
 `;
 
-// Site header with cross-page nav. \`current\` is "/" or "/about" for aria-current.
+// Site header with cross-page nav. \`current\` is the active path for aria-current.
 function topbar(current) {
   const link = (href, label) =>
     `<a href="${href}"${current === href ? ' aria-current="page"' : ""}>${label}</a>`;
   return `<header class="topbar">
   <a class="brand" href="/">crosbynews.com</a>
-  <nav>${link("/", "Weather")} ${link("/about", "About")}</nav>
+  <nav>${link("/", "Weather")} ${link("/hourly", "Hourly")} ${link("/radar", "Radar")} ${link("/about", "About")}</nav>
 </header>`;
 }
 
@@ -264,7 +266,7 @@ ${topbar("/")}
 <main>
   ${renderAlerts(data.alerts ?? [])}
   ${renderHero(data)}
-  ${renderHourly(data.hourly ?? [])}
+  ${renderHourly((data.hourly ?? []).slice(0, 12))}
   ${renderDaily(data.periods ?? [])}
 </main>
 <footer>
@@ -386,6 +388,17 @@ function sitemapXml() {
     <lastmod>${today}</lastmod>
     <changefreq>hourly</changefreq>
     <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>${SITE}/hourly</loc>
+    <lastmod>${today}</lastmod>
+    <changefreq>hourly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>${SITE}/radar</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.7</priority>
   </url>
   <url>
     <loc>${SITE}/about</loc>
@@ -519,6 +532,173 @@ function aboutMarkdown() {
 }
 // --- end About page -------------------------------------------------------
 
+// --- Radar page -----------------------------------------------------------
+// Embeds the NOAA/NWS Houston-Galveston (KHGX) radar loop, which covers Crosby.
+// The image is proxied through /radar-image so it lives on our crawlable origin
+// and is edge-cached. Static-ish page; the image itself carries a short TTL.
+function radarHtml() {
+  const title = "Crosby, TX Weather Radar";
+  const desc = "Live NWS weather radar loop for Crosby, Texas and the greater Houston area (KHGX), updated continuously.";
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${esc(title)} &mdash; crosbynews.com</title>
+<meta name="description" content="${esc(desc)}">
+<meta name="theme-color" content="#0b3d61">
+<meta property="og:title" content="${esc(title)}">
+<meta property="og:description" content="${esc(desc)}">
+<meta property="og:type" content="website">
+<link rel="canonical" href="${SITE}/radar">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="alternate icon" href="/favicon.ico">
+<style>${BASE_CSS}
+  .radar-wrap { margin-top:1rem; background:var(--card); border-radius:12px; padding:0.8rem; box-shadow:0 1px 3px rgba(0,0,0,0.07); }
+  .radar-wrap img { width:100%; height:auto; border-radius:8px; display:block; background:#000; }
+  .radar-meta { margin:0.6rem 0 0; font-size:0.85rem; color:var(--muted); }
+  .intro { color:var(--muted); margin:0.6rem 0 0; }
+</style>
+</head>
+<body>
+${topbar("/radar")}
+<main>
+  <h1>${esc(title)}</h1>
+  <p class="intro">Live radar for the Crosby / northeast Houston area from the U.S. National Weather Service KHGX (Houston-Galveston) radar. The loop animates the most recent reflectivity scans, so you can see showers and thunderstorms moving across the region.</p>
+  <div class="radar-wrap">
+    <img src="/radar-image" alt="Animated NWS weather radar loop for Crosby, TX (KHGX)" width="600" height="550" loading="eager">
+    <p class="radar-meta">Source: NOAA/NWS KHGX radar &middot; the loop refreshes as new scans publish (roughly every few minutes).</p>
+  </div>
+  <p class="intro"><a href="/">&larr; Back to the Crosby forecast</a></p>
+</main>
+<footer>
+  Radar imagery from the U.S. National Weather Service (<a href="https://radar.weather.gov">radar.weather.gov</a>). &middot; <a href="/about">About this site</a>
+</footer>
+</body>
+</html>`;
+}
+
+function radarMarkdown() {
+  return [
+    "# Crosby, TX Weather Radar",
+    "",
+    "Live NWS weather radar for the Crosby / northeast Houston area, from the U.S. National Weather Service KHGX (Houston-Galveston) radar.",
+    "",
+    `![Crosby TX radar loop](${SITE}/radar-image)`,
+    "",
+    "The loop animates the most recent reflectivity scans (refreshed every few minutes) so you can see showers and thunderstorms moving across the region.",
+    "",
+    "---",
+    `[crosbynews.com](${SITE}/) · [forecast](${SITE}/) · [hourly](${SITE}/hourly)`,
+  ].join("\n");
+}
+// --- end Radar page -------------------------------------------------------
+
+// --- Hourly page ----------------------------------------------------------
+// Full multi-day hourly forecast (the cache holds 48h; the homepage shows 12).
+// Rows are grouped by day. Reuses the NWS hourly data already in KV.
+function hourlyHtml(data) {
+  const hours = data.hourly ?? [];
+  const groups = [];
+  for (const h of hours) {
+    const day = dayLabel(h.startTime);
+    let g = groups[groups.length - 1];
+    if (!g || g.day !== day) {
+      g = { day, rows: [] };
+      groups.push(g);
+    }
+    g.rows.push(h);
+  }
+  const body = groups
+    .map((g) => {
+      const rows = g.rows
+        .map(
+          (h) => `<tr>
+        <td>${esc(hourLabel(h.startTime))}</td>
+        <td>${h.icon ? `<img src="${iconUrl(h.icon, "small")}" alt="${esc(h.shortForecast)}" width="32" height="32" loading="lazy"> ` : ""}${esc(h.shortForecast)}</td>
+        <td class="num">${esc(h.temperature)}&deg;${esc(h.temperatureUnit)}</td>
+        <td class="num${pop(h) >= 30 ? " wet" : ""}">${pop(h)}%</td>
+        <td class="wind">${esc(h.windSpeed)} ${esc(h.windDirection)}</td>
+      </tr>`
+        )
+        .join("\n");
+      return `  <section class="day">
+    <h2>${esc(g.day)}</h2>
+    <table>
+      <thead><tr><th>Time</th><th>Conditions</th><th class="num">Temp</th><th class="num">Precip</th><th>Wind</th></tr></thead>
+      <tbody>
+${rows}
+      </tbody>
+    </table>
+  </section>`;
+    })
+    .join("\n");
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Crosby, TX Hourly Forecast &mdash; crosbynews.com</title>
+<meta name="description" content="Hour-by-hour weather forecast for Crosby, Texas for the next two days, from the U.S. National Weather Service: temperature, conditions, precipitation chance, and wind.">
+<meta name="theme-color" content="#0b3d61">
+<meta property="og:title" content="Crosby, TX Hourly Forecast">
+<meta property="og:description" content="Hour-by-hour forecast for Crosby, Texas from the National Weather Service.">
+<meta property="og:type" content="website">
+<link rel="canonical" href="${SITE}/hourly">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="alternate icon" href="/favicon.ico">
+<style>${BASE_CSS}
+  .day { margin-top:1rem; background:var(--card); border-radius:12px; padding:0.5rem 0.9rem 0.9rem; box-shadow:0 1px 3px rgba(0,0,0,0.07); }
+  .day h2 { font-size:1.05rem; }
+  table { width:100%; border-collapse:collapse; font-size:0.9rem; }
+  th, td { text-align:left; padding:0.4rem 0.5rem; border-bottom:1px solid var(--line); vertical-align:middle; }
+  th { font-size:0.78rem; text-transform:uppercase; letter-spacing:0.03em; color:var(--muted); }
+  td img { vertical-align:middle; border-radius:4px; }
+  .num { text-align:right; white-space:nowrap; }
+  .wet { color:var(--accent); font-weight:700; }
+  .wind { color:var(--muted); white-space:nowrap; }
+  tr:last-child td { border-bottom:none; }
+  .intro { color:var(--muted); margin:0.6rem 0 0; }
+</style>
+</head>
+<body>
+${topbar("/hourly")}
+<main>
+  <h1>Crosby, TX Hourly Forecast</h1>
+  <p class="intro">Hour-by-hour forecast for Crosby, Texas from the U.S. National Weather Service, covering the next ${hours.length} hours. Updated ${esc(fullTime(data.updated))} CT.</p>
+${body || '<p class="none">Hourly forecast is temporarily unavailable.</p>'}
+  <p class="intro"><a href="/">&larr; Back to the Crosby forecast</a> &middot; <a href="/radar">Radar</a></p>
+</main>
+<footer>
+  Data from the U.S. National Weather Service (<a href="https://weather.gov">weather.gov</a>). &middot; <a href="/about">About this site</a>
+</footer>
+</body>
+</html>`;
+}
+
+function hourlyMarkdown(data) {
+  const hours = data.hourly ?? [];
+  const out = [
+    "# Crosby, TX Hourly Forecast",
+    "",
+    `_Hour-by-hour forecast for Crosby, Texas (next ${hours.length} hours) — source: U.S. National Weather Service. Updated ${fullTime(data.updated)} CT._`,
+    "",
+  ];
+  let curDay = "";
+  for (const h of hours) {
+    const day = dayLabel(h.startTime);
+    if (day !== curDay) {
+      curDay = day;
+      out.push(`## ${day}`, "", "| Time | Conditions | Temp | Precip | Wind |", "| --- | --- | --- | --- | --- |");
+    }
+    const cell = (s) => String(s ?? "").replace(/\|/g, "/");
+    out.push(`| ${hourLabel(h.startTime)} | ${cell(h.shortForecast)} | ${h.temperature}°${h.temperatureUnit} | ${pop(h)}% | ${cell(h.windSpeed)} ${cell(h.windDirection)} |`);
+  }
+  out.push("", "---", `[crosbynews.com](${SITE}/) · [forecast](${SITE}/) · [radar](${SITE}/radar)`);
+  return out.join("\n");
+}
+// --- end Hourly page ------------------------------------------------------
+
 // Markdown rendering of the same data, served when an agent sends
 // `Accept: text/markdown` (or ?format=md).
 function renderMarkdown(data) {
@@ -547,7 +727,7 @@ function renderMarkdown(data) {
   }
   out.push("");
 
-  const hourly = data.hourly ?? [];
+  const hourly = (data.hourly ?? []).slice(0, 12);
   if (hourly.length) {
     out.push("## Next 12 hours", "| Time | Temp | Conditions | Precip |", "| --- | --- | --- | --- |");
     for (const h of hourly) {
@@ -601,7 +781,7 @@ function apiWeather(data) {
     source: "U.S. National Weather Service (api.weather.gov)",
     updated: data.updated ?? null,
     current: data.hourly?.[0] ?? null,
-    hourly: data.hourly ?? [],
+    hourly: (data.hourly ?? []).slice(0, 12),
     forecast: data.periods ?? [],
     alerts: data.alerts ?? [],
   };
@@ -1092,6 +1272,54 @@ export default {
       return new Response(aboutHtml(), {
         headers: { "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=3600", vary: "Accept" },
       });
+    }
+
+    // Radar page — static HTML/markdown; the radar image is a separate proxy.
+    if (path === "/radar") {
+      const accept = (request.headers.get("accept") || "").toLowerCase();
+      const wantsMarkdown = accept.includes("text/markdown") || url.searchParams.get("format") === "md";
+      const bodyText = wantsMarkdown ? radarMarkdown() : radarHtml();
+      return new Response(bodyText, {
+        headers: {
+          "content-type": `${wantsMarkdown ? "text/markdown" : "text/html"}; charset=utf-8`,
+          "cache-control": "public, max-age=3600",
+          vary: "Accept",
+        },
+      });
+    }
+
+    // Proxy the NWS KHGX radar loop through our origin so it's crawlable and
+    // edge-cached. Locked to that single upstream image (not an open proxy).
+    if (path === "/radar-image") {
+      const res = await fetch("https://radar.weather.gov/ridge/standard/KHGX_loop.gif", {
+        headers: { "User-Agent": "crosbynews.com", Accept: "image/gif,image/*" },
+        cf: { cacheTtl: 180, cacheEverything: true },
+      });
+      if (!res.ok) return new Response("Radar unavailable", { status: 502 });
+      const headers = new Headers();
+      headers.set("content-type", res.headers.get("content-type") || "image/gif");
+      // Radar updates every few minutes; cache briefly at the edge and browser.
+      headers.set("cache-control", "public, max-age=120, s-maxage=180");
+      return new Response(res.body, { status: 200, headers });
+    }
+
+    // Hourly forecast page — full multi-day table from the cached NWS data.
+    if (path === "/hourly") {
+      const accept = (request.headers.get("accept") || "").toLowerCase();
+      const wantsMarkdown = accept.includes("text/markdown") || url.searchParams.get("format") === "md";
+      try {
+        const { data } = await loadWeather(env);
+        const bodyText = wantsMarkdown ? hourlyMarkdown(data) : hourlyHtml(data);
+        return new Response(bodyText, {
+          headers: {
+            "content-type": `${wantsMarkdown ? "text/markdown" : "text/html"}; charset=utf-8`,
+            "cache-control": "public, max-age=300",
+            vary: "Accept",
+          },
+        });
+      } catch (err) {
+        return new Response(renderError(err), { status: 502, headers: { "content-type": "text/html; charset=utf-8" } });
+      }
     }
 
     // Otherwise only the root serves a page.
