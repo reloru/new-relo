@@ -202,7 +202,7 @@ function topbar(current) {
     `<a href="${href}"${current === href ? ' aria-current="page"' : ""}>${label}</a>`;
   return `<header class="topbar">
   <a class="brand" href="/">crosbynews.com</a>
-  <nav>${link("/", "Weather")} ${link("/hourly", "Hourly")} ${link("/radar", "Radar")} ${link("/about", "About")}</nav>
+  <nav>${link("/", "Weather")} ${link("/hourly", "Hourly")} ${link("/radar", "Radar")} ${link("/alerts", "Alerts")} ${link("/about", "About")}</nav>
 </header>`;
 }
 
@@ -398,6 +398,11 @@ function sitemapXml() {
   <url>
     <loc>${SITE}/radar</loc>
     <changefreq>daily</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>${SITE}/alerts</loc>
+    <changefreq>hourly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
@@ -699,6 +704,115 @@ function hourlyMarkdown(data) {
 }
 // --- end Hourly page ------------------------------------------------------
 
+// --- Alerts hub -----------------------------------------------------------
+// Stable URL for active NWS alerts in Crosby. When nothing is active (the usual
+// case) it stays substantial with an evergreen guide to the alert types common
+// on the Texas Gulf Coast and what to do — so it isn't a thin/empty page.
+const ALERT_GUIDE = [
+  { event: "Tornado Warning", what: "A tornado is occurring or imminent (radar-indicated or spotted).", do: "Shelter immediately on the lowest floor, interior room, away from windows. Do not wait to see it." },
+  { event: "Severe Thunderstorm Warning", what: "Damaging winds (58+ mph) and/or large hail are occurring or imminent.", do: "Move indoors, away from windows. Be ready for possible tornado warnings to follow." },
+  { event: "Flash Flood Warning", what: "Rapid flooding is occurring or imminent — common with the area's heavy downpours.", do: "Move to higher ground. Never drive through flooded roads — turn around, don't drown." },
+  { event: "Hurricane / Tropical Storm Warning", what: "Tropical-storm or hurricane conditions are expected within 36 hours — relevant in Gulf season (Jun–Nov).", do: "Follow local officials, finish preparations, and evacuate if told to." },
+  { event: "Heat Advisory / Excessive Heat Warning", what: "Dangerous heat and humidity, frequent in a Gulf Coast summer.", do: "Hydrate, limit midday exertion, check on neighbors, and never leave anyone in a parked car." },
+];
+
+function alertsHtml(data) {
+  const alerts = data.alerts ?? [];
+  const active = alerts.length
+    ? `<section class="alerts" aria-label="Active weather alerts">${alerts
+        .map(
+          (a) => `
+      <article class="alert">
+        <h3>&#9888; ${esc(a.event)}</h3>
+        ${a.headline ? `<p class="headline">${esc(a.headline)}</p>` : ""}
+        ${a.description ? `<p>${nl2br(a.description)}</p>` : ""}
+        ${a.instruction ? `<p class="instruction"><strong>What to do:</strong> ${nl2br(a.instruction)}</p>` : ""}
+        ${a.expires ? `<p class="meta">In effect until ${esc(fullTime(a.expires))}</p>` : ""}
+      </article>`
+        )
+        .join("")}</section>`
+    : `<p class="ok-banner">&#10004; No active weather alerts for Crosby, TX right now. This page updates automatically &mdash; check back during storms.</p>`;
+
+  const guide = ALERT_GUIDE.map(
+    (g) => `
+      <article class="card">
+        <h3>${esc(g.event)}</h3>
+        <p><strong>What it means:</strong> ${esc(g.what)}</p>
+        <p><strong>What to do:</strong> ${esc(g.do)}</p>
+      </article>`
+  ).join("");
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Crosby, TX Weather Alerts &mdash; crosbynews.com</title>
+<meta name="description" content="Active National Weather Service alerts, warnings, and watches for Crosby, Texas, plus a guide to the severe-weather alert types common on the Gulf Coast and what to do.">
+<meta name="theme-color" content="#0b3d61">
+<meta property="og:title" content="Crosby, TX Weather Alerts">
+<meta property="og:description" content="Active NWS alerts for Crosby, Texas and a severe-weather safety guide.">
+<meta property="og:type" content="website">
+<link rel="canonical" href="${SITE}/alerts">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="alternate icon" href="/favicon.ico">
+<style>${BASE_CSS}
+  .alerts { display:grid; gap:0.6rem; margin-top:0.5rem; }
+  .alert { background:#fff4f3; border-left:5px solid #c0392b; border-radius:10px; padding:0.8rem 1rem; }
+  .alert h3 { margin:0 0 0.3rem; color:#a3271b; }
+  .alert .headline { font-weight:700; }
+  .alert .instruction { background:rgba(255,255,255,0.65); border-radius:6px; padding:0.5rem 0.7rem; }
+  .alert .meta { font-size:0.8rem; color:var(--muted); }
+  @media (prefers-color-scheme: dark) { .alert { background:#2a1715; } .alert .instruction { background:rgba(0,0,0,0.25); } }
+  .ok-banner { background:color-mix(in srgb,#1f8b4c 16%, var(--card)); border-left:5px solid #1f8b4c; border-radius:10px; padding:0.8rem 1rem; margin-top:0.5rem; font-weight:600; }
+  .card { background:var(--card); border-radius:12px; padding:0.8rem 1.1rem; margin-top:0.75rem; box-shadow:0 1px 3px rgba(0,0,0,0.07); }
+  .card h3 { margin:0 0 0.3rem; }
+  .card p { margin:0.35rem 0; font-size:0.92rem; }
+  .intro { color:var(--muted); margin:0.6rem 0 0; }
+</style>
+</head>
+<body>
+${topbar("/alerts")}
+<main>
+  <h1>Crosby, TX Weather Alerts</h1>
+  <p class="intro">Active National Weather Service watches, warnings, and advisories for Crosby, Texas (Harris County). Updated every 15 minutes.</p>
+  ${active}
+  <h2>Severe-weather guide for the Texas Gulf Coast</h2>
+  <p class="intro">Crosby sits in a part of Texas that sees thunderstorms, flooding, tropical systems, and extreme heat. Here are the alerts you're most likely to see and what each one means.</p>
+  ${guide}
+  <p class="intro"><a href="/">&larr; Back to the forecast</a> &middot; <a href="/radar">Radar</a> &middot; Official source: <a href="https://www.weather.gov/hgx/">NWS Houston/Galveston</a>. In an emergency, call 911.</p>
+</main>
+<footer>
+  Data from the U.S. National Weather Service (<a href="https://weather.gov">weather.gov</a>). &middot; <a href="/about">About this site</a>
+</footer>
+</body>
+</html>`;
+}
+
+function alertsMarkdown(data) {
+  const alerts = data.alerts ?? [];
+  const out = ["# Crosby, TX Weather Alerts", "", `_Active NWS alerts for Crosby, Texas. Updated ${fullTime(data.updated)} CT._`, ""];
+  out.push("## Active alerts");
+  if (alerts.length) {
+    for (const a of alerts) {
+      out.push(`### ${a.event}`);
+      if (a.headline) out.push(`**${a.headline}**`, "");
+      if (a.description) out.push(String(a.description).replace(/\s*\n\s*/g, " "), "");
+      if (a.instruction) out.push(`What to do: ${String(a.instruction).replace(/\s*\n\s*/g, " ")}`, "");
+      if (a.expires) out.push(`_In effect until ${fullTime(a.expires)} CT_`, "");
+    }
+  } else {
+    out.push("None right now. ✓", "");
+  }
+  out.push("## Severe-weather guide (Texas Gulf Coast)", "");
+  for (const g of ALERT_GUIDE) {
+    out.push(`### ${g.event}`, `- **Means:** ${g.what}`, `- **Do:** ${g.do}`, "");
+  }
+  out.push("---", `Official source: NWS Houston/Galveston. In an emergency, call 911. · [crosbynews.com](${SITE}/)`);
+  return out.join("\n");
+}
+// --- end Alerts hub -------------------------------------------------------
+
 // Markdown rendering of the same data, served when an agent sends
 // `Accept: text/markdown` (or ?format=md).
 function renderMarkdown(data) {
@@ -973,6 +1087,60 @@ function mcpServerCard() {
   };
 }
 
+// Human-facing explainer shown when a browser opens /mcp (which only speaks
+// POST JSON-RPC). Lists the tools and how to connect.
+function mcpInfoHtml() {
+  const tools = mcpTools()
+    .map((t) => `<li><code>${esc(t.name)}</code> &mdash; ${esc(t.description)}</li>`)
+    .join("\n      ");
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MCP Server &mdash; crosbynews.com</title>
+<meta name="description" content="Model Context Protocol (MCP) server for Crosby, TX weather: connect an AI agent to get live conditions, forecast, and alerts.">
+<meta name="theme-color" content="#0b3d61">
+<meta name="robots" content="noindex">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="alternate icon" href="/favicon.ico">
+<style>${BASE_CSS}
+  .card { background:var(--card); border-radius:12px; padding:0.9rem 1.1rem; margin-top:1rem; box-shadow:0 1px 3px rgba(0,0,0,0.07); }
+  .card h2 { margin:0 0 0.5rem; }
+  code { background:color-mix(in srgb,var(--ink) 10%, transparent); padding:0.05rem 0.3rem; border-radius:4px; font-size:0.9em; }
+  pre { background:color-mix(in srgb,var(--ink) 8%, transparent); padding:0.8rem; border-radius:8px; overflow-x:auto; font-size:0.85rem; }
+  .intro { color:var(--muted); margin:0.6rem 0 0; }
+  ul { padding-left:1.1rem; } li { margin:0.3rem 0; }
+</style>
+</head>
+<body>
+${topbar("")}
+<main>
+  <h1>MCP Server</h1>
+  <p class="intro">This is the Model Context Protocol (MCP) endpoint for crosbynews.com. It is meant for AI agents, not browsers &mdash; it speaks JSON-RPC over HTTP POST, which is why loading it directly shows a "Method Not Allowed" message. This page just explains what it is.</p>
+  <section class="card">
+    <h2>Endpoint</h2>
+    <p><code>${SITE}/mcp</code> &middot; transport: Streamable HTTP (JSON-RPC 2.0). Discovery card: <a href="/.well-known/mcp/server-card.json">/.well-known/mcp/server-card.json</a>.</p>
+  </section>
+  <section class="card">
+    <h2>Tools</h2>
+    <ul>
+      ${tools}
+    </ul>
+  </section>
+  <section class="card">
+    <h2>Connect from Claude Code</h2>
+    <pre>claude mcp add --transport http crosbynews ${SITE}/mcp</pre>
+    <p class="intro">Then ask, e.g., "what's the forecast for Crosby, TX?" and the agent will call these tools. Prefer a webpage? See the <a href="/">live forecast</a>, <a href="/hourly">hourly</a>, and <a href="/radar">radar</a>.</p>
+  </section>
+</main>
+<footer>
+  Data from the U.S. National Weather Service (<a href="https://weather.gov">weather.gov</a>). &middot; <a href="/about">About this site</a>
+</footer>
+</body>
+</html>`;
+}
+
 async function mcpCallTool(name, args, env) {
   const { data } = await loadWeather(env);
   if (name === "get_current_conditions") {
@@ -1182,6 +1350,17 @@ export default {
 
     if (path === "/mcp") {
       if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: MCP_CORS });
+      // A browser opening /mcp sends GET — show a human-friendly explainer
+      // instead of a bare "Method Not Allowed". The MCP protocol itself is POST.
+      if (request.method === "GET") {
+        const accept = (request.headers.get("accept") || "").toLowerCase();
+        if (accept.includes("text/html")) {
+          return new Response(mcpInfoHtml(), {
+            status: 200,
+            headers: { "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=3600", allow: "POST, OPTIONS", ...MCP_CORS },
+          });
+        }
+      }
       if (request.method !== "POST") {
         return new Response("Method Not Allowed", { status: 405, headers: { allow: "POST, OPTIONS", ...MCP_CORS } });
       }
@@ -1310,6 +1489,25 @@ export default {
       try {
         const { data } = await loadWeather(env);
         const bodyText = wantsMarkdown ? hourlyMarkdown(data) : hourlyHtml(data);
+        return new Response(bodyText, {
+          headers: {
+            "content-type": `${wantsMarkdown ? "text/markdown" : "text/html"}; charset=utf-8`,
+            "cache-control": "public, max-age=300",
+            vary: "Accept",
+          },
+        });
+      } catch (err) {
+        return new Response(renderError(err), { status: 502, headers: { "content-type": "text/html; charset=utf-8" } });
+      }
+    }
+
+    // Alerts hub — active NWS alerts plus an evergreen severe-weather guide.
+    if (path === "/alerts") {
+      const accept = (request.headers.get("accept") || "").toLowerCase();
+      const wantsMarkdown = accept.includes("text/markdown") || url.searchParams.get("format") === "md";
+      try {
+        const { data } = await loadWeather(env);
+        const bodyText = wantsMarkdown ? alertsMarkdown(data) : alertsHtml(data);
         return new Response(bodyText, {
           headers: {
             "content-type": `${wantsMarkdown ? "text/markdown" : "text/html"}; charset=utf-8`,

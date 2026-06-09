@@ -63,9 +63,12 @@
   attribution, disclaimer). Same markdown negotiation. Content lives once in the
   `ABOUT` object; `aboutHtml()`/`aboutMarkdown()` render it so the two can't
   drift. Shared chrome (`BASE_CSS`, `topbar()` nav) is reused by all pages.
+- `/alerts` — active NWS alerts for Crosby plus an evergreen severe-weather
+  guide (`ALERT_GUIDE`) so the page stays substantial when nothing is active
+  (avoids thin content). Markdown-negotiated.
 - `/robots.txt` — RFC 9309 rules, explicit AI-crawler allows, `Content-Signal`
   preferences, and a `Sitemap:` reference. Open by default (public NWS data).
-- `/sitemap.xml` — lists `/`, `/hourly`, `/radar`, and `/about`.
+- `/sitemap.xml` — lists `/`, `/hourly`, `/radar`, `/alerts`, and `/about`.
 - `/api/weather` — public JSON (location, current, hourly, forecast, alerts),
   CORS `*`. `/api/health` — status + cache freshness.
 - `/.well-known/api-catalog` (`application/linkset+json`, RFC 9727) and
@@ -73,7 +76,9 @@
   cache via `loadWeather()`.
 - `/mcp` — stateless MCP server (Streamable HTTP, JSON-RPC) with tools
   `get_current_conditions`, `get_forecast`, `get_alerts`. Discovery card at
-  `/.well-known/mcp/server-card.json`.
+  `/.well-known/mcp/server-card.json`. A browser GET (Accept: text/html) gets a
+  human explainer page (`mcpInfoHtml()`, noindex); other GETs 405; POST does the
+  protocol.
 - `/icons/...` — proxies NWS weather icons from `api.weather.gov/icons/`
   through our origin (locked to that prefix, not an open proxy). NWS's
   robots.txt disallows all crawling, so hotlinked icons are uncrawlable;
