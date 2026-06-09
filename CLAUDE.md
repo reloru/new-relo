@@ -52,13 +52,20 @@
   `?format=md`) returns a markdown rendering; browsers get HTML. `Vary: Accept`.
   The homepage `Link` header advertises the markdown alternate, sitemap,
   api-catalog, and OpenAPI service-desc.
+- `/hourly` — full multi-day hourly forecast table, grouped by day. Reuses the
+  cached NWS hourly data. `fetchWeather()` keeps 48 hourly periods; the homepage
+  strip, the homepage markdown, and `/api/weather` each `.slice(0, 12)` so only
+  `/hourly` shows the full 48. Same markdown negotiation.
+- `/radar` — embeds the NWS KHGX (Houston-Galveston) radar loop, which covers
+  Crosby. The GIF is proxied via `/radar-image` (locked to that one upstream,
+  short edge TTL) so it's crawlable and edge-cached. Same markdown negotiation.
 - `/about` — static "what this site is" page (source, cadence, API/MCP, NWS
   attribution, disclaimer). Same markdown negotiation. Content lives once in the
   `ABOUT` object; `aboutHtml()`/`aboutMarkdown()` render it so the two can't
-  drift. Shared chrome (`BASE_CSS`, `topbar()` nav) is reused by both pages.
+  drift. Shared chrome (`BASE_CSS`, `topbar()` nav) is reused by all pages.
 - `/robots.txt` — RFC 9309 rules, explicit AI-crawler allows, `Content-Signal`
   preferences, and a `Sitemap:` reference. Open by default (public NWS data).
-- `/sitemap.xml` — lists `/` and `/about`.
+- `/sitemap.xml` — lists `/`, `/hourly`, `/radar`, and `/about`.
 - `/api/weather` — public JSON (location, current, hourly, forecast, alerts),
   CORS `*`. `/api/health` — status + cache freshness.
 - `/.well-known/api-catalog` (`application/linkset+json`, RFC 9727) and
