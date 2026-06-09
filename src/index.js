@@ -718,28 +718,41 @@ const ALERT_GUIDE = [
 
 function alertsHtml(data) {
   const alerts = data.alerts ?? [];
-  const active = alerts.length
-    ? `<section class="alerts" aria-label="Active weather alerts">${alerts
-        .map(
-          (a) => `
-      <article class="alert">
-        <h3>&#9888; ${esc(a.event)}</h3>
-        ${a.headline ? `<p class="headline">${esc(a.headline)}</p>` : ""}
-        ${a.description ? `<p>${nl2br(a.description)}</p>` : ""}
-        ${a.instruction ? `<p class="instruction"><strong>What to do:</strong> ${nl2br(a.instruction)}</p>` : ""}
-        ${a.expires ? `<p class="meta">In effect until ${esc(fullTime(a.expires))}</p>` : ""}
-      </article>`
-        )
-        .join("")}</section>`
-    : `<p class="ok-banner">&#10004; No active weather alerts for Crosby, TX right now. This page updates automatically &mdash; check back during storms.</p>`;
+  // The page's dominant message is the current status: a big reassuring green
+  // panel when all-clear, or the active alerts when there are any.
+  const status = alerts.length
+    ? `<section class="alerts" aria-label="Active weather alerts">
+    <div class="status status-alert">
+      <span class="status-icon">&#9888;</span>
+      <div><p class="status-title">${alerts.length} active weather ${alerts.length === 1 ? "alert" : "alerts"}</p>
+      <p class="status-sub">for Crosby, TX &mdash; details below. Follow official guidance.</p></div>
+    </div>${alerts
+      .map(
+        (a) => `
+    <article class="alert">
+      <h3>&#9888; ${esc(a.event)}</h3>
+      ${a.headline ? `<p class="headline">${esc(a.headline)}</p>` : ""}
+      ${a.description ? `<p>${nl2br(a.description)}</p>` : ""}
+      ${a.instruction ? `<p class="instruction"><strong>What to do:</strong> ${nl2br(a.instruction)}</p>` : ""}
+      ${a.expires ? `<p class="meta">In effect until ${esc(fullTime(a.expires))}</p>` : ""}
+    </article>`
+      )
+      .join("")}</section>`
+    : `<div class="status status-ok" role="status">
+    <span class="status-icon">&#10004;</span>
+    <div><p class="status-title">All clear</p>
+    <p class="status-sub">No active weather alerts for Crosby, TX right now. This page checks for new alerts every 15 minutes.</p></div>
+  </div>`;
 
+  // The guide is reference material, clearly framed as "what these mean" so the
+  // alert names below the all-clear panel aren't mistaken for active warnings.
   const guide = ALERT_GUIDE.map(
     (g) => `
-      <article class="card">
-        <h3>${esc(g.event)}</h3>
-        <p><strong>What it means:</strong> ${esc(g.what)}</p>
-        <p><strong>What to do:</strong> ${esc(g.do)}</p>
-      </article>`
+    <article class="ref">
+      <h3>${esc(g.event)}</h3>
+      <p class="ref-line"><span class="ref-label">Means</span> ${esc(g.what)}</p>
+      <p class="ref-line"><span class="ref-label">Do</span> ${esc(g.do)}</p>
+    </article>`
   ).join("");
 
   return `<!DOCTYPE html>
@@ -748,15 +761,24 @@ function alertsHtml(data) {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Crosby, TX Weather Alerts &mdash; crosbynews.com</title>
-<meta name="description" content="Active National Weather Service alerts, warnings, and watches for Crosby, Texas, plus a guide to the severe-weather alert types common on the Gulf Coast and what to do.">
+<meta name="description" content="Active National Weather Service alerts, warnings, and watches for Crosby, Texas, plus a plain-language guide to what each severe-weather alert means and what to do.">
 <meta name="theme-color" content="#0b3d61">
 <meta property="og:title" content="Crosby, TX Weather Alerts">
-<meta property="og:description" content="Active NWS alerts for Crosby, Texas and a severe-weather safety guide.">
+<meta property="og:description" content="Active NWS alerts for Crosby, Texas and a plain-language severe-weather guide.">
 <meta property="og:type" content="website">
 <link rel="canonical" href="${SITE}/alerts">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="alternate icon" href="/favicon.ico">
 <style>${BASE_CSS}
+  /* Big, calm status panel — the first thing you see. */
+  .status { display:flex; align-items:center; gap:1rem; border-radius:16px; padding:1.4rem 1.5rem; margin-top:0.8rem; }
+  .status-icon { font-size:2.6rem; line-height:1; flex:none; }
+  .status-title { margin:0; font-size:1.7rem; font-weight:800; line-height:1.1; }
+  .status-sub { margin:0.35rem 0 0; font-size:1rem; opacity:0.95; }
+  .status-ok { background:linear-gradient(135deg,#1f8b4c,#2eb86a); color:#fff; }
+  .status-alert { background:linear-gradient(135deg,#a3271b,#d44230); color:#fff; }
+
+  /* Active-alert detail cards (only shown when alerts exist). */
   .alerts { display:grid; gap:0.6rem; margin-top:0.5rem; }
   .alert { background:#fff4f3; border-left:5px solid #c0392b; border-radius:10px; padding:0.8rem 1rem; }
   .alert h3 { margin:0 0 0.3rem; color:#a3271b; }
@@ -764,10 +786,16 @@ function alertsHtml(data) {
   .alert .instruction { background:rgba(255,255,255,0.65); border-radius:6px; padding:0.5rem 0.7rem; }
   .alert .meta { font-size:0.8rem; color:var(--muted); }
   @media (prefers-color-scheme: dark) { .alert { background:#2a1715; } .alert .instruction { background:rgba(0,0,0,0.25); } }
-  .ok-banner { background:color-mix(in srgb,#1f8b4c 16%, var(--card)); border-left:5px solid #1f8b4c; border-radius:10px; padding:0.8rem 1rem; margin-top:0.5rem; font-weight:600; }
-  .card { background:var(--card); border-radius:12px; padding:0.8rem 1.1rem; margin-top:0.75rem; box-shadow:0 1px 3px rgba(0,0,0,0.07); }
-  .card h3 { margin:0 0 0.3rem; }
-  .card p { margin:0.35rem 0; font-size:0.92rem; }
+
+  /* Reference section — deliberately calm/muted so it reads as a glossary,
+     not as active warnings. */
+  .ref-head { margin-top:2rem; }
+  .ref-note { color:var(--muted); margin:0.3rem 0 0; font-size:0.9rem; font-style:italic; }
+  .ref-grid { display:grid; gap:0.5rem; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); margin-top:0.7rem; }
+  .ref { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:0.7rem 0.9rem; }
+  .ref h3 { margin:0 0 0.35rem; font-size:0.98rem; color:var(--muted); font-weight:700; }
+  .ref-line { margin:0.25rem 0; font-size:0.85rem; }
+  .ref-label { display:inline-block; min-width:3.1rem; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.04em; font-weight:700; color:var(--accent); }
   .intro { color:var(--muted); margin:0.6rem 0 0; }
 </style>
 </head>
@@ -775,12 +803,12 @@ function alertsHtml(data) {
 ${topbar("/alerts")}
 <main>
   <h1>Crosby, TX Weather Alerts</h1>
-  <p class="intro">Active National Weather Service watches, warnings, and advisories for Crosby, Texas (Harris County). Updated every 15 minutes.</p>
-  ${active}
-  <h2>Severe-weather guide for the Texas Gulf Coast</h2>
-  <p class="intro">Crosby sits in a part of Texas that sees thunderstorms, flooding, tropical systems, and extreme heat. Here are the alerts you're most likely to see and what each one means.</p>
-  ${guide}
+  ${status}
   <p class="intro"><a href="/">&larr; Back to the forecast</a> &middot; <a href="/radar">Radar</a> &middot; Official source: <a href="https://www.weather.gov/hgx/">NWS Houston/Galveston</a>. In an emergency, call 911.</p>
+
+  <h2 class="ref-head">What do these alerts mean?</h2>
+  <p class="ref-note">Reference only &mdash; these are explanations of common alert types, not active warnings. Any alert in effect now appears in the panel above.</p>
+  <div class="ref-grid">${guide}</div>
 </main>
 <footer>
   Data from the U.S. National Weather Service (<a href="https://weather.gov">weather.gov</a>). &middot; <a href="/about">About this site</a>
