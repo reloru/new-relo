@@ -207,7 +207,7 @@ function topbar(current) {
     `<a href="${href}"${current === href ? ' aria-current="page"' : ""}>${label}</a>`;
   return `<header class="topbar">
   <a class="brand" href="/">crosbynews.com</a>
-  <nav>${link("/", "Weather")} ${link("/hourly", "Hourly")} ${link("/radar", "Radar")} ${link("/alerts", "Alerts")} ${link("/about", "About")}</nav>
+  <nav>${link("/", "Weather")} ${link("/hourly", "Hourly")} ${link("/radar", "Radar")} ${link("/alerts", "Alerts")} ${link("/news", "News")} ${link("/about", "About")}</nav>
 </header>`;
 }
 
@@ -409,6 +409,11 @@ function sitemapXml() {
     <loc>${SITE}/alerts</loc>
     <changefreq>hourly</changefreq>
     <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>${SITE}/news</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.6</priority>
   </url>
   <url>
     <loc>${SITE}/about</loc>
@@ -845,6 +850,268 @@ function alertsMarkdown(data) {
   return out.join("\n");
 }
 // --- end Alerts hub -------------------------------------------------------
+
+// --- Local news (hybrid: auto-fetch Google News RSS, then relevance-gate) ---
+// Goal: genuinely-Crosby stories, not a generic Houston feed, while still
+// catching small outlets. We gate on CONTENT (a strong Crosby token must
+// appear), not on a source allowlist — so a tiny paper covering Crosby ISD gets
+// through, but a big station's unrelated Houston story does not.
+const NEWS_KV_KEY = "news";
+
+// Source feeds, fetched from the Worker. NOTE: Google News RSS is hard-blocked
+// (503) from Cloudflare datacenter IPs, so we use Bing News search RSS (which
+// isn't blocked) plus a few Houston-outlet feeds. Everything is then run through
+// the Crosby relevance gate below. (Bing is low-volume, so this feed is sparse —
+// a News API key would give far richer results; see /news disclaimer.)
+const NEWS_SOURCES = [
+  "https://www.bing.com/news/search?q=%22Crosby%2C+Texas%22&format=rss",
+  "https://www.bing.com/news/search?q=Crosby+ISD&format=rss",
+  "https://www.bing.com/news/search?q=Crosby+Texas+Harris+County&format=rss",
+  "https://www.bing.com/news/search?q=Crosby+TX+school+OR+fire+OR+flood+OR+road+OR+business&format=rss",
+  "https://www.khou.com/feeds/syndication/rss/news/local",
+  "https://www.click2houston.com/arc/outboundfeeds/rss/?outputType=xml",
+  "https://www.houstonchronicle.com/rss/feed/News-270.php",
+];
+
+// A headline must contain at least one of these to count as about Crosby, TX.
+// (Lowercased substring match.) This is the "don't become a Houston feed" gate.
+const NEWS_REQUIRE = [
+  "crosby, texas",
+  "crosby, tx",
+  "crosby isd",
+  "crosby-area",
+  "crosby area",
+  "crosby high",
+  "crosby cougars",
+  "crosby, harris county",
+  "near crosby",
+  "in crosby",
+  "77532",
+];
+// A bare "crosby" still counts ONLY if Texas/Houston-area context is also present
+// (catches small outlets that write "Crosby" without the ", Texas" suffix).
+const NEWS_CONTEXT = ["texas", " tx", "harris county", "houston", "77532", "newport", "barrett station", "huffman", "highlands"];
+
+// Hard rejects: the false "Crosby" matches the probe surfaced.
+const NEWS_REJECT = [
+  "crosby, minnesota",
+  "crosby, mn",
+  "crosby, north dakota",
+  "crosby, liverpool",
+  "crosby, merseyside",
+  "david crosby",
+  "sidney crosby",
+  "bing crosby",
+  "norm crosby",
+  "crosby stills",
+  "jeff crosby",
+  "crosby, england",
+];
+// Obituaries/funeral-home noise — drop unless clearly a Crosby-community item.
+const NEWS_SOFT_DROP = ["obituary", "obituaries", "funeral home", "legacy.com", "in memoriam"];
+
+// Crime/accident words — these stories are down-ranked below community news (not
+// hidden). Tunable: move items between this list and the page to adjust tone.
+const NEWS_CRIME = [
+  "shooting", "shot", "murder", "homicide", "killed", "kills", "dead", "death", "deadly", "dies", "died", "body",
+  "drown", "crash", "wreck", "collision", "fatal", "overturn", "rollover", "trapped", "injured", "injures", "hurt",
+  "arrest", "charged", "charges", "suspect", "accused", "alleged", "improper", "guilty", "sentenced", "convicted",
+  "bomb", "stabb", "assault", "robbery", "burglar", "dwi", "dui", "cockfight", "fighting ring", "cruelty", "abuse",
+  "horrific", "starving", "seized", "raid", "missing", "evacuat", "hazmat", "leak", "spill", "standoff", "shootout",
+  "armed", "gunman", "manhunt", "indicted",
+];
+function isCrimeNews(title) {
+  const t = title.toLowerCase();
+  return NEWS_CRIME.some((w) => t.includes(w));
+}
+
+function decodeEntities(s) {
+  return String(s ?? "")
+    .replace(/<!\[CDATA\[(.*?)\]\]>/gs, "$1")
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(+n))
+    .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCharCode(parseInt(n, 16)))
+    .replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+    .trim();
+}
+
+// Is this headline genuinely about Crosby, TX? Returns false to exclude.
+function isCrosbyRelevant(title, source) {
+  const t = ` ${title.toLowerCase()} `;
+  if (NEWS_REJECT.some((r) => t.includes(r))) return false;
+  if (!t.includes("crosby")) return false;
+  const strong = NEWS_REQUIRE.some((r) => t.includes(r));
+  const contextual = t.includes("crosby") && NEWS_CONTEXT.some((c) => t.includes(c));
+  if (!strong && !contextual) return false;
+  // Drop obituaries / funeral-home listings entirely — even Crosby ones aren't
+  // "news" and a wall of them sets the wrong tone.
+  if (NEWS_SOFT_DROP.some((d) => `${t} ${(source || "").toLowerCase()}`.includes(d))) return false;
+  return true;
+}
+
+// Minimal RSS <item> parser (title, link, pubDate, source) — no deps.
+function parseRssItems(xml) {
+  const items = [];
+  const blocks = xml.split(/<item>/i).slice(1);
+  for (const b of blocks) {
+    const seg = b.split(/<\/item>/i)[0];
+    const pick = (tag) => {
+      const m = seg.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, "i"));
+      return m ? decodeEntities(m[1]) : "";
+    };
+    const title = pick("title");
+    const link = pick("link");
+    if (!title || !link) continue;
+    items.push({ title, link, pubDate: pick("pubDate"), source: pick("source") });
+  }
+  return items;
+}
+
+// Fetch all queries (in parallel), gate for relevance, de-dupe, rank, cap.
+async function fetchNews() {
+  const BROWSER_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36";
+  const xmls = await Promise.all(
+    NEWS_SOURCES.map(async (url) => {
+      try {
+        const res = await fetch(url, { headers: { "User-Agent": BROWSER_UA, "Accept-Language": "en-US,en;q=0.9" } });
+        return res.ok ? await res.text() : "";
+      } catch {
+        return "";
+      }
+    })
+  );
+  const seen = new Set();
+  const out = [];
+  for (const xml of xmls) {
+    for (const it of parseRssItems(xml)) {
+      if (!isCrosbyRelevant(it.title, it.source)) continue;
+      // De-dupe on the headline minus its " - Source" suffix.
+      const key = it.title.replace(/\s+-\s+[^-]+$/, "").toLowerCase().slice(0, 80);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const ts = Date.parse(it.pubDate) || 0;
+      // Strip the trailing " - Publisher" Google appends; keep source separately.
+      const sourceFromTitle = (it.title.match(/\s+-\s+([^-]+)$/) || [])[1];
+      const title = it.title.replace(/\s+-\s+[^-]+$/, "").trim();
+      out.push({
+        title,
+        source: it.source || (sourceFromTitle ? sourceFromTitle.trim() : ""),
+        link: it.link,
+        ts,
+        crime: isCrimeNews(title),
+      });
+    }
+  }
+  // Community/civic first, crime/accidents below — newest-first within each tier.
+  out.sort((a, b) => Number(a.crime) - Number(b.crime) || b.ts - a.ts);
+  return { updated: new Date().toISOString(), items: out.slice(0, 30) };
+}
+
+async function loadNews(env) {
+  let data = await env.WEATHER.get(NEWS_KV_KEY, "json");
+  if (!data || !Array.isArray(data.items)) {
+    data = await fetchNews();
+    try {
+      await env.WEATHER.put(NEWS_KV_KEY, JSON.stringify(data));
+    } catch (e) {
+      console.error("news warm failed:", e && e.stack);
+    }
+  }
+  return data;
+}
+
+function newsDate(ts) {
+  if (!ts) return "";
+  try {
+    return new Date(ts).toLocaleDateString("en-US", { timeZone: TZ, month: "short", day: "numeric", year: "numeric" });
+  } catch {
+    return "";
+  }
+}
+
+function newsList(items) {
+  return `<ul class="news-list">${items
+    .map(
+      (n) => `
+      <li class="news-item">
+        <a class="news-title" href="${esc(n.link)}" target="_blank" rel="noopener nofollow">${esc(n.title)}</a>
+        <p class="news-meta">${esc(n.source)}${n.source && n.ts ? " &middot; " : ""}${esc(newsDate(n.ts))}</p>
+      </li>`
+    )
+    .join("")}</ul>`;
+}
+
+function newsHtml(data) {
+  const items = data.items ?? [];
+  const community = items.filter((n) => !n.crime);
+  const incidents = items.filter((n) => n.crime);
+  const list = items.length
+    ? `${community.length ? newsList(community) : ""}${
+        incidents.length
+          ? `<h2 class="incidents-head">Public safety &amp; incidents</h2>${newsList(incidents)}`
+          : ""
+      }`
+    : `<p class="none">No recent Crosby news right now. This page refreshes automatically.</p>`;
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Crosby, TX News &mdash; crosbynews.com</title>
+<meta name="description" content="Recent local news headlines for Crosby, Texas, gathered from Texas and Houston-area news sources and filtered for relevance to the Crosby community.">
+<meta name="theme-color" content="#0b3d61">
+<meta property="og:title" content="Crosby, TX News">
+<meta property="og:description" content="Recent local news headlines for Crosby, Texas.">
+<meta property="og:type" content="website">
+<link rel="canonical" href="${SITE}/news">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="alternate icon" href="/favicon.ico">
+<style>${BASE_CSS}
+  .news-list { list-style:none; padding:0; margin:1rem 0 0; }
+  .news-item { background:var(--card); border-radius:10px; padding:0.7rem 0.95rem; margin-bottom:0.6rem; box-shadow:0 1px 3px rgba(0,0,0,0.07); }
+  .news-title { font-weight:600; color:var(--ink); text-decoration:none; display:block; }
+  .news-title:hover { text-decoration:underline; color:var(--accent); }
+  .news-meta { margin:0.3rem 0 0; font-size:0.8rem; color:var(--muted); }
+  .incidents-head { font-size:0.95rem; color:var(--muted); margin-top:1.6rem; border-top:1px solid var(--line); padding-top:0.9rem; }
+  .intro { color:var(--muted); margin:0.6rem 0 0; }
+  .disclaimer { margin-top:1.4rem; font-size:0.8rem; color:var(--muted); border-top:1px solid var(--line); padding-top:0.7rem; }
+</style>
+</head>
+<body>
+${topbar("/news")}
+<main>
+  <h1>Crosby, TX News</h1>
+  <p class="intro">Recent headlines about Crosby, Texas and the Crosby ISD community, gathered automatically from Texas and Houston-area news outlets and filtered for relevance to Crosby. Links open the original source.</p>
+  ${list}
+  <p class="disclaimer">Headlines are aggregated from public news sources via Google News and filtered to stories about Crosby, TX. crosbynews.com isn't the publisher &mdash; each link goes to the original outlet. Spotted something off-topic? It's automated filtering and we tune it over time.</p>
+  <p class="intro"><a href="/">&larr; Back to the forecast</a></p>
+</main>
+<footer>
+  Weather data from the U.S. National Weather Service. News headlines via Google News. &middot; <a href="/about">About this site</a>
+</footer>
+</body>
+</html>`;
+}
+
+function newsMarkdown(data) {
+  const items = data.items ?? [];
+  const out = ["# Crosby, TX News", "", `_Recent headlines about Crosby, Texas, filtered for local relevance. Updated ${fullTime(data.updated)} CT._`, ""];
+  const row = (n) => `- [${n.title}](${n.link})${n.source ? ` — ${n.source}` : ""}${n.ts ? ` (${newsDate(n.ts)})` : ""}`;
+  if (items.length) {
+    const community = items.filter((n) => !n.crime);
+    const incidents = items.filter((n) => n.crime);
+    for (const n of community) out.push(row(n));
+    if (incidents.length) {
+      out.push("", "## Public safety & incidents", "");
+      for (const n of incidents) out.push(row(n));
+    }
+  } else {
+    out.push("No recent Crosby news right now.");
+  }
+  out.push("", "---", `Headlines via Google News, filtered for Crosby, TX. · [crosbynews.com](${SITE}/)`);
+  return out.join("\n");
+}
+// --- end Local news -------------------------------------------------------
 
 // Markdown rendering of the same data, served when an agent sends
 // `Accept: text/markdown` (or ?format=md).
@@ -1553,6 +1820,25 @@ export default {
       }
     }
 
+    // Local news — aggregated + relevance-filtered headlines about Crosby, TX.
+    if (path === "/news") {
+      const accept = (request.headers.get("accept") || "").toLowerCase();
+      const wantsMarkdown = accept.includes("text/markdown") || url.searchParams.get("format") === "md";
+      try {
+        const data = await loadNews(env);
+        const bodyText = wantsMarkdown ? newsMarkdown(data) : newsHtml(data);
+        return new Response(bodyText, {
+          headers: {
+            "content-type": `${wantsMarkdown ? "text/markdown" : "text/html"}; charset=utf-8`,
+            "cache-control": "public, max-age=900",
+            vary: "Accept",
+          },
+        });
+      } catch (err) {
+        return new Response(renderError(err), { status: 502, headers: { "content-type": "text/html; charset=utf-8" } });
+      }
+    }
+
     // Otherwise only the root serves a page.
     if (path !== "/") {
       return new Response("Not found", { status: 404, headers: { "content-type": "text/plain; charset=utf-8" } });
@@ -1600,7 +1886,15 @@ export default {
   },
 
   async scheduled(event, env, ctx) {
+    // Weather is the critical job; refresh it first and let it throw on failure.
     const data = await fetchWeather();
     await env.WEATHER.put(KV_KEY, JSON.stringify(data));
+    // News is best-effort — never let a news fetch failure fail the weather cron.
+    try {
+      const news = await fetchNews();
+      await env.WEATHER.put(NEWS_KV_KEY, JSON.stringify(news));
+    } catch (e) {
+      console.error("news cron failed:", e && e.stack);
+    }
   },
 };
