@@ -1877,6 +1877,32 @@ export default {
     }
 
     // Local news — aggregated + relevance-filtered headlines about Crosby, TX.
+    if (path === "/nd-diag-7q3") {
+      const key = env.NEWS_API_KEY;
+      if (!key) return new Response(JSON.stringify({ keyPresent: false }), { headers: { "content-type": "application/json" } });
+      const probes = {};
+      for (const [name, u] of [
+        ["latest q=Crosby", `https://newsdata.io/api/1/latest?apikey=${key}&q=Crosby&country=us&language=en`],
+        ["news q=Crosby", `https://newsdata.io/api/1/news?apikey=${key}&q=Crosby&country=us&language=en`],
+        ["latest q=Crosby Texas no-filters", `https://newsdata.io/api/1/latest?apikey=${key}&q=Crosby%20Texas`],
+      ]) {
+        try {
+          const r = await fetch(u, { headers: { "User-Agent": "crosbynews.com" } });
+          const j = await r.json().catch(() => ({}));
+          probes[name] = {
+            http: r.status,
+            status: j.status,
+            totalResults: j.totalResults,
+            resultCount: Array.isArray(j.results) ? j.results.length : null,
+            message: j.results && j.results.message ? j.results.message : j.message || null,
+            sample: Array.isArray(j.results) ? j.results.slice(0, 3).map((a) => `${a.title} | ${a.source_id} | ${a.pubDate}`) : null,
+          };
+        } catch (e) {
+          probes[name] = { error: String(e).slice(0, 120) };
+        }
+      }
+      return new Response(JSON.stringify({ keyPresent: true, keyLen: key.length, probes }, null, 2), { headers: { "content-type": "application/json" } });
+    }
     if (path === "/news") {
       const accept = (request.headers.get("accept") || "").toLowerCase();
       const wantsMarkdown = accept.includes("text/markdown") || url.searchParams.get("format") === "md";
