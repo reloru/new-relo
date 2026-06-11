@@ -66,9 +66,13 @@
 - `/alerts` — active NWS alerts for Crosby plus an evergreen severe-weather
   guide (`ALERT_GUIDE`) so the page stays substantial when nothing is active
   (avoids thin content). Markdown-negotiated.
+- `/news` — local news for Crosby + nearby towns. The Worker is a pure renderer:
+  it serves the WEATHER KV `news` key (read-only via `loadNews()`). That key is
+  written out-of-band by `scripts/fetch-news.mjs` (see "News pipeline"), NOT by
+  the Worker — Google News blocks Cloudflare Worker IPs. Markdown-negotiated.
 - `/robots.txt` — RFC 9309 rules, explicit AI-crawler allows, `Content-Signal`
   preferences, and a `Sitemap:` reference. Open by default (public NWS data).
-- `/sitemap.xml` — lists `/`, `/hourly`, `/radar`, `/alerts`, and `/about`.
+- `/sitemap.xml` — lists `/`, `/hourly`, `/radar`, `/alerts`, `/news`, `/about`.
 - `/api/weather` — public JSON (location, current, hourly, forecast, alerts),
   CORS `*`. `/api/health` — status + cache freshness.
 - `/.well-known/api-catalog` (`application/linkset+json`, RFC 9727) and
@@ -90,6 +94,24 @@
   registers WebMCP tools (`get_crosby_forecast`, `get_crosby_alerts`) via
   `navigator.modelContext`, backed by `/api/weather`.
 - Any other path 404s. Canonical origin is the `SITE` constant in `src/index.js`.
+
+## News pipeline (runs OUTSIDE the Worker)
+- Google News RSS is the only source with real Crosby coverage, but it hard-
+  blocks Cloudflare Worker datacenter IPs (503). Bing News RSS + outlet feeds
+  ARE reachable from the Worker but are too sparse. So news is fetched out-of-
+  band: `scripts/fetch-news.mjs` runs on a **Claude routine** (whose environment
+  is NOT IP-blocked), queries Google News for Crosby + nearby towns, filters,
+  and writes the result straight to the WEATHER KV `news` key via the Cloudflare
+  KV API. The Worker only renders that key (`loadNews()` is read-only).
+- The script holds all the filtering logic (relevance gate `areaTier`: core
+  Crosby incl. Barrett Station vs. nearby towns w/ TX context; `REJECT` for
+  famous "Crosby" people / other-state Crosbys; real-estate + obituary drops;
+  `CRIME` words for down-ranking; 45-day freshness; fuzzy de-dup). Tone knobs:
+  the incident cap (`incidents.slice(0, 6)`) and the `CRIME` list.
+- Run manually: `CLOUDFLARE_API_TOKEN=... CLOUDFLARE_ACCOUNT_ID=... node
+  scripts/fetch-news.mjs`. The routine just needs Bash (to run node) — NOT git
+  write. If the routine stops, items age out at 45 days and `/news` shows an
+  honest "no recent news" (never errors).
 
 ## DNS-AID (lives in Cloudflare DNS, not the Worker)
 - Published as SVCB records `_index._agents.crosbynews.com` (org-level entry

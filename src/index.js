@@ -207,7 +207,7 @@ function topbar(current) {
     `<a href="${href}"${current === href ? ' aria-current="page"' : ""}>${label}</a>`;
   return `<header class="topbar">
   <a class="brand" href="/">crosbynews.com</a>
-  <nav>${link("/", "Weather")} ${link("/hourly", "Hourly")} ${link("/radar", "Radar")} ${link("/alerts", "Alerts")} ${link("/about", "About")}</nav>
+  <nav>${link("/", "Weather")} ${link("/hourly", "Hourly")} ${link("/radar", "Radar")} ${link("/alerts", "Alerts")} ${link("/news", "News")} ${link("/about", "About")}</nav>
 </header>`;
 }
 
@@ -409,6 +409,11 @@ function sitemapXml() {
     <loc>${SITE}/alerts</loc>
     <changefreq>hourly</changefreq>
     <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>${SITE}/news</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.6</priority>
   </url>
   <url>
     <loc>${SITE}/about</loc>
@@ -845,6 +850,113 @@ function alertsMarkdown(data) {
   return out.join("\n");
 }
 // --- end Alerts hub -------------------------------------------------------
+
+// --- Local news (rendered from KV; fetched out-of-band) ------------------
+// The Worker is a pure renderer: /news serves the WEATHER KV "news" key,
+// which is written by scripts/fetch-news.mjs run on a Claude routine. Google
+// News (the only source with real Crosby coverage) blocks Cloudflare Worker
+// IPs, but a routine environment can reach it — so the Worker never fetches
+// news itself; it just renders what the routine wrote.
+const NEWS_KV_KEY = "news";
+
+// Read the routine-written news from KV (read-only; no live fetch).
+async function loadNews(env) {
+  const data = await env.WEATHER.get(NEWS_KV_KEY, "json");
+  return data && Array.isArray(data.items) ? data : { updated: null, items: [] };
+}
+
+function newsDate(ts) {
+  if (!ts) return "";
+  try {
+    return new Date(ts).toLocaleDateString("en-US", { timeZone: TZ, month: "short", day: "numeric", year: "numeric" });
+  } catch {
+    return "";
+  }
+}
+
+function newsList(items) {
+  return `<ul class="news-list">${items
+    .map(
+      (n) => `
+      <li class="news-item">
+        <a class="news-title" href="${esc(n.link)}" target="_blank" rel="noopener nofollow">${esc(n.title)}</a>
+        <p class="news-meta">${esc(n.source)}${n.source && n.ts ? " &middot; " : ""}${esc(newsDate(n.ts))}</p>
+      </li>`
+    )
+    .join("")}</ul>`;
+}
+
+function newsHtml(data) {
+  const items = data.items ?? [];
+  const community = items.filter((n) => !n.crime);
+  const incidents = items.filter((n) => n.crime);
+  const list = items.length
+    ? `${community.length ? newsList(community) : ""}${
+        incidents.length
+          ? `<h2 class="incidents-head">Public safety &amp; incidents</h2>${newsList(incidents)}`
+          : ""
+      }`
+    : `<p class="none">No recent Crosby news right now. This page refreshes automatically.</p>`;
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Crosby, TX News &mdash; crosbynews.com</title>
+<meta name="description" content="Recent local news headlines for Crosby, Texas, gathered from Texas and Houston-area news sources and filtered for relevance to the Crosby community.">
+<meta name="theme-color" content="#0b3d61">
+<meta property="og:title" content="Crosby, TX News">
+<meta property="og:description" content="Recent local news headlines for Crosby, Texas.">
+<meta property="og:type" content="website">
+<link rel="canonical" href="${SITE}/news">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="alternate icon" href="/favicon.ico">
+<style>${BASE_CSS}
+  .news-list { list-style:none; padding:0; margin:1rem 0 0; }
+  .news-item { background:var(--card); border-radius:10px; padding:0.7rem 0.95rem; margin-bottom:0.6rem; box-shadow:0 1px 3px rgba(0,0,0,0.07); }
+  .news-title { font-weight:600; color:var(--ink); text-decoration:none; display:block; }
+  .news-title:hover { text-decoration:underline; color:var(--accent); }
+  .news-meta { margin:0.3rem 0 0; font-size:0.8rem; color:var(--muted); }
+  .incidents-head { font-size:0.95rem; color:var(--muted); margin-top:1.6rem; border-top:1px solid var(--line); padding-top:0.9rem; }
+  .intro { color:var(--muted); margin:0.6rem 0 0; }
+  .disclaimer { margin-top:1.4rem; font-size:0.8rem; color:var(--muted); border-top:1px solid var(--line); padding-top:0.7rem; }
+</style>
+</head>
+<body>
+${topbar("/news")}
+<main>
+  <h1>Crosby, TX News</h1>
+  <p class="intro">Recent headlines about Crosby, Texas and the Crosby ISD community, gathered automatically from Texas and Houston-area news outlets and filtered for relevance to Crosby. Links open the original source.</p>
+  ${list}
+  <p class="disclaimer">Headlines are aggregated from public news sources and filtered to stories about Crosby, TX and nearby communities. crosbynews.com isn't the publisher &mdash; each link goes to the original outlet. Spotted something off-topic? It's automated filtering and we tune it over time.</p>
+  <p class="intro"><a href="/">&larr; Back to the forecast</a></p>
+</main>
+<footer>
+  Weather data from the U.S. National Weather Service. News headlines aggregated from public sources. &middot; <a href="/about">About this site</a>
+</footer>
+</body>
+</html>`;
+}
+
+function newsMarkdown(data) {
+  const items = data.items ?? [];
+  const out = ["# Crosby, TX News", "", `_Recent headlines about Crosby, Texas, filtered for local relevance. Updated ${fullTime(data.updated)} CT._`, ""];
+  const row = (n) => `- [${n.title}](${n.link})${n.source ? ` — ${n.source}` : ""}${n.ts ? ` (${newsDate(n.ts)})` : ""}`;
+  if (items.length) {
+    const community = items.filter((n) => !n.crime);
+    const incidents = items.filter((n) => n.crime);
+    for (const n of community) out.push(row(n));
+    if (incidents.length) {
+      out.push("", "## Public safety & incidents", "");
+      for (const n of incidents) out.push(row(n));
+    }
+  } else {
+    out.push("No recent Crosby news right now.");
+  }
+  out.push("", "---", `Headlines aggregated from public sources, filtered for Crosby, TX. · [crosbynews.com](${SITE}/)`);
+  return out.join("\n");
+}
+// --- end Local news -------------------------------------------------------
 
 // Markdown rendering of the same data, served when an agent sends
 // `Accept: text/markdown` (or ?format=md).
@@ -1553,6 +1665,25 @@ export default {
       }
     }
 
+    // Local news — aggregated + relevance-filtered headlines about Crosby, TX.
+    if (path === "/news") {
+      const accept = (request.headers.get("accept") || "").toLowerCase();
+      const wantsMarkdown = accept.includes("text/markdown") || url.searchParams.get("format") === "md";
+      try {
+        const data = await loadNews(env);
+        const bodyText = wantsMarkdown ? newsMarkdown(data) : newsHtml(data);
+        return new Response(bodyText, {
+          headers: {
+            "content-type": `${wantsMarkdown ? "text/markdown" : "text/html"}; charset=utf-8`,
+            "cache-control": "public, max-age=900",
+            vary: "Accept",
+          },
+        });
+      } catch (err) {
+        return new Response(renderError(err), { status: 502, headers: { "content-type": "text/html; charset=utf-8" } });
+      }
+    }
+
     // Otherwise only the root serves a page.
     if (path !== "/") {
       return new Response("Not found", { status: 404, headers: { "content-type": "text/plain; charset=utf-8" } });
@@ -1600,6 +1731,9 @@ export default {
   },
 
   async scheduled(event, env, ctx) {
+    // Refresh the weather cache. News is NOT fetched here — it's written to the
+    // KV "news" key out-of-band by scripts/fetch-news.mjs (a Claude routine),
+    // because Google News blocks Worker IPs. The Worker only renders that key.
     const data = await fetchWeather();
     await env.WEATHER.put(KV_KEY, JSON.stringify(data));
   },
