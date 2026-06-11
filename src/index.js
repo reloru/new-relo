@@ -851,229 +851,18 @@ function alertsMarkdown(data) {
 }
 // --- end Alerts hub -------------------------------------------------------
 
-// --- Local news (hybrid: auto-fetch news feeds, then relevance-gate) ---
-// Goal: genuinely-Crosby stories, not a generic Houston feed, while still
-// catching small outlets. We gate on CONTENT (a strong Crosby token must
-// appear), not on a source allowlist — so a tiny paper covering Crosby ISD gets
-// through, but a big station's unrelated Houston story does not.
+// --- Local news (rendered from KV; fetched out-of-band) ------------------
+// The Worker is a pure renderer: /news serves the WEATHER KV "news" key,
+// which is written by scripts/fetch-news.mjs run on a Claude routine. Google
+// News (the only source with real Crosby coverage) blocks Cloudflare Worker
+// IPs, but a routine environment can reach it — so the Worker never fetches
+// news itself; it just renders what the routine wrote.
 const NEWS_KV_KEY = "news";
 
-// Source feeds, fetched from the Worker. NOTE: Google News RSS is hard-blocked
-// (503) from Cloudflare datacenter IPs, so we use Bing News search RSS (which
-// isn't blocked) plus a few Houston-outlet feeds. Everything is then run through
-// the Crosby relevance gate below. (Bing is low-volume, so this feed is sparse —
-// a News API key would give far richer results; see /news disclaimer.)
-const NEWS_SOURCES = [
-  "https://www.bing.com/news/search?q=%22Crosby%2C+Texas%22&format=rss",
-  "https://www.bing.com/news/search?q=Crosby+ISD&format=rss",
-  "https://www.bing.com/news/search?q=Crosby+Texas+Harris+County&format=rss",
-  "https://www.bing.com/news/search?q=Crosby+TX+school+OR+fire+OR+flood+OR+road+OR+business&format=rss",
-  "https://www.khou.com/feeds/syndication/rss/news/local",
-  "https://www.click2houston.com/arc/outboundfeeds/rss/?outputType=xml",
-  "https://www.houstonchronicle.com/rss/feed/News-270.php",
-];
-
-// A headline must contain at least one of these to count as about Crosby, TX.
-// (Lowercased substring match.) This is the "don't become a Houston feed" gate.
-const NEWS_REQUIRE = [
-  "crosby, texas",
-  "crosby, tx",
-  "crosby isd",
-  "crosby-area",
-  "crosby area",
-  "crosby high",
-  "crosby cougars",
-  "crosby, harris county",
-  "near crosby",
-  "in crosby",
-  "77532",
-];
-// A bare "crosby" still counts ONLY if Texas/Houston-area context is also present
-// (catches small outlets that write "Crosby" without the ", Texas" suffix).
-const NEWS_CONTEXT = ["texas", " tx", "harris county", "houston", "77532", "newport", "barrett station", "huffman", "highlands"];
-
-// Bordering / nearby communities — included as "around Crosby" news (ranked
-// below core-Crosby items). Each needs a Texas-area context token so we don't
-// pull in e.g. Dayton OHIO or unrelated "Highlands". Barrett Station counts as
-// core (its kids attend Crosby ISD), handled in areaTier().
-const NEWS_NEAR = ["huffman", "highlands", "baytown", "atascocita", "channelview", "kingwood", "dayton"];
-const NEWS_NEAR_CONTEXT = ["texas", " tx ", "harris county", "chambers county", "liberty county", "houston", "77532", "crosby"];
-
-// Drop anything older than this — fixes the stale-headline problem.
-const NEWS_MAX_AGE_DAYS = 45;
-
-// Hard rejects: the false "Crosby" matches the probe surfaced.
-const NEWS_REJECT = [
-  "crosby, minnesota",
-  "crosby, mn",
-  "crosby, north dakota",
-  "crosby, liverpool",
-  "crosby, merseyside",
-  "david crosby",
-  "sidney crosby",
-  "bing crosby",
-  "norm crosby",
-  "crosby stills",
-  "jeff crosby",
-  "crosby, england",
-];
-// Obituaries/funeral-home noise — drop unless clearly a Crosby-community item.
-const NEWS_SOFT_DROP = ["obituary", "obituaries", "funeral home", "legacy.com", "in memoriam"];
-
-// Crime/accident words — these stories are down-ranked below community news (not
-// hidden). Tunable: move items between this list and the page to adjust tone.
-const NEWS_CRIME = [
-  "shooting", "shot", "murder", "homicide", "killed", "kills", "dead", "death", "deadly", "dies", "died", "body",
-  "drown", "crash", "wreck", "collision", "fatal", "overturn", "rollover", "trapped", "injured", "injures", "hurt",
-  "arrest", "charged", "charges", "suspect", "accused", "alleged", "improper", "guilty", "sentenced", "convicted",
-  "bomb", "stabb", "assault", "robbery", "burglar", "dwi", "dui", "cockfight", "fighting ring", "cruelty", "abuse",
-  "horrific", "starving", "seized", "raid", "missing", "evacuat", "hazmat", "leak", "spill", "standoff", "shootout",
-  "armed", "gunman", "manhunt", "indicted",
-];
-function isCrimeNews(title) {
-  const t = title.toLowerCase();
-  return NEWS_CRIME.some((w) => t.includes(w));
-}
-
-function decodeEntities(s) {
-  return String(s ?? "")
-    .replace(/<!\[CDATA\[(.*?)\]\]>/gs, "$1")
-    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(+n))
-    .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCharCode(parseInt(n, 16)))
-    .replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<").replace(/&gt;/g, ">")
-    .trim();
-}
-
-// Classify a headline's geography: "core" (Crosby incl. Barrett Station),
-// "near" (a bordering/nearby town with Texas context), or null (exclude).
-// Drives both inclusion (null = drop) and ranking (core ranks above near).
-function areaTier(title, source) {
-  const t = ` ${title.toLowerCase()} `;
-  const blob = `${t} ${(source || "").toLowerCase()}`;
-  if (NEWS_REJECT.some((r) => t.includes(r))) return null;
-  // Drop obituaries / funeral-home listings entirely — wrong tone for the feed.
-  if (NEWS_SOFT_DROP.some((d) => blob.includes(d))) return null;
-  // Core Crosby (Barrett Station's kids attend Crosby ISD, so it's core too).
-  const crosby = t.includes("crosby") && (NEWS_REQUIRE.some((r) => t.includes(r)) || NEWS_CONTEXT.some((c) => t.includes(c)));
-  if (crosby || t.includes("barrett station")) return "core";
-  // Nearby town, but only with Texas-area context (avoids Dayton OH, etc.).
-  if (NEWS_NEAR.some((n) => t.includes(n)) && NEWS_NEAR_CONTEXT.some((c) => t.includes(c))) return "near";
-  return null;
-}
-
-// Minimal RSS <item> parser (title, link, pubDate, source) — no deps.
-function parseRssItems(xml) {
-  const items = [];
-  const blocks = xml.split(/<item>/i).slice(1);
-  for (const b of blocks) {
-    const seg = b.split(/<\/item>/i)[0];
-    const pick = (tag) => {
-      const m = seg.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, "i"));
-      return m ? decodeEntities(m[1]) : "";
-    };
-    const title = pick("title");
-    const link = pick("link");
-    if (!title || !link) continue;
-    items.push({ title, link, pubDate: pick("pubDate"), source: pick("source") });
-  }
-  return items;
-}
-
-const BROWSER_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36";
-
-// Primary source when a key is set: NewsData.io (fresh, reliable, server-side).
-// Returns raw {title, link, source, ts} items (un-filtered).
-async function fetchNewsData(apiKey) {
-  const queries = ["Crosby Texas", '"Crosby ISD" OR "Barrett Station"', "Huffman OR Highlands OR Atascocita OR Channelview Texas"];
-  const raw = [];
-  const datas = await Promise.all(
-    queries.map(async (q) => {
-      const u = `https://newsdata.io/api/1/latest?apikey=${encodeURIComponent(apiKey)}&q=${encodeURIComponent(q)}&country=us&language=en`;
-      try {
-        const r = await fetch(u, { headers: { "User-Agent": "crosbynews.com" } });
-        return r.ok ? await r.json() : null;
-      } catch {
-        return null;
-      }
-    })
-  );
-  for (const d of datas) {
-    for (const a of d?.results || []) {
-      const iso = (a.pubDate || "").replace(" ", "T");
-      raw.push({
-        title: a.title || "",
-        link: a.link || "",
-        source: a.source_id || a.source_name || "",
-        ts: Date.parse(iso.endsWith("Z") || iso.includes("+") ? iso : iso + "Z") || Date.parse(a.pubDate) || 0,
-      });
-    }
-  }
-  return raw;
-}
-
-// Fallback when no key: Bing News search RSS + a few Houston outlet feeds.
-// Low-volume, but works without an API key. Returns raw items.
-async function fetchNewsRss() {
-  const xmls = await Promise.all(
-    NEWS_SOURCES.map(async (url) => {
-      try {
-        const res = await fetch(url, { headers: { "User-Agent": BROWSER_UA, "Accept-Language": "en-US,en;q=0.9" } });
-        return res.ok ? await res.text() : "";
-      } catch {
-        return "";
-      }
-    })
-  );
-  const raw = [];
-  for (const xml of xmls) {
-    for (const it of parseRssItems(xml)) {
-      const sourceFromTitle = (it.title.match(/\s+-\s+([^-]+)$/) || [])[1];
-      raw.push({
-        title: it.title.replace(/\s+-\s+[^-]+$/, "").trim(),
-        link: it.link,
-        source: it.source || (sourceFromTitle ? sourceFromTitle.trim() : ""),
-        ts: Date.parse(it.pubDate) || 0,
-      });
-    }
-  }
-  return raw;
-}
-
-// Fetch from the best available source, then run the shared Crosby pipeline:
-// geography gate -> freshness -> de-dupe -> crime/geography ranking -> cap.
-async function fetchNews(env) {
-  const raw = env && env.NEWS_API_KEY ? await fetchNewsData(env.NEWS_API_KEY) : await fetchNewsRss();
-  const minTs = Date.now() - NEWS_MAX_AGE_DAYS * 86400000;
-  const seen = new Set();
-  const out = [];
-  for (const it of raw) {
-    if (!it.title || !it.link) continue;
-    const tier = areaTier(it.title, it.source);
-    if (!tier) continue;
-    if (it.ts && it.ts < minTs) continue; // drop stale items
-    const key = it.title.toLowerCase().slice(0, 70);
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push({ title: it.title, source: it.source, link: it.link, ts: it.ts, crime: isCrimeNews(it.title), near: tier === "near" });
-  }
-  // Rank: community before crime (your choice), then core-Crosby before nearby,
-  // then newest first.
-  out.sort((a, b) => Number(a.crime) - Number(b.crime) || Number(a.near) - Number(b.near) || b.ts - a.ts);
-  return { updated: new Date().toISOString(), items: out.slice(0, 30), source: env && env.NEWS_API_KEY ? "newsdata" : "rss" };
-}
-
+// Read the routine-written news from KV (read-only; no live fetch).
 async function loadNews(env) {
-  let data = await env.WEATHER.get(NEWS_KV_KEY, "json");
-  if (!data || !Array.isArray(data.items)) {
-    data = await fetchNews(env);
-    try {
-      await env.WEATHER.put(NEWS_KV_KEY, JSON.stringify(data));
-    } catch (e) {
-      console.error("news warm failed:", e && e.stack);
-    }
-  }
-  return data;
+  const data = await env.WEATHER.get(NEWS_KV_KEY, "json");
+  return data && Array.isArray(data.items) ? data : { updated: null, items: [] };
 }
 
 function newsDate(ts) {
@@ -1942,20 +1731,10 @@ export default {
   },
 
   async scheduled(event, env, ctx) {
-    // Weather is the critical job; refresh it first and let it throw on failure.
+    // Refresh the weather cache. News is NOT fetched here — it's written to the
+    // KV "news" key out-of-band by scripts/fetch-news.mjs (a Claude routine),
+    // because Google News blocks Worker IPs. The Worker only renders that key.
     const data = await fetchWeather();
     await env.WEATHER.put(KV_KEY, JSON.stringify(data));
-    // News is best-effort and refreshed at most hourly (the cron runs every 15
-    // min) — news changes slowly and a News API key has a daily request budget.
-    try {
-      const cached = await env.WEATHER.get(NEWS_KV_KEY, "json");
-      const ageMin = cached?.updated ? (Date.now() - Date.parse(cached.updated)) / 60000 : Infinity;
-      if (ageMin >= 55) {
-        const news = await fetchNews(env);
-        await env.WEATHER.put(NEWS_KV_KEY, JSON.stringify(news));
-      }
-    } catch (e) {
-      console.error("news cron failed:", e && e.stack);
-    }
   },
 };
