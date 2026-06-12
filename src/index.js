@@ -339,6 +339,38 @@ function renderError(err) {
 </body></html>`;
 }
 
+// /llms.txt — concise site summary for LLMs (llmstxt.org spec).
+function llmsTxt() {
+  return `# crosbynews.com
+
+> Live weather and local news for Crosby, Texas — fast, no ads, no trackers.
+
+crosbynews.com is an independent weather and news site for Crosby, TX (northeast Harris County). Weather data comes exclusively from the U.S. National Weather Service (api.weather.gov) and is refreshed every 15 minutes. Local news headlines are aggregated daily from Texas and Houston-area outlets and filtered for relevance to the Crosby community.
+
+## Pages
+
+- [Weather](${SITE}/): Current conditions, 12-hour hourly strip, and 7-day forecast for Crosby, TX.
+- [Hourly](${SITE}/hourly): Full 48-hour hour-by-hour forecast table grouped by day.
+- [Radar](${SITE}/radar): Live NWS KHGX (Houston-Galveston) radar loop covering Crosby and northeast Harris County.
+- [Alerts](${SITE}/alerts): Active NWS weather alerts for Crosby, TX plus a plain-language severe-weather guide.
+- [News](${SITE}/news): Recent local headlines about Crosby, TX and nearby communities, filtered for relevance.
+- [About](${SITE}/about): What this site is, where data comes from, and how to access the API and MCP server.
+
+## API & agent access
+
+Every page supports \`Accept: text/markdown\` (or \`?format=md\`) for a clean markdown rendering.
+
+- REST API: \`GET ${SITE}/api/weather\` — JSON with current conditions, hourly, 7-day forecast, and alerts. No auth.
+- OpenAPI spec: \`${SITE}/openapi.json\`
+- MCP server (Streamable HTTP): \`${SITE}/mcp\` — tools: \`get_current_conditions\`, \`get_forecast\`, \`get_alerts\`
+- MCP server card: \`${SITE}/.well-known/mcp/server-card.json\`
+
+## Data policy
+
+Source data is U.S. government public domain (NWS). No authentication required. No rate limits. Attribution: "U.S. National Weather Service".
+`;
+}
+
 // /robots.txt — RFC 9309 crawl rules, AI-crawler entries, Content Signals,
 // and a sitemap reference. Open by design: this is public-domain NWS data and
 // the site wants to be discoverable by agents.
@@ -348,8 +380,8 @@ function robotsTxt() {
 # (public-domain data). Crawlers and AI agents are welcome.
 
 User-agent: *
-Content-Signal: search=yes, ai-input=yes, ai-train=yes
 Allow: /
+# Content-Signal: search=yes, ai-input=yes, ai-train=yes
 
 # AI crawlers and agents — explicitly allowed.
 User-agent: GPTBot
@@ -584,6 +616,12 @@ ${topbar("/radar")}
     <img src="/radar-image" alt="Animated NWS weather radar loop for Crosby, TX (KHGX)" width="600" height="550" loading="eager">
     <p class="radar-meta">Source: NOAA/NWS KHGX radar &middot; the loop refreshes as new scans publish (roughly every few minutes).</p>
   </div>
+  <section class="card">
+    <h2>Reading this radar</h2>
+    <p>Color indicates precipitation intensity. Blues and greens are light rain; yellows and oranges are moderate; reds and purples indicate heavy rainfall or large hail. The animation plays the most recent reflectivity scans in sequence so you can see storms moving across the region.</p>
+    <p>The KHGX radar is sited at Galveston Bay, roughly 40 miles south of Crosby, giving it a low-angle view of storms approaching from the Gulf. Crosby sits in northeast Harris County, a low-lying area that is especially prone to flash flooding during slow-moving Gulf Coast storms. A rotating hook echo or tight circulation on the southwest flank of a storm cell can indicate a tornado threat &mdash; check <a href="/alerts">active alerts</a> for any warnings already issued by the National Weather Service.</p>
+    <p>During hurricane season (June&ndash;November) the radar helps track the outer rain bands of tropical systems well before they make landfall. The <a href="https://www.weather.gov/hgx/">NWS Houston/Galveston office</a> is the authoritative source for warnings and watches covering Crosby.</p>
+  </section>
   <p class="intro"><a href="/">&larr; Back to the Crosby forecast</a></p>
 </main>
 <footer>
@@ -926,9 +964,14 @@ function newsHtml(data) {
 ${topbar("/news")}
 <main>
   <h1>Crosby, TX News</h1>
-  <p class="intro">Recent headlines about Crosby, Texas and the Crosby ISD community, gathered automatically from Texas and Houston-area news outlets and filtered for relevance to Crosby. Links open the original source.</p>
+  <p class="intro">Recent headlines about Crosby, Texas and the Crosby ISD community, gathered automatically from Texas and Houston-area news outlets and filtered for relevance to Crosby. Links open the original source.${data.updated ? ` Last updated ${esc(newsDate(data.updated))}.` : ""}</p>
   ${list}
-  <p class="disclaimer">Headlines are aggregated from public news sources and filtered to stories about Crosby, TX and nearby communities. crosbynews.com isn't the publisher &mdash; each link goes to the original outlet. Spotted something off-topic? It's automated filtering and we tune it over time.</p>
+  <section class="card">
+    <h2>About Crosby, Texas</h2>
+    <p>Crosby is a community in northeast Harris County, Texas, situated along the San Jacinto River corridor between Houston and Baytown. The area includes Barrett Station and surrounding neighborhoods in the 77532 zip code. Crosby ISD serves the local schools, including Crosby High School, home of the Cougars.</p>
+    <p>The community regularly experiences Gulf Coast weather events &mdash; tropical storms, flash flooding, and severe thunderstorms &mdash; making it a distinct news beat separate from the wider Houston metro. Stories here focus on Crosby and the nearby northeast Harris County communities of Huffman, Highlands, Channelview, and Atascocita.</p>
+    <p class="disclaimer">Headlines are aggregated from public news sources and filtered to stories about Crosby, TX and nearby communities. crosbynews.com isn&rsquo;t the publisher &mdash; each link goes to the original outlet. Spotted something off-topic? It&rsquo;s automated filtering and we tune it over time.</p>
+  </section>
   <p class="intro"><a href="/">&larr; Back to the forecast</a></p>
 </main>
 <footer>
@@ -1070,6 +1113,10 @@ function openApiSpec() {
       temperature: { type: "number" },
       temperatureUnit: { type: "string" },
       shortForecast: { type: "string" },
+      windSpeed: { type: "string" },
+      windDirection: { type: "string" },
+      windGust: { type: "string" },
+      probabilityOfPrecipitation: { type: "object", properties: { value: { type: ["number", "null"] } } },
       icon: { type: "string", format: "uri" },
     },
   };
@@ -1084,6 +1131,7 @@ function openApiSpec() {
       detailedForecast: { type: "string" },
       windSpeed: { type: "string" },
       windDirection: { type: "string" },
+      probabilityOfPrecipitation: { type: "object", properties: { value: { type: ["number", "null"] } } },
       icon: { type: "string", format: "uri" },
     },
   };
@@ -1432,6 +1480,11 @@ export default {
         headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "public, max-age=3600" },
       });
     }
+    if (path === "/llms.txt") {
+      return new Response(llmsTxt(), {
+        headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "public, max-age=3600" },
+      });
+    }
     if (path === "/sitemap.xml") {
       return new Response(sitemapXml(), {
         headers: { "content-type": "application/xml; charset=utf-8", "cache-control": "public, max-age=3600" },
@@ -1495,16 +1548,12 @@ export default {
 
     if (path === "/mcp") {
       if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: MCP_CORS });
-      // A browser opening /mcp sends GET — show a human-friendly explainer
-      // instead of a bare "Method Not Allowed". The MCP protocol itself is POST.
+      // Any GET to /mcp returns a human-friendly explainer. The MCP protocol itself uses POST.
       if (request.method === "GET") {
-        const accept = (request.headers.get("accept") || "").toLowerCase();
-        if (accept.includes("text/html")) {
-          return new Response(mcpInfoHtml(), {
-            status: 200,
-            headers: { "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=3600", allow: "POST, OPTIONS", ...MCP_CORS },
-          });
-        }
+        return new Response(mcpInfoHtml(), {
+          status: 200,
+          headers: { "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=3600", allow: "POST, OPTIONS", ...MCP_CORS },
+        });
       }
       if (request.method !== "POST") {
         return new Response("Method Not Allowed", { status: 405, headers: { allow: "POST, OPTIONS", ...MCP_CORS } });
@@ -1734,7 +1783,11 @@ export default {
     // Refresh the weather cache. News is NOT fetched here — it's written to the
     // KV "news" key out-of-band by scripts/fetch-news.mjs (a Claude routine),
     // because Google News blocks Worker IPs. The Worker only renders that key.
-    const data = await fetchWeather();
-    await env.WEATHER.put(KV_KEY, JSON.stringify(data));
+    try {
+      const data = await fetchWeather();
+      await env.WEATHER.put(KV_KEY, JSON.stringify(data));
+    } catch (e) {
+      console.error("Cron weather refresh failed:", e && e.stack);
+    }
   },
 };
