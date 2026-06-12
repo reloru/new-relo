@@ -7,6 +7,20 @@
 - This repo is the source of truth. Cloud sessions deploy from committed code,
   so commit before expecting a deploy to reflect a change.
 
+## CI / GitHub Actions
+- `.github/workflows/deploy.yml` runs two jobs on every push/PR to `main`:
+  - **Syntax check** (`node --check src/index.js`) — runs on all PRs and pushes.
+  - **Deploy** (`cloudflare/wrangler-action@v3`) — runs on push to `main` only, after check passes.
+- `wranglerVersion: "4"` is required in the wrangler-action config. Without it, the action
+  installs wrangler 3.x, which can't parse `wrangler.jsonc` and fails with "Missing entry-point".
+- `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"` is set on the deploy step (GitHub is migrating
+  Actions to Node 24; this opts in early to suppress deprecation failures).
+- Repo secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` are set at the repository
+  level — same token as used by the manual deploy path.
+- PRs are squash-merged. After a squash-merge, the old branch diverges from main (its history
+  is rewritten into one commit). Always branch fresh off `origin/main` before starting new work;
+  never reuse a branch that was already merged.
+
 ## Token / permissions
 - The API token is deliberately scoped to a Worker deploy, not the whole account.
 - If a deploy fails with an auth/permission error after adding a binding
