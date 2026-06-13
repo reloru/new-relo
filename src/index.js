@@ -809,6 +809,7 @@ function alertsHtml(data) {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Crosby, TX Weather Alerts &mdash; crosbynews.com</title>
+<meta name="robots" content="max-snippet:160">
 <meta name="description" content="Active National Weather Service alerts, warnings, and watches for Crosby, Texas, plus a plain-language guide to what each severe-weather alert means and what to do.">
 <meta name="theme-color" content="#0b3d61">
 <meta property="og:title" content="Crosby, TX Weather Alerts">
