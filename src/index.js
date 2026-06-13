@@ -1473,8 +1473,7 @@ async function agentSkillsIndex() {
 }
 // --- end Agent Skills -----------------------------------------------------
 
-export default {
-  async fetch(request, env, ctx) {
+async function _fetch(request, env, ctx) {
     const url = new URL(request.url);
     const path = url.pathname;
 
@@ -1780,6 +1779,15 @@ export default {
         headers: { "content-type": "text/html; charset=utf-8" },
       });
     }
+}
+
+export default {
+  async fetch(request, env, ctx) {
+    const resp = await _fetch(request, env, ctx);
+    const r = new Response(resp.body, resp);
+    r.headers.set("strict-transport-security", "max-age=63072000; includeSubDomains");
+    r.headers.set("x-frame-options", "SAMEORIGIN");
+    return r;
   },
 
   async scheduled(event, env, ctx) {
