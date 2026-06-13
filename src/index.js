@@ -1314,7 +1314,7 @@ function mcpInfoHtml() {
 ${topbar("")}
 <main>
   <h1>MCP Server</h1>
-  <p class="intro">This is the Model Context Protocol (MCP) endpoint for crosbynews.com. It is meant for AI agents, not browsers &mdash; it speaks JSON-RPC over HTTP POST, which is why loading it directly shows a "Method Not Allowed" message. This page just explains what it is.</p>
+  <p class="intro">This is the Model Context Protocol (MCP) endpoint for crosbynews.com. It is meant for AI agents, not browsers &mdash; it speaks JSON-RPC over HTTP POST. This page just explains what it is.</p>
   <section class="card">
     <h2>Endpoint</h2>
     <p><code>${SITE}/mcp</code> &middot; transport: Streamable HTTP (JSON-RPC 2.0). Discovery card: <a href="/.well-known/mcp/server-card.json">/.well-known/mcp/server-card.json</a>.</p>
