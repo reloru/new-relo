@@ -500,6 +500,7 @@ const ABOUT = {
       links: [
         { href: "/mcp", label: "/mcp", note: "MCP server (Streamable HTTP): get_current_conditions, get_forecast, get_alerts" },
         { href: "/.well-known/mcp/server-card.json", label: "MCP server card", note: "discovery metadata" },
+        { href: "/llms.txt", label: "/llms.txt", note: "plain-language site summary for LLMs (llmstxt.org)" },
         { href: "/?format=md", label: "This site as Markdown", note: "the weather page, rendered for agents" },
       ],
     },
