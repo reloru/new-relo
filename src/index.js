@@ -838,7 +838,7 @@ function alertsHtml(data) {
   /* Reference section — deliberately calm/muted so it reads as a glossary,
      not as active warnings. */
   .ref-head { margin-top:2rem; }
-  .ref-note { color:var(--muted); margin:0.3rem 0 0; font-size:0.9rem; font-style:italic; }
+  .ref-note { color:var(--muted); margin:0.5rem 0 1rem; font-size:0.95rem; line-height:1.55; }
   .ref-grid { display:grid; gap:0.5rem; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); margin-top:0.7rem; }
   .ref { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:0.7rem 0.9rem; }
   .ref h3 { margin:0 0 0.35rem; font-size:0.98rem; color:var(--muted); font-weight:700; }
@@ -855,8 +855,8 @@ ${topbar("/alerts")}
   <p class="intro"><a href="/">&larr; Back to the forecast</a> &middot; <a href="/radar">Radar</a> &middot; Official source: <a href="https://www.weather.gov/hgx/">NWS Houston/Galveston</a>. In an emergency, call 911.</p>
 
   <div data-nosnippet>
-  <h2 class="ref-head">What do these alerts mean?</h2>
-  <p class="ref-note">Reference only &mdash; these are explanations of common alert types, not active warnings. Any alert in effect now appears in the panel above.</p>
+  <h2 class="ref-head">Severe Weather Guide</h2>
+  <p class="ref-note">The guide below explains common NWS alert types in plain language &mdash; what each one means and what to do if one is issued. It&rsquo;s here for reference; no action is needed when the status above shows &ldquo;All clear.&rdquo; If an alert is active for Crosby, it will appear in the green panel at the top of this page. In any emergency, call&nbsp;911 and follow guidance from local officials and the <a href="https://www.weather.gov/hgx/">NWS Houston/Galveston</a> office.</p>
   <div class="ref-grid">${guide}</div>
   </div>
 </main>
