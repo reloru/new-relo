@@ -500,6 +500,7 @@ const ABOUT = {
       links: [
         { href: "/mcp", label: "/mcp", note: "MCP server (Streamable HTTP): get_current_conditions, get_forecast, get_alerts" },
         { href: "/.well-known/mcp/server-card.json", label: "MCP server card", note: "discovery metadata" },
+        { href: "/llms.txt", label: "/llms.txt", note: "plain-language site summary for LLMs (llmstxt.org)" },
         { href: "/?format=md", label: "This site as Markdown", note: "the weather page, rendered for agents" },
       ],
     },
@@ -1473,8 +1474,7 @@ async function agentSkillsIndex() {
 }
 // --- end Agent Skills -----------------------------------------------------
 
-export default {
-  async fetch(request, env, ctx) {
+async function _fetch(request, env, ctx) {
     const url = new URL(request.url);
     const path = url.pathname;
 
@@ -1780,6 +1780,15 @@ export default {
         headers: { "content-type": "text/html; charset=utf-8" },
       });
     }
+}
+
+export default {
+  async fetch(request, env, ctx) {
+    const resp = await _fetch(request, env, ctx);
+    const r = new Response(resp.body, resp);
+    r.headers.set("strict-transport-security", "max-age=63072000; includeSubDomains");
+    r.headers.set("x-frame-options", "SAMEORIGIN");
+    return r;
   },
 
   async scheduled(event, env, ctx) {
