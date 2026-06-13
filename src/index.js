@@ -611,7 +611,7 @@ function radarHtml() {
 ${topbar("/radar")}
 <main>
   <h1>${esc(title)}</h1>
-  <p class="intro">Live radar for the Crosby / northeast Houston area from the U.S. National Weather Service KHGX (Houston-Galveston) radar. The loop animates the most recent reflectivity scans, so you can see showers and thunderstorms moving across the region.</p>
+  <p class="intro">Live radar for the Crosby / northeast Houston area from the U.S. National Weather Service KHGX (Houston-Galveston) radar. The loop animates the most recent reflectivity scans, showing showers and thunderstorms moving across the region.</p>
   <div class="radar-wrap">
     <img src="/radar-image" alt="Animated NWS weather radar loop for Crosby, TX (KHGX)" width="600" height="550" loading="eager">
     <p class="radar-meta">Source: NOAA/NWS KHGX radar &middot; the loop refreshes as new scans publish (roughly every few minutes).</p>
@@ -854,9 +854,11 @@ ${topbar("/alerts")}
   ${status}
   <p class="intro"><a href="/">&larr; Back to the forecast</a> &middot; <a href="/radar">Radar</a> &middot; Official source: <a href="https://www.weather.gov/hgx/">NWS Houston/Galveston</a>. In an emergency, call 911.</p>
 
+  <div data-nosnippet>
   <h2 class="ref-head">What do these alerts mean?</h2>
   <p class="ref-note">Reference only &mdash; these are explanations of common alert types, not active warnings. Any alert in effect now appears in the panel above.</p>
   <div class="ref-grid">${guide}</div>
+  </div>
 </main>
 <footer>
   Data from the U.S. National Weather Service (<a href="https://weather.gov">weather.gov</a>). &middot; <a href="/about">About this site</a>
