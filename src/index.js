@@ -211,6 +211,56 @@ function topbar(current) {
 </header>`;
 }
 
+// Homepage inline script (15-min auto-refresh + WebMCP tool registration). Kept
+// as one constant so its Content-Security-Policy hash can be derived from the
+// exact bytes that ship — the same can't-drift trick used for the SKILL.md
+// digest. Editing this string automatically changes the CSP hash to match.
+const HOME_SCRIPT = `
+// Auto-refresh the page every 15 minutes to keep the forecast current.
+// (Done in JS rather than a meta-refresh http-equiv tag, which search engines
+// flag.) Only reloads a foreground tab, so a background tab isn't thrashed.
+setTimeout(function () {
+  if (document.visibilityState === "visible") location.reload();
+  else document.addEventListener("visibilitychange", function once() {
+    if (document.visibilityState === "visible") { document.removeEventListener("visibilitychange", once); location.reload(); }
+  });
+}, 900000);
+
+// WebMCP: expose Crosby weather as in-browser agent tools. Progressive
+// enhancement — a no-op in browsers without navigator.modelContext.
+(function () {
+  var mc = navigator.modelContext;
+  if (!mc) return;
+  async function weather() { return (await fetch("/api/weather")).json(); }
+  var tools = [
+    {
+      name: "get_crosby_forecast",
+      description: "Current conditions and forecast for Crosby, TX.",
+      inputSchema: { type: "object", properties: {}, additionalProperties: false },
+      execute: async function () {
+        var w = await weather(), c = w.current;
+        var text = c ? "Crosby, TX: " + c.temperature + "°" + c.temperatureUnit + ", " + c.shortForecast : "unavailable";
+        return { content: [{ type: "text", text: text }] };
+      },
+    },
+    {
+      name: "get_crosby_alerts",
+      description: "Active NWS weather alerts for Crosby, TX.",
+      inputSchema: { type: "object", properties: {}, additionalProperties: false },
+      execute: async function () {
+        var w = await weather();
+        var text = (w.alerts && w.alerts.length) ? w.alerts.map(function (a) { return a.event; }).join(", ") : "No active weather alerts.";
+        return { content: [{ type: "text", text: text }] };
+      },
+    },
+  ];
+  try {
+    if (typeof mc.provideContext === "function") mc.provideContext({ tools: tools });
+    else if (typeof mc.registerTool === "function") tools.forEach(function (t) { mc.registerTool(t); });
+  } catch (e) {}
+})();
+`;
+
 function renderHtml(data) {
   const hasAlerts = (data.alerts ?? []).length > 0;
   return `<!DOCTYPE html>
@@ -278,51 +328,7 @@ ${topbar("/")}
   ${hasAlerts ? "" : "No active weather alerts. "}Data from the U.S. National Weather Service (<a href="https://weather.gov">weather.gov</a>).<br>
   Updated ${esc(fullTime(data.updated))} CT &middot; refreshes every 15 minutes. &middot; <a href="/about">About this site</a>
 </footer>
-<script>
-// Auto-refresh the page every 15 minutes to keep the forecast current.
-// (Done in JS rather than a meta-refresh http-equiv tag, which search engines
-// flag.) Only reloads a foreground tab, so a background tab isn't thrashed.
-setTimeout(function () {
-  if (document.visibilityState === "visible") location.reload();
-  else document.addEventListener("visibilitychange", function once() {
-    if (document.visibilityState === "visible") { document.removeEventListener("visibilitychange", once); location.reload(); }
-  });
-}, 900000);
-
-// WebMCP: expose Crosby weather as in-browser agent tools. Progressive
-// enhancement — a no-op in browsers without navigator.modelContext.
-(function () {
-  var mc = navigator.modelContext;
-  if (!mc) return;
-  async function weather() { return (await fetch("/api/weather")).json(); }
-  var tools = [
-    {
-      name: "get_crosby_forecast",
-      description: "Current conditions and forecast for Crosby, TX.",
-      inputSchema: { type: "object", properties: {}, additionalProperties: false },
-      execute: async function () {
-        var w = await weather(), c = w.current;
-        var text = c ? "Crosby, TX: " + c.temperature + "°" + c.temperatureUnit + ", " + c.shortForecast : "unavailable";
-        return { content: [{ type: "text", text: text }] };
-      },
-    },
-    {
-      name: "get_crosby_alerts",
-      description: "Active NWS weather alerts for Crosby, TX.",
-      inputSchema: { type: "object", properties: {}, additionalProperties: false },
-      execute: async function () {
-        var w = await weather();
-        var text = (w.alerts && w.alerts.length) ? w.alerts.map(function (a) { return a.event; }).join(", ") : "No active weather alerts.";
-        return { content: [{ type: "text", text: text }] };
-      },
-    },
-  ];
-  try {
-    if (typeof mc.provideContext === "function") mc.provideContext({ tools: tools });
-    else if (typeof mc.registerTool === "function") tools.forEach(function (t) { mc.registerTool(t); });
-  } catch (e) {}
-})();
-</script>
+<script>${HOME_SCRIPT}</script>
 </body>
 </html>`;
 }
@@ -381,7 +387,6 @@ function robotsTxt() {
 
 User-agent: *
 Allow: /
-# Content-Signal: search=yes, ai-input=yes, ai-train=yes
 
 # AI crawlers and agents — explicitly allowed.
 User-agent: GPTBot
@@ -987,7 +992,8 @@ ${topbar("/news")}
 
 function newsMarkdown(data) {
   const items = data.items ?? [];
-  const out = ["# Crosby, TX News", "", `_Recent headlines about Crosby, Texas, filtered for local relevance. Updated ${fullTime(data.updated)} CT._`, ""];
+  const updatedNote = data.updated ? ` Updated ${fullTime(data.updated)} CT.` : "";
+  const out = ["# Crosby, TX News", "", `_Recent headlines about Crosby, Texas, filtered for local relevance.${updatedNote}_`, ""];
   const row = (n) => `- [${n.title}](${n.link})${n.source ? ` — ${n.source}` : ""}${n.ts ? ` (${newsDate(n.ts)})` : ""}`;
   if (items.length) {
     const community = items.filter((n) => !n.crime);
@@ -1111,11 +1117,18 @@ function apiCatalog() {
 function openApiSpec() {
   const HourlyPeriod = {
     type: "object",
+    // The NWS payload is passed through verbatim and carries more fields than
+    // are called out here (number, name, dewpoint, relativeHumidity, ...).
+    additionalProperties: true,
     properties: {
+      number: { type: "integer" },
+      name: { type: "string" },
       startTime: { type: "string", format: "date-time" },
+      endTime: { type: "string", format: "date-time" },
       isDaytime: { type: "boolean" },
       temperature: { type: "number" },
       temperatureUnit: { type: "string" },
+      temperatureTrend: { type: ["string", "null"] },
       shortForecast: { type: "string" },
       windSpeed: { type: "string" },
       windDirection: { type: "string" },
@@ -1126,7 +1139,11 @@ function openApiSpec() {
   };
   const Period = {
     type: "object",
+    additionalProperties: true,
     properties: {
+      number: { type: "integer" },
+      startTime: { type: "string", format: "date-time" },
+      endTime: { type: "string", format: "date-time" },
       name: { type: "string" },
       isDaytime: { type: "boolean" },
       temperature: { type: "number" },
@@ -1205,7 +1222,7 @@ function openApiSpec() {
             coordinates: { type: "object", properties: { lat: { type: "number" }, lon: { type: "number" } } },
             source: { type: "string" },
             updated: { type: "string", format: "date-time" },
-            current: HourlyPeriod,
+            current: { anyOf: [HourlyPeriod, { type: "null" }] },
             hourly: { type: "array", items: HourlyPeriod },
             forecast: { type: "array", items: Period },
             alerts: { type: "array", items: Alert },
@@ -1457,6 +1474,37 @@ async function sha256Hex(str) {
   return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+// Base64 SHA-256 — the form a CSP `'sha256-...'` source expression expects.
+async function sha256Base64(str) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
+  let bin = "";
+  for (const b of new Uint8Array(buf)) bin += String.fromCharCode(b);
+  return btoa(bin);
+}
+
+// Content-Security-Policy. Locks scripts to same-origin plus the one inline
+// homepage block (allow-listed by its exact hash, so no 'unsafe-inline' for
+// scripts). Inline <style> blocks/attributes still need 'unsafe-inline' on
+// style-src. Computed once per isolate and cached.
+let CSP_CACHE = null;
+async function contentSecurityPolicy() {
+  if (!CSP_CACHE) {
+    const scriptHash = await sha256Base64(HOME_SCRIPT);
+    CSP_CACHE = [
+      "default-src 'self'",
+      "base-uri 'self'",
+      "object-src 'none'",
+      "frame-ancestors 'self'",
+      "img-src 'self' data:",
+      "style-src 'self' 'unsafe-inline'",
+      `script-src 'self' 'sha256-${scriptHash}'`,
+      "connect-src 'self'",
+      "form-action 'self'",
+    ].join("; ");
+  }
+  return CSP_CACHE;
+}
+
 async function agentSkillsIndex() {
   const digest = "sha256:" + (await sha256Hex(CROSBY_WEATHER_SKILL));
   return {
@@ -1621,10 +1669,15 @@ async function _fetch(request, env, ctx) {
         return new Response("Method Not Allowed", { status: 405, headers: { allow: "GET, HEAD" } });
       }
       const upstream = `https://api.weather.gov${path}${url.search}`;
-      const res = await fetch(upstream, {
-        headers: { "User-Agent": "crosbynews.com", Accept: "image/png,image/*" },
-        cf: { cacheTtl: 604800, cacheEverything: true },
-      });
+      let res;
+      try {
+        res = await fetch(upstream, {
+          headers: { "User-Agent": "crosbynews.com", Accept: "image/png,image/*" },
+          cf: { cacheTtl: 604800, cacheEverything: true },
+        });
+      } catch {
+        return new Response("Icon unavailable", { status: 502 });
+      }
       if (!res.ok) {
         return new Response("Icon unavailable", { status: res.status === 404 ? 404 : 502 });
       }
@@ -1667,10 +1720,15 @@ async function _fetch(request, env, ctx) {
     // Proxy the NWS KHGX radar loop through our origin so it's crawlable and
     // edge-cached. Locked to that single upstream image (not an open proxy).
     if (path === "/radar-image") {
-      const res = await fetch("https://radar.weather.gov/ridge/standard/KHGX_loop.gif", {
-        headers: { "User-Agent": "crosbynews.com", Accept: "image/gif,image/*" },
-        cf: { cacheTtl: 180, cacheEverything: true },
-      });
+      let res;
+      try {
+        res = await fetch("https://radar.weather.gov/ridge/standard/KHGX_loop.gif", {
+          headers: { "User-Agent": "crosbynews.com", Accept: "image/gif,image/*" },
+          cf: { cacheTtl: 180, cacheEverything: true },
+        });
+      } catch {
+        return new Response("Radar unavailable", { status: 502 });
+      }
       if (!res.ok) return new Response("Radar unavailable", { status: 502 });
       const headers = new Headers();
       headers.set("content-type", res.headers.get("content-type") || "image/gif");
@@ -1788,6 +1846,8 @@ export default {
     const r = new Response(resp.body, resp);
     r.headers.set("strict-transport-security", "max-age=63072000; includeSubDomains");
     r.headers.set("x-frame-options", "SAMEORIGIN");
+    r.headers.set("content-security-policy", await contentSecurityPolicy());
+    r.headers.set("cross-origin-opener-policy", "same-origin");
     return r;
   },
 
