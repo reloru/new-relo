@@ -1482,10 +1482,13 @@ async function sha256Base64(str) {
   return btoa(bin);
 }
 
-// Content-Security-Policy. Locks scripts to same-origin plus the one inline
-// homepage block (allow-listed by its exact hash, so no 'unsafe-inline' for
-// scripts). Inline <style> blocks/attributes still need 'unsafe-inline' on
-// style-src. Computed once per isolate and cached.
+// Content-Security-Policy. Scripts are limited to same-origin, the one inline
+// homepage block (allow-listed by its exact hash), and Cloudflare Web Analytics,
+// whose beacon.min.js (static.cloudflareinsights.com) Cloudflare injects into
+// browser responses and which reports to cloudflareinsights.com. 'unsafe-inline'
+// is a backward-compat fallback only — browsers that honour the hash ignore it.
+// Inline <style> blocks/attributes still need 'unsafe-inline' on style-src.
+// Computed once per isolate and cached.
 let CSP_CACHE = null;
 async function contentSecurityPolicy() {
   if (!CSP_CACHE) {
@@ -1497,8 +1500,8 @@ async function contentSecurityPolicy() {
       "frame-ancestors 'self'",
       "img-src 'self' data:",
       "style-src 'self' 'unsafe-inline'",
-      `script-src 'self' 'sha256-${scriptHash}'`,
-      "connect-src 'self'",
+      `script-src 'self' 'unsafe-inline' 'sha256-${scriptHash}' https://static.cloudflareinsights.com`,
+      "connect-src 'self' https://cloudflareinsights.com",
       "form-action 'self'",
     ].join("; ");
   }
