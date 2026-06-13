@@ -49,15 +49,28 @@ const SOFT_DROP = ["obituary", "obituaries", "funeral home", "legacy.com", "in m
 // Real-estate listings (addresses + realtor sites) — not news, dropped.
 const RE_ADDRESS = /^\s*\d{2,6}\s+\w+.*\b(trl|trail|dr|drive|st|street|ln|lane|ct|court|rd|road|blvd|ave|avenue|way|cir|circle|pl|place|pkwy|hwy|loop|cv|cove|ridge|run|bend|xing|crossing|point|pointe)\b/i;
 const REALTOR = ["zillow", "realtor.com", "redfin", "trulia", "homes.com", "har.com", "movoto", "sq ft", "sqft", "for sale - "];
-// Crime/accident words — down-ranked below community news (not hidden).
-const CRIME = [
-  "shooting", "shot", "murder", "homicide", "killed", "kills", "dead", "death", "deadly", "dies", "died", "body",
-  "drown", "crash", "wreck", "collision", "fatal", "overturn", "rollover", "trapped", "injured", "injures", "hurt",
-  "arrest", "charged", "charges", "suspect", "accused", "alleged", "improper", "guilty", "sentenced", "convicted",
-  "bomb", "stabb", "assault", "robbery", "burglar", "dwi", "dui", "cockfight", "fighting ring", "cruelty", "abuse",
-  "horrific", "starving", "seized", "raid", "missing", "evacuat", "hazmat", "leak", "spill", "standoff", "shootout",
-  "armed", "gunman", "manhunt", "indicted",
+// Crime/accident terms — down-ranked below community news (not hidden, just
+// sorted lower and capped). Matched on WORD boundaries, not as substrings, so
+// benign headlines don't get mis-tagged: "dead" won't fire on "deadline",
+// "spill" on "spillway", "raid" on "braid". CRIME_WORDS match as whole words;
+// CRIME_STEMS match as a prefix to catch inflections (stabbing, burglary,
+// evacuated). True homonyms ("shot" the photo vs. the gun, "body" of work) can
+// still slip through — acceptable, since incidents are only down-ranked.
+const CRIME_WORDS = [
+  "shooting", "shootout", "shot", "murder", "homicide", "killed", "kills", "dead",
+  "death", "deadly", "dies", "died", "crash", "wreck", "collision", "fatal",
+  "rollover", "trapped", "hurt", "arrest", "charged", "charges", "suspect", "accused",
+  "alleged", "improper", "guilty", "sentenced", "convicted", "bomb", "assault",
+  "robbery", "dwi", "dui", "cruelty", "abuse", "horrific", "starving", "raid",
+  "missing", "leak", "spill", "standoff", "armed", "gunman", "indicted", "hazmat",
+  "manhunt", "fighting ring",
 ];
+const CRIME_STEMS = ["stabb", "burglar", "drown", "overturn", "injur", "seiz", "evacuat", "cockfight"];
+const reEsc = (w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const CRIME_RE = new RegExp(
+  "\\b(?:" + CRIME_WORDS.map(reEsc).join("|") + ")\\b|\\b(?:" + CRIME_STEMS.map(reEsc).join("|") + ")",
+  "i"
+);
 
 function decodeEntities(s) {
   return String(s ?? "")
@@ -96,7 +109,7 @@ function areaTier(title, source) {
   if (NEAR.some((n) => t.includes(n)) && NEAR_CONTEXT.some((c) => t.includes(c))) return "near";
   return null;
 }
-const isCrime = (title) => CRIME.some((w) => title.toLowerCase().includes(w));
+const isCrime = (title) => CRIME_RE.test(title);
 
 // Fuzzy de-dupe: collapse near-identical headlines (same story, reworded). Topic
 // words are dropped so similarity is driven by story-specific terms.
@@ -125,6 +138,16 @@ async function main() {
       }
     })
   );
+  // If every source came back empty, this is an upstream/network failure (e.g.
+  // Google rate-limiting the routine's IP) — NOT a genuinely quiet news day.
+  // Bail without writing so a transient blip can't overwrite the last good
+  // snapshot with an empty list. (A real quiet day still returns feeds with zero
+  // matching items, which is allowed through below to prune to an honest empty.)
+  if (xmls.every((x) => !x)) {
+    console.error("All news queries returned empty (upstream failure) — leaving existing KV untouched.");
+    process.exit(1);
+  }
+
   const minTs = Date.now() - MAX_AGE_DAYS * 86400000;
   const seen = new Set();
   const sigs = [];
@@ -133,13 +156,14 @@ async function main() {
     for (const it of parseRssItems(xml)) {
       const tier = areaTier(it.title, it.source);
       if (!tier) continue;
+      if (!/^https?:\/\//i.test(it.link)) continue; // only real http(s) links reach KV
       const ts = Date.parse(it.pubDate) || 0;
       if (ts && ts < minTs) continue;
       const title = it.title.replace(/\s+-\s+[^-]+$/, "").trim();
       const key = title.toLowerCase().slice(0, 70);
       if (seen.has(key)) continue;
       const sig = sigOf(title);
-      if (sigs.some((s) => jaccard(s, sig) > 0.6)) continue; // near-duplicate story
+      if (sigs.some((s) => jaccard(s, sig) > 0.4)) continue; // near-duplicate story (aggressive)
       seen.add(key);
       sigs.push(sig);
       const sourceFromTitle = (it.title.match(/\s+-\s+([^-]+)$/) || [])[1];
@@ -155,9 +179,10 @@ async function main() {
   }
   // Community before crime, then core-Crosby before nearby, then newest first.
   out.sort((a, b) => Number(a.crime) - Number(b.crime) || Number(a.near) - Number(b.near) || b.ts - a.ts);
-  // Keep all community items, but cap incidents so crime can't dominate the page.
+  // Keep all community items, but cap incidents low so crime can't dominate the
+  // page (this isn't a crime feed) or fill it with one event's many rewrites.
   const community = out.filter((i) => !i.crime).slice(0, 20);
-  const incidents = out.filter((i) => i.crime).slice(0, 6);
+  const incidents = out.filter((i) => i.crime).slice(0, 3);
   const payload = { updated: new Date().toISOString(), items: [...community, ...incidents], source: "google-news-routine" };
 
   const res = await fetch(

@@ -84,8 +84,9 @@
   it serves the WEATHER KV `news` key (read-only via `loadNews()`). That key is
   written out-of-band by `scripts/fetch-news.mjs` (see "News pipeline"), NOT by
   the Worker — Google News blocks Cloudflare Worker IPs. Markdown-negotiated.
-- `/robots.txt` — RFC 9309 rules, explicit AI-crawler allows, `Content-Signal`
-  preferences, and a `Sitemap:` reference. Open by default (public NWS data).
+- `/robots.txt` — RFC 9309 rules, explicit AI-crawler allows, and a `Sitemap:`
+  reference. Open by default (public NWS data). (No `Content-Signal` line — it
+  confused some crawlers when present, so it's intentionally omitted.)
 - `/sitemap.xml` — lists `/`, `/hourly`, `/radar`, `/alerts`, `/news`, `/about`.
 - `/api/weather` — public JSON (location, current, hourly, forecast, alerts),
   CORS `*`. `/api/health` — status + cache freshness.
@@ -120,12 +121,16 @@
 - The script holds all the filtering logic (relevance gate `areaTier`: core
   Crosby incl. Barrett Station vs. nearby towns w/ TX context; `REJECT` for
   famous "Crosby" people / other-state Crosbys; real-estate + obituary drops;
-  `CRIME` words for down-ranking; 45-day freshness; fuzzy de-dup). Tone knobs:
-  the incident cap (`incidents.slice(0, 6)`) and the `CRIME` list.
+  `CRIME_WORDS`/`CRIME_STEMS` for down-ranking (word-boundary matched, so e.g.
+  "dead" doesn't tag "deadline"); 45-day freshness; aggressive fuzzy de-dup
+  (Jaccard > 0.4). Tone knobs: the incident cap (`incidents.slice(0, 3)`) and the
+  `CRIME_WORDS`/`CRIME_STEMS` lists.
 - Run manually: `CLOUDFLARE_API_TOKEN=... CLOUDFLARE_ACCOUNT_ID=... node
   scripts/fetch-news.mjs`. The routine just needs Bash (to run node) — NOT git
   write. If the routine stops, items age out at 45 days and `/news` shows an
-  honest "no recent news" (never errors).
+  honest "no recent news" (never errors). If a run hits a total upstream failure
+  (every Google query empty), it aborts WITHOUT writing, so a transient block
+  can't wipe the last good snapshot.
 
 ## DNS-AID (lives in Cloudflare DNS, not the Worker)
 - Published as SVCB records `_index._agents.crosbynews.com` (org-level entry
