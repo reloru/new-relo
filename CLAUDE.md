@@ -22,6 +22,9 @@
   environment.
 - This repo is the source of truth. Cloud sessions deploy from committed code,
   so commit before expecting a deploy to reflect a change.
+- If a deploy fails with an auth/permission error right after you add a new
+  binding (D1, Queues, Vectorize, etc.), it's almost always the API token
+  missing that permission — widen it in the Cloudflare dashboard, not a code bug.
 
 ## CI / GitHub Actions
 - `.github/workflows/deploy.yml` runs two jobs on every push/PR to `main`:
