@@ -8,6 +8,14 @@
 - **Keep this file current:** when you change a route, a behavior, or an
   invariant that lives outside the Worker, update CLAUDE.md in the same PR.
 
+## Repo skills (.claude/)
+- `.claude/skills/verify-site/SKILL.md` defines the `/verify-site` slash command:
+  a curl health-check of the live deploy (routes → 200, security headers, one-hop
+  canonicalization, markdown negotiation, unknown-path 404). It encodes the
+  "verify with curl after deploy" rule above as a reusable command.
+- This is the repo's first committed Claude Code skill. Add more under
+  `.claude/skills/<name>/SKILL.md` — the directory name becomes the `/command`.
+
 ## Deploy
 - Deploy with `npx wrangler deploy`. Never run `wrangler login` — auth comes
   from CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID, already set in the cloud
