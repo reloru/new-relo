@@ -164,8 +164,14 @@ directory name becomes the `/command`. Current skills:
   point) and `_mcp._agents.crosbynews.com` (MCP server), each
   `1 crosbynews.com. alpn="h2,h3" port=443`. Zone DNSSEC is active, so they
   resolve authenticated (AD=true).
-- Reproduce with `node scripts/dns-aid.mjs` using a token that has
-  `Zone:DNS:Edit`.
+- Reproduce with `node scripts/dns-aid.mjs`. The token needs **`Zone:DNS:Edit`**
+  to write the records AND **`Zone:Zone:Read`** to look up the zone id by name —
+  DNS:Edit alone makes the `/zones?name=` lookup return an empty list (success,
+  not an error), so the script fails with "could not resolve zone id". Either
+  widen the token, or set `CLOUDFLARE_ZONE_ID=09de1864babbf541c26590b0fe42f25f`
+  and a DNS:Edit-only token suffices. Note the account-owned token can't call
+  `/user/tokens/verify` (returns "Invalid API Token") even when it's valid for
+  zone/DNS calls — sanity-check it with a resource call, not `verify`.
 - Intentionally skipped: OAuth/OIDC, oauth-protected-resource, and auth.md —
   the site has no protected APIs to authenticate against.
 
