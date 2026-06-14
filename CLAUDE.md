@@ -28,6 +28,11 @@
 - PRs are squash-merged. After a squash-merge, the old branch diverges from main (its history
   is rewritten into one commit). Always branch fresh off `origin/main` before starting new work;
   never reuse a branch that was already merged.
+- Branch protection on `main` is intentionally **not enabled**: classic protection and rulesets
+  both require GitHub Pro or a public repo (a Free private repo gets `403 "Upgrade to GitHub
+  Pro or make this repository public"`), and for a solo repo the syntax check + maintainer-
+  controlled merges suffice. To add it later: go public or upgrade to Pro, then require the
+  `Syntax check` status check and block force-pushes/deletions (keep an admin bypass).
 
 ## Token / permissions
 - The API token is deliberately scoped to a Worker deploy, not the whole account.
