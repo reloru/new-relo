@@ -1,10 +1,13 @@
 #!/usr/bin/env node
 // Publish the DNS-AID (DNS for AI Discovery) entry points for crosbynews.com.
 //
-// DNS records live in Cloudflare, not the Worker, so this runs out-of-band with
-// a token that has Zone:DNS:Edit (the deploy token does not need this):
+// DNS records live in Cloudflare, not the Worker, so this runs out-of-band. The
+// token needs Zone:DNS:Edit to write the records, plus Zone:Zone:Read to look up
+// the zone id by name — or set CLOUDFLARE_ZONE_ID and a DNS:Edit-only token is
+// enough (the deploy token does not need any of this):
 //
 //   CLOUDFLARE_API_TOKEN=... node scripts/dns-aid.mjs
+//   CLOUDFLARE_API_TOKEN=... CLOUDFLARE_ZONE_ID=... node scripts/dns-aid.mjs  # DNS:Edit only
 //
 // Publishes SVCB ServiceMode records under _agents.crosbynews.com per
 // draft-mozleywilliams-dnsop-dnsaid, pointing at the site (which serves the
@@ -37,11 +40,22 @@ const cf = (path, init) =>
     headers: { authorization: `Bearer ${token}`, "content-type": "application/json", ...init?.headers },
   }).then((r) => r.json());
 
-const zones = await cf(`/zones?name=crosbynews.com`);
-const zone = zones.result?.[0]?.id;
+// Prefer an explicit CLOUDFLARE_ZONE_ID so a token scoped to only Zone:DNS:Edit
+// works. The /zones?name= lookup below additionally needs Zone:Zone:Read, and
+// without it returns an empty list (success, not an error) — which otherwise
+// surfaces as a confusing "could not resolve zone id".
+let zone = process.env.CLOUDFLARE_ZONE_ID;
 if (!zone) {
-  console.error("Could not resolve zone id for crosbynews.com:", JSON.stringify(zones.errors));
-  process.exit(1);
+  const zones = await cf(`/zones?name=crosbynews.com`);
+  zone = zones.result?.[0]?.id;
+  if (!zone) {
+    console.error(
+      "Could not resolve zone id for crosbynews.com. Set CLOUDFLARE_ZONE_ID, or give the" +
+        " token Zone:Zone:Read (Zone:DNS:Edit alone can't list zones):",
+      JSON.stringify(zones.errors)
+    );
+    process.exit(1);
+  }
 }
 
 for (const rec of RECORDS) {
