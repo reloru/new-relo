@@ -36,17 +36,13 @@
 - PRs are squash-merged. After a squash-merge, the old branch diverges from main (its history
   is rewritten into one commit). Always branch fresh off `origin/main` before starting new work;
   never reuse a branch that was already merged.
-- Branch protection on `main` is intentionally **not enabled**: classic protection and rulesets
-  both require GitHub Pro or a public repo (a Free private repo gets `403 "Upgrade to GitHub
-  Pro or make this repository public"`), and for a solo repo the syntax check + maintainer-
-  controlled merges suffice. To add it later: go public or upgrade to Pro, then require the
-  `Syntax check` status check and block force-pushes/deletions (keep an admin bypass).
-
-## Token / permissions
-- The API token is deliberately scoped to a Worker deploy, not the whole account.
-- If a deploy fails with an auth/permission error after adding a binding
-  (D1, Queues, Vectorize, etc.), the token is missing that permission — widen it
-  in the Cloudflare dashboard. Don't assume it's a code bug.
+- The repo is **public**. Branch protection on `main` is **enabled** (classic protection):
+  it requires the `Syntax check` status check and blocks force-pushes + branch deletion, with
+  admin bypass left on (`enforce_admins: false`) and no required PR reviews — so solo squash-
+  merges still work, but `main`'s history can't be force-pushed or the branch deleted. `strict`
+  is off, so a PR needn't be up to date with `main` before merging.
+- Secret scanning + push protection are **on** (free on public repos): a push containing a
+  detectable secret is blocked before it lands.
 
 ## Domain
 - Live on crosbynews.com (apex + www) and the *.workers.dev URL.
