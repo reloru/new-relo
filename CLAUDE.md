@@ -122,9 +122,10 @@ directory name becomes the `/command`. Current skills:
   cache via `loadWeather()`.
 - `/mcp` — stateless MCP server (Streamable HTTP, JSON-RPC) with tools
   `get_current_conditions`, `get_forecast`, `get_alerts`. Discovery card at
-  `/.well-known/mcp/server-card.json`. A browser GET (Accept: text/html) gets a
-  human explainer page (`mcpInfoHtml()`, noindex); other GETs 405; POST does the
-  protocol.
+  `/.well-known/mcp/server-card.json`. A GET gets a human explainer page
+  (`mcpInfoHtml()`, noindex) — except a GET asking for the SSE stream
+  (`Accept: text/event-stream`), which 405s since we don't offer that stream
+  (Streamable HTTP spec). POST does the protocol.
 - `/icons/...` — proxies NWS weather icons from `api.weather.gov/icons/`
   through our origin (locked to that prefix, not an open proxy). NWS's
   robots.txt disallows all crawling, so hotlinked icons are uncrawlable;
