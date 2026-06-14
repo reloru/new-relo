@@ -1,5 +1,13 @@
 # crosbynews.com — Cloudflare Worker
 
+## Working with this repo
+- This is a **live, complete, self-maintaining** production site. Make targeted
+  changes only — don't rebuild it.
+- After deploying, verify against the live site with `curl` (deploys land in
+  ~10–40s) — check the headers/routes you touched.
+- **Keep this file current:** when you change a route, a behavior, or an
+  invariant that lives outside the Worker, update CLAUDE.md in the same PR.
+
 ## Deploy
 - Deploy with `npx wrangler deploy`. Never run `wrangler login` — auth comes
   from CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID, already set in the cloud
@@ -88,6 +96,7 @@
   reference. Open by default (public NWS data). (No `Content-Signal` line — it
   confused some crawlers when present, so it's intentionally omitted.)
 - `/sitemap.xml` — lists `/`, `/hourly`, `/radar`, `/alerts`, `/news`, `/about`.
+- `/llms.txt` — plain-language site summary for LLMs (llmstxt.org).
 - `/api/weather` — public JSON (location, current, hourly, forecast, alerts),
   CORS `*`. `/api/health` — status + cache freshness.
 - `/.well-known/api-catalog` (`application/linkset+json`, RFC 9727) and
