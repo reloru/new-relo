@@ -8,12 +8,23 @@
 - **Keep this file current:** when you change a route, a behavior, or an
   invariant that lives outside the Worker, update CLAUDE.md in the same PR.
 
+## Repo skills (.claude/)
+- `.claude/skills/verify-site/SKILL.md` defines the `/verify-site` slash command:
+  a curl health-check of the live deploy (routes → 200, security headers, one-hop
+  canonicalization, markdown negotiation, unknown-path 404). It encodes the
+  "verify with curl after deploy" rule above as a reusable command.
+- This is the repo's first committed Claude Code skill. Add more under
+  `.claude/skills/<name>/SKILL.md` — the directory name becomes the `/command`.
+
 ## Deploy
 - Deploy with `npx wrangler deploy`. Never run `wrangler login` — auth comes
   from CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID, already set in the cloud
   environment.
 - This repo is the source of truth. Cloud sessions deploy from committed code,
   so commit before expecting a deploy to reflect a change.
+- If a deploy fails with an auth/permission error right after you add a new
+  binding (D1, Queues, Vectorize, etc.), it's almost always the API token
+  missing that permission — widen it in the Cloudflare dashboard, not a code bug.
 
 ## CI / GitHub Actions
 - `.github/workflows/deploy.yml` runs two jobs on every push/PR to `main`:
@@ -28,17 +39,13 @@
 - PRs are squash-merged. After a squash-merge, the old branch diverges from main (its history
   is rewritten into one commit). Always branch fresh off `origin/main` before starting new work;
   never reuse a branch that was already merged.
-- Branch protection on `main` is intentionally **not enabled**: classic protection and rulesets
-  both require GitHub Pro or a public repo (a Free private repo gets `403 "Upgrade to GitHub
-  Pro or make this repository public"`), and for a solo repo the syntax check + maintainer-
-  controlled merges suffice. To add it later: go public or upgrade to Pro, then require the
-  `Syntax check` status check and block force-pushes/deletions (keep an admin bypass).
-
-## Token / permissions
-- The API token is deliberately scoped to a Worker deploy, not the whole account.
-- If a deploy fails with an auth/permission error after adding a binding
-  (D1, Queues, Vectorize, etc.), the token is missing that permission — widen it
-  in the Cloudflare dashboard. Don't assume it's a code bug.
+- The repo is **public**. Branch protection on `main` is **enabled** (classic protection):
+  it requires the `Syntax check` status check and blocks force-pushes + branch deletion, with
+  admin bypass left on (`enforce_admins: false`) and no required PR reviews — so solo squash-
+  merges still work, but `main`'s history can't be force-pushed or the branch deleted. `strict`
+  is off, so a PR needn't be up to date with `main` before merging.
+- Secret scanning + push protection are **on** (free on public repos): a push containing a
+  detectable secret is blocked before it lands.
 
 ## Domain
 - Live on crosbynews.com (apex + www) and the *.workers.dev URL.
@@ -152,7 +159,7 @@
   `1 crosbynews.com. alpn="h2,h3" port=443`. Zone DNSSEC is active, so they
   resolve authenticated (AD=true).
 - Reproduce with `node scripts/dns-aid.mjs` using a token that has
-  `Zone:DNS:Edit` (the Worker deploy token does not need this).
+  `Zone:DNS:Edit`.
 - Intentionally skipped: OAuth/OIDC, oauth-protected-resource, and auth.md —
   the site has no protected APIs to authenticate against.
 
