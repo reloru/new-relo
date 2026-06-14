@@ -9,12 +9,18 @@
   invariant that lives outside the Worker, update CLAUDE.md in the same PR.
 
 ## Repo skills (.claude/)
-- `.claude/skills/verify-site/SKILL.md` defines the `/verify-site` slash command:
-  a curl health-check of the live deploy (routes → 200, security headers, one-hop
-  canonicalization, markdown negotiation, unknown-path 404). It encodes the
-  "verify with curl after deploy" rule above as a reusable command.
-- This is the repo's first committed Claude Code skill. Add more under
-  `.claude/skills/<name>/SKILL.md` — the directory name becomes the `/command`.
+Committed Claude Code skills live under `.claude/skills/<name>/SKILL.md` — the
+directory name becomes the `/command`. Current skills:
+- `/verify-site` — curl health-check of the live deploy (routes → 200, security
+  headers, one-hop canonicalization, markdown negotiation, unknown-path 404).
+  Encodes the "verify with curl after deploy" rule above. Read-only.
+- `/deploy` — syntax-check `src/index.js`, surface branch/working-tree state,
+  `npx wrangler deploy`, then verify the live site. Encodes the Deploy rules
+  below (never `wrangler login`; the binding-permission gotcha; manual deploy
+  ships the working tree, not git).
+- `/kv` — inspect/edit the production `WEATHER` KV namespace, always with
+  `--remote` (the KV gotcha below). Knows `weather` (cron-owned) vs `news`
+  (routine-owned); read commands are pre-authorized, put/delete are not.
 
 ## Deploy
 - Deploy with `npx wrangler deploy`. Never run `wrangler login` — auth comes
