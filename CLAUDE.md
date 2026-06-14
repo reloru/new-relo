@@ -156,7 +156,7 @@
   `1 crosbynews.com. alpn="h2,h3" port=443`. Zone DNSSEC is active, so they
   resolve authenticated (AD=true).
 - Reproduce with `node scripts/dns-aid.mjs` using a token that has
-  `Zone:DNS:Edit` (the Worker deploy token does not need this).
+  `Zone:DNS:Edit`.
 - Intentionally skipped: OAuth/OIDC, oauth-protected-resource, and auth.md —
   the site has no protected APIs to authenticate against.
 
