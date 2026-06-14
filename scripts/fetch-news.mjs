@@ -158,7 +158,9 @@ async function main() {
       if (!tier) continue;
       if (!/^https?:\/\//i.test(it.link)) continue; // only real http(s) links reach KV
       const ts = Date.parse(it.pubDate) || 0;
-      if (ts && ts < minTs) continue;
+      // Require a parseable, in-window date. Undated items (ts===0) fail the
+      // freshness gate too, so a headline we can't date can't linger forever.
+      if (!ts || ts < minTs) continue;
       const title = it.title.replace(/\s+-\s+[^-]+$/, "").trim();
       const key = title.toLowerCase().slice(0, 70);
       if (seen.has(key)) continue;
@@ -184,6 +186,31 @@ async function main() {
   const community = out.filter((i) => !i.crime).slice(0, 20);
   const incidents = out.filter((i) => i.crime).slice(0, 3);
   const payload = { updated: new Date().toISOString(), items: [...community, ...incidents], source: "google-news-routine" };
+
+  // Shrink-guard: a partial upstream failure (some Google queries rate-limited,
+  // the rest 503) can yield a near-empty result that would silently overwrite a
+  // healthy snapshot. If the fresh result collapses to very few community items
+  // while the stored snapshot is healthy (>=10), treat it as a blip and leave KV
+  // untouched. A genuinely quiet week still updates freely; this only trips on a
+  // clear collapse. Exit 0 (not a failure) so the routine doesn't flap.
+  if (community.length < 5) {
+    try {
+      const existing = await fetch(
+        `https://api.cloudflare.com/client/v4/accounts/${ACCOUNT}/storage/kv/namespaces/${NS_ID}/values/${KV_KEY}`,
+        { headers: { authorization: `Bearer ${TOKEN}` } }
+      );
+      if (existing.ok) {
+        const prev = await existing.json().catch(() => null);
+        const prevCommunity = Array.isArray(prev?.items) ? prev.items.filter((i) => !i.crime).length : 0;
+        if (prevCommunity >= 10) {
+          console.error(`Fresh result has only ${community.length} community items but stored snapshot has ${prevCommunity} — likely partial upstream failure; leaving KV untouched.`);
+          process.exit(0);
+        }
+      }
+    } catch (e) {
+      console.error("Shrink-guard read failed (writing anyway):", e?.message);
+    }
+  }
 
   const res = await fetch(
     `https://api.cloudflare.com/client/v4/accounts/${ACCOUNT}/storage/kv/namespaces/${NS_ID}/values/${KV_KEY}`,

@@ -119,7 +119,9 @@ function renderAlerts(alerts) {
 function renderHero(data) {
   const now = data.hourly?.[0];
   const lead = data.periods?.[0];
-  if (!now) return "";
+  // Degenerate NWS response (zero hourly periods): suppress the hero panel but
+  // still emit the page's single <h1> so it never renders heading-less.
+  if (!now) return `<h1>${esc(data.place)} Weather</h1>`;
   return `
     <section class="hero">
       ${now.icon ? `<img class="hero-icon" src="${iconUrl(now.icon, "large")}" alt="${esc(now.shortForecast)}" width="128" height="128" fetchpriority="high">` : ""}
@@ -377,9 +379,10 @@ Source data is U.S. government public domain (NWS). No authentication required. 
 `;
 }
 
-// /robots.txt — RFC 9309 crawl rules, AI-crawler entries, Content Signals,
-// and a sitemap reference. Open by design: this is public-domain NWS data and
-// the site wants to be discoverable by agents.
+// /robots.txt — RFC 9309 crawl rules, explicit AI-crawler entries, and a
+// sitemap reference. Open by design: this is public-domain NWS data and the
+// site wants to be discoverable by agents. (No Content-Signal line — it
+// confused some crawlers when present, so it's intentionally omitted.)
 function robotsTxt() {
   return `# crosbynews.com — robots.txt (RFC 9309)
 # Crosby, TX weather, derived from the U.S. National Weather Service
@@ -1071,7 +1074,15 @@ const LINK_HEADER =
 // Shared loader: cached weather, refreshing on a missing or stale-shaped entry.
 async function loadWeather(env) {
   let cache = "hit";
-  let data = await env.WEATHER.get(KV_KEY, "json");
+  let data = null;
+  try {
+    data = await env.WEATHER.get(KV_KEY, "json");
+  } catch (e) {
+    // Corrupt / non-JSON value in KV: treat as a miss and refetch below, the
+    // same self-heal path as a stale-shaped entry. Writers always
+    // JSON.stringify, so this is largely theoretical.
+    console.error("KV weather parse failed:", e && e.stack);
+  }
   if (!data || !Array.isArray(data.hourly)) {
     data = await fetchWeather();
     try {
@@ -1602,8 +1613,15 @@ async function _fetch(request, env, ctx) {
 
     if (path === "/mcp") {
       if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: MCP_CORS });
-      // Any GET to /mcp returns a human-friendly explainer. The MCP protocol itself uses POST.
+      // The MCP protocol itself uses POST. A strict MCP client opening the
+      // optional SSE stream sends GET with `Accept: text/event-stream`; we
+      // don't offer that stream, so 405 per the Streamable HTTP spec. Every
+      // other GET (browsers, plain curl) gets the human-friendly explainer.
       if (request.method === "GET") {
+        const accept = request.headers.get("accept") || "";
+        if (accept.includes("text/event-stream")) {
+          return new Response("Method Not Allowed", { status: 405, headers: { allow: "POST, OPTIONS", ...MCP_CORS } });
+        }
         return new Response(mcpInfoHtml(), {
           status: 200,
           headers: { "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=3600", allow: "POST, OPTIONS", ...MCP_CORS },
