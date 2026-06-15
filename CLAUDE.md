@@ -103,7 +103,7 @@ directory name becomes the `/command`. Current skills:
   Crosby. The GIF is proxied via `/radar-image` (locked to that one upstream,
   short edge TTL) so it's crawlable and edge-cached. Same markdown negotiation.
 - `/about` — static "what this site is" page (source, cadence, API/MCP, NWS
-  attribution, disclaimer). Same markdown negotiation. Content lives once in the
+  attribution, contact, disclaimer). Same markdown negotiation. Content lives once in the
   `ABOUT` object; `aboutHtml()`/`aboutMarkdown()` render it so the two can't
   drift. Shared chrome (`BASE_CSS`, `topbar()` nav) is reused by all pages.
 - `/alerts` — active NWS alerts for Crosby plus an evergreen severe-weather
@@ -118,6 +118,9 @@ directory name becomes the `/command`. Current skills:
   confused some crawlers when present, so it's intentionally omitted.)
 - `/sitemap.xml` — lists `/`, `/hourly`, `/radar`, `/alerts`, `/news`, `/about`.
 - `/llms.txt` — plain-language site summary for LLMs (llmstxt.org).
+- `/.well-known/security.txt` — RFC 9116 security contact
+  (`security@crosbynews.com`). `Expires` is computed ~1 year out at request time,
+  so the file can't go stale.
 - `/api/weather` — public JSON (location, current, hourly, forecast, alerts),
   CORS `*`. `/api/health` — status + cache freshness.
 - `/.well-known/api-catalog` (`application/linkset+json`, RFC 9727) and
