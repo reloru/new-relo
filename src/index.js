@@ -1861,6 +1861,12 @@ async function _fetch(request, env, ctx) {
     }
 }
 
+// The content pages, each its own canonical URL. Their responses get an HTTP
+// `Link: rel="canonical"` header in the wrapper below, so the content-negotiated
+// `?format=md` variants — and the http→https pair — consolidate onto one URL for
+// crawlers that read the HTTP layer (reinforces the in-HTML <link rel="canonical">).
+const PAGE_PATHS = new Set(["/", "/hourly", "/radar", "/alerts", "/news", "/about"]);
+
 export default {
   async fetch(request, env, ctx) {
     const resp = await _fetch(request, env, ctx);
@@ -1869,6 +1875,14 @@ export default {
     r.headers.set("x-frame-options", "SAMEORIGIN");
     r.headers.set("content-security-policy", await contentSecurityPolicy());
     r.headers.set("cross-origin-opener-policy", "same-origin");
+    // Reinforce the https canonical at the HTTP layer for the content pages, so
+    // ?format=md variants (and any http→https confusion) consolidate onto one URL.
+    const { pathname } = new URL(request.url);
+    if (PAGE_PATHS.has(pathname)) {
+      const canonical = `<${SITE}${pathname}>; rel="canonical"`;
+      const existing = r.headers.get("link");
+      r.headers.set("link", existing ? `${existing}, ${canonical}` : canonical);
+    }
     return r;
   },
 

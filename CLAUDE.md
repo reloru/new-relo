@@ -91,7 +91,10 @@ directory name becomes the `/command`. Current skills:
 - `/` — the weather page. Content-negotiated: `Accept: text/markdown` (or
   `?format=md`) returns a markdown rendering; browsers get HTML. `Vary: Accept`.
   The homepage `Link` header advertises the markdown alternate, sitemap,
-  api-catalog, and OpenAPI service-desc.
+  api-catalog, and OpenAPI service-desc. All six content pages (`/`, `/hourly`,
+  `/radar`, `/alerts`, `/news`, `/about`) also emit an HTTP `Link: rel="canonical"`
+  header — added centrally in the `fetch` wrapper via `PAGE_PATHS` — so the
+  `?format=md` variants and the http→https pair consolidate onto one URL.
 - `/hourly` — full multi-day hourly forecast table, grouped by day. Reuses the
   cached NWS hourly data. `fetchWeather()` keeps 48 hourly periods; the homepage
   strip, the homepage markdown, and `/api/weather` each `.slice(0, 12)` so only
