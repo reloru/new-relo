@@ -513,6 +513,13 @@ const ABOUT = {
       ],
     },
     {
+      h: "Contact",
+      p: ["Questions, corrections, or a local news tip? Email us:"],
+      links: [
+        { href: "mailto:contact@crosbynews.com", label: "contact@crosbynews.com", note: "general questions, corrections, and news tips" },
+      ],
+    },
+    {
       h: "Disclaimer",
       p: [
         "crosbynews.com is an independent project and is not affiliated with the National Weather Service, NOAA, or any government agency. Always rely on official sources and local authorities for life-safety decisions during severe weather.",
@@ -1553,6 +1560,21 @@ async function _fetch(request, env, ctx) {
     if (path === "/sitemap.xml") {
       return new Response(sitemapXml(), {
         headers: { "content-type": "application/xml; charset=utf-8", "cache-control": "public, max-age=3600" },
+      });
+    }
+    // RFC 9116 security contact. Expires is computed ~1 year out on each request,
+    // so the file never goes stale on this self-maintaining site.
+    if (path === "/.well-known/security.txt") {
+      const body = [
+        "# Security contact for crosbynews.com",
+        "Contact: mailto:security@crosbynews.com",
+        `Expires: ${new Date(Date.now() + 365 * 86400000).toISOString()}`,
+        "Preferred-Languages: en",
+        `Canonical: ${SITE}/.well-known/security.txt`,
+        "",
+      ].join("\n");
+      return new Response(body, {
+        headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "public, max-age=86400" },
       });
     }
     // Serve the favicon as a real file. Browsers and crawlers auto-request
