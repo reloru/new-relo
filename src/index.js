@@ -263,6 +263,38 @@ setTimeout(function () {
 })();
 `;
 
+// Sitewide structured data (schema.org JSON-LD): the site's identity + publisher.
+// Static, so it's built once at module load; it's a non-executable data block, so
+// CSP `script-src` doesn't apply (no hash needed). Pages can add a page-specific
+// node (e.g. AboutPage) alongside it. Kept honest — no invented schema for the
+// forecast (there's no truthful schema.org type for it) and no fake ratings/FAQ.
+const ORG_ID = SITE + "/#org";
+const WEBSITE_ID = SITE + "/#website";
+const JSONLD_SITE = `<script type="application/ld+json">${JSON.stringify({
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": ORG_ID,
+      name: "crosbynews.com",
+      alternateName: "Crosby News",
+      url: SITE + "/",
+      description: "Independent live weather and local news for Crosby, Texas.",
+      email: "contact@crosbynews.com",
+      sameAs: ["https://github.com/reloru/new-relo"],
+    },
+    {
+      "@type": "WebSite",
+      "@id": WEBSITE_ID,
+      url: SITE + "/",
+      name: "crosbynews.com",
+      description: "Live weather and local news for Crosby, Texas — fast, ad-free, no trackers.",
+      inLanguage: "en-US",
+      publisher: { "@id": ORG_ID },
+    },
+  ],
+})}</script>`;
+
 function renderHtml(data) {
   const hasAlerts = (data.alerts ?? []).length > 0;
   return `<!DOCTYPE html>
@@ -278,6 +310,7 @@ function renderHtml(data) {
 <meta property="og:description" content="Live forecast and active alerts for Crosby, Texas.">
 <meta property="og:type" content="website">
 <link rel="canonical" href="${SITE}/">
+${JSONLD_SITE}
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="alternate icon" href="/favicon.ico">
 <style>${BASE_CSS}
@@ -528,6 +561,19 @@ const ABOUT = {
   ],
 };
 
+// AboutPage node for /about, linked to the sitewide WebSite/Organization by @id.
+const JSONLD_ABOUT = `<script type="application/ld+json">${JSON.stringify({
+  "@context": "https://schema.org",
+  "@type": "AboutPage",
+  "@id": SITE + "/about#webpage",
+  url: SITE + "/about",
+  name: ABOUT.title,
+  description: ABOUT.description,
+  inLanguage: "en-US",
+  isPartOf: { "@id": WEBSITE_ID },
+  about: { "@id": ORG_ID },
+})}</script>`;
+
 function aboutHtml() {
   const body = ABOUT.sections
     .map((s) => {
@@ -556,6 +602,8 @@ function aboutHtml() {
 <meta property="og:description" content="${esc(ABOUT.description)}">
 <meta property="og:type" content="website">
 <link rel="canonical" href="${SITE}/about">
+${JSONLD_SITE}
+${JSONLD_ABOUT}
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="alternate icon" href="/favicon.ico">
 <style>${BASE_CSS}
@@ -614,6 +662,7 @@ function radarHtml() {
 <meta property="og:description" content="${esc(desc)}">
 <meta property="og:type" content="website">
 <link rel="canonical" href="${SITE}/radar">
+${JSONLD_SITE}
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="alternate icon" href="/favicon.ico">
 <style>${BASE_CSS}
@@ -714,6 +763,7 @@ ${rows}
 <meta property="og:description" content="Hour-by-hour forecast for Crosby, Texas from the National Weather Service.">
 <meta property="og:type" content="website">
 <link rel="canonical" href="${SITE}/hourly">
+${JSONLD_SITE}
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="alternate icon" href="/favicon.ico">
 <style>${BASE_CSS}
@@ -832,6 +882,7 @@ function alertsHtml(data) {
 <meta property="og:description" content="Active NWS alerts for Crosby, Texas and a plain-language severe-weather guide.">
 <meta property="og:type" content="website">
 <link rel="canonical" href="${SITE}/alerts">
+${JSONLD_SITE}
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="alternate icon" href="/favicon.ico">
 <style>${BASE_CSS}
@@ -966,6 +1017,7 @@ function newsHtml(data) {
 <meta property="og:description" content="Recent local news headlines for Crosby, Texas.">
 <meta property="og:type" content="website">
 <link rel="canonical" href="${SITE}/news">
+${JSONLD_SITE}
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="alternate icon" href="/favicon.ico">
 <style>${BASE_CSS}
