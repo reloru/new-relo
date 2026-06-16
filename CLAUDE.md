@@ -86,6 +86,12 @@ directory name becomes the `/command`. Current skills:
   and falls back to a live fetch + warm on a cold cache.
 - Styling: an inline `<style>` block in the rendered HTML — no build step,
   no static assets.
+- SEO/structured data: every HTML page emits schema.org JSON-LD — `JSONLD_SITE`
+  (a `WebSite` + `Organization` `@graph`) sitewide, and `/about` adds an
+  `AboutPage` node (`JSONLD_ABOUT`) linked by `@id`. It's a
+  `<script type="application/ld+json">` data block (not executable), so CSP
+  needs no hash for it. Kept deliberately honest — no schema for the forecast
+  (no truthful type exists) and no fake ratings/FAQ.
 
 ## Routes (agent-readiness)
 - `/` — the weather page. Content-negotiated: `Accept: text/markdown` (or
