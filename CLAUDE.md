@@ -98,14 +98,49 @@ directory name becomes the `/command`. Current skills:
   `og:image` — that would need a committed binary, which the "no static assets"
   rule forbids; cards still render title + description + site name.
 
+## Languages (English + Mexican Spanish)
+- The site is bilingual: English at the root paths and Mexican Spanish (`es-MX`)
+  under an **`/es` prefix** (`/es`, `/es/hourly`, `/es/radar`, `/es/alerts`,
+  `/es/news`, `/es/about`). Same six content pages, same markdown negotiation.
+- **One set of render functions serves both languages** (no duplicated pages, so
+  they can't drift). Each `*Html`/`*Markdown` takes a `lang` arg; the i18n block
+  near the top of `src/index.js` holds the machinery: `T(lang,en,es)` for inline
+  UI strings (English literals stay in place), parallel content objects for prose
+  (`ABOUT_ES`, `ALERT_GUIDE_ES`), and locale-aware date helpers (`fmt`/`fullTime`/…
+  take an optional `lang`, defaulting to English so every existing call site is
+  unchanged).
+- **Live NWS text is handled deterministically — never machine-translated.**
+  Short conditions (`shortForecast`) go through the hand-written `ES_SHORT`
+  dictionary (compound "X then Y" values are split on " then " and each segment
+  looked up; unmapped phrases fall back to English). Period names (`ES_PERIOD`/
+  `ES_WEEKDAY`), wind ("to"→"a", `ES_DIR` W→O), and AM/PM/weekday formatting are
+  localized too. The free-form `detailedForecast` paragraphs and **all alert
+  text stay in NWS's official English** (a short on-page note, `ES_NWS_NOTE`,
+  says so). Rationale: NWS exposes no Spanish forecast/alert API, and its
+  experimental auto-translation was paused in 2025 — English is the only
+  authoritative source, and mistranslating a warning is unsafe.
+- Routing: `_fetch` maps an `/es` request to its English path + `lang="es"`
+  (`page = path.slice(3)`), then the shared content-page handlers render either
+  language. Non-page routes (API, MCP, assets, `.well-known`) are English-only
+  and never carry an `/es` prefix; the JSON API and MCP server are intentionally
+  English-only too.
+- SEO wiring: every page emits reciprocal `hreflang` link tags (`en-US`,
+  `es-MX`, `x-default`→English) via `hreflangTags()`; `<html lang>`, `<title>`,
+  description, OG, and `<link rel=canonical>` are all per-language
+  (`canonicalFor()`); the sitemap lists both languages with `xhtml:link`
+  alternates; and the topbar carries a no-redirect language toggle. `/` pairs
+  with `/es` (not `/es/`).
+
 ## Routes (agent-readiness)
 - `/` — the weather page. Content-negotiated: `Accept: text/markdown` (or
   `?format=md`) returns a markdown rendering; browsers get HTML. `Vary: Accept`.
   The homepage `Link` header advertises the markdown alternate, sitemap,
-  api-catalog, and OpenAPI service-desc. All six content pages (`/`, `/hourly`,
-  `/radar`, `/alerts`, `/news`, `/about`) also emit an HTTP `Link: rel="canonical"`
-  header — added centrally in the `fetch` wrapper via `PAGE_PATHS` — so the
-  `?format=md` variants and the http→https pair consolidate onto one URL.
+  api-catalog, and OpenAPI service-desc. All twelve content pages (the six
+  English routes `/`, `/hourly`, `/radar`, `/alerts`, `/news`, `/about` and their
+  `/es` Spanish counterparts) also emit an HTTP `Link: rel="canonical"` header —
+  added centrally in the `fetch` wrapper via `PAGE_PATHS` — so the `?format=md`
+  variants and the http→https pair consolidate onto one URL. (See the Languages
+  section for the `/es` bilingual setup.)
 - `/hourly` — full multi-day hourly forecast table, grouped by day. Reuses the
   cached NWS hourly data. `fetchWeather()` keeps 48 hourly periods; the homepage
   strip, the homepage markdown, and `/api/weather` each `.slice(0, 12)` so only
@@ -127,7 +162,9 @@ directory name becomes the `/command`. Current skills:
 - `/robots.txt` — RFC 9309 rules, explicit AI-crawler allows, and a `Sitemap:`
   reference. Open by default (public NWS data). (No `Content-Signal` line — it
   confused some crawlers when present, so it's intentionally omitted.)
-- `/sitemap.xml` — lists `/`, `/hourly`, `/radar`, `/alerts`, `/news`, `/about`.
+- `/sitemap.xml` — lists `/`, `/hourly`, `/radar`, `/alerts`, `/news`, `/about`
+  in both languages (each English route plus its `/es` counterpart), every `<url>`
+  carrying `xhtml:link` hreflang alternates (`en-US`, `es-MX`, `x-default`).
 - `/llms.txt` — plain-language site summary for LLMs (llmstxt.org).
 - `/.well-known/security.txt` — RFC 9116 security contact
   (`security@crosbynews.com`). `Expires` is computed ~1 year out at request time,
