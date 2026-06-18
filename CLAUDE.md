@@ -19,8 +19,8 @@ directory name becomes the `/command`. Current skills:
   below (never `wrangler login`; the binding-permission gotcha; manual deploy
   ships the working tree, not git).
 - `/kv` — inspect/edit the production `WEATHER` KV namespace, always with
-  `--remote` (the KV gotcha below). Knows `weather` (cron-owned) vs `news`
-  (routine-owned); read commands are pre-authorized, put/delete are not.
+  `--remote` (the KV gotcha below). Knows `weather` + `calendar` (cron-owned) vs
+  `news` (routine-owned); read commands are pre-authorized, put/delete are not.
 
 ## Deploy
 - Deploy with `npx wrangler deploy`. Never run `wrangler login` — auth comes
@@ -83,7 +83,10 @@ directory name becomes the `/command`. Current skills:
   every request — we send "crosbynews.com".
 - Caching: the cron (`*/15 * * * *`) writes the forecast + active alerts to the
   WEATHER KV namespace under key "weather" as JSON. `fetch()` serves that cache
-  and falls back to a live fetch + warm on a cold cache.
+  and falls back to a live fetch + warm on a cold cache. The same cron also
+  refreshes the `calendar` key (Crosby ISD iCal, throttled to ~6h); `fetch()`
+  cold-warms it too. (The third key, `news`, is written out-of-band — see the
+  News pipeline.)
 - Styling: an inline `<style>` block in the rendered HTML — no build step,
   no static assets.
 - SEO/structured data: every HTML page emits schema.org JSON-LD — `JSONLD_SITE`
@@ -135,9 +138,10 @@ directory name becomes the `/command`. Current skills:
 - `/` — the weather page. Content-negotiated: `Accept: text/markdown` (or
   `?format=md`) returns a markdown rendering; browsers get HTML. `Vary: Accept`.
   The homepage `Link` header advertises the markdown alternate, sitemap,
-  api-catalog, and OpenAPI service-desc. All twelve content pages (the six
-  English routes `/`, `/hourly`, `/radar`, `/alerts`, `/news`, `/about` and their
-  `/es` Spanish counterparts) also emit an HTTP `Link: rel="canonical"` header —
+  api-catalog, and OpenAPI service-desc. All fourteen content pages (the seven
+  English routes `/`, `/hourly`, `/radar`, `/alerts`, `/news`, `/calendar`,
+  `/about` and their `/es` Spanish counterparts) also emit an HTTP
+  `Link: rel="canonical"` header —
   added centrally in the `fetch` wrapper via `PAGE_PATHS` — so the `?format=md`
   variants and the http→https pair consolidate onto one URL. (See the Languages
   section for the `/es` bilingual setup.)
@@ -159,12 +163,26 @@ directory name becomes the `/command`. Current skills:
   it serves the WEATHER KV `news` key (read-only via `loadNews()`). That key is
   written out-of-band by `scripts/fetch-news.mjs` (see "News pipeline"), NOT by
   the Worker — Google News blocks Cloudflare Worker IPs. Markdown-negotiated.
+- `/calendar` — Crosby ISD school calendar. Renders the district's public iCal
+  feed (the combined "All Calendars" feed, `feedID=BB92BE3D…`, which is the union
+  of every campus) as upcoming events grouped by month, plus one-tap subscribe
+  links (`webcal://`, Google Calendar, `.ics`) for the whole district, the
+  District academic calendar (`calendar_350.ics`), and each campus. Unlike news,
+  the Worker CAN reach crosbyisd.org, so this uses the **cron + KV pattern**: the
+  cron refreshes the `calendar` KV key (cron-owned, throttled to ~6h since it
+  changes rarely), and `loadCalendar()` self-heals on a cold cache. A tiny
+  hand-rolled `parseIcs()` (no dependency; the feed has no RRULE) reads it.
+  Emits honest `Event` JSON-LD (a real schema.org type, unlike the forecast).
+  Event titles stay in the district's official English (small `ES_EVENT` dict +
+  English fallback, same policy as NWS text). Markdown-negotiated. The label in
+  the nav is "School Calendar" / "Calendario escolar".
 - `/robots.txt` — RFC 9309 rules, explicit AI-crawler allows, and a `Sitemap:`
   reference. Open by default (public NWS data). (No `Content-Signal` line — it
   confused some crawlers when present, so it's intentionally omitted.)
-- `/sitemap.xml` — lists `/`, `/hourly`, `/radar`, `/alerts`, `/news`, `/about`
-  in both languages (each English route plus its `/es` counterpart), every `<url>`
-  carrying `xhtml:link` hreflang alternates (`en-US`, `es-MX`, `x-default`).
+- `/sitemap.xml` — lists `/`, `/hourly`, `/radar`, `/alerts`, `/news`,
+  `/calendar`, `/about` in both languages (each English route plus its `/es`
+  counterpart), every `<url>` carrying `xhtml:link` hreflang alternates
+  (`en-US`, `es-MX`, `x-default`).
 - `/llms.txt` — plain-language site summary for LLMs (llmstxt.org).
 - `/.well-known/security.txt` — RFC 9116 security contact
   (`security@crosbynews.com`). `Expires` is computed ~1 year out at request time,
@@ -234,3 +252,6 @@ directory name becomes the `/command`. Current skills:
 - `wrangler kv key get/put/list` default to *local* (miniflare) state. To read
   or write the real production namespace, pass `--remote`. (A get without it can
   say "Value not found" even when the deployed Worker is reading the key fine.)
+- The WEATHER namespace holds three keys: `weather` and `calendar` (both
+  cron-owned — the Worker refreshes them) and `news` (routine-owned — written
+  out-of-band, the Worker only reads it).
