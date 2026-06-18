@@ -1,7 +1,7 @@
 ---
 name: kv
-description: Inspect and (carefully) edit the production WEATHER KV namespace — the cache behind crosbynews.com. Always uses `--remote` so it reads real production state, not local miniflare. Knows the two keys, `weather` (cron-owned) and `news` (routine-owned). Use to check cache freshness or debug /news and the weather pages.
-argument-hint: "[list | get <key> | put <key> <json> | delete <key>]  (key = weather | news)"
+description: Inspect and (carefully) edit the production WEATHER KV namespace — the cache behind crosbynews.com. Always uses `--remote` so it reads real production state, not local miniflare. Knows the three keys, `weather` + `calendar` (cron-owned) and `news` (routine-owned). Use to check cache freshness or debug /news, /calendar, and the weather pages.
+argument-hint: "[list | get <key> | put <key> <json> | delete <key>]  (key = weather | calendar | news)"
 allowed-tools: Bash(npx wrangler kv key list *), Bash(npx wrangler kv key get *)
 ---
 
@@ -16,13 +16,18 @@ resolves `--binding WEATHER` from `wrangler.jsonc` (namespace id
 a `get` reports "Value not found" even though production has the key. Every
 command below passes `--remote` — keep it.
 
-## The two keys (different owners, different risk)
+## The three keys (different owners, different risk)
 - **`weather`** — NWS forecast + active alerts, shape
   `{ updated, place, periods, hourly, alerts }` (`hourly` is the array
   `loadWeather()` checks to decide the cache is fresh). Written by the cron
   (`*/15 * * * *`) and warmed by `loadWeather()` on a cold cache. Inspecting is
   safe; a bad or deleted value self-heals within 15 min (or on the next
   request). Low risk.
+- **`calendar`** — Crosby ISD school calendar, shape
+  `{ updated, events: [{ summary, location, start, allDay, end }] }` (`events`
+  is the array `loadCalendar()` checks for freshness). Written by the same cron
+  (throttled to ~6h) and warmed by `loadCalendar()` on a cold cache. Like
+  `weather`, a bad/deleted value self-heals on the next cron or request. Low risk.
 - **`news`** — local news, shape `{ updated, items: [...], source }`. Written
   ONLY out-of-band by `scripts/fetch-news.mjs` (a Claude routine); the Worker
   just renders it. **Overwriting or deleting `news` loses the snapshot until the
@@ -39,8 +44,9 @@ skills are available" banner to *stdout* that otherwise corrupts a JSON pipe;
 value is large (~48 hourly periods), so pipe through a formatter (`python3 -m
 json.tool`, or `head -c 800` if `python3` is unavailable):
 ```bash
-CI=1 npx wrangler kv key get weather --binding WEATHER --remote | python3 -m json.tool | head -40
-CI=1 npx wrangler kv key get news    --binding WEATHER --remote | python3 -m json.tool | head -40
+CI=1 npx wrangler kv key get weather  --binding WEATHER --remote | python3 -m json.tool | head -40
+CI=1 npx wrangler kv key get calendar --binding WEATHER --remote | python3 -m json.tool | head -40
+CI=1 npx wrangler kv key get news     --binding WEATHER --remote | python3 -m json.tool | head -40
 ```
 For freshness, read the `updated` field rather than eyeballing the blob.
 
@@ -54,9 +60,10 @@ until the routine reruns.
 npx wrangler kv key put    <key> '<json>' --binding WEATHER --remote
 npx wrangler kv key delete <key>          --binding WEATHER --remote
 ```
-- Deleting `weather` is recoverable (next request/cron re-warms it).
+- Deleting `weather` or `calendar` is recoverable (next request/cron re-warms it).
 - To repopulate `news` properly, re-run the pipeline instead of hand-writing it:
   `CLOUDFLARE_API_TOKEN=... CLOUDFLARE_ACCOUNT_ID=... node scripts/fetch-news.mjs`.
 
 ## Default (no args)
-List the keys, then report the `updated` / freshness of both `weather` and `news`.
+List the keys, then report the `updated` / freshness of `weather`, `calendar`,
+and `news`.
