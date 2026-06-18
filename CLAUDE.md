@@ -92,6 +92,11 @@ directory name becomes the `/command`. Current skills:
   `<script type="application/ld+json">` data block (not executable), so CSP
   needs no hash for it. Kept deliberately honest — no schema for the forecast
   (no truthful type exists) and no fake ratings/FAQ.
+- Link previews: every HTML page emits Open Graph tags (`og:title`,
+  `og:description`, `og:type`) plus per-page `og:url` and the shared
+  `OG_COMMON` (`og:site_name` "Crosby News", `twitter:card` "summary"). No
+  `og:image` — that would need a committed binary, which the "no static assets"
+  rule forbids; cards still render title + description + site name.
 
 ## Routes (agent-readiness)
 - `/` — the weather page. Content-negotiated: `Accept: text/markdown` (or

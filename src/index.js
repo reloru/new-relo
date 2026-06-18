@@ -295,6 +295,13 @@ const JSONLD_SITE = `<script type="application/ld+json">${JSON.stringify({
   ],
 })}</script>`;
 
+// Invariant Open Graph / Twitter tags every page repeats. og:url is per-page
+// (it mirrors <link rel="canonical">). No og:image — that would need a binary
+// asset, which the "no static assets" rule forbids; cards still render the
+// title, description, and site name.
+const OG_COMMON = `<meta property="og:site_name" content="Crosby News">
+<meta name="twitter:card" content="summary">`;
+
 function renderHtml(data) {
   const hasAlerts = (data.alerts ?? []).length > 0;
   return `<!DOCTYPE html>
@@ -309,6 +316,8 @@ function renderHtml(data) {
 <meta property="og:title" content="Crosby, TX Weather">
 <meta property="og:description" content="Live forecast and active alerts for Crosby, Texas.">
 <meta property="og:type" content="website">
+<meta property="og:url" content="${SITE}/">
+${OG_COMMON}
 <link rel="canonical" href="${SITE}/">
 ${JSONLD_SITE}
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
@@ -601,6 +610,8 @@ function aboutHtml() {
 <meta property="og:title" content="${esc(ABOUT.title)}">
 <meta property="og:description" content="${esc(ABOUT.description)}">
 <meta property="og:type" content="website">
+<meta property="og:url" content="${SITE}/about">
+${OG_COMMON}
 <link rel="canonical" href="${SITE}/about">
 ${JSONLD_SITE}
 ${JSONLD_ABOUT}
@@ -661,6 +672,8 @@ function radarHtml() {
 <meta property="og:title" content="${esc(title)}">
 <meta property="og:description" content="${esc(desc)}">
 <meta property="og:type" content="website">
+<meta property="og:url" content="${SITE}/radar">
+${OG_COMMON}
 <link rel="canonical" href="${SITE}/radar">
 ${JSONLD_SITE}
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
@@ -762,6 +775,8 @@ ${rows}
 <meta property="og:title" content="Crosby, TX Hourly Forecast">
 <meta property="og:description" content="Hour-by-hour forecast for Crosby, Texas from the National Weather Service.">
 <meta property="og:type" content="website">
+<meta property="og:url" content="${SITE}/hourly">
+${OG_COMMON}
 <link rel="canonical" href="${SITE}/hourly">
 ${JSONLD_SITE}
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
@@ -881,6 +896,8 @@ function alertsHtml(data) {
 <meta property="og:title" content="Crosby, TX Weather Alerts">
 <meta property="og:description" content="Active NWS alerts for Crosby, Texas and a plain-language severe-weather guide.">
 <meta property="og:type" content="website">
+<meta property="og:url" content="${SITE}/alerts">
+${OG_COMMON}
 <link rel="canonical" href="${SITE}/alerts">
 ${JSONLD_SITE}
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
@@ -1016,6 +1033,8 @@ function newsHtml(data) {
 <meta property="og:title" content="Crosby, TX News">
 <meta property="og:description" content="Recent local news headlines for Crosby, Texas.">
 <meta property="og:type" content="website">
+<meta property="og:url" content="${SITE}/news">
+${OG_COMMON}
 <link rel="canonical" href="${SITE}/news">
 ${JSONLD_SITE}
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
