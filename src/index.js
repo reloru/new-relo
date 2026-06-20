@@ -708,6 +708,13 @@ const ABOUT = {
       ],
     },
     {
+      h: "Privacy",
+      p: [
+        "No cookies, no ads, no trackers, no personal data. crosbynews.com doesn't set cookies, show ads, or run third-party tracking or advertising networks, and it never asks for or collects personal information about you.",
+        "Page visits are counted anonymously and in aggregate — without cookies, without fingerprinting, and without anything that identifies you or follows you across other sites.",
+      ],
+    },
+    {
       h: "Contact",
       p: ["Questions, corrections, or a local news tip? Email us:"],
       links: [
@@ -769,6 +776,13 @@ const ABOUT_ES = {
         { href: "/.well-known/mcp/server-card.json", label: "Tarjeta del servidor MCP", note: "metadatos de descubrimiento" },
         { href: "/llms.txt", label: "/llms.txt", note: "resumen del sitio en lenguaje sencillo para LLM (llmstxt.org)" },
         { href: "/es?format=md", label: "Este sitio en Markdown", note: "la página del tiempo, en español para agentes" },
+      ],
+    },
+    {
+      h: "Privacidad",
+      p: [
+        "Sin cookies, sin anuncios, sin rastreadores, sin datos personales. crosbynews.com no usa cookies, no muestra anuncios ni ejecuta redes de rastreo o publicidad de terceros, y nunca pide ni recopila información personal sobre ti.",
+        "Las visitas se cuentan de forma anónima y agregada, sin cookies, sin huellas digitales (fingerprinting) y sin nada que te identifique o te siga por otros sitios.",
       ],
     },
     {
