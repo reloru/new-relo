@@ -221,13 +221,24 @@ directory name becomes the `/command`. Current skills:
 - The script holds all the filtering logic (relevance gate `areaTier`: core
   Crosby incl. Barrett Station vs. nearby towns w/ TX context; `REJECT` for
   famous "Crosby" people / other-state Crosbys; real-estate + obituary drops;
-  `CRIME_WORDS`/`CRIME_STEMS` for down-ranking (word-boundary matched, so e.g.
-  "dead" doesn't tag "deadline"); 45-day freshness; aggressive fuzzy de-dup
-  (Jaccard > 0.4). Tone knobs: the incident cap (`incidents.slice(0, 3)`) and the
-  `CRIME_WORDS`/`CRIME_STEMS` lists.
+  `AFTERMATH` drops grief/aftermath follow-ups (vigil / "family mourns" rewrites)
+  so one death doesn't spawn a string of them; `CRIME_WORDS`/`CRIME_STEMS` for
+  down-ranking (word-boundary matched, so e.g. "dead" doesn't tag "deadline");
+  45-day freshness; `stalePastEvent()` drops "upcoming event" announcements whose
+  date has passed (only when an explicit month-name date parses AND
+  `pubDate < eventDate < now` AND an event/scheduling cue is present — so crime
+  reports citing a past date, next-year announcements, retrospectives, and policy
+  stories that merely mention a date are all spared); aggressive fuzzy de-dup
+  (Jaccard > 0.35). Incidents are capped at 2 AND limited to one per crime
+  "family" (`crimeFamily()`: violence > vehicle > hazard > other), so the page
+  shows a couple of DISTINCT events and one case's many reworded headlines
+  collapse to a single slot — `/news` leans community, not crime-blotter. Tone
+  knobs: the incident cap (`incidents.length >= 2`), the `crimeFamily()` buckets,
+  and the `CRIME_WORDS`/`CRIME_STEMS`/`AFTERMATH` lists.
 - Run manually: `CLOUDFLARE_API_TOKEN=... CLOUDFLARE_ACCOUNT_ID=... node
-  scripts/fetch-news.mjs`. The routine just needs Bash (to run node) — NOT git
-  write. If the routine stops, items age out at 45 days and `/news` shows an
+  scripts/fetch-news.mjs` (add `DRY_RUN=1` to print the would-be payload without
+  writing KV — handy for testing the filters against live Google News). The
+  routine just needs Bash (to run node) — NOT git write. If the routine stops, items age out at 45 days and `/news` shows an
   honest "no recent news" (never errors). If a run hits a total upstream failure
   (every Google query empty), it aborts WITHOUT writing, so a transient block
   can't wipe the last good snapshot.
