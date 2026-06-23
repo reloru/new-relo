@@ -259,6 +259,28 @@ directory name becomes the `/command`. Current skills:
 - Intentionally skipped: OAuth/OIDC, oauth-protected-resource, and auth.md —
   the site has no protected APIs to authenticate against.
 
+## Email auth (SPF/DKIM/DMARC — lives in Cloudflare DNS, not the Worker)
+- The domain receives mail via **iCloud Custom Email Domain** (the published
+  `contact@` and `security@crosbynews.com` addresses). The MX records
+  (`mx01`/`mx02.mail.icloud.com`), SPF (`v=spf1 include:icloud.com ~all`), and
+  DKIM (`sig1._domainkey` CNAME → iCloud, key published) are all **iCloud-managed**
+  — created by Apple's domain-setup flow, not this repo. The Worker sends no email.
+- **DMARC is the one record we own.** `_dmarc.crosbynews.com` publishes a policy
+  so receivers can reject mail spoofing the domain (e.g. phishing as `security@`)
+  and so aggregate reports flow back. Reproduce/update with `node scripts/dmarc.mjs`
+  (idempotent). Same Cloudflare-token rules as DNS-AID above: `Zone:DNS:Edit` to
+  write, plus `Zone:Zone:Read` to resolve the zone id by name — or set
+  `CLOUDFLARE_ZONE_ID=09de1864babbf541c26590b0fe42f25f` and a DNS:Edit-only token
+  suffices.
+- **Rollout ladder** (set via the `DMARC_POLICY` env var): currently **`p=none`**
+  (monitor — collect reports, confirm iCloud mail aligns). After ~1–2 weeks of
+  clean reports, escalate `DMARC_POLICY=quarantine node scripts/dmarc.mjs`, then
+  `=reject`. Aggregate reports (`rua`) go to `security@crosbynews.com`, so that
+  alias must be a real iCloud mailbox/catch-all or the reports are silently lost.
+- No SMTP port-blocking or Spamhaus PBL concern applies here: there's no origin
+  server/VPS sending mail (Cloudflare Worker, no public SMTP IP), and outbound
+  mail leaves from iCloud's own (non-PBL) IPs.
+
 ## KV gotcha
 - `wrangler kv key get/put/list` default to *local* (miniflare) state. To read
   or write the real production namespace, pass `--remote`. (A get without it can
