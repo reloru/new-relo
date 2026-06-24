@@ -572,6 +572,12 @@ Every page supports \`Accept: text/markdown\` (or \`?format=md\`) for a clean ma
 ## Data policy
 
 Source data is U.S. government public domain (NWS). No authentication required. No rate limits. Attribution: "U.S. National Weather Service".
+
+## Optional
+
+- [Sitemap](${SITE}/sitemap.xml): All pages in both languages, with hreflang alternates.
+- [API catalog](${SITE}/.well-known/api-catalog): Machine-readable index of the API endpoints (RFC 9727 linkset).
+- [Security contact](${SITE}/.well-known/security.txt): How to report a security issue (RFC 9116).
 `;
 }
 
@@ -606,6 +612,12 @@ Allow: /
 User-agent: Claude-User
 Allow: /
 
+User-agent: Claude-SearchBot
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
 User-agent: Google-Extended
 Allow: /
 
@@ -613,6 +625,9 @@ User-agent: PerplexityBot
 Allow: /
 
 User-agent: CCBot
+Allow: /
+
+User-agent: cohere-ai
 Allow: /
 
 Sitemap: ${SITE}/sitemap.xml
@@ -2189,7 +2204,7 @@ async function _fetch(request, env, ctx) {
     }
     if (path === "/llms.txt") {
       return new Response(llmsTxt(), {
-        headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "public, max-age=3600" },
+        headers: { "content-type": "text/markdown; charset=utf-8", "cache-control": "public, max-age=3600" },
       });
     }
     if (path === "/sitemap.xml") {

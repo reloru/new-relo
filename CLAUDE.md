@@ -183,7 +183,10 @@ directory name becomes the `/command`. Current skills:
   `/calendar`, `/about` in both languages (each English route plus its `/es`
   counterpart), every `<url>` carrying `xhtml:link` hreflang alternates
   (`en-US`, `es-MX`, `x-default`).
-- `/llms.txt` — plain-language site summary for LLMs (llmstxt.org).
+- `/llms.txt` — plain-language site summary for LLMs (llmstxt.org). Served as
+  `text/markdown` (the body is markdown, same as the site's `?format=md` views),
+  and carries the spec's `## Optional` section (skippable discovery links:
+  sitemap, api-catalog, security.txt).
 - `/.well-known/security.txt` — RFC 9116 security contact
   (`security@crosbynews.com`). `Expires` is computed ~1 year out at request time,
   so the file can't go stale.
