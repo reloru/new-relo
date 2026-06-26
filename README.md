@@ -18,8 +18,13 @@ with no framework and no runtime dependencies.
   plain-language severe-weather guide.
 - **[News](https://crosbynews.com/news)** — local headlines for Crosby and
   nearby communities.
+- **[School Calendar](https://crosbynews.com/calendar)** — Crosby ISD calendar
+  (holidays, early-release, testing, athletics) with one-tap subscribe links.
 - **[About](https://crosbynews.com/about)** — what the site is and where the
   data comes from.
+
+Every page is also available in **Mexican Spanish (es-MX)** under an `/es`
+prefix — e.g. [`/es`](https://crosbynews.com/es), `/es/hourly`, `/es/alerts`.
 
 ## Built for agents, too
 
