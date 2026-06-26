@@ -249,6 +249,28 @@ directory name becomes the `/command`. Current skills:
   honest "no recent news" (never errors). If a run hits a total upstream failure
   (every Google query empty), it aborts WITHOUT writing, so a transient block
   can't wipe the last good snapshot.
+- Fire on demand (no laptop needed): the routine has an **API trigger**, so a
+  `POST` to its fire endpoint starts a run immediately (handy to apply a filter
+  change now instead of waiting for the daily schedule). The per-routine token +
+  URL live in the cloud-environment env vars `ROUTINE_FIRE_TOKEN` (secret,
+  `sk-ant-oat01-…`) and `ROUTINE_FIRE_URL`
+  (`https://api.anthropic.com/v1/claude_code/routines/trig_<id>/fire`). The
+  request MUST send `Authorization: Bearer $ROUTINE_FIRE_TOKEN` (NOT `x-api-key`)
+  AND `anthropic-beta: experimental-cc-routine-2026-04-01` (omitting the beta
+  header 400s):
+
+      curl -X POST "$ROUTINE_FIRE_URL" \
+        -H "Authorization: Bearer $ROUTINE_FIRE_TOKEN" \
+        -H "anthropic-version: 2023-06-01" \
+        -H "anthropic-beta: experimental-cc-routine-2026-04-01" \
+        -H "Content-Type: application/json" -d '{"text":"manual news refresh"}'
+
+  It returns a `claude_code_session_url` and the run rewrites the `news` KV key a
+  few minutes later (the routine is NOT IP-blocked, unlike the Worker). The real
+  fire URL (with the `trig_` id) is intentionally kept in the env var, not
+  committed here, since this repo is public; the token is generated/rotated in
+  the routine's API-trigger settings at claude.ai/code/routines (shown once —
+  regenerating revokes the old token).
 
 ## DNS-AID (lives in Cloudflare DNS, not the Worker)
 - Published as SVCB records `_index._agents.crosbynews.com` (org-level entry
