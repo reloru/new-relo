@@ -333,10 +333,16 @@ const BASE_CSS = `
   .nav-menu { display:contents; }
   .nav-menu summary { display:none; }
   .nav-links { display:contents; }
+  /* Desktop: show the nav links inline. Modern Chromium hides closed-<details>
+     content via ::details-content { content-visibility:hidden }, which
+     display:contents does NOT override — without this the desktop nav vanishes. */
+  .nav-menu::details-content { content-visibility: visible; }
   @media (max-width:600px) {
-    .topbar { gap:0.35rem 0.75rem; padding:0.55rem 0.85rem; }
-    .topbar .brand { font-size:0.88rem; }
-    .topbar nav { gap:0.4rem 0.85rem; font-size:0.86rem; }
+    .topbar { gap:0.35rem 0.6rem; padding:0.55rem 0.85rem; flex-wrap:nowrap; }
+    .topbar .brand { font-size:0.88rem; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .topbar nav { gap:0.4rem 0.6rem; font-size:0.86rem; flex:0 0 auto; flex-wrap:nowrap; }
+    .topbar nav .lang { order:1; }
+    .topbar nav .nav-menu { order:2; }
     .nav-menu { display:block; position:relative; }
     .nav-menu summary { display:inline-block; cursor:pointer; list-style:none; font-size:1.3rem; line-height:1; opacity:0.9; color:#fff; padding:0; }
     .nav-menu summary::-webkit-details-marker { display:none; }
