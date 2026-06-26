@@ -44,8 +44,21 @@ const NEAR_CONTEXT = ["texas", " tx ", "harris county", "chambers county", "libe
 const REJECT = [
   "crosby, minnesota", "crosby, mn", "crosby, north dakota", "crosby, liverpool", "crosby, merseyside",
   "david crosby", "sidney crosby", "bing crosby", "norm crosby", "maxx crosby", "crosby stills",
-  "jeff crosby", "crosby, england", "crosby county", "crosbyton",
+  "jeff crosby", "crosby county",
 ];
+// Other-place "Crosby" disambiguation, matched on WORD boundaries (not substrings)
+// so a short token like "uk" can't fire on "truck"/"Duke"/"Luke". Three distinct
+// places bleed into the feed and must be excluded:
+//   - Crosby, MERSEYSIDE (England) — a town near Liverpool/Waterloo/Sefton;
+//   - Crosby HIGH SCHOOL in WATERBURY, Connecticut (matches REQUIRE "crosby high");
+//   - CROSBYTON, Texas — a different TX town that contains the substring "crosby".
+// Caveat: "england" will also reject a TX story that mentions "New England"; rare
+// enough to accept given these places otherwise rank straight into the feed.
+const GEO_REJECT = [
+  "waterbury", "crosbyton", "uk", "england", "britain", "british", "liverpool",
+  "waterloo", "sefton", "merseyside", "cumbria", "lancashire",
+];
+const GEO_RE = new RegExp("\\b(?:" + GEO_REJECT.join("|") + ")\\b", "i");
 // Obituaries / funeral-home noise — dropped entirely.
 const SOFT_DROP = ["obituary", "obituaries", "funeral home", "legacy.com", "in memoriam"];
 // Grief / aftermath follow-ups to a tragedy — emotional reactions, not new
@@ -113,6 +126,7 @@ function areaTier(title, source) {
   const t = ` ${title.toLowerCase()} `;
   const blob = `${t} ${(source || "").toLowerCase()}`;
   if (REJECT.some((r) => t.includes(r))) return null;
+  if (GEO_RE.test(title)) return null; // other-place Crosbys (UK / Waterbury CT / Crosbyton)
   if (SOFT_DROP.some((d) => blob.includes(d))) return null;
   if (AFTERMATH.some((d) => t.includes(d))) return null;
   if (RE_ADDRESS.test(title) || REALTOR.some((r) => blob.includes(r))) return null;
