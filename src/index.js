@@ -885,12 +885,6 @@ const PRIVACY = {
       ],
     },
     {
-      h: "What is logged",
-      p: [
-        "Like all websites served through Cloudflare, basic request information (IP address, user-agent, URL path, and timestamp) passes through Cloudflare's edge network. These logs are retained briefly by Cloudflare for abuse prevention and network security. crosbynews.com does not store, process, or analyze these logs and has no access to individual request data.",
-      ],
-    },
-    {
       h: "Third-party data sources",
       p: [
         "The site displays data from three external sources. None of these involve sharing any user data with those sources:",
@@ -922,12 +916,6 @@ const PRIVACY_ES = {
       h: "Lo que no recopilamos",
       p: [
         "Sin cookies, sin huellas digitales (fingerprinting), sin registro, sin inicio de sesión. No hay datos personales que recopilar porque el sitio nunca los solicita. No hay scripts de analítica de terceros, redes publicitarias, widgets de redes sociales ni píxeles de seguimiento en ninguna página.",
-      ],
-    },
-    {
-      h: "Lo que se registra",
-      p: [
-        "Como todos los sitios servidos a través de Cloudflare, la información básica de cada solicitud (dirección IP, user-agent, ruta URL y marca de tiempo) pasa por la red de borde de Cloudflare. Cloudflare retiene estos registros brevemente para la prevención de abusos y la seguridad de la red. crosbynews.com no almacena, procesa ni analiza estos registros y no tiene acceso a datos de solicitudes individuales.",
       ],
     },
     {
