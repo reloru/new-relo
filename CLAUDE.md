@@ -223,7 +223,11 @@ directory name becomes the `/command`. Current skills:
   KV API. The Worker only renders that key (`loadNews()` is read-only).
 - The script holds all the filtering logic (relevance gate `areaTier`: core
   Crosby incl. Barrett Station vs. nearby towns w/ TX context; `REJECT` for
-  famous "Crosby" people / other-state Crosbys; real-estate + obituary drops;
+  famous "Crosby" people / other-state Crosbys; `GEO_REJECT` (word-boundary
+  matched, so "uk" can't fire on "truck"/"Duke") for other-place Crosbys that
+  otherwise rank straight in — Crosby in Merseyside/Liverpool/Sefton, England
+  (UK); Crosby High School in **Waterbury, CT** (matches the `crosby high`
+  relevance token); and **Crosbyton, TX**; real-estate + obituary drops;
   `AFTERMATH` drops grief/aftermath follow-ups (vigil / "family mourns" rewrites)
   so one death doesn't spawn a string of them; `CRIME_WORDS`/`CRIME_STEMS` for
   down-ranking (word-boundary matched, so e.g. "dead" doesn't tag "deadline");
