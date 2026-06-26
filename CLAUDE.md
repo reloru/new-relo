@@ -89,12 +89,19 @@ directory name becomes the `/command`. Current skills:
   News pipeline.)
 - Styling: an inline `<style>` block in the rendered HTML — no build step,
   no static assets.
+- Chrome: `topbar(current, lang)` renders the site header with nav links. On
+  screens ≤600px it collapses into a CSS-only hamburger menu (native `<details>`
+  element, no JS). `footer({ page, lang, source, data })` renders a shared
+  footer on every page: per-page source attribution, a links row (About ·
+  Privacy · Contact · Sitemap · View as Markdown), and an independent-project
+  disclaimer. Weather pages (`/`, `/hourly`, `/radar`, `/alerts`) also show an
+  alert-status + freshness line when `data` is passed.
 - SEO/structured data: every HTML page emits schema.org JSON-LD — `JSONLD_SITE`
-  (a `WebSite` + `Organization` `@graph`) sitewide, and `/about` adds an
-  `AboutPage` node (`JSONLD_ABOUT`) linked by `@id`. It's a
-  `<script type="application/ld+json">` data block (not executable), so CSP
-  needs no hash for it. Kept deliberately honest — no schema for the forecast
-  (no truthful type exists) and no fake ratings/FAQ.
+  (a `WebSite` + `Organization` `@graph`) sitewide; `/about` adds `AboutPage`,
+  `/contact` adds `ContactPage`, `/privacy` adds `WebPage`, and `/calendar`
+  adds `Event` nodes. It's a `<script type="application/ld+json">` data block
+  (not executable), so CSP needs no hash for it. Kept deliberately honest — no
+  schema for the forecast (no truthful type exists) and no fake ratings/FAQ.
 - Link previews: every HTML page emits Open Graph tags (`og:title`,
   `og:description`, `og:type`) plus per-page `og:url` and the shared
   `OG_COMMON` (`og:site_name` "Crosby News", `twitter:card` "summary"). No
@@ -104,7 +111,8 @@ directory name becomes the `/command`. Current skills:
 ## Languages (English + Mexican Spanish)
 - The site is bilingual: English at the root paths and Mexican Spanish (`es-MX`)
   under an **`/es` prefix** (`/es`, `/es/hourly`, `/es/radar`, `/es/alerts`,
-  `/es/news`, `/es/about`). Same six content pages, same markdown negotiation.
+  `/es/news`, `/es/calendar`, `/es/about`, `/es/privacy`, `/es/contact`,
+  `/es/sitemap`). Same ten content pages, same markdown negotiation.
 - **One set of render functions serves both languages** (no duplicated pages, so
   they can't drift). Each `*Html`/`*Markdown` takes a `lang` arg; the i18n block
   near the top of `src/index.js` holds the machinery: `T(lang,en,es)` for inline
@@ -176,13 +184,28 @@ directory name becomes the `/command`. Current skills:
   Event titles stay in the district's official English (small `ES_EVENT` dict +
   English fallback, same policy as NWS text). Markdown-negotiated. The label in
   the nav is "School Calendar" / "Calendario escolar".
+- `/privacy` — full privacy policy page. No cookies, no trackers, no personal
+  data — details on logging, third-party data sources, and analytics. Content
+  lives in `PRIVACY`/`PRIVACY_ES` objects; `privacyHtml()`/`privacyMarkdown()`
+  render. JSON-LD: `WebPage`. Markdown-negotiated. Not in the topbar; linked from
+  `/about` and the shared footer.
+- `/contact` — contact page with general (contact@) and security (security@)
+  email addresses. Content in `CONTACT`/`CONTACT_ES` objects;
+  `contactHtml()`/`contactMarkdown()` render. JSON-LD: `ContactPage`.
+  Markdown-negotiated. Not in the topbar; linked from `/about` and the shared
+  footer.
+- `/sitemap` — human-readable sitemap listing every page and endpoint, grouped by
+  category (Weather & Forecast, Community, About & Policies, Developers &
+  Agents). `sitemapPageHtml()`/`sitemapPageMarkdown()` render. Static, no data
+  loading. Markdown-negotiated. Not in the topbar; linked from the shared footer.
+  Distinct from `/sitemap.xml` (the machine-readable XML sitemap for crawlers).
 - `/robots.txt` — RFC 9309 rules, explicit AI-crawler allows, and a `Sitemap:`
   reference. Open by default (public NWS data). (No `Content-Signal` line — it
   confused some crawlers when present, so it's intentionally omitted.)
 - `/sitemap.xml` — lists `/`, `/hourly`, `/radar`, `/alerts`, `/news`,
-  `/calendar`, `/about` in both languages (each English route plus its `/es`
-  counterpart), every `<url>` carrying `xhtml:link` hreflang alternates
-  (`en-US`, `es-MX`, `x-default`).
+  `/calendar`, `/about`, `/privacy`, `/contact`, `/sitemap` in both languages
+  (each English route plus its `/es` counterpart), every `<url>` carrying
+  `xhtml:link` hreflang alternates (`en-US`, `es-MX`, `x-default`).
 - `/llms.txt` — plain-language site summary for LLMs (llmstxt.org). Served as
   `text/markdown` (the body is markdown, same as the site's `?format=md` views),
   and carries the spec's `## Optional` section (skippable discovery links:

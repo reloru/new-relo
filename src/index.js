@@ -330,16 +330,28 @@ const BASE_CSS = `
   .topbar nav a { opacity:0.85; white-space:nowrap; }
   .topbar nav a:hover, .topbar nav a[aria-current="page"] { opacity:1; text-decoration:underline; }
   .topbar nav a.lang { opacity:1; border:1px solid rgba(255,255,255,0.45); border-radius:6px; padding:0.02rem 0.45rem; }
-  @media (max-width:520px) {
+  .nav-menu { display:contents; }
+  .nav-menu summary { display:none; }
+  .nav-links { display:contents; }
+  @media (max-width:600px) {
     .topbar { gap:0.35rem 0.75rem; padding:0.55rem 0.85rem; }
     .topbar .brand { font-size:0.88rem; }
     .topbar nav { gap:0.4rem 0.85rem; font-size:0.86rem; }
+    .nav-menu { display:block; position:relative; }
+    .nav-menu summary { display:inline-block; cursor:pointer; list-style:none; font-size:1.3rem; line-height:1; opacity:0.9; color:#fff; padding:0; }
+    .nav-menu summary::-webkit-details-marker { display:none; }
+    .nav-links { display:none; }
+    .nav-menu[open] .nav-links { display:flex; flex-direction:column; position:absolute; right:0; top:calc(100% + 0.4rem); background:var(--blue); padding:0.6rem 1rem; border-radius:0 0 8px 8px; z-index:10; gap:0.4rem; min-width:11rem; box-shadow:0 4px 12px rgba(0,0,0,0.3); }
+    .nav-links a { opacity:0.9; white-space:nowrap; padding:0.25rem 0; }
+    .nav-links a:hover, .nav-links a[aria-current="page"] { opacity:1; text-decoration:underline; }
   }
   main { max-width:920px; margin:0 auto; padding:1rem; }
   h2 { font-size:1.1rem; margin:1.4rem 0 0.6rem; }
   .none { color:var(--muted); font-style:italic; }
   footer { max-width:920px; margin:1rem auto; padding:0 1rem 2rem; font-size:0.8rem; color:var(--muted); text-align:center; }
   footer a { color:inherit; }
+  .footer-links { display:flex; flex-wrap:wrap; justify-content:center; gap:0.3rem 0.75rem; margin-top:0.5rem; }
+  .footer-disclaimer { margin-top:0.5rem; font-size:0.75rem; }
   .nws-note { font-size:0.85rem; opacity:0.9; }
 `;
 
@@ -356,8 +368,37 @@ function topbar(current, lang = "en") {
     : `<a class="lang" hreflang="es-MX" lang="es" href="${esPath(current)}">Español</a>`;
   return `<header class="topbar">
   <a class="brand" href="${es ? "/es" : "/"}">crosbynews.com</a>
-  <nav>${link("/", t("Weather", "Clima"))} ${link("/hourly", t("Hourly", "Por hora"))} ${link("/radar", t("Radar", "Radar"))} ${link("/alerts", t("Alerts", "Alertas"))} ${link("/news", t("News", "Noticias"))} ${link("/calendar", t("School Calendar", "Calendario escolar"))} ${link("/about", t("About", "Acerca de"))} ${toggle}</nav>
+  <nav>
+    <details class="nav-menu">
+      <summary aria-label="${t("Menu", "Menú")}">&#9776;</summary>
+      <div class="nav-links">${link("/", t("Weather", "Clima"))} ${link("/hourly", t("Hourly", "Por hora"))} ${link("/radar", t("Radar", "Radar"))} ${link("/alerts", t("Alerts", "Alertas"))} ${link("/news", t("News", "Noticias"))} ${link("/calendar", t("School Calendar", "Calendario escolar"))} ${link("/about", t("About", "Acerca de"))}</div>
+    </details>
+    ${toggle}
+  </nav>
 </header>`;
+}
+
+const WEATHER_PAGES = new Set(["/", "/hourly", "/radar", "/alerts"]);
+
+function footer({ page, lang = "en", source, data }) {
+  const es = lang === "es";
+  const lk = (enHref, label) => `<a href="${es ? esPath(enHref) : enHref}">${label}</a>`;
+  const mdHref = (es ? esPath(page) : page) + "?format=md";
+
+  const weatherLine = WEATHER_PAGES.has(page) && data
+    ? `${!(data.alerts ?? []).length ? T(lang, "No active weather alerts. ", "Sin alertas meteorológicas activas. ") : ""}${source}<br>
+  ${T(lang, "Updated", "Actualizado")} ${esc(fullTime(data.updated, lang))} CT &middot; ${T(lang, "refreshes every 15 minutes.", "se actualiza cada 15 minutos.")}`
+    : source;
+
+  const links = `<div class="footer-links">${lk("/about", T(lang, "About", "Acerca de"))} &middot; ${lk("/privacy", T(lang, "Privacy", "Privacidad"))} &middot; ${lk("/contact", T(lang, "Contact", "Contacto"))} &middot; ${lk("/sitemap", T(lang, "Sitemap", "Mapa del sitio"))} &middot; <a href="${mdHref}">${T(lang, "View as Markdown", "Ver en Markdown")}</a></div>`;
+
+  const disclaimer = `<div class="footer-disclaimer">${T(lang, "crosbynews.com is an independent project and is not affiliated with the National Weather Service, NOAA, or any government agency.", "crosbynews.com es un proyecto independiente y no está afiliado al Servicio Meteorológico Nacional, la NOAA ni ninguna agencia gubernamental.")}</div>`;
+
+  return `<footer>
+  ${weatherLine}
+  ${links}
+  ${disclaimer}
+</footer>`;
 }
 
 // Homepage inline script (15-min auto-refresh + WebMCP tool registration). Kept
@@ -517,10 +558,7 @@ ${topbar("/", lang)}
   ${renderHourly((data.hourly ?? []).slice(0, 12), lang)}
   ${renderDaily(data.periods ?? [], lang)}
 </main>
-<footer>
-  ${hasAlerts ? "" : T(lang, "No active weather alerts. ", "Sin alertas meteorológicas activas. ")}${T(lang, `Data from the U.S. National Weather Service (<a href="https://weather.gov">weather.gov</a>).`, `Datos del Servicio Meteorológico Nacional de EE. UU. (<a href="https://weather.gov">weather.gov</a>).`)}<br>
-  ${T(lang, "Updated", "Actualizado")} ${esc(fullTime(data.updated, lang))} CT &middot; ${T(lang, "refreshes every 15 minutes.", "se actualiza cada 15 minutos.")} &middot; <a href="${lang === "es" ? "/es/about" : "/about"}">${T(lang, "About this site", "Acerca de este sitio")}</a>
-</footer>
+${footer({ page: "/", lang, source: T(lang, `Data from the U.S. National Weather Service (<a href="https://weather.gov">weather.gov</a>).`, `Datos del Servicio Meteorológico Nacional de EE. UU. (<a href="https://weather.gov">weather.gov</a>).`), data })}
 <script>${HOME_SCRIPT}</script>
 </body>
 </html>`;
@@ -555,6 +593,9 @@ crosbynews.com is an independent weather and news site for Crosby, TX (northeast
 - [News](${SITE}/news): Recent local headlines about Crosby, TX and nearby communities, filtered for relevance.
 - [School Calendar](${SITE}/calendar): Upcoming Crosby ISD school calendar events (first day, holidays, no-school/early-release days, testing, athletics) rendered from the district's public iCal feed, plus one-tap subscribe links.
 - [About](${SITE}/about): What this site is, where data comes from, and how to access the API and MCP server.
+- [Privacy](${SITE}/privacy): Privacy policy — no cookies, no trackers, no personal data.
+- [Contact](${SITE}/contact): How to reach us — general inquiries and security reporting.
+- [Sitemap](${SITE}/sitemap): Human-readable site map with every page and endpoint.
 
 ## Languages
 
@@ -647,6 +688,9 @@ function sitemapXml() {
     { path: "/news", changefreq: "daily", priority: "0.6" },
     { path: "/calendar", changefreq: "daily", priority: "0.6" },
     { path: "/about", changefreq: "monthly", priority: "0.5" },
+    { path: "/privacy", changefreq: "monthly", priority: "0.3" },
+    { path: "/contact", changefreq: "monthly", priority: "0.3" },
+    { path: "/sitemap", changefreq: "monthly", priority: "0.3" },
   ];
   const entry = (loc, page) => {
     const en = SITE + page.path;
@@ -728,12 +772,15 @@ const ABOUT = {
         "No cookies, no ads, no trackers, no personal data. crosbynews.com doesn't set cookies, show ads, or run third-party tracking or advertising networks, and it never asks for or collects personal information about you.",
         "Page visits are counted anonymously and in aggregate — without cookies, without fingerprinting, and without anything that identifies you or follows you across other sites.",
       ],
+      links: [{ href: "/privacy", label: "Full privacy policy", note: "details on logging, third-party sources, and analytics" }],
     },
     {
       h: "Contact",
       p: ["Questions, corrections, or a local news tip? Email us:"],
       links: [
         { href: "mailto:contact@crosbynews.com", label: "contact@crosbynews.com", note: "general questions, corrections, and news tips" },
+        { href: "mailto:security@crosbynews.com", label: "security@crosbynews.com", note: "security issues and vulnerability reports" },
+        { href: "/contact", label: "Contact page", note: "all contact information" },
       ],
     },
     {
@@ -799,18 +846,157 @@ const ABOUT_ES = {
         "Sin cookies, sin anuncios, sin rastreadores, sin datos personales. crosbynews.com no usa cookies, no muestra anuncios ni ejecuta redes de rastreo o publicidad de terceros, y nunca pide ni recopila información personal sobre ti.",
         "Las visitas se cuentan de forma anónima y agregada, sin cookies, sin huellas digitales (fingerprinting) y sin nada que te identifique o te siga por otros sitios.",
       ],
+      links: [{ href: "/es/privacy", label: "Política de privacidad completa", note: "detalles sobre registros, fuentes de terceros y analítica" }],
     },
     {
       h: "Contacto",
       p: ["¿Preguntas, correcciones o un dato de noticias local? Escríbenos:"],
       links: [
         { href: "mailto:contact@crosbynews.com", label: "contact@crosbynews.com", note: "preguntas generales, correcciones y datos de noticias" },
+        { href: "mailto:security@crosbynews.com", label: "security@crosbynews.com", note: "problemas de seguridad y reportes de vulnerabilidades" },
+        { href: "/es/contact", label: "Página de contacto", note: "toda la información de contacto" },
       ],
     },
     {
       h: "Aviso legal",
       p: [
         "crosbynews.com es un proyecto independiente y no está afiliado al Servicio Meteorológico Nacional, la NOAA ni ninguna agencia gubernamental. Para decisiones de vida o muerte durante condiciones meteorológicas severas, confía siempre en las fuentes oficiales y las autoridades locales.",
+      ],
+    },
+  ],
+};
+
+// --- Privacy page --------------------------------------------------------------
+const PRIVACY = {
+  title: "Privacy Policy",
+  description: "How crosbynews.com handles your data — no cookies, no trackers, no personal information.",
+  intro: "crosbynews.com doesn't set cookies, show ads, or run third-party tracking or advertising networks, and it never asks for or collects personal information about you.",
+  sections: [
+    {
+      h: "What we don't collect",
+      p: [
+        "No cookies, no fingerprinting, no sign-up, no login. There is no personal data to collect because the site never asks for any. There are no third-party analytics scripts, advertising networks, social-media widgets, or tracking pixels on any page.",
+      ],
+    },
+    {
+      h: "What is logged",
+      p: [
+        "Like all websites served through Cloudflare, basic request information (IP address, user-agent, URL path, and timestamp) passes through Cloudflare's edge network. These logs are retained briefly by Cloudflare for abuse prevention and network security. crosbynews.com does not store, process, or analyze these logs and has no access to individual request data.",
+      ],
+    },
+    {
+      h: "Third-party data sources",
+      p: [
+        "The site displays data from three external sources. None of these involve sharing any user data with those sources:",
+        "U.S. National Weather Service (api.weather.gov) — public-domain weather forecasts, conditions, and alerts for Crosby, TX. The Worker fetches this data server-side; your browser never contacts the NWS directly.",
+        "Google News — local news headlines are aggregated from public RSS feeds by an out-of-band process and cached. Your browser never contacts Google News directly.",
+        "Crosby ISD (crosbyisd.org) — the school district's public iCal calendar feed is fetched server-side and cached. Your browser never contacts Crosby ISD directly.",
+      ],
+    },
+    {
+      h: "Analytics",
+      p: [
+        "Page visits are counted anonymously and in aggregate — without cookies, without fingerprinting, and without anything that identifies you or follows you across other sites.",
+      ],
+    },
+    {
+      h: "Questions",
+      p: ["If you have questions about this privacy policy:"],
+      links: [{ href: "mailto:contact@crosbynews.com", label: "contact@crosbynews.com", note: "general questions" }],
+    },
+  ],
+};
+
+const PRIVACY_ES = {
+  title: "Política de privacidad",
+  description: "Cómo crosbynews.com maneja tus datos: sin cookies, sin rastreadores, sin información personal.",
+  intro: "crosbynews.com no usa cookies, no muestra anuncios ni ejecuta redes de rastreo o publicidad de terceros, y nunca pide ni recopila información personal sobre ti.",
+  sections: [
+    {
+      h: "Lo que no recopilamos",
+      p: [
+        "Sin cookies, sin huellas digitales (fingerprinting), sin registro, sin inicio de sesión. No hay datos personales que recopilar porque el sitio nunca los solicita. No hay scripts de analítica de terceros, redes publicitarias, widgets de redes sociales ni píxeles de seguimiento en ninguna página.",
+      ],
+    },
+    {
+      h: "Lo que se registra",
+      p: [
+        "Como todos los sitios servidos a través de Cloudflare, la información básica de cada solicitud (dirección IP, user-agent, ruta URL y marca de tiempo) pasa por la red de borde de Cloudflare. Cloudflare retiene estos registros brevemente para la prevención de abusos y la seguridad de la red. crosbynews.com no almacena, procesa ni analiza estos registros y no tiene acceso a datos de solicitudes individuales.",
+      ],
+    },
+    {
+      h: "Fuentes de datos de terceros",
+      p: [
+        "El sitio muestra datos de tres fuentes externas. Ninguna de ellas implica compartir datos de usuario con dichas fuentes:",
+        "Servicio Meteorológico Nacional de EE. UU. (api.weather.gov) — pronósticos, condiciones y alertas de dominio público para Crosby, TX. El Worker obtiene estos datos del lado del servidor; tu navegador nunca contacta al NWS directamente.",
+        "Google News — los titulares de noticias locales se recopilan de fuentes RSS públicas mediante un proceso externo y se almacenan en caché. Tu navegador nunca contacta a Google News directamente.",
+        "Crosby ISD (crosbyisd.org) — el calendario público iCal del distrito escolar se obtiene del lado del servidor y se almacena en caché. Tu navegador nunca contacta a Crosby ISD directamente.",
+      ],
+    },
+    {
+      h: "Analítica",
+      p: [
+        "Las visitas se cuentan de forma anónima y agregada, sin cookies, sin huellas digitales (fingerprinting) y sin nada que te identifique o te siga por otros sitios.",
+      ],
+    },
+    {
+      h: "Preguntas",
+      p: ["Si tienes preguntas sobre esta política de privacidad:"],
+      links: [{ href: "mailto:contact@crosbynews.com", label: "contact@crosbynews.com", note: "preguntas generales" }],
+    },
+  ],
+};
+
+// --- Contact page -------------------------------------------------------------
+const CONTACT = {
+  title: "Contact Us",
+  description: "How to reach crosbynews.com — general inquiries, news tips, and security reporting.",
+  intro: "crosbynews.com is an independent community weather and news project for Crosby, Texas. We welcome questions, corrections, and local news tips.",
+  sections: [
+    {
+      h: "General inquiries",
+      p: ["For questions, corrections, or a local news tip:"],
+      links: [{ href: "mailto:contact@crosbynews.com", label: "contact@crosbynews.com", note: "general questions, corrections, and news tips" }],
+    },
+    {
+      h: "Security",
+      p: ["To report a security issue or vulnerability:"],
+      links: [
+        { href: "mailto:security@crosbynews.com", label: "security@crosbynews.com", note: "security issues and vulnerability reports" },
+        { href: "/.well-known/security.txt", label: "security.txt", note: "machine-readable security contact (RFC 9116)" },
+      ],
+    },
+    {
+      h: "About this project",
+      p: [
+        "crosbynews.com is an independent project and is not affiliated with the National Weather Service, NOAA, Crosby ISD, or any government agency. Weather data comes from the U.S. National Weather Service; local news headlines are aggregated from public sources; and the school calendar is rendered from Crosby ISD's public feed.",
+      ],
+    },
+  ],
+};
+
+const CONTACT_ES = {
+  title: "Contacto",
+  description: "Cómo comunicarte con crosbynews.com — consultas generales, datos de noticias y reportes de seguridad.",
+  intro: "crosbynews.com es un proyecto comunitario independiente de clima y noticias para Crosby, Texas. Recibimos con gusto preguntas, correcciones y datos de noticias locales.",
+  sections: [
+    {
+      h: "Consultas generales",
+      p: ["Para preguntas, correcciones o un dato de noticias local:"],
+      links: [{ href: "mailto:contact@crosbynews.com", label: "contact@crosbynews.com", note: "preguntas generales, correcciones y datos de noticias" }],
+    },
+    {
+      h: "Seguridad",
+      p: ["Para reportar un problema de seguridad o vulnerabilidad:"],
+      links: [
+        { href: "mailto:security@crosbynews.com", label: "security@crosbynews.com", note: "problemas de seguridad y reportes de vulnerabilidades" },
+        { href: "/.well-known/security.txt", label: "security.txt", note: "contacto de seguridad legible por máquinas (RFC 9116)" },
+      ],
+    },
+    {
+      h: "Acerca de este proyecto",
+      p: [
+        "crosbynews.com es un proyecto independiente y no está afiliado al Servicio Meteorológico Nacional, la NOAA, Crosby ISD ni ninguna agencia gubernamental. Los datos del tiempo provienen del Servicio Meteorológico Nacional de EE. UU.; los titulares de noticias locales se recopilan de fuentes públicas; y el calendario escolar se genera a partir del feed público de Crosby ISD.",
       ],
     },
   ],
@@ -885,9 +1071,7 @@ ${topbar("/about", lang)}
   <p class="lede">${esc(A.intro)}</p>
 ${body}
 </main>
-<footer>
-  ${T(lang, `Data from the U.S. National Weather Service (<a href="https://weather.gov">weather.gov</a>).`, `Datos del Servicio Meteorológico Nacional de EE. UU. (<a href="https://weather.gov">weather.gov</a>).`)} &middot; <a href="${lang === "es" ? "/es" : "/"}">${T(lang, "Back to the forecast", "Volver al pronóstico")}</a>
-</footer>
+${footer({ page: "/about", lang, source: T(lang, `Data from the U.S. National Weather Service (<a href="https://weather.gov">weather.gov</a>).`, `Datos del Servicio Meteorológico Nacional de EE. UU. (<a href="https://weather.gov">weather.gov</a>).`) })}
 </body>
 </html>`;
 }
@@ -906,11 +1090,324 @@ function aboutMarkdown(lang) {
 }
 // --- end About page -------------------------------------------------------
 
+// --- Privacy page ---------------------------------------------------------
+
+function jsonldPrivacy(lang) {
+  const P = lang === "es" ? PRIVACY_ES : PRIVACY;
+  return `<script type="application/ld+json">${JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    "@id": canonicalFor("/privacy", lang) + "#webpage",
+    url: canonicalFor("/privacy", lang),
+    name: P.title,
+    description: P.description,
+    inLanguage: lang === "es" ? "es-MX" : "en-US",
+    isPartOf: { "@id": WEBSITE_ID },
+  })}</script>`;
+}
+
+function privacyHtml(lang) {
+  const P = lang === "es" ? PRIVACY_ES : PRIVACY;
+  const body = P.sections
+    .map((s) => {
+      const paras = (s.p || []).map((t) => `<p>${esc(t)}</p>`).join("\n      ");
+      const links = s.links
+        ? `<ul class="links">${s.links
+            .map((l) => `<li><a href="${l.href}"><code>${esc(l.label)}</code></a> &mdash; ${esc(l.note)}</li>`)
+            .join("")}</ul>`
+        : "";
+      return `      <section class="card">
+        <h2>${esc(s.h)}</h2>
+        ${paras}
+        ${links}
+      </section>`;
+    })
+    .join("\n");
+  return `<!DOCTYPE html>
+<html lang="${T(lang, "en", "es-MX")}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${esc(P.title)} &mdash; ${T(lang, "Crosby, TX Weather", "Clima de Crosby, TX")}</title>
+<meta name="description" content="${esc(P.description)}">
+<meta name="theme-color" content="#0b3d61">
+<meta property="og:title" content="${esc(P.title)}">
+<meta property="og:description" content="${esc(P.description)}">
+<meta property="og:type" content="website">
+<meta property="og:url" content="${canonicalFor("/privacy", lang)}">
+${OG_COMMON}
+<link rel="canonical" href="${canonicalFor("/privacy", lang)}">
+${hreflangTags("/privacy")}
+${JSONLD_SITE}
+${jsonldPrivacy(lang)}
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="alternate icon" href="/favicon.ico">
+<style>${BASE_CSS}
+  .card { background:var(--card); border-radius:12px; padding:0.9rem 1.1rem; margin-top:1rem; box-shadow:0 1px 3px rgba(0,0,0,0.07); }
+  .card h2 { margin:0 0 0.5rem; }
+  .card p { margin:0.5rem 0; }
+  .lede { font-size:1.05rem; color:var(--ink); }
+  .links { margin:0.5rem 0 0; padding-left:1.1rem; }
+  .links li { margin:0.3rem 0; }
+</style>
+</head>
+<body>
+${topbar("/privacy", lang)}
+<main>
+  <h1>${esc(P.title)}</h1>
+  <p class="lede">${esc(P.intro)}</p>
+${body}
+</main>
+${footer({ page: "/privacy", lang, source: T(lang, `Data from the U.S. National Weather Service (<a href="https://weather.gov">weather.gov</a>).`, `Datos del Servicio Meteorológico Nacional de EE. UU. (<a href="https://weather.gov">weather.gov</a>).`) })}
+</body>
+</html>`;
+}
+
+function privacyMarkdown(lang) {
+  const P = lang === "es" ? PRIVACY_ES : PRIVACY;
+  const out = [`# ${P.title}`, "", P.intro, ""];
+  for (const s of P.sections) {
+    out.push(`## ${s.h}`, "");
+    for (const t of s.p || []) out.push(t, "");
+    for (const l of s.links || []) out.push(`- [${l.label}](${l.href}) — ${l.note}`);
+    if (s.links) out.push("");
+  }
+  out.push("---", `[crosbynews.com](${canonicalFor("/", lang)}) · ${T(lang, "weather for Crosby, Texas", "clima para Crosby, Texas")}`);
+  return out.join("\n");
+}
+// --- end Privacy page -----------------------------------------------------
+
+// --- Contact page ---------------------------------------------------------
+
+function jsonldContact(lang) {
+  const C = lang === "es" ? CONTACT_ES : CONTACT;
+  return `<script type="application/ld+json">${JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "ContactPage",
+    "@id": canonicalFor("/contact", lang) + "#webpage",
+    url: canonicalFor("/contact", lang),
+    name: C.title,
+    description: C.description,
+    inLanguage: lang === "es" ? "es-MX" : "en-US",
+    isPartOf: { "@id": WEBSITE_ID },
+    about: { "@id": ORG_ID },
+  })}</script>`;
+}
+
+function contactHtml(lang) {
+  const C = lang === "es" ? CONTACT_ES : CONTACT;
+  const body = C.sections
+    .map((s) => {
+      const paras = (s.p || []).map((t) => `<p>${esc(t)}</p>`).join("\n      ");
+      const links = s.links
+        ? `<ul class="links">${s.links
+            .map((l) => `<li><a href="${l.href}"><code>${esc(l.label)}</code></a> &mdash; ${esc(l.note)}</li>`)
+            .join("")}</ul>`
+        : "";
+      return `      <section class="card">
+        <h2>${esc(s.h)}</h2>
+        ${paras}
+        ${links}
+      </section>`;
+    })
+    .join("\n");
+  return `<!DOCTYPE html>
+<html lang="${T(lang, "en", "es-MX")}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${esc(C.title)} &mdash; ${T(lang, "Crosby, TX Weather", "Clima de Crosby, TX")}</title>
+<meta name="description" content="${esc(C.description)}">
+<meta name="theme-color" content="#0b3d61">
+<meta property="og:title" content="${esc(C.title)}">
+<meta property="og:description" content="${esc(C.description)}">
+<meta property="og:type" content="website">
+<meta property="og:url" content="${canonicalFor("/contact", lang)}">
+${OG_COMMON}
+<link rel="canonical" href="${canonicalFor("/contact", lang)}">
+${hreflangTags("/contact")}
+${JSONLD_SITE}
+${jsonldContact(lang)}
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="alternate icon" href="/favicon.ico">
+<style>${BASE_CSS}
+  .card { background:var(--card); border-radius:12px; padding:0.9rem 1.1rem; margin-top:1rem; box-shadow:0 1px 3px rgba(0,0,0,0.07); }
+  .card h2 { margin:0 0 0.5rem; }
+  .card p { margin:0.5rem 0; }
+  .lede { font-size:1.05rem; color:var(--ink); }
+  .links { margin:0.5rem 0 0; padding-left:1.1rem; }
+  .links li { margin:0.3rem 0; }
+</style>
+</head>
+<body>
+${topbar("/contact", lang)}
+<main>
+  <h1>${esc(C.title)}</h1>
+  <p class="lede">${esc(C.intro)}</p>
+${body}
+</main>
+${footer({ page: "/contact", lang, source: T(lang, `Data from the U.S. National Weather Service (<a href="https://weather.gov">weather.gov</a>).`, `Datos del Servicio Meteorológico Nacional de EE. UU. (<a href="https://weather.gov">weather.gov</a>).`) })}
+</body>
+</html>`;
+}
+
+function contactMarkdown(lang) {
+  const C = lang === "es" ? CONTACT_ES : CONTACT;
+  const out = [`# ${C.title}`, "", C.intro, ""];
+  for (const s of C.sections) {
+    out.push(`## ${s.h}`, "");
+    for (const t of s.p || []) out.push(t, "");
+    for (const l of s.links || []) out.push(`- [${l.label}](${l.href}) — ${l.note}`);
+    if (s.links) out.push("");
+  }
+  out.push("---", `[crosbynews.com](${canonicalFor("/", lang)}) · ${T(lang, "weather for Crosby, Texas", "clima para Crosby, Texas")}`);
+  return out.join("\n");
+}
+// --- end Contact page -----------------------------------------------------
+
+// --- Sitemap page (human-readable) ----------------------------------------
+
+function sitemapPageHtml(lang) {
+  const t = (en, es) => T(lang, en, es);
+  const lk = (enHref, label, desc) => {
+    const href = lang === "es" ? esPath(enHref) : enHref;
+    return `<li><a href="${href}">${label}</a> &mdash; ${desc}</li>`;
+  };
+  const extLk = (href, label, desc) => `<li><a href="${href}">${label}</a> &mdash; ${desc}</li>`;
+
+  const title = t("Sitemap", "Mapa del sitio");
+  const description = t(
+    "Every page and endpoint on crosbynews.com, organized by category.",
+    "Todas las páginas y endpoints de crosbynews.com, organizados por categoría.",
+  );
+
+  return `<!DOCTYPE html>
+<html lang="${T(lang, "en", "es-MX")}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${esc(title)} &mdash; ${t("Crosby, TX Weather", "Clima de Crosby, TX")}</title>
+<meta name="description" content="${esc(description)}">
+<meta name="theme-color" content="#0b3d61">
+<meta property="og:title" content="${esc(title)}">
+<meta property="og:description" content="${esc(description)}">
+<meta property="og:type" content="website">
+<meta property="og:url" content="${canonicalFor("/sitemap", lang)}">
+${OG_COMMON}
+<link rel="canonical" href="${canonicalFor("/sitemap", lang)}">
+${hreflangTags("/sitemap")}
+${JSONLD_SITE}
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="alternate icon" href="/favicon.ico">
+<style>${BASE_CSS}
+  .card { background:var(--card); border-radius:12px; padding:0.9rem 1.1rem; margin-top:1rem; box-shadow:0 1px 3px rgba(0,0,0,0.07); }
+  .card h2 { margin:0 0 0.5rem; }
+  .card ul { margin:0.5rem 0; padding-left:1.3rem; }
+  .card li { margin:0.3rem 0; }
+  .lede { font-size:1.05rem; color:var(--ink); }
+</style>
+</head>
+<body>
+${topbar("/sitemap", lang)}
+<main>
+  <h1>${esc(title)}</h1>
+  <p class="lede">${esc(description)}</p>
+
+  <section class="card">
+    <h2>${t("Weather &amp; Forecast", "Clima y pronóstico")}</h2>
+    <ul>
+      ${lk("/", t("Weather", "Clima"), t("Current conditions, 12-hour hourly strip, and 7-day forecast.", "Condiciones actuales, franja horaria de 12 horas y pronóstico a 7 días."))}
+      ${lk("/hourly", t("Hourly Forecast", "Pronóstico por hora"), t("Full 48-hour hour-by-hour forecast table.", "Tabla completa de pronóstico hora por hora de 48 horas."))}
+      ${lk("/radar", t("Radar", "Radar"), t("Live NWS KHGX radar loop for the Crosby area.", "Radar en vivo del NWS KHGX para la zona de Crosby."))}
+      ${lk("/alerts", t("Alerts", "Alertas"), t("Active NWS weather alerts plus a severe-weather guide.", "Alertas meteorológicas activas del NWS más una guía de clima severo."))}
+    </ul>
+  </section>
+
+  <section class="card">
+    <h2>${t("Community", "Comunidad")}</h2>
+    <ul>
+      ${lk("/news", t("News", "Noticias"), t("Local headlines about Crosby, TX and nearby communities.", "Titulares locales sobre Crosby, TX y comunidades cercanas."))}
+      ${lk("/calendar", t("School Calendar", "Calendario escolar"), t("Upcoming Crosby ISD school calendar events.", "Próximos eventos del calendario escolar de Crosby ISD."))}
+    </ul>
+  </section>
+
+  <section class="card">
+    <h2>${t("About &amp; Policies", "Acerca de y políticas")}</h2>
+    <ul>
+      ${lk("/about", t("About", "Acerca de"), t("What this site is, data sources, API, and MCP server.", "Qué es este sitio, fuentes de datos, API y servidor MCP."))}
+      ${lk("/privacy", t("Privacy Policy", "Política de privacidad"), t("No cookies, no trackers — how we handle your data.", "Sin cookies, sin rastreadores — cómo manejamos tus datos."))}
+      ${lk("/contact", t("Contact", "Contacto"), t("How to reach us for questions, tips, and security reports.", "Cómo comunicarte con nosotros para preguntas, datos y reportes de seguridad."))}
+    </ul>
+  </section>
+
+  <section class="card">
+    <h2>${t("For Developers &amp; Agents", "Para desarrolladores y agentes")}</h2>
+    <ul>
+      ${extLk("/api/weather", t("Weather API", "API del clima"), t("JSON: current conditions, hourly, 7-day, and alerts.", "JSON: condiciones actuales, por hora, 7 días y alertas."))}
+      ${extLk("/api/health", t("Health Check", "Estado del servicio"), t("Service status and cache freshness.", "Estado del servicio y antigüedad de la caché."))}
+      ${extLk("/openapi.json", "OpenAPI 3.1", t("Machine-readable API description.", "Descripción de la API legible por máquinas."))}
+      ${extLk("/mcp", t("MCP Server", "Servidor MCP"), t("Model Context Protocol server (Streamable HTTP).", "Servidor del Protocolo de Contexto de Modelo (Streamable HTTP)."))}
+      ${extLk("/llms.txt", "llms.txt", t("Plain-language site summary for LLMs.", "Resumen del sitio en lenguaje sencillo para LLM."))}
+      ${extLk("/.well-known/api-catalog", t("API Catalog", "Catálogo de API"), t("RFC 9727 machine-readable API index.", "Índice de API legible por máquinas (RFC 9727)."))}
+      ${extLk("/sitemap.xml", t("XML Sitemap", "Sitemap XML"), t("Machine-readable sitemap for crawlers.", "Sitemap legible por máquinas para rastreadores."))}
+    </ul>
+  </section>
+</main>
+${footer({ page: "/sitemap", lang, source: T(lang, `Data from the U.S. National Weather Service (<a href="https://weather.gov">weather.gov</a>).`, `Datos del Servicio Meteorológico Nacional de EE. UU. (<a href="https://weather.gov">weather.gov</a>).`) })}
+</body>
+</html>`;
+}
+
+function sitemapPageMarkdown(lang) {
+  const t = (en, es) => T(lang, en, es);
+  const lk = (enHref, label, desc) => `- [${label}](${SITE}${lang === "es" ? esPath(enHref) : enHref}) — ${desc}`;
+  const extLk = (href, label, desc) => `- [${label}](${SITE}${href}) — ${desc}`;
+
+  const out = [
+    `# ${t("Sitemap", "Mapa del sitio")}`,
+    "",
+    t("Every page and endpoint on crosbynews.com.", "Todas las páginas y endpoints de crosbynews.com."),
+    "",
+    `## ${t("Weather & Forecast", "Clima y pronóstico")}`,
+    "",
+    lk("/", t("Weather", "Clima"), t("Current conditions, hourly, and 7-day forecast.", "Condiciones actuales, por hora y pronóstico a 7 días.")),
+    lk("/hourly", t("Hourly Forecast", "Pronóstico por hora"), t("Full 48-hour table.", "Tabla completa de 48 horas.")),
+    lk("/radar", t("Radar", "Radar"), t("Live NWS KHGX radar loop.", "Radar en vivo del NWS KHGX.")),
+    lk("/alerts", t("Alerts", "Alertas"), t("Active weather alerts plus severe-weather guide.", "Alertas activas más guía de clima severo.")),
+    "",
+    `## ${t("Community", "Comunidad")}`,
+    "",
+    lk("/news", t("News", "Noticias"), t("Local headlines.", "Titulares locales.")),
+    lk("/calendar", t("School Calendar", "Calendario escolar"), t("Crosby ISD events.", "Eventos de Crosby ISD.")),
+    "",
+    `## ${t("About & Policies", "Acerca de y políticas")}`,
+    "",
+    lk("/about", t("About", "Acerca de"), t("Data sources, API, MCP server.", "Fuentes de datos, API, servidor MCP.")),
+    lk("/privacy", t("Privacy", "Privacidad"), t("No cookies, no trackers.", "Sin cookies, sin rastreadores.")),
+    lk("/contact", t("Contact", "Contacto"), t("Questions, tips, security.", "Preguntas, datos, seguridad.")),
+    "",
+    `## ${t("For Developers & Agents", "Para desarrolladores y agentes")}`,
+    "",
+    extLk("/api/weather", t("Weather API", "API del clima"), "JSON"),
+    extLk("/api/health", t("Health", "Estado"), t("Status + cache.", "Estado + caché.")),
+    extLk("/openapi.json", "OpenAPI 3.1", t("API spec.", "Especificación de la API.")),
+    extLk("/mcp", t("MCP Server", "Servidor MCP"), "Streamable HTTP"),
+    extLk("/llms.txt", "llms.txt", t("LLM summary.", "Resumen para LLM.")),
+    extLk("/.well-known/api-catalog", t("API Catalog", "Catálogo de API"), "RFC 9727"),
+    extLk("/sitemap.xml", t("XML Sitemap", "Sitemap XML"), t("For crawlers.", "Para rastreadores.")),
+    "",
+    "---",
+    `[crosbynews.com](${canonicalFor("/", lang)}) · ${t("weather for Crosby, Texas", "clima para Crosby, Texas")}`,
+  ];
+  return out.join("\n");
+}
+// --- end Sitemap page -----------------------------------------------------
+
 // --- Radar page -----------------------------------------------------------
 // Embeds the NOAA/NWS Houston-Galveston (KHGX) radar loop, which covers Crosby.
 // The image is proxied through /radar-image so it lives on our crawlable origin
 // and is edge-cached. Static-ish page; the image itself carries a short TTL.
-function radarHtml(lang) {
+function radarHtml(lang, data) {
   const title = T(lang, "Crosby, TX Weather Radar", "Radar meteorológico de Crosby, TX");
   const desc = T(lang, "Live NWS weather radar loop for Crosby, Texas and the greater Houston area (KHGX), updated continuously.", "Radar meteorológico en vivo del NWS para Crosby, Texas y el área metropolitana de Houston (KHGX), actualizado continuamente.");
   return `<!DOCTYPE html>
@@ -955,9 +1452,7 @@ ${topbar("/radar", lang)}
   </section>
   <p class="intro"><a href="${lang === "es" ? "/es" : "/"}">&larr; ${T(lang, "Back to the Crosby forecast", "Volver al pronóstico de Crosby")}</a></p>
 </main>
-<footer>
-  ${T(lang, `Radar imagery from the U.S. National Weather Service (<a href="https://radar.weather.gov">radar.weather.gov</a>).`, `Imágenes de radar del Servicio Meteorológico Nacional de EE. UU. (<a href="https://radar.weather.gov">radar.weather.gov</a>).`)} &middot; <a href="${lang === "es" ? "/es/about" : "/about"}">${T(lang, "About this site", "Acerca de este sitio")}</a>
-</footer>
+${footer({ page: "/radar", lang, source: T(lang, `Radar imagery from the U.S. National Weather Service (<a href="https://radar.weather.gov">radar.weather.gov</a>).`, `Imágenes de radar del Servicio Meteorológico Nacional de EE. UU. (<a href="https://radar.weather.gov">radar.weather.gov</a>).`), data })}
 </body>
 </html>`;
 }
@@ -1058,9 +1553,7 @@ ${topbar("/hourly", lang)}
 ${body || `<p class="none">${T(lang, "Hourly forecast is temporarily unavailable.", "El pronóstico por hora no está disponible temporalmente.")}</p>`}
   <p class="intro"><a href="${lang === "es" ? "/es" : "/"}">&larr; ${T(lang, "Back to the Crosby forecast", "Volver al pronóstico de Crosby")}</a> &middot; <a href="${lang === "es" ? "/es/radar" : "/radar"}">Radar</a></p>
 </main>
-<footer>
-  ${T(lang, `Data from the U.S. National Weather Service (<a href="https://weather.gov">weather.gov</a>).`, `Datos del Servicio Meteorológico Nacional de EE. UU. (<a href="https://weather.gov">weather.gov</a>).`)} &middot; <a href="${lang === "es" ? "/es/about" : "/about"}">${T(lang, "About this site", "Acerca de este sitio")}</a>
-</footer>
+${footer({ page: "/hourly", lang, source: T(lang, `Data from the U.S. National Weather Service (<a href="https://weather.gov">weather.gov</a>).`, `Datos del Servicio Meteorológico Nacional de EE. UU. (<a href="https://weather.gov">weather.gov</a>).`), data })}
 </body>
 </html>`;
 }
@@ -1216,9 +1709,7 @@ ${topbar("/alerts", lang)}
   <div class="ref-grid">${guide}</div>
   </div>
 </main>
-<footer>
-  ${T(lang, `Data from the U.S. National Weather Service (<a href="https://weather.gov">weather.gov</a>).`, `Datos del Servicio Meteorológico Nacional de EE. UU. (<a href="https://weather.gov">weather.gov</a>).`)} &middot; <a href="${lang === "es" ? "/es/about" : "/about"}">${T(lang, "About this site", "Acerca de este sitio")}</a>
-</footer>
+${footer({ page: "/alerts", lang, source: T(lang, `Data from the U.S. National Weather Service (<a href="https://weather.gov">weather.gov</a>).`, `Datos del Servicio Meteorológico Nacional de EE. UU. (<a href="https://weather.gov">weather.gov</a>).`), data })}
 </body>
 </html>`;
 }
@@ -1336,9 +1827,7 @@ ${topbar("/news", lang)}
   </section>
   <p class="intro"><a href="${lang === "es" ? "/es" : "/"}">&larr; ${T(lang, "Back to the forecast", "Volver al pronóstico")}</a></p>
 </main>
-<footer>
-  ${T(lang, "Weather data from the U.S. National Weather Service. News headlines aggregated from public sources.", "Datos del tiempo del Servicio Meteorológico Nacional de EE. UU. Titulares de noticias recopilados de fuentes públicas.")} &middot; <a href="${lang === "es" ? "/es/about" : "/about"}">${T(lang, "About this site", "Acerca de este sitio")}</a>
-</footer>
+${footer({ page: "/news", lang, source: T(lang, "Weather data from the U.S. National Weather Service. News headlines aggregated from public sources.", "Datos del tiempo del Servicio Meteorológico Nacional de EE. UU. Titulares de noticias recopilados de fuentes públicas.") })}
 </body>
 </html>`;
 }
@@ -1621,9 +2110,7 @@ ${topbar("/calendar", lang)}
   <p class="disclaimer">${T(lang, `crosbynews.com isn't affiliated with Crosby ISD. Events are pulled from the district's public calendar feed (<a href="${CISD_SITE}">crosbyisd.org</a>); event titles are shown in the district's original English. Always confirm dates with the district.`, `crosbynews.com no está afiliado a Crosby ISD. Los eventos provienen del calendario público del distrito (<a href="${CISD_SITE}">crosbyisd.org</a>); los títulos de los eventos se muestran en el inglés original del distrito. Confirma siempre las fechas con el distrito.`)}</p>
   <p class="intro"><a href="${lang === "es" ? "/es" : "/"}">&larr; ${T(lang, "Back to the forecast", "Volver al pronóstico")}</a></p>
 </main>
-<footer>
-  ${T(lang, `Calendar data from <a href="${CISD_SITE}">Crosby ISD</a>.`, `Datos del calendario de <a href="${CISD_SITE}">Crosby ISD</a>.`)} &middot; <a href="${lang === "es" ? "/es/about" : "/about"}">${T(lang, "About this site", "Acerca de este sitio")}</a>
-</footer>
+${footer({ page: "/calendar", lang, source: T(lang, `Calendar data from <a href="${CISD_SITE}">Crosby ISD</a>.`, `Datos del calendario de <a href="${CISD_SITE}">Crosby ISD</a>.`) })}
 </body>
 </html>`;
 }
@@ -2016,9 +2503,7 @@ ${topbar("")}
     <p class="intro">Then ask, e.g., "what's the forecast for Crosby, TX?" and the agent will call these tools. Prefer a webpage? See the <a href="/">live forecast</a>, <a href="/hourly">hourly</a>, and <a href="/radar">radar</a>.</p>
   </section>
 </main>
-<footer>
-  Data from the U.S. National Weather Service (<a href="https://weather.gov">weather.gov</a>). &middot; <a href="/about">About this site</a>
-</footer>
+${footer({ page: "/mcp", lang: "en", source: `Data from the U.S. National Weather Service (<a href="https://weather.gov">weather.gov</a>).` })}
 </body>
 </html>`;
 }
@@ -2404,18 +2889,31 @@ async function _fetch(request, env, ctx) {
       });
     }
 
-    // Radar page — static HTML/markdown; the radar image is a separate proxy.
+    // Radar page — the radar image is a separate proxy; loadWeather() is a
+    // cheap KV read so the footer can show the same freshness line as the
+    // other weather pages.
     if (page === "/radar") {
       const accept = (request.headers.get("accept") || "").toLowerCase();
       const wantsMarkdown = accept.includes("text/markdown") || url.searchParams.get("format") === "md";
-      const bodyText = wantsMarkdown ? radarMarkdown(lang) : radarHtml(lang);
-      return new Response(bodyText, {
-        headers: {
-          "content-type": `${wantsMarkdown ? "text/markdown" : "text/html"}; charset=utf-8`,
-          "cache-control": "public, max-age=3600",
-          vary: "Accept",
-        },
-      });
+      try {
+        const { data } = await loadWeather(env);
+        const bodyText = wantsMarkdown ? radarMarkdown(lang) : radarHtml(lang, data);
+        return new Response(bodyText, {
+          headers: {
+            "content-type": `${wantsMarkdown ? "text/markdown" : "text/html"}; charset=utf-8`,
+            "cache-control": "public, max-age=3600",
+            vary: "Accept",
+          },
+        });
+      } catch (err) {
+        return new Response(wantsMarkdown ? radarMarkdown(lang) : radarHtml(lang), {
+          headers: {
+            "content-type": `${wantsMarkdown ? "text/markdown" : "text/html"}; charset=utf-8`,
+            "cache-control": "public, max-age=3600",
+            vary: "Accept",
+          },
+        });
+      }
     }
 
     // Proxy the NWS KHGX radar loop through our origin so it's crawlable and
@@ -2514,6 +3012,45 @@ async function _fetch(request, env, ctx) {
       }
     }
 
+    if (page === "/privacy") {
+      const accept = (request.headers.get("accept") || "").toLowerCase();
+      const wantsMarkdown = accept.includes("text/markdown") || url.searchParams.get("format") === "md";
+      if (wantsMarkdown) {
+        return new Response(privacyMarkdown(lang), {
+          headers: { "content-type": "text/markdown; charset=utf-8", "cache-control": "public, max-age=3600", vary: "Accept" },
+        });
+      }
+      return new Response(privacyHtml(lang), {
+        headers: { "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=3600", vary: "Accept" },
+      });
+    }
+
+    if (page === "/contact") {
+      const accept = (request.headers.get("accept") || "").toLowerCase();
+      const wantsMarkdown = accept.includes("text/markdown") || url.searchParams.get("format") === "md";
+      if (wantsMarkdown) {
+        return new Response(contactMarkdown(lang), {
+          headers: { "content-type": "text/markdown; charset=utf-8", "cache-control": "public, max-age=3600", vary: "Accept" },
+        });
+      }
+      return new Response(contactHtml(lang), {
+        headers: { "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=3600", vary: "Accept" },
+      });
+    }
+
+    if (page === "/sitemap") {
+      const accept = (request.headers.get("accept") || "").toLowerCase();
+      const wantsMarkdown = accept.includes("text/markdown") || url.searchParams.get("format") === "md";
+      if (wantsMarkdown) {
+        return new Response(sitemapPageMarkdown(lang), {
+          headers: { "content-type": "text/markdown; charset=utf-8", "cache-control": "public, max-age=3600", vary: "Accept" },
+        });
+      }
+      return new Response(sitemapPageHtml(lang), {
+        headers: { "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=3600", vary: "Accept" },
+      });
+    }
+
     // Otherwise only the root (and its /es counterpart) serves a page.
     if (page !== "/") {
       return new Response("Not found", { status: 404, headers: { "content-type": "text/plain; charset=utf-8" } });
@@ -2565,8 +3102,8 @@ async function _fetch(request, env, ctx) {
 // `?format=md` variants — and the http→https pair — consolidate onto one URL for
 // crawlers that read the HTTP layer (reinforces the in-HTML <link rel="canonical">).
 const PAGE_PATHS = new Set([
-  "/", "/hourly", "/radar", "/alerts", "/news", "/calendar", "/about",
-  "/es", "/es/hourly", "/es/radar", "/es/alerts", "/es/news", "/es/calendar", "/es/about",
+  "/", "/hourly", "/radar", "/alerts", "/news", "/calendar", "/about", "/privacy", "/contact", "/sitemap",
+  "/es", "/es/hourly", "/es/radar", "/es/alerts", "/es/news", "/es/calendar", "/es/about", "/es/privacy", "/es/contact", "/es/sitemap",
 ]);
 
 export default {
