@@ -91,7 +91,12 @@ directory name becomes the `/command`. Current skills:
   no static assets.
 - Chrome: `topbar(current, lang)` renders the site header with nav links. On
   screens ≤600px it collapses into a CSS-only hamburger menu (native `<details>`
-  element, no JS). `footer({ page, lang, source, data })` renders a shared
+  element, no JS). **Invariant:** desktop relies on
+  `.nav-menu::details-content { content-visibility: visible }` to keep the links
+  inline — current Chromium hides closed-`<details>` content via
+  `::details-content` and `display:contents` does NOT override it, so removing
+  that rule makes the entire desktop nav disappear (only brand + Español show).
+  `footer({ page, lang, source, data })` renders a shared
   footer on every page: per-page source attribution, a links row (About ·
   Privacy · Contact · Sitemap · View as Markdown), and an independent-project
   disclaimer. Weather pages (`/`, `/hourly`, `/radar`, `/alerts`) also show an
