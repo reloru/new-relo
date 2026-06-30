@@ -3,6 +3,12 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "description": "Live weather and local news for Crosby, Texas — a single-file Cloudflare Worker.",
+  "homepage": "https://crosbynews.com",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/reloru/new-relo.git"
+  },
   "scripts": {
     "deploy": "wrangler deploy",
     "dev": "wrangler dev"
