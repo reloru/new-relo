@@ -73,6 +73,12 @@ directory name becomes the `/command`. Current skills:
   having both caused a 2-hop chain for http://www (→https, then →apex). This
   lives in the zone/dashboard, not wrangler.jsonc or fetch(). It matches
   `<link rel="canonical">` and the sitemap `<loc>`.
+- HSTS is enabled at the Cloudflare **zone edge** (SSL/TLS → Edge Certificates →
+  HSTS: `max-age=63072000; includeSubDomains`, no preload) so the header lands on
+  edge-generated responses too — notably the `www` → apex 301, which the Worker
+  never sees (the redirect rule runs before it) and so can't stamp HSTS on. The
+  Worker ALSO sets the same HSTS on its own (apex) responses; Cloudflare de-dupes,
+  leaving a single header. Zone/dashboard config, not wrangler.jsonc.
 
 ## Conventions
 - Plain Workers, ES modules (`export default { fetch, scheduled }`). No
@@ -97,7 +103,7 @@ directory name becomes the `/command`. Current skills:
   `::details-content` and `display:contents` does NOT override it, so removing
   that rule makes the entire desktop nav disappear (only brand + Español show).
   `footer({ page, lang, source, data })` renders a shared
-  footer on every page: per-page source attribution, a links row (About ·
+  footer on every page: per-page source attribution, a links row (Home · About ·
   Privacy · Contact · Sitemap · View as Markdown), and an independent-project
   disclaimer. Weather pages (`/`, `/hourly`, `/radar`, `/alerts`) also show an
   alert-status + freshness line when `data` is passed.
