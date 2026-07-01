@@ -396,7 +396,7 @@ function footer({ page, lang = "en", source, data }) {
   ${T(lang, "Updated", "Actualizado")} ${esc(fullTime(data.updated, lang))} CT &middot; ${T(lang, "refreshes every 15 minutes.", "se actualiza cada 15 minutos.")}`
     : source;
 
-  const links = `<div class="footer-links">${lk("/about", T(lang, "About", "Acerca de"))} &middot; ${lk("/privacy", T(lang, "Privacy", "Privacidad"))} &middot; ${lk("/contact", T(lang, "Contact", "Contacto"))} &middot; ${lk("/sitemap", T(lang, "Sitemap", "Mapa del sitio"))} &middot; <a href="${mdHref}">${T(lang, "View as Markdown", "Ver en Markdown")}</a></div>`;
+  const links = `<div class="footer-links">${lk("/", T(lang, "Home", "Inicio"))} &middot; ${lk("/about", T(lang, "About", "Acerca de"))} &middot; ${lk("/privacy", T(lang, "Privacy", "Privacidad"))} &middot; ${lk("/contact", T(lang, "Contact", "Contacto"))} &middot; ${lk("/sitemap", T(lang, "Sitemap", "Mapa del sitio"))} &middot; <a href="${mdHref}">${T(lang, "View as Markdown", "Ver en Markdown")}</a></div>`;
 
   const disclaimer = `<div class="footer-disclaimer">${T(lang, "crosbynews.com is an independent project and is not affiliated with the National Weather Service, NOAA, or any government agency.", "crosbynews.com es un proyecto independiente y no está afiliado al Servicio Meteorológico Nacional, la NOAA ni ninguna agencia gubernamental.")}</div>`;
 
