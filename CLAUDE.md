@@ -185,7 +185,10 @@ directory name becomes the `/command`. Current skills:
   cron refreshes the `calendar` KV key (cron-owned, throttled to ~6h since it
   changes rarely), and `loadCalendar()` self-heals on a cold cache. A tiny
   hand-rolled `parseIcs()` (no dependency; the feed has no RRULE) reads it.
-  Emits honest `Event` JSON-LD (a real schema.org type, unlike the forecast).
+  Emits honest `Event` JSON-LD (a real schema.org type, unlike the forecast);
+  every Event carries a `location` (the feed's venue, else Crosby ISD / Crosby,
+  TX) since Google requires that field — without it the Rich Results Test flags
+  every event "A value for the location field is required."
   Event titles stay in the district's official English (small `ES_EVENT` dict +
   English fallback, same policy as NWS text). Markdown-negotiated. The label in
   the nav is "School Calendar" / "Calendario escolar".

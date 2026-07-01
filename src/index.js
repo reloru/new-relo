@@ -1998,7 +1998,14 @@ function jsonldEvents(events, lang) {
       const endIso = new Date(e.end).toISOString();
       node.endDate = e.allDay ? endIso.slice(0, 10) : endIso.slice(0, 19);
     }
-    if (e.location) node.location = { "@type": "Place", name: e.location };
+    // Every Event needs a location (Google requires it). Use the feed's location
+    // when present, else default to the district — these are Crosby ISD dates in
+    // Crosby, TX, so the address is honest even for venue-less all-day events.
+    node.location = {
+      "@type": "Place",
+      name: e.location || "Crosby Independent School District",
+      address: { "@type": "PostalAddress", addressLocality: "Crosby", addressRegion: "TX", addressCountry: "US" },
+    };
     return node;
   });
   if (!nodes.length) return "";
