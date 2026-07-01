@@ -40,6 +40,9 @@ directory name becomes the `/command`. Current skills:
   installs wrangler 3.x, which can't parse `wrangler.jsonc` and fails with "Missing entry-point".
 - `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"` is set on the deploy step (GitHub is migrating
   Actions to Node 24; this opts in early to suppress deprecation failures).
+- The workflow installs **Node 22** via `actions/setup-node@v4` for the job steps (the
+  `node --check` syntax check runs on it). That's separate from `FORCE_..._NODE24`, which
+  targets GitHub's JS-Actions runtime, not the Node the steps themselves use.
 - Repo secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` are set at the repository
   level — same token as used by the manual deploy path.
 - PRs are squash-merged. After a squash-merge, the old branch diverges from main (its history
@@ -157,9 +160,10 @@ directory name becomes the `/command`. Current skills:
 - `/` — the weather page. Content-negotiated: `Accept: text/markdown` (or
   `?format=md`) returns a markdown rendering; browsers get HTML. `Vary: Accept`.
   The homepage `Link` header advertises the markdown alternate, sitemap,
-  api-catalog, and OpenAPI service-desc. All fourteen content pages (the seven
+  api-catalog, and OpenAPI service-desc. All twenty content pages (the ten
   English routes `/`, `/hourly`, `/radar`, `/alerts`, `/news`, `/calendar`,
-  `/about` and their `/es` Spanish counterparts) also emit an HTTP
+  `/about`, `/privacy`, `/contact`, `/sitemap` and their `/es` Spanish
+  counterparts) also emit an HTTP
   `Link: rel="canonical"` header —
   added centrally in the `fetch` wrapper via `PAGE_PATHS` — so the `?format=md`
   variants and the http→https pair consolidate onto one URL. (See the Languages
