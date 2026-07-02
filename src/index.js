@@ -2509,6 +2509,44 @@ ${footer({ page: "/mcp", lang: "en", source: `Data from the U.S. National Weathe
 </html>`;
 }
 
+// Markdown rendering of the same explainer, served when an agent asks for it
+// (Accept: text/markdown / ?format=md) — so the footer's "View as Markdown"
+// link works here like it does on every content page. English-only, like the
+// HTML explainer.
+function mcpInfoMarkdown() {
+  const tools = mcpTools()
+    .map((t) => `- \`${t.name}\` — ${t.description}`)
+    .join("\n");
+  return `# MCP Server — crosbynews.com
+
+This is the Model Context Protocol (MCP) endpoint for crosbynews.com. It speaks
+JSON-RPC 2.0 over HTTP POST (Streamable HTTP transport); this page just explains
+what it is.
+
+## Endpoint
+
+- \`${SITE}/mcp\` — transport: Streamable HTTP (JSON-RPC 2.0 over POST)
+- Discovery card: ${SITE}/.well-known/mcp/server-card.json
+
+## Tools
+
+${tools}
+
+## Connect from Claude Code
+
+\`\`\`
+claude mcp add --transport http crosbynews ${SITE}/mcp
+\`\`\`
+
+Then ask, e.g., "what's the forecast for Crosby, TX?" and the agent will call
+these tools. Prefer a webpage? See the [live forecast](${SITE}/),
+[hourly](${SITE}/hourly), and [radar](${SITE}/radar).
+
+---
+[crosbynews.com](${SITE}/) · data from the U.S. National Weather Service
+`;
+}
+
 async function mcpCallTool(name, args, env) {
   const { data } = await loadWeather(env);
   if (name === "get_current_conditions") {
@@ -2773,16 +2811,25 @@ async function _fetch(request, env, ctx) {
       if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: MCP_CORS });
       // The MCP protocol itself uses POST. A strict MCP client opening the
       // optional SSE stream sends GET with `Accept: text/event-stream`; we
-      // don't offer that stream, so 405 per the Streamable HTTP spec. Every
-      // other GET (browsers, plain curl) gets the human-friendly explainer.
+      // don't offer that stream, so 405 per the Streamable HTTP spec (checked
+      // first, so it wins over markdown for a combined Accept). Every other
+      // GET (browsers, plain curl) gets the human-friendly explainer,
+      // markdown-negotiated like the content pages.
       if (request.method === "GET") {
-        const accept = request.headers.get("accept") || "";
+        const accept = (request.headers.get("accept") || "").toLowerCase();
         if (accept.includes("text/event-stream")) {
           return new Response("Method Not Allowed", { status: 405, headers: { allow: "POST, OPTIONS", ...MCP_CORS } });
         }
-        return new Response(mcpInfoHtml(), {
+        const wantsMarkdown = accept.includes("text/markdown") || url.searchParams.get("format") === "md";
+        return new Response(wantsMarkdown ? mcpInfoMarkdown() : mcpInfoHtml(), {
           status: 200,
-          headers: { "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=3600", allow: "POST, OPTIONS", ...MCP_CORS },
+          headers: {
+            "content-type": `${wantsMarkdown ? "text/markdown" : "text/html"}; charset=utf-8`,
+            "cache-control": "public, max-age=3600",
+            vary: "Accept",
+            allow: "POST, OPTIONS",
+            ...MCP_CORS,
+          },
         });
       }
       if (request.method !== "POST") {
@@ -3115,6 +3162,12 @@ export default {
     r.headers.set("x-frame-options", "SAMEORIGIN");
     r.headers.set("content-security-policy", await contentSecurityPolicy());
     r.headers.set("cross-origin-opener-policy", "same-origin");
+    // Every response declares its content-type accurately, so forbid sniffing.
+    r.headers.set("x-content-type-options", "nosniff");
+    r.headers.set("referrer-policy", "strict-origin-when-cross-origin");
+    // No page uses these browser features; browsing-topics opts out of the
+    // Topics API, matching the site's no-trackers stance.
+    r.headers.set("permissions-policy", "geolocation=(), camera=(), microphone=(), browsing-topics=()");
     // Reinforce the https canonical at the HTTP layer for the content pages, so
     // ?format=md variants (and any http→https confusion) consolidate onto one URL.
     const { pathname } = new URL(request.url);

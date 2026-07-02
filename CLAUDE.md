@@ -87,6 +87,12 @@ directory name becomes the `/command`. Current skills:
 - Plain Workers, ES modules (`export default { fetch, scheduled }`). No
   framework and no runtime dependencies — standard `fetch` + Workers KV only.
 - Layout: `src/index.js` is the single entry point; `wrangler.jsonc` is config.
+- Security headers: the `fetch` wrapper stamps every response with HSTS,
+  `X-Frame-Options: SAMEORIGIN`, CSP (homepage inline script allow-listed by
+  hash — see `contentSecurityPolicy()`), `Cross-Origin-Opener-Policy`,
+  `X-Content-Type-Options: nosniff`,
+  `Referrer-Policy: strict-origin-when-cross-origin`, and a `Permissions-Policy`
+  denying geolocation/camera/microphone and opting out of the Topics API.
 - Content: live data from the U.S. National Weather Service (api.weather.gov)
   for Crosby, TX (lat 29.9119, lon -95.0608). NWS requires a `User-Agent` on
   every request — we send "crosbynews.com".
@@ -230,7 +236,10 @@ directory name becomes the `/command`. Current skills:
   sitemap, api-catalog, security.txt).
 - `/.well-known/security.txt` — RFC 9116 security contact
   (`security@crosbynews.com`). `Expires` is computed ~1 year out at request time,
-  so the file can't go stale.
+  so the file can't go stale. **Gotcha:** Cloudflare's zone-managed security.txt
+  (dashboard, Security Center) silently overrides this route at the edge with a
+  fixed `Expires` when enabled — it was found on and disabled during the
+  2026-07-02 audit; keep it OFF so the Worker's self-refreshing version serves.
 - `/api/weather` — public JSON (location, current, hourly, forecast, alerts),
   CORS `*`. `/api/health` — status + cache freshness.
 - `/.well-known/api-catalog` (`application/linkset+json`, RFC 9727) and
@@ -239,9 +248,11 @@ directory name becomes the `/command`. Current skills:
 - `/mcp` — stateless MCP server (Streamable HTTP, JSON-RPC) with tools
   `get_current_conditions`, `get_forecast`, `get_alerts`. Discovery card at
   `/.well-known/mcp/server-card.json`. A GET gets a human explainer page
-  (`mcpInfoHtml()`, noindex) — except a GET asking for the SSE stream
-  (`Accept: text/event-stream`), which 405s since we don't offer that stream
-  (Streamable HTTP spec). POST does the protocol.
+  (`mcpInfoHtml()`, noindex), markdown-negotiated like the content pages
+  (`Accept: text/markdown` / `?format=md` → `mcpInfoMarkdown()`, so the footer's
+  "View as Markdown" link works) — except a GET asking for the SSE stream
+  (`Accept: text/event-stream`, checked first), which 405s since we don't offer
+  that stream (Streamable HTTP spec). POST does the protocol.
 - `/icons/...` — proxies NWS weather icons from `api.weather.gov/icons/`
   through our origin (locked to that prefix, not an open proxy). NWS's
   robots.txt disallows all crawling, so hotlinked icons are uncrawlable;
