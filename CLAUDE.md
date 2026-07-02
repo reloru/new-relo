@@ -247,8 +247,8 @@ directory name becomes the `/command`. Current skills:
   cache via `loadWeather()`.
 - `/mcp` — stateless MCP server (Streamable HTTP, JSON-RPC) with tools
   `get_current_conditions`, `get_forecast`, `get_alerts`. Discovery card at
-  `/.well-known/mcp/server-card.json`. A GET gets a human explainer page
-  (`mcpInfoHtml()`, noindex), markdown-negotiated like the content pages
+  `/.well-known/mcp/server-card.json`. A GET (or HEAD) gets a human explainer
+  page (`mcpInfoHtml()`, noindex), markdown-negotiated like the content pages
   (`Accept: text/markdown` / `?format=md` → `mcpInfoMarkdown()`, so the footer's
   "View as Markdown" link works) — except a GET asking for the SSE stream
   (`Accept: text/event-stream`, checked first), which 405s since we don't offer

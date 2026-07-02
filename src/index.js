@@ -2812,10 +2812,13 @@ async function _fetch(request, env, ctx) {
       // The MCP protocol itself uses POST. A strict MCP client opening the
       // optional SSE stream sends GET with `Accept: text/event-stream`; we
       // don't offer that stream, so 405 per the Streamable HTTP spec (checked
-      // first, so it wins over markdown for a combined Accept). Every other
-      // GET (browsers, plain curl) gets the human-friendly explainer,
-      // markdown-negotiated like the content pages.
-      if (request.method === "GET") {
+      // first, so it wins over markdown for a combined Accept; its Allow
+      // deliberately omits GET — it's the spec's "no SSE here" signal). Every
+      // other GET (browsers, plain curl) gets the human-friendly explainer,
+      // markdown-negotiated like the content pages. HEAD is treated as GET —
+      // the runtime strips the body — so `curl -I /mcp` mirrors GET instead
+      // of 405ing.
+      if (request.method === "GET" || request.method === "HEAD") {
         const accept = (request.headers.get("accept") || "").toLowerCase();
         if (accept.includes("text/event-stream")) {
           return new Response("Method Not Allowed", { status: 405, headers: { allow: "POST, OPTIONS", ...MCP_CORS } });
@@ -2827,13 +2830,13 @@ async function _fetch(request, env, ctx) {
             "content-type": `${wantsMarkdown ? "text/markdown" : "text/html"}; charset=utf-8`,
             "cache-control": "public, max-age=3600",
             vary: "Accept",
-            allow: "POST, OPTIONS",
+            allow: "GET, HEAD, POST, OPTIONS",
             ...MCP_CORS,
           },
         });
       }
       if (request.method !== "POST") {
-        return new Response("Method Not Allowed", { status: 405, headers: { allow: "POST, OPTIONS", ...MCP_CORS } });
+        return new Response("Method Not Allowed", { status: 405, headers: { allow: "GET, HEAD, POST, OPTIONS", ...MCP_CORS } });
       }
       let body;
       try {
