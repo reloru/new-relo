@@ -32,6 +32,9 @@ curl -s -o /dev/null -w "%{http_code}  %{url_effective}\n" "$BASE/<path>"
 - `strict-transport-security`
 - `x-frame-options`
 - `content-security-policy`
+- `x-content-type-options: nosniff`
+- `referrer-policy`
+- `permissions-policy`
 - `vary: Accept`
 - `link:` (advertises the markdown alternate, sitemap, api-catalog, openapi)
 
