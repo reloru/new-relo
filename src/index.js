@@ -399,6 +399,8 @@ const BASE_CSS = `
   }
   * { box-sizing: border-box; }
   body { margin:0; font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; line-height:1.5; background:var(--bg); color:var(--ink); }
+  .topbar .skip-link { position:absolute; left:-9999px; z-index:100; background:var(--card); color:var(--ink); padding:0.5rem 0.9rem; border-radius:0 0 8px 0; }
+  .topbar .skip-link:focus { position:fixed; left:0; top:0; }
   .topbar { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:0.4rem 1rem; background:var(--blue); color:#fff; padding:0.6rem 1rem; }
   .topbar a { color:#fff; text-decoration:none; }
   .topbar .brand { font-weight:800; letter-spacing:0.09em; text-transform:uppercase; font-size:1rem; }
@@ -449,6 +451,7 @@ function topbar(current, lang = "en") {
     ? `<a class="lang" hreflang="en-US" lang="en" href="${current}">English</a>`
     : `<a class="lang" hreflang="es-MX" lang="es" href="${esPath(current)}">Español</a>`;
   return `<header class="topbar">
+  <a class="skip-link" href="#main">${t("Skip to content", "Saltar al contenido")}</a>
   <a class="brand" href="${es ? "/es" : "/"}">crosbynews.com</a>
   <nav>
     <details class="nav-menu">
@@ -565,6 +568,32 @@ const JSONLD_SITE = `<script type="application/ld+json">${JSON.stringify({
   ],
 })}</script>`;
 
+// schema.org Dataset describing the public weather API — emitted on /about
+// (both languages; the API itself is English-only and language-neutral) so
+// dataset search engines (e.g. Google Dataset Search) can discover it. Honest:
+// unlike forecast markup, a Dataset is a truthful schema type for what the API
+// actually is. Static, so built once at module load, like JSONLD_SITE.
+const JSONLD_DATASET = `<script type="application/ld+json">${JSON.stringify({
+  "@context": "https://schema.org",
+  "@type": "Dataset",
+  "@id": SITE + "/#weather-dataset",
+  name: "Crosby, TX weather — current conditions, forecast, and alerts",
+  description:
+    "Current conditions, hourly forecast, 7-day forecast, and active National Weather Service alerts for Crosby, Texas (northeast Harris County), refreshed every 15 minutes from the U.S. National Weather Service (api.weather.gov). Free public JSON API, no authentication.",
+  url: SITE + "/about",
+  isAccessibleForFree: true,
+  license: "https://www.weather.gov/disclaimer",
+  creator: { "@id": ORG_ID },
+  spatialCoverage: {
+    "@type": "Place",
+    name: "Crosby, TX",
+    geo: { "@type": "GeoCoordinates", latitude: LAT, longitude: LON },
+  },
+  distribution: [
+    { "@type": "DataDownload", encodingFormat: "application/json", contentUrl: SITE + "/api/weather" },
+  ],
+})}</script>`;
+
 // Invariant Open Graph / Twitter tags every page repeats. og:url is per-page
 // (it mirrors <link rel="canonical">). No og:image — that would need a binary
 // asset, which the "no static assets" rule forbids; cards still render the
@@ -634,7 +663,7 @@ ${JSONLD_SITE}
 </head>
 <body>
 ${topbar("/", lang)}
-<main>
+<main id="main">
   ${renderAlerts(data.alerts ?? [], lang)}
   ${renderHero(data, lang)}
   ${lang === "es" ? `<p class="lead nws-note">${ES_NWS_NOTE}</p>` : ""}
@@ -1122,6 +1151,7 @@ ${OG_COMMON}
 <link rel="canonical" href="${canonicalFor("/about", lang)}">
 ${hreflangTags("/about")}
 ${JSONLD_SITE}
+${JSONLD_DATASET}
 ${jsonldAbout(lang)}
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="alternate icon" href="/favicon.ico">
@@ -1137,7 +1167,7 @@ ${jsonldAbout(lang)}
 </head>
 <body>
 ${topbar("/about", lang)}
-<main>
+<main id="main">
   <h1>${esc(A.title)}</h1>
   <p class="lede">${esc(A.intro)}</p>
 ${body}
@@ -1224,7 +1254,7 @@ ${jsonldPrivacy(lang)}
 </head>
 <body>
 ${topbar("/privacy", lang)}
-<main>
+<main id="main">
   <h1>${esc(P.title)}</h1>
   <p class="lede">${esc(P.intro)}</p>
 ${body}
@@ -1312,7 +1342,7 @@ ${jsonldContact(lang)}
 </head>
 <body>
 ${topbar("/contact", lang)}
-<main>
+<main id="main">
   <h1>${esc(C.title)}</h1>
   <p class="lede">${esc(C.intro)}</p>
 ${body}
@@ -1380,7 +1410,7 @@ ${JSONLD_SITE}
 </head>
 <body>
 ${topbar("/sitemap", lang)}
-<main>
+<main id="main">
   <h1>${esc(title)}</h1>
   <p class="lede">${esc(description)}</p>
 
@@ -1508,12 +1538,12 @@ ${JSONLD_SITE}
 </head>
 <body>
 ${topbar("/radar", lang)}
-<main>
+<main id="main">
   <h1>${esc(title)}</h1>
   <p class="intro">${T(lang, "Live radar for the Crosby / northeast Houston area from the U.S. National Weather Service KHGX (Houston-Galveston) radar. The loop animates the most recent reflectivity scans, showing showers and thunderstorms moving across the region.", "Radar en vivo para Crosby y el noreste de Houston, del radar KHGX (Houston-Galveston) del Servicio Meteorológico Nacional de EE. UU. La animación reproduce los escaneos de reflectividad más recientes, mostrando chubascos y tormentas que se desplazan por la región.")}</p>
   <div class="radar-wrap">
     <img src="/radar-image" alt="${T(lang, "Animated NWS weather radar loop for Crosby, TX (KHGX)", "Animación del radar meteorológico del NWS para Crosby, TX (KHGX)")}" width="600" height="550" loading="eager">
-    <p class="radar-meta">${T(lang, "Source: NOAA/NWS KHGX radar &middot; the loop refreshes as new scans publish (roughly every few minutes).", "Fuente: radar KHGX de NOAA/NWS &middot; la animación se actualiza conforme se publican nuevos escaneos (cada pocos minutos).")}</p>
+    <p class="radar-meta">${T(lang, "Source: NOAA/NWS KHGX radar &middot; the loop refreshes as new scans publish (roughly every few minutes).", "Fuente: radar KHGX de NOAA/NWS &middot; la animación se actualiza conforme se publican nuevos escaneos (cada pocos minutos).")} <a href="/radar-image?still=1">${T(lang, "Prefer a still image? View the latest single frame.", "¿Prefieres una imagen fija? Ver el último escaneo.")}</a></p>
   </div>
   <section class="card">
     <h2>${T(lang, "Reading this radar", "Cómo leer este radar")}</h2>
@@ -1580,7 +1610,7 @@ function hourlyHtml(data, lang) {
       return `  <section class="day">
     <h2>${esc(g.day)}${sunLine}</h2>
     <table>
-      <thead><tr><th>${T(lang, "Time", "Hora")}</th><th>${T(lang, "Conditions", "Condiciones")}</th><th class="num">${T(lang, "Temp", "Temp")}</th><th class="num">${T(lang, "Feels", "Sensación")}</th><th class="num">${T(lang, "Precip", "Prob.")}</th><th>${T(lang, "Wind", "Viento")}</th></tr></thead>
+      <thead><tr><th scope="col">${T(lang, "Time", "Hora")}</th><th scope="col">${T(lang, "Conditions", "Condiciones")}</th><th scope="col" class="num">${T(lang, "Temp", "Temp")}</th><th scope="col" class="num">${T(lang, "Feels", "Sensación")}</th><th scope="col" class="num">${T(lang, "Precip", "Prob.")}</th><th scope="col">${T(lang, "Wind", "Viento")}</th></tr></thead>
       <tbody>
 ${rows}
       </tbody>
@@ -1623,7 +1653,7 @@ ${JSONLD_SITE}
 </head>
 <body>
 ${topbar("/hourly", lang)}
-<main>
+<main id="main">
   <h1>${T(lang, "Crosby, TX Hourly Forecast", "Pronóstico por hora de Crosby, TX")}</h1>
   <p class="intro">${T(lang, `Hour-by-hour forecast for Crosby, Texas from the U.S. National Weather Service, covering the next ${hours.length} hours. Updated ${esc(fullTime(data.updated))} CT.`, `Pronóstico hora por hora para Crosby, Texas del Servicio Meteorológico Nacional de EE. UU., para las próximas ${hours.length} horas. Actualizado ${esc(fullTime(data.updated, lang))} CT.`)}</p>
   ${lang === "es" ? `<p class="intro nws-note">${ES_NWS_NOTE}</p>` : ""}
@@ -1779,7 +1809,7 @@ ${JSONLD_SITE}
 </head>
 <body>
 ${topbar("/alerts", lang)}
-<main>
+<main id="main">
   <h1>${T(lang, "Crosby, TX Weather Alerts", "Alertas meteorológicas de Crosby, TX")}</h1>
   ${status}
   <p class="intro"><a href="${lang === "es" ? "/es" : "/"}">&larr; ${T(lang, "Back to the forecast", "Volver al pronóstico")}</a> &middot; <a href="${lang === "es" ? "/es/radar" : "/radar"}">Radar</a> &middot; ${T(lang, `Official source: <a href="https://www.weather.gov/hgx/">NWS Houston/Galveston</a>. In an emergency, call 911.`, `Fuente oficial: <a href="https://www.weather.gov/hgx/">NWS Houston/Galveston</a>. En una emergencia, llama al 911.`)}</p>
@@ -1896,7 +1926,7 @@ ${JSONLD_SITE}
 </head>
 <body>
 ${topbar("/news", lang)}
-<main>
+<main id="main">
   <h1>${T(lang, "Crosby, TX News", "Noticias de Crosby, TX")}</h1>
   <p class="intro">${T(lang, `Recent headlines about Crosby, Texas and the Crosby ISD community, gathered automatically from Texas and Houston-area news outlets and filtered for relevance to Crosby. Links open the original source.${data.updated ? ` Last updated ${esc(newsDate(data.updated))}.` : ""}`, `Titulares recientes sobre Crosby, Texas y la comunidad de Crosby ISD, recopilados automáticamente de medios de Texas y del área de Houston y filtrados por relevancia para Crosby. Los enlaces abren la fuente original; los titulares se muestran en su idioma original.${data.updated ? ` Última actualización: ${esc(newsDate(data.updated, lang))}.` : ""}`)}</p>
   ${list}
@@ -2190,7 +2220,7 @@ ${jsonldEvents(events, lang)}
 </head>
 <body>
 ${topbar("/calendar", lang)}
-<main>
+<main id="main">
   <h1>${esc(title)}</h1>
   <p class="intro">${T(lang, "Upcoming events from the Crosby Independent School District calendar — first day of school, holidays, early-release and no-school days, testing, and campus activities.", "Próximos eventos del calendario del Distrito Escolar Independiente de Crosby: primer día de clases, días festivos, días de salida temprana y sin clases, exámenes y actividades de los planteles.")}${data.updated ? ` ${T(lang, "Updated", "Actualizado")} ${esc(fullTime(data.updated, lang))} CT.` : ""}</p>
   ${body}
@@ -2593,7 +2623,7 @@ function mcpInfoHtml() {
 </head>
 <body>
 ${topbar("")}
-<main>
+<main id="main">
   <h1>MCP Server</h1>
   <p class="intro">This is the Model Context Protocol (MCP) endpoint for crosbynews.com. It is meant for AI agents, not browsers &mdash; it speaks JSON-RPC over HTTP POST. This page just explains what it is.</p>
   <section class="card">
@@ -3091,11 +3121,14 @@ async function _fetch(request, env, ctx) {
     }
 
     // Proxy the NWS KHGX radar loop through our origin so it's crawlable and
-    // edge-cached. Locked to that single upstream image (not an open proxy).
+    // edge-cached. Locked to two fixed upstream images (not an open proxy):
+    // the animated loop, or — with ?still=1 — the latest single frame, for
+    // users who prefer a non-animated image (reduced motion).
     if (path === "/radar-image") {
+      const still = url.searchParams.get("still") === "1";
       let res;
       try {
-        res = await fetch("https://radar.weather.gov/ridge/standard/KHGX_loop.gif", {
+        res = await fetch(`https://radar.weather.gov/ridge/standard/${still ? "KHGX_0.gif" : "KHGX_loop.gif"}`, {
           headers: { "User-Agent": "crosbynews.com", Accept: "image/gif,image/*" },
           cf: { cacheTtl: 180, cacheEverything: true },
         });
