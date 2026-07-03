@@ -100,7 +100,11 @@ directory name becomes the `/command`. Current skills:
   `src/index.js`) is the one number on the site NOT taken verbatim from NWS —
   it's the heat index or wind chill, computed in-Worker from NWS's own
   published formulas applied to the temperature/humidity/wind NWS already
-  returns. `feelsLikeRawF()` (the unconditional value) feeds `/api/weather`
+  returns. Heat index uses NWS's two-step algorithm: the simple Steadman form
+  for any T > 50°F, upgraded to the Rothfusz regression when the result
+  reaches 80 — the gate is on the RESULT, not the air temperature, so muggy
+  sub-80° hours get real values instead of "–" gaps (a bug fixed after user
+  screenshots). `feelsLikeRawF()` (the unconditional value) feeds `/api/weather`
   (as `feelsLike` on `current` and each `hourly` entry) and the `/hourly` table
   (a "Feels"/"Sensación" column, showing "–" when it doesn't apply);
   `feelsLikeF()` gates it to prominent single-value spots (hero, homepage

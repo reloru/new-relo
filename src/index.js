@@ -78,13 +78,17 @@ function pop(period) {
 }
 
 // "Feels like" temperature — computed in-Worker from NWS's own published
-// formulas (Rothfusz heat-index regression; NWS wind-chill equation), applied
-// to the temperature/humidity/wind NWS already gives us. Not a separate NWS
-// field, so it's derived, not fetched — kept honest by documenting the source
+// formulas (heat index; NWS wind-chill equation), applied to the
+// temperature/humidity/wind NWS already gives us. Not a separate NWS field,
+// so it's derived, not fetched — kept honest by documenting the source
 // (OpenAPI schema, /about) rather than presenting it as raw upstream data.
-// Heat index: valid/meaningful at T >= 80°F (NWS's own applicability floor).
+// Heat index follows NWS's actual two-step algorithm: the simple Steadman
+// form is computed first for ANY warm temperature, and only upgraded to the
+// full Rothfusz regression when the result reaches 80 — so a muggy 79°F Gulf
+// night still gets its honest ~81° heat index instead of a gap. Applied for
+// T > 50°F (at and below 50, wind chill takes over).
 function heatIndexF(tempF, rhPercent) {
-  if (typeof tempF !== "number" || typeof rhPercent !== "number" || tempF < 80) return null;
+  if (typeof tempF !== "number" || typeof rhPercent !== "number" || tempF <= 50) return null;
   const T = tempF, R = rhPercent;
   let hi = 0.5 * (T + 61 + (T - 68) * 1.2 + R * 0.094);
   if (hi < 80) return Math.round(hi);
@@ -1605,7 +1609,7 @@ function hourlyHtml(data, lang) {
         .map(
           (h) => `<tr>
         <td>${esc(hourLabel(h.startTime, lang))}</td>
-        <td>${h.icon ? `<img src="${iconUrl(h.icon, "small")}" alt="${esc(translateConditions(h.shortForecast, lang))}" width="32" height="32" loading="lazy"> ` : ""}${esc(translateConditions(h.shortForecast, lang))}</td>
+        <td><span class="cond">${h.icon ? `<img src="${iconUrl(h.icon, "small")}" alt="${esc(translateConditions(h.shortForecast, lang))}" width="32" height="32" loading="lazy">` : ""}<span>${esc(translateConditions(h.shortForecast, lang))}</span></span></td>
         <td class="num">${esc(h.temperature)}&deg;${esc(h.temperatureUnit)}</td>
         <td class="num">${feelsLikeRawF(h) != null ? esc(feelsLikeRawF(h)) + "°" : "–"}</td>
         <td class="num${pop(h) >= 30 ? " wet" : ""}">${pop(h)}%</td>
@@ -1620,7 +1624,7 @@ function hourlyHtml(data, lang) {
       return `  <section class="day">
     <h2>${esc(g.day)}${sunLine}</h2>
     <table>
-      <thead><tr><th scope="col">${T(lang, "Time", "Hora")}</th><th scope="col">${T(lang, "Conditions", "Condiciones")}</th><th scope="col" class="num">${T(lang, "Temp", "Temp")}</th><th scope="col" class="num">${T(lang, "Feels", "Sensación")}</th><th scope="col" class="num">${T(lang, "Precip", "Prob.")}</th><th scope="col">${T(lang, "Wind", "Viento")}</th></tr></thead>
+      <thead><tr><th scope="col">${T(lang, "Time", "Hora")}</th><th scope="col">${T(lang, "Conditions", "Condiciones")}</th><th scope="col" class="num">${T(lang, "Temp", "Temp")}</th><th scope="col" class="num" aria-label="${T(lang, "Feels like", "Sensación térmica")}"><span class="hdr-full" aria-hidden="true">${T(lang, "Feels", "Sensación")}</span><span class="hdr-abbr" aria-hidden="true">${T(lang, "Feels", "Sens.")}</span></th><th scope="col" class="num">${T(lang, "Precip", "Prob.")}</th><th scope="col">${T(lang, "Wind", "Viento")}</th></tr></thead>
       <tbody>
 ${rows}
       </tbody>
@@ -1647,17 +1651,40 @@ ${JSONLD_SITE}
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="alternate icon" href="/favicon.ico">
 <style>${BASE_CSS}
-  .day { margin-top:1rem; background:var(--card); border-radius:12px; padding:0.5rem 0.9rem 0.9rem; box-shadow:0 1px 3px rgba(0,0,0,0.07); }
+  .day { margin-top:1rem; background:var(--card); border-radius:12px; padding:0.5rem 0.9rem 0.9rem; box-shadow:0 1px 3px rgba(0,0,0,0.07); overflow-x:auto; }
   .day h2 { font-size:1.05rem; }
   .day-sun { font-weight:400; font-size:0.78rem; color:var(--muted); margin-left:0.5rem; white-space:nowrap; }
   table { width:100%; border-collapse:collapse; font-size:0.9rem; }
   th, td { text-align:left; padding:0.4rem 0.5rem; border-bottom:1px solid var(--line); vertical-align:middle; }
   th { font-size:0.78rem; text-transform:uppercase; letter-spacing:0.03em; color:var(--muted); }
   td img { vertical-align:middle; border-radius:4px; }
+  /* Keep conditions text beside the icon — as plain inline content, a wrapped
+     second word drops UNDER the icon on narrow (portrait phone) screens. */
+  .cond { display:flex; align-items:center; gap:0.45rem; }
+  .cond img { flex:none; }
   .num { text-align:right; white-space:nowrap; }
   .wet { color:var(--accent); font-weight:700; }
   .wind { color:var(--muted); white-space:nowrap; }
+  .hdr-abbr { display:none; }
   tr:last-child td { border-bottom:none; }
+  @media (max-width:600px) {
+    .hdr-full { display:none; }
+    .hdr-abbr { display:inline; }
+    .day { padding:0.5rem 0.6rem 0.7rem; }
+    table { font-size:0.84rem; }
+    th, td { padding:0.35rem 0.2rem; }
+    th { letter-spacing:0.01em; font-size:0.66rem; }
+    .wind { white-space:normal; }
+    .cond { gap:0.3rem; }
+    .cond img { width:22px; height:22px; }
+    /* Give conditions room so long names ("Thunderstorms", "Mayormente")
+       wrap whole at spaces — auto table layout then sizes the column to the
+       longest word, which fits at these paddings on a 375px phone. hyphens
+       helps where dictionaries exist (iOS/macOS); the .day overflow-x:auto
+       is the safety net if NWS ever ships a wider-than-viewport word. */
+    th:nth-child(2) { width:38%; }
+    .cond span { hyphens:auto; }
+  }
   .intro { color:var(--muted); margin:0.6rem 0 0; }
 </style>
 </head>
