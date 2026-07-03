@@ -2839,6 +2839,90 @@ function mcpTools() {
   ];
 }
 
+// MCP prompts — one genuinely useful one: a data-grounded daily briefing.
+// prompts/get composes the live data server-side (no tool round-trips), so
+// the client gets a self-contained prompt with everything already in it.
+function mcpPrompts() {
+  return [
+    {
+      name: "crosby_briefing",
+      title: "Crosby daily briefing",
+      description:
+        "Compose a concise daily briefing for a Crosby, TX resident: current weather with feels-like, today's outlook, active alerts, sunrise/sunset, recent local headlines, and upcoming Crosby ISD events. The prompt arrives pre-filled with live data.",
+      arguments: [],
+    },
+  ];
+}
+
+async function mcpGetPrompt(name, env) {
+  if (name !== "crosby_briefing") {
+    const e = new Error(`Unknown prompt: ${name}`);
+    e.code = -32602;
+    throw e;
+  }
+  const [{ data }, news, cal] = await Promise.all([loadWeather(env), loadNews(env), loadCalendar(env)]);
+  const now = data.hourly?.[0];
+  const lead = data.periods?.[0];
+  const sun = sunTimesForCtDate(Date.now());
+  const feels = feelsLikeF(now);
+  const lines = ["# Live Crosby, TX data (as of " + fullTime(data.updated) + " CT)", ""];
+  if (now) lines.push(`Now: ${now.temperature}°${now.temperatureUnit}, ${now.shortForecast}${feels != null ? `, feels like ${feels}°` : ""}${pop(now) ? `, ${pop(now)}% precip` : ""}.`);
+  if (lead) lines.push(`${lead.name}: ${lead.detailedForecast}`);
+  if (sun) lines.push(`Sunrise ${clockTime(sun.sunrise)}, sunset ${clockTime(sun.sunset)} CT.`);
+  const alerts = data.alerts ?? [];
+  lines.push(
+    alerts.length
+      ? `ACTIVE ALERTS: ${alerts.map((a) => `${a.event}${a.headline ? ` — ${a.headline}` : ""}`).join("; ")}`
+      : "No active weather alerts."
+  );
+  const items = (news.items ?? []).slice(0, 5);
+  if (items.length) {
+    lines.push("", "Recent local headlines:");
+    for (const n of items) lines.push(`- ${n.title}${n.source ? ` (${n.source})` : ""}`);
+  }
+  const events = upcomingEvents(cal.events ?? []).slice(0, 5);
+  if (events.length) {
+    lines.push("", "Upcoming Crosby ISD events:");
+    for (const e of events) {
+      const when = new Date(e.start).toLocaleDateString("en-US", { timeZone: "UTC", weekday: "short", month: "short", day: "numeric" });
+      lines.push(`- ${when}: ${e.summary}`);
+    }
+  }
+  lines.push(
+    "",
+    "Using ONLY the data above, write a friendly, concise daily briefing for a Crosby, TX resident. Lead with anything safety-relevant (alerts, extreme heat index). Keep it under 150 words. Note that weather data is from the U.S. National Weather Service."
+  );
+  return {
+    description: "Data-grounded prompt for a Crosby, TX daily briefing.",
+    messages: [{ role: "user", content: { type: "text", text: lines.join("\n") } }],
+  };
+}
+
+// MCP resources — the machine-readable site docs, readable in-protocol.
+const MCP_RESOURCES = [
+  {
+    uri: `${SITE}/llms.txt`,
+    name: "crosbynews-overview",
+    title: "crosbynews.com site overview",
+    description: "Plain-language summary of the site, its pages, API, and data policy (llms.txt).",
+    mimeType: "text/markdown",
+  },
+  {
+    uri: `${SITE}/openapi.json`,
+    name: "crosbynews-openapi",
+    title: "crosbynews.com API spec",
+    description: "OpenAPI 3.1 description of the weather, news, and school-calendar API.",
+    mimeType: "application/json",
+  },
+];
+
+function mcpReadResource(uri) {
+  const r = MCP_RESOURCES.find((x) => x.uri === uri);
+  if (!r) return null;
+  const text = uri.endsWith("/llms.txt") ? llmsTxt() : JSON.stringify(openApiSpec(), null, 2);
+  return { contents: [{ uri, mimeType: r.mimeType, text }] };
+}
+
 function mcpServerCard() {
   return {
     serverInfo: MCP_SERVER_INFO,
@@ -2846,8 +2930,10 @@ function mcpServerCard() {
     description:
       "Live Crosby, Texas data: weather from the U.S. National Weather Service (current conditions, forecast, active alerts), recent local news headlines, and the Crosby ISD school calendar.",
     transport: { type: "streamable-http", endpoint: `${SITE}/mcp` },
-    capabilities: { tools: { listChanged: false } },
+    capabilities: { tools: { listChanged: false }, prompts: { listChanged: false }, resources: { listChanged: false } },
     tools: mcpTools().map((t) => ({ name: t.name, title: t.title, description: t.description })),
+    prompts: mcpPrompts().map((p) => ({ name: p.name, title: p.title, description: p.description })),
+    resources: MCP_RESOURCES.map((r) => ({ uri: r.uri, name: r.name, title: r.title })),
     documentation: `${SITE}/`,
   };
 }
@@ -2894,6 +2980,10 @@ ${topbar("")}
     </ul>
   </section>
   <section class="card">
+    <h2>Prompts &amp; resources</h2>
+    <p>The prompt <code>crosby_briefing</code> returns a data-grounded daily-briefing prompt with live weather, alerts, headlines, and school events already filled in. Resources expose <a href="/llms.txt"><code>llms.txt</code></a> and the <a href="/openapi.json">OpenAPI spec</a> in-protocol.</p>
+  </section>
+  <section class="card">
     <h2>Connect from Claude Code</h2>
     <pre>claude mcp add --transport http crosbynews ${SITE}/mcp</pre>
     <p class="intro">Then ask, e.g., "what's the forecast for Crosby, TX?" and the agent will call these tools. Prefer a webpage? See the <a href="/">live forecast</a>, <a href="/hourly">hourly</a>, and <a href="/radar">radar</a>.</p>
@@ -2926,6 +3016,11 @@ what it is.
 ## Tools
 
 ${tools}
+
+## Prompts & resources
+
+- Prompt \`crosby_briefing\` — a data-grounded daily-briefing prompt (live weather, alerts, headlines, and school events pre-filled).
+- Resources — \`${SITE}/llms.txt\` (site overview) and \`${SITE}/openapi.json\` (API spec), readable in-protocol.
 
 ## Connect from Claude Code
 
@@ -3033,7 +3128,7 @@ async function mcpHandle(msg, env) {
     case "initialize":
       return rpcResult(id, {
         protocolVersion: typeof params?.protocolVersion === "string" ? params.protocolVersion : MCP_PROTOCOL_VERSION,
-        capabilities: { tools: { listChanged: false } },
+        capabilities: { tools: { listChanged: false }, prompts: { listChanged: false }, resources: { listChanged: false } },
         serverInfo: MCP_SERVER_INFO,
         instructions:
           "Live Crosby, Texas data: weather from the U.S. National Weather Service, plus local news headlines and the Crosby ISD school calendar.",
@@ -3042,6 +3137,20 @@ async function mcpHandle(msg, env) {
       return rpcResult(id, {});
     case "tools/list":
       return rpcResult(id, { tools: mcpTools() });
+    case "prompts/list":
+      return rpcResult(id, { prompts: mcpPrompts() });
+    case "prompts/get":
+      try {
+        return rpcResult(id, await mcpGetPrompt(params?.name, env));
+      } catch (e) {
+        return rpcError(id, typeof e?.code === "number" ? e.code : -32603, (e && e.message) || "prompt failed");
+      }
+    case "resources/list":
+      return rpcResult(id, { resources: MCP_RESOURCES });
+    case "resources/read": {
+      const res = mcpReadResource(params?.uri);
+      return res ? rpcResult(id, res) : rpcError(id, -32602, `Unknown resource: ${params?.uri}`);
+    }
     case "tools/call":
       try {
         const res = await mcpCallTool(params?.name, params?.arguments ?? {}, env);
