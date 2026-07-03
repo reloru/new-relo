@@ -77,6 +77,48 @@ function pop(period) {
   return typeof v === "number" ? Math.round(v) : 0;
 }
 
+// "Feels like" temperature — computed in-Worker from NWS's own published
+// formulas (Rothfusz heat-index regression; NWS wind-chill equation), applied
+// to the temperature/humidity/wind NWS already gives us. Not a separate NWS
+// field, so it's derived, not fetched — kept honest by documenting the source
+// (OpenAPI schema, /about) rather than presenting it as raw upstream data.
+// Heat index: valid/meaningful at T >= 80°F (NWS's own applicability floor).
+function heatIndexF(tempF, rhPercent) {
+  if (typeof tempF !== "number" || typeof rhPercent !== "number" || tempF < 80) return null;
+  const T = tempF, R = rhPercent;
+  let hi = 0.5 * (T + 61 + (T - 68) * 1.2 + R * 0.094);
+  if (hi < 80) return Math.round(hi);
+  hi =
+    -42.379 + 2.04901523 * T + 10.14333127 * R - 0.22475541 * T * R - 0.00683783 * T * T -
+    0.05481717 * R * R + 0.00122874 * T * T * R + 0.00085282 * T * R * R - 0.00000199788 * T * T * R * R;
+  if (R < 13 && T >= 80 && T <= 112) hi -= ((13 - R) / 4) * Math.sqrt((17 - Math.abs(T - 95)) / 17);
+  else if (R > 85 && T >= 80 && T <= 87) hi += ((R - 85) / 10) * ((87 - T) / 5);
+  return Math.round(hi);
+}
+// Wind chill: valid at T <= 50°F and wind >= 3 mph (NWS's own applicability window).
+function windChillF(tempF, windMph) {
+  if (typeof tempF !== "number" || typeof windMph !== "number" || tempF > 50 || windMph < 3) return null;
+  const v16 = Math.pow(windMph, 0.16);
+  return Math.round(35.74 + 0.6215 * tempF - 35.75 * v16 + 0.4275 * tempF * v16);
+}
+// Combine both into one "feels like" value for a period, or null if neither
+// heat index nor wind chill applies.
+function feelsLikeRawF(period) {
+  const t = period?.temperature;
+  if (typeof t !== "number") return null;
+  const rh = period?.relativeHumidity?.value;
+  const windMph = parseInt(period?.windSpeed, 10);
+  return heatIndexF(t, rh) ?? windChillF(t, Number.isFinite(windMph) ? windMph : NaN);
+}
+// Gated version for prominent single-value displays (hero, homepage markdown,
+// MCP text): only surfaces when meaningfully different from the air
+// temperature, so a table-free reader doesn't see noisy "88° feels like 89°".
+function feelsLikeF(period) {
+  const t = period?.temperature;
+  const fl = feelsLikeRawF(period);
+  return fl != null && typeof t === "number" && Math.abs(fl - t) >= 3 ? fl : null;
+}
+
 // NWS icon URLs carry a ?size= param; bump it for crisper rendering, and
 // rewrite api.weather.gov hotlinks to our own /icons proxy. NWS's robots.txt
 // disallows all crawling, so hotlinked images are uncrawlable (and slower) —
@@ -260,6 +302,7 @@ function renderHero(data, lang) {
   // Degenerate NWS response (zero hourly periods): suppress the hero panel but
   // still emit the page's single <h1> so it never renders heading-less.
   if (!now) return `<h1>${T(lang, `${esc(data.place)} Weather`, `Clima en ${esc(data.place)}`)}</h1>`;
+  const feels = feelsLikeF(now);
   return `
     <section class="hero">
       ${now.icon ? `<img class="hero-icon" src="${iconUrl(now.icon, "large")}" alt="${esc(translateConditions(now.shortForecast, lang))}" width="128" height="128" fetchpriority="high">` : ""}
@@ -267,6 +310,7 @@ function renderHero(data, lang) {
         <h1 class="hero-h1">${T(lang, `${esc(data.place)} Weather`, `Clima en ${esc(data.place)}`)}</h1>
         <p class="hero-temp">${esc(now.temperature)}&deg;<span>${esc(now.temperatureUnit)}</span></p>
         <p class="hero-cond">${esc(translateConditions(now.shortForecast, lang))}</p>
+        ${feels != null ? `<p class="hero-feels">${T(lang, "Feels like", "Sensación térmica de")} ${esc(feels)}&deg;</p>` : ""}
         <p class="hero-meta">${esc(data.place)} &middot; ${T(lang, "as of", "a las")} ${esc(clockTime(now.startTime, lang))} CT${pop(now) ? ` &middot; ${pop(now)}% ${T(lang, "precip", "prob. lluvia")}` : ""}</p>
       </div>
     </section>
@@ -524,6 +568,7 @@ ${JSONLD_SITE}
   .hero-temp { margin:0; font-size:3.4rem; font-weight:800; line-height:1; }
   .hero-temp span { font-size:1.2rem; font-weight:600; vertical-align:super; opacity:0.85; }
   .hero-cond { margin:0.2rem 0 0; font-size:1.2rem; font-weight:600; }
+  .hero-feels { margin:0.15rem 0 0; font-size:0.95rem; opacity:0.9; }
   .hero-meta { margin:0.35rem 0 0; font-size:0.85rem; opacity:0.85; }
   .lead { margin:0.8rem 0 0; color:var(--muted); }
 
@@ -739,7 +784,7 @@ const ABOUT = {
       h: "Where the data comes from",
       p: [
         "Every forecast, conditions reading, and alert on this site comes directly from the U.S. National Weather Service (api.weather.gov) for Crosby, TX (latitude 29.9119, longitude -95.0608). NWS data is in the public domain.",
-        "We don't editorialize or adjust the numbers — the site is a clean presentation layer over the official government forecast for the Crosby area.",
+        "We don't editorialize or adjust the numbers — the site is a clean presentation layer over the official government forecast for the Crosby area. The one exception is \"feels like\" temperature: we compute the heat index or wind chill ourselves, using the National Weather Service's own published formulas applied to its temperature, humidity, and wind data — shown only when it's meaningfully different from the air temperature.",
       ],
     },
     {
@@ -813,7 +858,7 @@ const ABOUT_ES = {
       h: "De dónde provienen los datos",
       p: [
         "Cada pronóstico, lectura de condiciones y alerta de este sitio proviene directamente del Servicio Meteorológico Nacional de EE. UU. (api.weather.gov) para Crosby, TX (latitud 29.9119, longitud -95.0608). Los datos del NWS son de dominio público.",
-        "No editorializamos ni ajustamos las cifras: el sitio es una capa de presentación limpia sobre el pronóstico oficial del gobierno para la zona de Crosby. Las condiciones se traducen al español con un diccionario propio; las descripciones detalladas del pronóstico y las alertas se muestran en su idioma oficial, inglés.",
+        "No editorializamos ni ajustamos las cifras: el sitio es una capa de presentación limpia sobre el pronóstico oficial del gobierno para la zona de Crosby. La única excepción es la \"sensación térmica\": la calculamos nosotros mismos con las fórmulas oficiales del Servicio Meteorológico Nacional aplicadas a su temperatura, humedad y viento, y solo se muestra cuando difiere de forma notable de la temperatura del aire. Las condiciones se traducen al español con un diccionario propio; las descripciones detalladas del pronóstico y las alertas se muestran en su idioma oficial, inglés.",
       ],
     },
     {
@@ -1490,6 +1535,7 @@ function hourlyHtml(data, lang) {
         <td>${esc(hourLabel(h.startTime, lang))}</td>
         <td>${h.icon ? `<img src="${iconUrl(h.icon, "small")}" alt="${esc(translateConditions(h.shortForecast, lang))}" width="32" height="32" loading="lazy"> ` : ""}${esc(translateConditions(h.shortForecast, lang))}</td>
         <td class="num">${esc(h.temperature)}&deg;${esc(h.temperatureUnit)}</td>
+        <td class="num">${feelsLikeRawF(h) != null ? esc(feelsLikeRawF(h)) + "°" : "–"}</td>
         <td class="num${pop(h) >= 30 ? " wet" : ""}">${pop(h)}%</td>
         <td class="wind">${esc(translateWind(h.windSpeed, lang))} ${esc(translateDir(h.windDirection, lang))}</td>
       </tr>`
@@ -1498,7 +1544,7 @@ function hourlyHtml(data, lang) {
       return `  <section class="day">
     <h2>${esc(g.day)}</h2>
     <table>
-      <thead><tr><th>${T(lang, "Time", "Hora")}</th><th>${T(lang, "Conditions", "Condiciones")}</th><th class="num">${T(lang, "Temp", "Temp")}</th><th class="num">${T(lang, "Precip", "Prob.")}</th><th>${T(lang, "Wind", "Viento")}</th></tr></thead>
+      <thead><tr><th>${T(lang, "Time", "Hora")}</th><th>${T(lang, "Conditions", "Condiciones")}</th><th class="num">${T(lang, "Temp", "Temp")}</th><th class="num">${T(lang, "Feels", "Sensación")}</th><th class="num">${T(lang, "Precip", "Prob.")}</th><th>${T(lang, "Wind", "Viento")}</th></tr></thead>
       <tbody>
 ${rows}
       </tbody>
@@ -1565,10 +1611,11 @@ function hourlyMarkdown(data, lang) {
     const day = dayLabel(h.startTime, lang);
     if (day !== curDay) {
       curDay = day;
-      out.push(`## ${day}`, "", T(lang, "| Time | Conditions | Temp | Precip | Wind |", "| Hora | Condiciones | Temp | Prob. | Viento |"), "| --- | --- | --- | --- | --- |");
+      out.push(`## ${day}`, "", T(lang, "| Time | Conditions | Temp | Feels | Precip | Wind |", "| Hora | Condiciones | Temp | Sensación | Prob. | Viento |"), "| --- | --- | --- | --- | --- | --- |");
     }
     const cell = (s) => String(s ?? "").replace(/\|/g, "/");
-    out.push(`| ${hourLabel(h.startTime, lang)} | ${cell(translateConditions(h.shortForecast, lang))} | ${h.temperature}°${h.temperatureUnit} | ${pop(h)}% | ${cell(translateWind(h.windSpeed, lang))} ${cell(translateDir(h.windDirection, lang))} |`);
+    const feels = feelsLikeRawF(h);
+    out.push(`| ${hourLabel(h.startTime, lang)} | ${cell(translateConditions(h.shortForecast, lang))} | ${h.temperature}°${h.temperatureUnit} | ${feels != null ? feels + "°" : "–"} | ${pop(h)}% | ${cell(translateWind(h.windSpeed, lang))} ${cell(translateDir(h.windDirection, lang))} |`);
   }
   out.push("", "---", `[crosbynews.com](${canonicalFor("/", lang)}) · [${T(lang, "forecast", "pronóstico")}](${canonicalFor("/", lang)}) · [radar](${canonicalFor("/radar", lang)})`);
   return out.join("\n");
@@ -2166,8 +2213,9 @@ function renderMarkdown(data, lang) {
   if (lang === "es") out.push("_Las condiciones se traducen al español; las descripciones detalladas y las alertas se muestran en inglés oficial del NWS._", "");
 
   if (now) {
+    const feels = feelsLikeF(now);
     out.push(T(lang, "## Now", "## Ahora"));
-    out.push(`**${now.temperature}°${now.temperatureUnit}** — ${translateConditions(now.shortForecast, lang)} (${T(lang, "as of", "a las")} ${clockTime(now.startTime, lang)} CT)${pop(now) ? ` · ${pop(now)}% ${T(lang, "precip", "prob. lluvia")}` : ""}`, "");
+    out.push(`**${now.temperature}°${now.temperatureUnit}** — ${translateConditions(now.shortForecast, lang)} (${T(lang, "as of", "a las")} ${clockTime(now.startTime, lang)} CT)${feels != null ? ` · ${T(lang, "feels like", "sensación térmica de")} ${feels}°` : ""}${pop(now) ? ` · ${pop(now)}% ${T(lang, "precip", "prob. lluvia")}` : ""}`, "");
   }
   if (lead) out.push(`**${translatePeriodName(lead.name, lang)}:** ${lead.detailedForecast}`, "");
 
@@ -2241,15 +2289,18 @@ async function loadWeather(env) {
   return { data, cache };
 }
 
-// JSON shape served at /api/weather.
+// JSON shape served at /api/weather. `feelsLike` is computed in-Worker (heat
+// index / wind chill), not an NWS field — added alongside the NWS fields
+// rather than replacing them, so it's additive and clearly derived.
 function apiWeather(data) {
+  const withFeels = (h) => ({ ...h, feelsLike: feelsLikeRawF(h) });
   return {
     location: data.place || "Crosby, TX",
     coordinates: { lat: LAT, lon: LON },
     source: "U.S. National Weather Service (api.weather.gov)",
     updated: data.updated ?? null,
-    current: data.hourly?.[0] ?? null,
-    hourly: (data.hourly ?? []).slice(0, 12),
+    current: data.hourly?.[0] ? withFeels(data.hourly[0]) : null,
+    hourly: (data.hourly ?? []).slice(0, 12).map(withFeels),
     forecast: data.periods ?? [],
     alerts: data.alerts ?? [],
   };
@@ -2291,6 +2342,10 @@ function openApiSpec() {
       windGust: { type: "string" },
       probabilityOfPrecipitation: { type: "object", properties: { value: { type: ["number", "null"] } } },
       icon: { type: "string", format: "uri" },
+      feelsLike: {
+        type: ["number", "null"],
+        description: "Heat index or wind chill in °F, computed from temperature/humidity/wind using NWS's own formulas. Not an NWS field — null when neither applies.",
+      },
     },
   };
   const Period = {
@@ -2551,20 +2606,28 @@ async function mcpCallTool(name, args, env) {
   const { data } = await loadWeather(env);
   if (name === "get_current_conditions") {
     const now = data.hourly?.[0] ?? null;
+    const feels = feelsLikeF(now);
     const text = now
       ? `Crosby, TX: ${now.temperature}°${now.temperatureUnit}, ${now.shortForecast}` +
-        `${pop(now) ? `, ${pop(now)}% precip` : ""} (as of ${clockTime(now.startTime)} CT).`
+        `${feels != null ? `, feels like ${feels}°` : ""}${pop(now) ? `, ${pop(now)}% precip` : ""} (as of ${clockTime(now.startTime)} CT).`
       : "Current conditions are unavailable.";
-    return { content: [{ type: "text", text }], structuredContent: { location: data.place, updated: data.updated, current: now } };
+    return {
+      content: [{ type: "text", text }],
+      structuredContent: { location: data.place, updated: data.updated, current: now ? { ...now, feelsLike: feelsLikeRawF(now) } : null },
+    };
   }
   if (name === "get_forecast") {
     const hours = Number(args?.hours) || 0;
     if (hours > 0) {
       const slice = (data.hourly ?? []).slice(0, Math.min(hours, 12));
       const text =
-        slice.map((h) => `${hourLabel(h.startTime)}: ${h.temperature}°${h.temperatureUnit}, ${h.shortForecast}${pop(h) ? `, ${pop(h)}% precip` : ""}`).join("\n") ||
-        "No hourly data.";
-      return { content: [{ type: "text", text }], structuredContent: { location: data.place, hourly: slice } };
+        slice
+          .map((h) => {
+            const feels = feelsLikeRawF(h);
+            return `${hourLabel(h.startTime)}: ${h.temperature}°${h.temperatureUnit}, ${h.shortForecast}${feels != null ? `, feels like ${feels}°` : ""}${pop(h) ? `, ${pop(h)}% precip` : ""}`;
+          })
+          .join("\n") || "No hourly data.";
+      return { content: [{ type: "text", text }], structuredContent: { location: data.place, hourly: slice.map((h) => ({ ...h, feelsLike: feelsLikeRawF(h) })) } };
     }
     const text =
       (data.periods ?? [])
