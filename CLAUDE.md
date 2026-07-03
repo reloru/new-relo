@@ -105,8 +105,17 @@ directory name becomes the `/command`. Current skills:
   (a "Feels"/"Sensación" column, showing "–" when it doesn't apply);
   `feelsLikeF()` gates it to prominent single-value spots (hero, homepage
   markdown, MCP `get_current_conditions` text) so it only shows when >=3°F
-  different from air temp — otherwise it's noise. Documented honestly on
-  `/about` as the one exception to "we don't adjust the numbers."
+  different from air temp — otherwise it's noise. Sunrise/sunset
+  (`sunTimes`/`sunTimesForCtDate`) is the other derived value: computed
+  astronomically in-Worker (standard sunrise equation, SunCalc formulation —
+  the NWS forecast API doesn't provide sun times), validated against published
+  Houston-area times across summer/winter/equinox dates. Shown in the hero and
+  homepage markdown (today's), on `/hourly` per day heading, and in
+  `/api/weather` (`sun.sunrise`/`sun.sunset` ISO) + MCP `get_current_conditions`.
+  `sunTimesForCtDate()` anchors to noon Central of the timestamp's calendar
+  date so evening hours can't round into the next solar day. Both derived
+  values are documented honestly on `/about` as the two exceptions to "we
+  don't adjust the numbers."
 - Caching: the cron (`*/15 * * * *`) writes the forecast + active alerts to the
   WEATHER KV namespace under key "weather" as JSON. `fetch()` serves that cache
   and falls back to a live fetch + warm on a cold cache. The same cron also
