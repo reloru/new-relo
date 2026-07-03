@@ -177,6 +177,10 @@ const fullTime = (iso, lang) => fmt(iso, { dateStyle: "medium", timeStyle: "shor
 const clockTime = (iso, lang) => fmt(iso, { hour: "numeric", minute: "2-digit" }, lang);
 const hourLabel = (iso, lang) => fmt(iso, { hour: "numeric" }, lang);
 const dayLabel = (iso, lang) => fmt(iso, { weekday: "long", month: "short", day: "numeric" }, lang);
+// Spanish correctly lowercases weekday/month names in running text, but our
+// UI uses them as HEADINGS ("Sábado 4 de jul"), where a leading capital is
+// the site-wide convention (the calendar page already does this).
+const capFirst = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 
 // --- i18n: English + Mexican Spanish (es-MX) ------------------------------
 // The site renders in English at the root paths and in Spanish under /es.
@@ -1606,25 +1610,26 @@ function hourlyHtml(data, lang) {
   const body = groups
     .map((g) => {
       const rows = g.rows
-        .map(
-          (h) => `<tr>
+        .map((h) => {
+          const feels = feelsLikeRawF(h);
+          return `<tr>
         <td>${esc(hourLabel(h.startTime, lang))}</td>
         <td><span class="cond">${h.icon ? `<img src="${iconUrl(h.icon, "small")}" alt="${esc(translateConditions(h.shortForecast, lang))}" width="32" height="32" loading="lazy">` : ""}<span>${esc(translateConditions(h.shortForecast, lang))}</span></span></td>
-        <td class="num">${esc(h.temperature)}&deg;${esc(h.temperatureUnit)}</td>
-        <td class="num">${feelsLikeRawF(h) != null ? esc(feelsLikeRawF(h)) + "°" : "–"}</td>
+        <td class="num">${esc(h.temperature)}&deg;<span class="tunit">${esc(h.temperatureUnit)}</span>${feels != null ? `<span class="feels-inline"> (${esc(feels)}°)</span>` : ""}</td>
+        <td class="num feels-col">${feels != null ? esc(feels) + "°" : "–"}</td>
         <td class="num${pop(h) >= 30 ? " wet" : ""}">${pop(h)}%</td>
         <td class="wind">${esc(translateWind(h.windSpeed, lang))} ${esc(translateDir(h.windDirection, lang))}</td>
-      </tr>`
-        )
+      </tr>`;
+        })
         .join("\n");
       const sun = sunTimesForCtDate(Date.parse(g.rows[0].startTime));
       const sunLine = sun
         ? ` <span class="day-sun">${T(lang, "Sunrise", "Amanecer")} ${esc(clockTime(sun.sunrise, lang))} &middot; ${T(lang, "Sunset", "Atardecer")} ${esc(clockTime(sun.sunset, lang))}</span>`
         : "";
       return `  <section class="day">
-    <h2>${esc(g.day)}${sunLine}</h2>
+    <h2>${esc(capFirst(g.day))}${sunLine}</h2>
     <table>
-      <thead><tr><th scope="col">${T(lang, "Time", "Hora")}</th><th scope="col">${T(lang, "Conditions", "Condiciones")}</th><th scope="col" class="num">${T(lang, "Temp", "Temp")}</th><th scope="col" class="num" aria-label="${T(lang, "Feels like", "Sensación térmica")}"><span class="hdr-full" aria-hidden="true">${T(lang, "Feels", "Sensación")}</span><span class="hdr-abbr" aria-hidden="true">${T(lang, "Feels", "Sens.")}</span></th><th scope="col" class="num">${T(lang, "Precip", "Prob.")}</th><th scope="col">${T(lang, "Wind", "Viento")}</th></tr></thead>
+      <thead><tr><th scope="col" class="c-time">${T(lang, "Time", "Hora")}</th><th scope="col" class="c-cond">${T(lang, "Conditions", "Condiciones")}</th><th scope="col" class="num c-temp">${T(lang, "Temp", "Temp")}</th><th scope="col" class="num c-feels feels-col">${T(lang, "Feels", "Sensación")}</th><th scope="col" class="num c-rain">${T(lang, "Rain", "Lluvia")}</th><th scope="col" class="c-wind">${T(lang, "Wind", "Viento")}</th></tr></thead>
       <tbody>
 ${rows}
       </tbody>
@@ -1654,7 +1659,12 @@ ${JSONLD_SITE}
   .day { margin-top:1rem; background:var(--card); border-radius:12px; padding:0.5rem 0.9rem 0.9rem; box-shadow:0 1px 3px rgba(0,0,0,0.07); overflow-x:auto; }
   .day h2 { font-size:1.05rem; }
   .day-sun { font-weight:400; font-size:0.78rem; color:var(--muted); margin-left:0.5rem; white-space:nowrap; }
-  table { width:100%; border-collapse:collapse; font-size:0.9rem; }
+  /* Fixed layout + shared column widths: every day's table gets IDENTICAL
+     columns (they line up down the page), long condition names wrap whole at
+     spaces inside their known-width column (no hyphenation needed), and wind
+     stays on one line. Widths sum to 100%. */
+  table { width:100%; border-collapse:collapse; font-size:0.9rem; table-layout:fixed; }
+  .c-time { width:9%; } .c-cond { width:39%; } .c-temp { width:11%; } .c-feels { width:12%; } .c-rain { width:9%; } .c-wind { width:20%; }
   th, td { text-align:left; padding:0.4rem 0.5rem; border-bottom:1px solid var(--line); vertical-align:middle; }
   th { font-size:0.78rem; text-transform:uppercase; letter-spacing:0.03em; color:var(--muted); }
   td img { vertical-align:middle; border-radius:4px; }
@@ -1665,25 +1675,30 @@ ${JSONLD_SITE}
   .num { text-align:right; white-space:nowrap; }
   .wet { color:var(--accent); font-weight:700; }
   .wind { color:var(--muted); white-space:nowrap; }
-  .hdr-abbr { display:none; }
+  /* "(88°)" feels-like inline in the Temp cell is a phone-only rendering. */
+  .feels-inline { display:none; }
+  .feels-note { display:none; font-size:0.8rem; }
   tr:last-child td { border-bottom:none; }
   @media (max-width:600px) {
-    .hdr-full { display:none; }
-    .hdr-abbr { display:inline; }
     .day { padding:0.5rem 0.6rem 0.7rem; }
     table { font-size:0.84rem; }
     th, td { padding:0.35rem 0.2rem; }
     th { letter-spacing:0.01em; font-size:0.66rem; }
-    .wind { white-space:normal; }
     .cond { gap:0.3rem; }
     .cond img { width:22px; height:22px; }
-    /* Give conditions room so long names ("Thunderstorms", "Mayormente")
-       wrap whole at spaces — auto table layout then sizes the column to the
-       longest word, which fits at these paddings on a 375px phone. hyphens
-       helps where dictionaries exist (iOS/macOS); the .day overflow-x:auto
-       is the safety net if NWS ever ships a wider-than-viewport word. */
-    th:nth-child(2) { width:38%; }
-    .cond span { hyphens:auto; }
+    /* Phones: fold the Feels column into Temp ("82° (88°)") so five roomy
+       columns replace six cramped ones — full-word headers, aligned days. */
+    .feels-col { display:none; }
+    .feels-inline { display:inline; }
+    .feels-note { display:block; }
+    .tunit { display:none; }
+    .c-time { width:10%; } .c-cond { width:34%; } .c-temp { width:19%; } .c-rain { width:12%; } .c-wind { width:25%; }
+    /* Gutters so adjacent headers/columns can't visually run together
+       (HORA|CONDICIONES and the right-aligned Rain against Wind). */
+    th.c-cond { padding-left:0.5rem; }
+    th.c-wind, td.wind { padding-left:0.4rem; }
+    td.num { padding-left:0.35rem; }
+    .wind { white-space:normal; }
   }
   .intro { color:var(--muted); margin:0.6rem 0 0; }
 </style>
@@ -1694,6 +1709,7 @@ ${topbar("/hourly", lang)}
   <h1>${T(lang, "Crosby, TX Hourly Forecast", "Pronóstico por hora de Crosby, TX")}</h1>
   <p class="intro">${T(lang, `Hour-by-hour forecast for Crosby, Texas from the U.S. National Weather Service, covering the next ${hours.length} hours. Updated ${esc(fullTime(data.updated))} CT.`, `Pronóstico hora por hora para Crosby, Texas del Servicio Meteorológico Nacional de EE. UU., para las próximas ${hours.length} horas. Actualizado ${esc(fullTime(data.updated, lang))} CT.`)}</p>
   ${lang === "es" ? `<p class="intro nws-note">${ES_NWS_NOTE}</p>` : ""}
+  <p class="intro feels-note">${T(lang, "Temp shows the “feels like” temperature in parentheses.", "La temperatura muestra la sensación térmica entre paréntesis.")}</p>
 ${body || `<p class="none">${T(lang, "Hourly forecast is temporarily unavailable.", "El pronóstico por hora no está disponible temporalmente.")}</p>`}
   <p class="intro"><a href="${lang === "es" ? "/es" : "/"}">&larr; ${T(lang, "Back to the Crosby forecast", "Volver al pronóstico de Crosby")}</a> &middot; <a href="${lang === "es" ? "/es/radar" : "/radar"}">Radar</a></p>
 </main>
@@ -1716,9 +1732,9 @@ function hourlyMarkdown(data, lang) {
     if (day !== curDay) {
       curDay = day;
       const sun = sunTimesForCtDate(Date.parse(h.startTime));
-      out.push(`## ${day}`, "");
+      out.push(`## ${capFirst(day)}`, "");
       if (sun) out.push(`_${T(lang, "Sunrise", "Amanecer")} ${clockTime(sun.sunrise, lang)} · ${T(lang, "Sunset", "Atardecer")} ${clockTime(sun.sunset, lang)}_`, "");
-      out.push(T(lang, "| Time | Conditions | Temp | Feels | Precip | Wind |", "| Hora | Condiciones | Temp | Sensación | Prob. | Viento |"), "| --- | --- | --- | --- | --- | --- |");
+      out.push(T(lang, "| Time | Conditions | Temp | Feels | Rain | Wind |", "| Hora | Condiciones | Temp | Sensación | Lluvia | Viento |"), "| --- | --- | --- | --- | --- | --- |");
     }
     const cell = (s) => String(s ?? "").replace(/\|/g, "/");
     const feels = feelsLikeRawF(h);

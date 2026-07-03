@@ -106,7 +106,12 @@ directory name becomes the `/command`. Current skills:
   sub-80° hours get real values instead of "–" gaps (a bug fixed after user
   screenshots). `feelsLikeRawF()` (the unconditional value) feeds `/api/weather`
   (as `feelsLike` on `current` and each `hourly` entry) and the `/hourly` table
-  (a "Feels"/"Sensación" column, showing "–" when it doesn't apply);
+  (a "Feels"/"Sensación" column on desktop, showing "–" when it doesn't apply;
+  on phones ≤600px that column folds into Temp as "82° (88°)" with an on-page
+  note, so five roomy full-word columns — Rain/"Lluvia" for precip — replace
+  six cramped ones; the tables use `table-layout:fixed` with shared `.c-*`
+  width classes so every day's columns align and long condition names wrap
+  whole at spaces, no hyphenation);
   `feelsLikeF()` gates it to prominent single-value spots (hero, homepage
   markdown, MCP `get_current_conditions` text) so it only shows when >=3°F
   different from air temp — otherwise it's noise. Sunrise/sunset
