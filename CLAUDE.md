@@ -284,6 +284,13 @@ directory name becomes the `/command`. Current skills:
   2026-07-02 audit; keep it OFF so the Worker's self-refreshing version serves.
 - `/api/weather` — public JSON (location, current, hourly, forecast, alerts),
   CORS `*`. `/api/health` — status + cache freshness.
+- Conditional GET: the polled endpoints (`/api/weather`, `/api/news`,
+  `/api/calendar`, `/alerts.xml`, `/news.xml`) send weak ETags derived from
+  the KV freshness stamp (plus the Central calendar date where the body
+  depends on it: sun times, upcoming-events cutoff) and `Last-Modified`
+  where the stamp is a date; `If-None-Match` → body-less 304 (see
+  `conditional()` in `src/index.js`), so feed readers and dashboards poll
+  nearly free.
 - `/api/news` and `/api/calendar` — the same KV data behind `/news` and
   `/calendar` as public JSON (CORS `*`): news items (title/link/source/
   published ISO/`category` community|incident, folding the internal crime

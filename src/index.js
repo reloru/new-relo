@@ -2463,6 +2463,24 @@ function linkHeader(lang) {
   );
 }
 
+// Conditional GET for the machine-polled endpoints (API + feeds): a weak ETag
+// derived from the cached data's freshness stamp, so a poller that already
+// has the current snapshot gets a body-less 304. `seed` must change whenever
+// the body would; `make` builds the body only on a miss. Last-Modified rides
+// along when the stamp is a date (informational; only If-None-Match is
+// evaluated, which is the header ETag-aware clients send).
+function conditional(request, seed, make, headers) {
+  const etag = `W/"${String(seed).replace(/"/g, "")}"`;
+  const h = { ...headers, etag };
+  const d = new Date(seed);
+  if (!isNaN(d.getTime())) h["last-modified"] = d.toUTCString();
+  const inm = request.headers.get("if-none-match");
+  if (inm && (inm.trim() === "*" || inm.split(",").map((s) => s.trim()).includes(etag))) {
+    return new Response(null, { status: 304, headers: h });
+  }
+  return new Response(make(), { headers: h });
+}
+
 // Shared loader: cached weather, refreshing on a missing or stale-shaped entry.
 async function loadWeather(env) {
   let cache = "hit";
@@ -3296,8 +3314,9 @@ async function _fetch(request, env, ctx) {
     if (path === "/alerts.xml") {
       try {
         const { data } = await loadWeather(env);
-        return new Response(alertsRss(data), {
-          headers: { "content-type": "application/rss+xml; charset=utf-8", "cache-control": "public, max-age=300" },
+        return conditional(request, data.updated ?? "none", () => alertsRss(data), {
+          "content-type": "application/rss+xml; charset=utf-8",
+          "cache-control": "public, max-age=300",
         });
       } catch (err) {
         return new Response("Feed temporarily unavailable", { status: 502, headers: { "content-type": "text/plain; charset=utf-8" } });
@@ -3306,8 +3325,9 @@ async function _fetch(request, env, ctx) {
     if (path === "/news.xml") {
       try {
         const data = await loadNews(env);
-        return new Response(newsRss(data), {
-          headers: { "content-type": "application/rss+xml; charset=utf-8", "cache-control": "public, max-age=900" },
+        return conditional(request, data.updated ?? "none", () => newsRss(data), {
+          "content-type": "application/rss+xml; charset=utf-8",
+          "cache-control": "public, max-age=900",
         });
       } catch (err) {
         return new Response("Feed temporarily unavailable", { status: 502, headers: { "content-type": "text/plain; charset=utf-8" } });
@@ -3449,14 +3469,15 @@ async function _fetch(request, env, ctx) {
     if (path === "/api/weather") {
       try {
         const { data, cache } = await loadWeather(env);
-        return new Response(JSON.stringify(apiWeather(data)), {
-          headers: {
-            "content-type": "application/json; charset=utf-8",
-            "access-control-allow-origin": "*",
-            "cache-control": "public, max-age=300",
-            link: `<${SITE}/openapi.json>; rel="service-desc"; type="application/json"`,
-            "x-cache": cache,
-          },
+        // Seed includes the CT calendar date because `sun` in the body
+        // changes with it even when the cache stamp doesn't.
+        const ctDate = new Date().toLocaleDateString("en-CA", { timeZone: TZ });
+        return conditional(request, `${data.updated ?? "none"}|${ctDate}`, () => JSON.stringify(apiWeather(data)), {
+          "content-type": "application/json; charset=utf-8",
+          "access-control-allow-origin": "*",
+          "cache-control": "public, max-age=300",
+          link: `<${SITE}/openapi.json>; rel="service-desc"; type="application/json"`,
+          "x-cache": cache,
         });
       } catch (err) {
         return new Response(JSON.stringify({ error: "upstream_unavailable", message: err && err.message }), {
@@ -3470,13 +3491,11 @@ async function _fetch(request, env, ctx) {
     if (path === "/api/news") {
       try {
         const data = await loadNews(env);
-        return new Response(JSON.stringify(apiNews(data)), {
-          headers: {
-            "content-type": "application/json; charset=utf-8",
-            "access-control-allow-origin": "*",
-            "cache-control": "public, max-age=900",
-            link: `<${SITE}/openapi.json>; rel="service-desc"; type="application/json"`,
-          },
+        return conditional(request, data.updated ?? "none", () => JSON.stringify(apiNews(data)), {
+          "content-type": "application/json; charset=utf-8",
+          "access-control-allow-origin": "*",
+          "cache-control": "public, max-age=900",
+          link: `<${SITE}/openapi.json>; rel="service-desc"; type="application/json"`,
         });
       } catch (err) {
         return new Response(JSON.stringify({ error: "unavailable", message: err && err.message }), {
@@ -3487,16 +3506,17 @@ async function _fetch(request, env, ctx) {
     }
 
     // Crosby ISD school calendar as JSON — same cron-owned KV data as /calendar.
+    // The `upcomingEvents` cutoff moves with time, so the seed carries the CT
+    // date to stay honest across day boundaries.
     if (path === "/api/calendar") {
       try {
         const data = await loadCalendar(env);
-        return new Response(JSON.stringify(apiCalendar(data)), {
-          headers: {
-            "content-type": "application/json; charset=utf-8",
-            "access-control-allow-origin": "*",
-            "cache-control": "public, max-age=1800",
-            link: `<${SITE}/openapi.json>; rel="service-desc"; type="application/json"`,
-          },
+        const ctDate = new Date().toLocaleDateString("en-CA", { timeZone: TZ });
+        return conditional(request, `${data.updated ?? "none"}|${ctDate}`, () => JSON.stringify(apiCalendar(data)), {
+          "content-type": "application/json; charset=utf-8",
+          "access-control-allow-origin": "*",
+          "cache-control": "public, max-age=1800",
+          link: `<${SITE}/openapi.json>; rel="service-desc"; type="application/json"`,
         });
       } catch (err) {
         return new Response(JSON.stringify({ error: "unavailable", message: err && err.message }), {
