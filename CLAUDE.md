@@ -298,7 +298,10 @@ directory name becomes the `/command`. Current skills:
   cache via `loadWeather()`.
 - `/mcp` — stateless MCP server (Streamable HTTP, JSON-RPC) with tools
   `get_current_conditions`, `get_forecast`, `get_alerts`, `get_crosby_news`,
-  `get_school_events`. Discovery card at
+  `get_school_events`; prompt `crosby_briefing` (prompts/get composes live
+  weather + alerts + news + school events server-side into a self-contained
+  briefing prompt); resources `llms.txt` + `openapi.json` (readable
+  in-protocol via resources/read). Discovery card at
   `/.well-known/mcp/server-card.json`. A GET (or HEAD) gets a human explainer
   page (`mcpInfoHtml()`, noindex), markdown-negotiated like the content pages
   (`Accept: text/markdown` / `?format=md` → `mcpInfoMarkdown()`, so the footer's
