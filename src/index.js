@@ -464,14 +464,14 @@ function topbar(current, lang = "en") {
   <nav>
     <details class="nav-menu">
       <summary aria-label="${t("Menu", "Menú")}">&#9776;</summary>
-      <div class="nav-links">${link("/", t("Weather", "Clima"))} ${link("/hourly", t("Hourly", "Por hora"))} ${link("/radar", t("Radar", "Radar"))} ${link("/alerts", t("Alerts", "Alertas"))} ${link("/water", t("Water Levels", "Niveles de agua"))} ${link("/news", t("News", "Noticias"))} ${link("/calendar", t("School Calendar", "Calendario escolar"))} ${link("/about", t("About", "Acerca de"))}</div>
+      <div class="nav-links">${link("/", t("Home", "Inicio"))} ${link("/weather", t("Weather", "Clima"))} ${link("/radar", t("Radar", "Radar"))} ${link("/alerts", t("Alerts", "Alertas"))} ${link("/water", t("Water Levels", "Niveles de agua"))} ${link("/news", t("News", "Noticias"))} ${link("/calendar", t("School Calendar", "Calendario escolar"))} ${link("/about", t("About", "Acerca de"))}</div>
     </details>
     ${toggle}
   </nav>
 </header>`;
 }
 
-const WEATHER_PAGES = new Set(["/", "/hourly", "/radar", "/alerts"]);
+const WEATHER_PAGES = new Set(["/", "/weather", "/hourly", "/radar", "/alerts"]);
 
 function footer({ page, lang = "en", source, data }) {
   const es = lang === "es";
@@ -619,14 +619,13 @@ function renderHtml(data, lang) {
 <title>${T(lang, "Crosby, TX Weather", "Clima de Crosby, TX")} &mdash; crosbynews.com</title>
 <meta name="description" content="${T(lang, "Live weather forecast and active alerts for Crosby, Texas, refreshed every 15 minutes from the U.S. National Weather Service.", "Pronóstico del tiempo y alertas activas para Crosby, Texas, actualizado cada 15 minutos del Servicio Meteorológico Nacional de EE. UU.")}">
 <meta name="theme-color" content="#0b3d61">
-<meta name="msvalidate.01" content="71B0F51AEDA395D9136070A67436D4F9">
 <meta property="og:title" content="${T(lang, "Crosby, TX Weather", "Clima de Crosby, TX")}">
 <meta property="og:description" content="${T(lang, "Live forecast and active alerts for Crosby, Texas.", "Pronóstico del tiempo y alertas activas para Crosby, Texas.")}">
 <meta property="og:type" content="website">
-<meta property="og:url" content="${canonicalFor("/", lang)}">
+<meta property="og:url" content="${canonicalFor("/weather", lang)}">
 ${OG_COMMON}
-<link rel="canonical" href="${canonicalFor("/", lang)}">
-${hreflangTags("/")}
+<link rel="canonical" href="${canonicalFor("/weather", lang)}">
+${hreflangTags("/weather")}
 ${JSONLD_SITE}
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="alternate icon" href="/favicon.ico">
@@ -670,19 +669,212 @@ ${JSONLD_SITE}
 </style>
 </head>
 <body>
-${topbar("/", lang)}
+${topbar("/weather", lang)}
 <main id="main">
   ${renderAlerts(data.alerts ?? [], lang)}
   ${renderHero(data, lang)}
   ${lang === "es" ? `<p class="lead nws-note">${ES_NWS_NOTE}</p>` : ""}
   ${renderHourly((data.hourly ?? []).slice(0, 12), lang)}
   ${renderDaily(data.periods ?? [], lang)}
+  <p class="lead"><a href="${lang === "es" ? "/es/hourly" : "/hourly"}">${T(lang, "Full 48-hour hourly forecast", "Pronóstico por hora de 48 horas")}</a> &middot; <a href="${lang === "es" ? "/es/radar" : "/radar"}">${T(lang, "Radar", "Radar")}</a> &middot; <a href="${lang === "es" ? "/es/water" : "/water"}">${T(lang, "Water levels", "Niveles de agua")}</a></p>
 </main>
-${footer({ page: "/", lang, source: T(lang, `Data from the U.S. National Weather Service (<a href="https://weather.gov">weather.gov</a>).`, `Datos del Servicio Meteorológico Nacional de EE. UU. (<a href="https://weather.gov">weather.gov</a>).`), data })}
+${footer({ page: "/weather", lang, source: T(lang, `Data from the U.S. National Weather Service (<a href="https://weather.gov">weather.gov</a>).`, `Datos del Servicio Meteorológico Nacional de EE. UU. (<a href="https://weather.gov">weather.gov</a>).`), data })}
 <script>${HOME_SCRIPT}</script>
 </body>
 </html>`;
 }
+
+// --- Homepage hub ---------------------------------------------------------
+// The root (/ and /es) is the "front page of Crosby": current conditions up
+// top (kept prominent so the root retains its weather relevance) plus at-a-
+// glance cards linking into Weather, Water, News, and the School Calendar. The
+// full forecast lives at /weather. The hub loads all four datasets in parallel
+// (cheap KV reads) so one slow source can't serially block the page.
+function hubWaterSummary(water, lang) {
+  const gauges = water.gauges ?? [];
+  const flooding = gauges.filter((g) => WATER_FLOOD_CATS.includes(g.category));
+  if (flooding.length) {
+    const rank = (c) => WATER_CAT_ORDER.indexOf(c);
+    const worst = flooding.reduce((a, b) => (rank(b.category) > rank(a.category) ? b : a));
+    return { cls: waterCatClass(worst.category), label: waterCatLabel(worst.category, lang), detail: `${esc(worst.name)}` };
+  }
+  if (!gauges.length) return { cls: "w-unknown", label: T(lang, "Unavailable", "No disponible"), detail: T(lang, "Water data temporarily unavailable", "Datos de agua no disponibles temporalmente") };
+  return { cls: "w-normal", label: T(lang, "All normal", "Todo normal"), detail: T(lang, "No area gauges at flood stage", "Ningún medidor del área en etapa de inundación") };
+}
+
+function homeHtml(weather, water, news, cal, lang) {
+  const now = weather.hourly?.[0];
+  const feels = now ? feelsLikeF(now) : null;
+  const alerts = weather.alerts ?? [];
+  const wUrl = lang === "es" ? "/es/weather" : "/weather";
+
+  const hero = now
+    ? `<section class="hub-hero">
+      ${now.icon ? `<img class="hero-icon" src="${iconUrl(now.icon, "large")}" alt="${esc(translateConditions(now.shortForecast, lang))}" width="104" height="104" fetchpriority="high">` : ""}
+      <div class="hub-hero-now">
+        <p class="hub-temp">${esc(now.temperature)}&deg;<span>${esc(now.temperatureUnit)}</span></p>
+        <p class="hub-cond">${esc(translateConditions(now.shortForecast, lang))}${feels != null ? ` &middot; ${T(lang, "feels", "sensación")} ${esc(feels)}&deg;` : ""}</p>
+        <p class="hub-hero-meta">${T(lang, "Now in Crosby, TX", "Ahora en Crosby, TX")}${now.startTime ? ` &middot; ${esc(clockTime(now.startTime, lang))} CT` : ""}</p>
+      </div>
+      <a class="hub-cta" href="${wUrl}">${T(lang, "Full forecast", "Pronóstico completo")} &rarr;</a>
+    </section>`
+    : `<section class="hub-hero"><div class="hub-hero-now"><p class="hub-cond">${T(lang, "Live weather for Crosby, Texas", "Clima en vivo para Crosby, Texas")}</p><p class="hub-hero-meta">${T(lang, "Conditions temporarily unavailable.", "Condiciones no disponibles temporalmente.")}</p></div><a class="hub-cta" href="${wUrl}">${T(lang, "Forecast", "Pronóstico")} &rarr;</a></section>`;
+
+  const dayPeek = (weather.periods ?? [])
+    .slice(0, 2)
+    .map((p) => `<li><span class="pk-label">${esc(translatePeriodName(p.name, lang))}</span><span class="pk-val">${esc(p.temperature)}&deg; &middot; ${esc(translateConditions(p.shortForecast, lang))}</span></li>`)
+    .join("");
+  const ws = hubWaterSummary(water, lang);
+  const newsItems = (news.items ?? []).filter((n) => !n.crime).slice(0, 3);
+  const newsList = newsItems.length
+    ? newsItems.map((n) => `<li><a href="${esc(n.link)}" target="_blank" rel="noopener nofollow">${esc(n.title)}</a></li>`).join("")
+    : `<li class="muted">${T(lang, "No recent headlines.", "Sin titulares recientes.")}</li>`;
+  const events = upcomingEvents(cal.events ?? []).slice(0, 3);
+  const calList = events.length
+    ? events
+        .map((e) => {
+          const when = new Date(e.start).toLocaleDateString(lang === "es" ? "es-MX" : "en-US", { timeZone: "UTC", month: "short", day: "numeric" });
+          return `<li><span class="pk-label">${esc(when)}</span><span class="pk-val">${esc(translateEvent(e.summary, lang))}</span></li>`;
+        })
+        .join("")
+    : `<li class="muted">${T(lang, "No upcoming events posted.", "No hay eventos próximos publicados.")}</li>`;
+
+  const lk = (en, es) => (lang === "es" ? esPath(en) : en);
+  const cards = `<div class="hub-grid">
+      <section class="hub-card">
+        <h2><a href="${lk("/weather")}">${T(lang, "Weather", "Clima")}</a></h2>
+        <ul class="peek">${dayPeek || `<li class="muted">${T(lang, "Forecast unavailable.", "Pronóstico no disponible.")}</li>`}</ul>
+        <p class="hub-links"><a href="${lk("/hourly")}">${T(lang, "Hourly", "Por hora")}</a> &middot; <a href="${lk("/radar")}">Radar</a> &middot; <a href="${lk("/alerts")}">${T(lang, "Alerts", "Alertas")}</a></p>
+      </section>
+      <section class="hub-card">
+        <h2><a href="${lk("/water")}">${T(lang, "Water Levels", "Niveles de agua")}</a></h2>
+        <p class="hub-water ${ws.cls}"><span class="hub-water-badge">${esc(ws.label)}</span></p>
+        <p class="hub-water-detail">${ws.detail}</p>
+      </section>
+      <section class="hub-card">
+        <h2><a href="${lk("/news")}">${T(lang, "Local News", "Noticias locales")}</a></h2>
+        <ul class="hub-news">${newsList}</ul>
+      </section>
+      <section class="hub-card">
+        <h2><a href="${lk("/calendar")}">${T(lang, "School Calendar", "Calendario escolar")}</a></h2>
+        <ul class="peek">${calList}</ul>
+      </section>
+    </div>`;
+
+  const title = T(lang, "Crosby, TX — Weather, Water, News & Schools", "Crosby, TX — Clima, agua, noticias y escuelas");
+  const desc = T(
+    lang,
+    "The front page for Crosby, Texas: live National Weather Service conditions, river and bayou flood levels, local headlines, and the Crosby ISD school calendar. Fast, ad-free, no trackers.",
+    "La página principal de Crosby, Texas: condiciones en vivo del Servicio Meteorológico Nacional, niveles de inundación de ríos y arroyos, titulares locales y el calendario escolar de Crosby ISD. Rápida, sin anuncios, sin rastreadores."
+  );
+  return `<!DOCTYPE html>
+<html lang="${T(lang, "en", "es-MX")}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${esc(title)}</title>
+<meta name="description" content="${esc(desc)}">
+<meta name="theme-color" content="#0b3d61">
+<meta name="msvalidate.01" content="71B0F51AEDA395D9136070A67436D4F9">
+<meta property="og:title" content="${esc(title)}">
+<meta property="og:description" content="${T(lang, "Live weather, flood levels, local news, and school calendar for Crosby, Texas.", "Clima en vivo, niveles de inundación, noticias locales y calendario escolar para Crosby, Texas.")}">
+<meta property="og:type" content="website">
+<meta property="og:url" content="${canonicalFor("/", lang)}">
+${OG_COMMON}
+<link rel="canonical" href="${canonicalFor("/", lang)}">
+${hreflangTags("/")}
+${JSONLD_SITE}
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="alternate icon" href="/favicon.ico">
+<style>${BASE_CSS}
+  .hub-hero { display:flex; align-items:center; gap:1rem; background:linear-gradient(135deg,var(--blue),var(--accent)); color:#fff; border-radius:16px; padding:1.1rem 1.3rem; margin-top:0.8rem; flex-wrap:wrap; }
+  .hub-hero .hero-icon { border-radius:12px; background:rgba(255,255,255,0.12); flex:none; }
+  .hub-hero-now { flex:1 1 auto; min-width:0; }
+  .hub-temp { margin:0; font-size:3rem; font-weight:800; line-height:1; }
+  .hub-temp span { font-size:1.1rem; font-weight:600; vertical-align:super; opacity:0.85; }
+  .hub-cond { margin:0.2rem 0 0; font-size:1.15rem; font-weight:600; }
+  .hub-hero-meta { margin:0.3rem 0 0; font-size:0.85rem; opacity:0.85; }
+  .hub-cta { flex:none; background:rgba(255,255,255,0.16); color:#fff; text-decoration:none; font-weight:700; padding:0.5rem 0.9rem; border-radius:10px; white-space:nowrap; }
+  .hub-cta:hover { background:rgba(255,255,255,0.28); }
+  .hub-grid { display:grid; gap:0.8rem; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); margin-top:1rem; }
+  .hub-card { background:var(--card); border-radius:12px; padding:0.9rem 1.05rem; box-shadow:0 1px 3px rgba(0,0,0,0.07); }
+  .hub-card h2 { margin:0 0 0.5rem; font-size:1.05rem; }
+  .hub-card h2 a { color:var(--ink); text-decoration:none; }
+  .hub-card h2 a:hover { color:var(--accent); }
+  .peek { list-style:none; margin:0; padding:0; }
+  .peek li { display:flex; justify-content:space-between; gap:0.6rem; padding:0.28rem 0; border-bottom:1px solid var(--line); font-size:0.9rem; }
+  .peek li:last-child { border-bottom:none; }
+  .pk-label { color:var(--muted); flex:none; }
+  .pk-val { text-align:right; }
+  .hub-links { margin:0.55rem 0 0; font-size:0.85rem; color:var(--muted); }
+  .hub-links a { color:var(--accent); text-decoration:none; }
+  .hub-news { list-style:none; margin:0; padding:0; }
+  .hub-news li { padding:0.3rem 0; border-bottom:1px solid var(--line); font-size:0.9rem; }
+  .hub-news li:last-child { border-bottom:none; }
+  .hub-news a { color:var(--ink); text-decoration:none; }
+  .hub-news a:hover { color:var(--accent); text-decoration:underline; }
+  .hub-water { margin:0.3rem 0 0.4rem; }
+  .hub-water-badge { display:inline-block; font-size:0.9rem; font-weight:800; padding:0.3rem 0.7rem; border-radius:999px; color:#fff; background:var(--muted); }
+  .hub-water.w-normal .hub-water-badge { background:#1f8b4c; }
+  .hub-water.w-action .hub-water-badge { background:#b8860b; }
+  .hub-water.w-minor .hub-water-badge { background:#c85a08; }
+  .hub-water.w-moderate .hub-water-badge { background:#b5301f; }
+  .hub-water.w-major .hub-water-badge { background:#6f1fa0; }
+  .hub-water-detail { margin:0; font-size:0.85rem; color:var(--muted); }
+  .muted { color:var(--muted); font-style:italic; }
+  .alerts { display:grid; gap:0.6rem; margin-top:0.8rem; }
+  .alert { background:#fff4f3; border-left:5px solid #c0392b; border-radius:10px; padding:0.8rem 1rem; }
+  .alert h3 { margin:0 0 0.3rem; color:#a3271b; }
+  .alert .headline { font-weight:700; }
+  .alert .instruction { background:rgba(255,255,255,0.65); border-radius:6px; padding:0.5rem 0.7rem; }
+  .alert .meta { font-size:0.8rem; color:var(--muted); }
+  @media (prefers-color-scheme: dark) { .alert { background:#2a1715; } .alert .instruction { background:rgba(0,0,0,0.25); } }
+  .hub-intro { color:var(--muted); margin:0.2rem 0 0; }
+  .visually-h1 { font-size:1.25rem; margin:0.2rem 0 0; letter-spacing:0.01em; }
+</style>
+</head>
+<body>
+${topbar("/", lang)}
+<main id="main">
+  <h1 class="visually-h1">${T(lang, "Crosby, Texas", "Crosby, Texas")}</h1>
+  ${renderAlerts(alerts, lang)}
+  ${hero}
+  ${cards}
+</main>
+${footer({ page: "/", lang, source: T(lang, `Weather from the U.S. National Weather Service; water levels from NOAA/NWS; news aggregated from public sources.`, `Clima del Servicio Meteorológico Nacional de EE. UU.; niveles de agua de NOAA/NWS; noticias recopiladas de fuentes públicas.`), data: weather })}
+<script>${HOME_SCRIPT}</script>
+</body>
+</html>`;
+}
+
+function homeMarkdown(weather, water, news, cal, lang) {
+  const now = weather.hourly?.[0];
+  const feels = now ? feelsLikeF(now) : null;
+  const out = [`# ${T(lang, "Crosby, Texas", "Crosby, Texas")}`, "", `_${T(lang, "The front page for Crosby, TX — weather, water levels, local news, and school calendar.", "La página principal de Crosby, TX — clima, niveles de agua, noticias locales y calendario escolar.")}_`, ""];
+  if (now) {
+    out.push(`**${now.temperature}°${now.temperatureUnit}** — ${translateConditions(now.shortForecast, lang)}${feels != null ? ` (${T(lang, "feels like", "sensación térmica de")} ${feels}°)` : ""}. [${T(lang, "Full forecast", "Pronóstico completo")}](${canonicalFor("/weather", lang)})`, "");
+  }
+  const alerts = weather.alerts ?? [];
+  if (alerts.length) out.push(`**${T(lang, "Active alerts", "Alertas activas")}:** ${alerts.map((a) => a.event).join("; ")}. [${T(lang, "Details", "Detalles")}](${canonicalFor("/alerts", lang)})`, "");
+  const ws = hubWaterSummary(water, lang);
+  out.push(`**${T(lang, "Water levels", "Niveles de agua")}:** ${ws.label.replace(/&[a-z]+;/g, "")} — ${String(ws.detail).replace(/<[^>]+>/g, "")}. [${T(lang, "All gauges", "Todos los medidores")}](${canonicalFor("/water", lang)})`, "");
+  const newsItems = (news.items ?? []).filter((n) => !n.crime).slice(0, 3);
+  if (newsItems.length) {
+    out.push("", `## ${T(lang, "Local news", "Noticias locales")}`, "");
+    for (const n of newsItems) out.push(`- [${n.title}](${n.link})${n.source ? ` — ${n.source}` : ""}`);
+  }
+  const events = upcomingEvents(cal.events ?? []).slice(0, 3);
+  if (events.length) {
+    out.push("", `## ${T(lang, "Upcoming Crosby ISD events", "Próximos eventos de Crosby ISD")}`, "");
+    for (const e of events) {
+      const when = new Date(e.start).toLocaleDateString(lang === "es" ? "es-MX" : "en-US", { timeZone: "UTC", weekday: "short", month: "short", day: "numeric" });
+      out.push(`- ${when}: ${translateEvent(e.summary, lang)}`);
+    }
+  }
+  out.push("", "---", `[${T(lang, "Weather", "Clima")}](${canonicalFor("/weather", lang)}) · [${T(lang, "Water", "Agua")}](${canonicalFor("/water", lang)}) · [${T(lang, "News", "Noticias")}](${canonicalFor("/news", lang)}) · [${T(lang, "Calendar", "Calendario")}](${canonicalFor("/calendar", lang)})`);
+  return out.join("\n");
+}
+// --- end Homepage hub -----------------------------------------------------
 
 function renderError(err) {
   return `<!DOCTYPE html>
@@ -772,7 +964,8 @@ crosbynews.com is an independent weather and news site for Crosby, TX (northeast
 
 ## Pages
 
-- [Weather](${SITE}/): Current conditions, 12-hour hourly strip, and 7-day forecast for Crosby, TX.
+- [Home](${SITE}/): The Crosby, TX front page — current conditions, water levels, local news, and school events at a glance, linking into each full section.
+- [Weather](${SITE}/weather): Current conditions, 12-hour hourly strip, and 7-day forecast for Crosby, TX.
 - [Hourly](${SITE}/hourly): Full 48-hour hour-by-hour forecast table grouped by day.
 - [Radar](${SITE}/radar): Live NWS KHGX (Houston-Galveston) radar loop covering Crosby and northeast Harris County.
 - [Alerts](${SITE}/alerts): Active NWS weather alerts for Crosby, TX plus a plain-language severe-weather guide.
@@ -874,6 +1067,7 @@ function sitemapXml() {
   const today = new Date().toISOString().slice(0, 10);
   const pages = [
     { path: "/", changefreq: "hourly", priority: "1.0", lastmod: true },
+    { path: "/weather", changefreq: "hourly", priority: "0.9", lastmod: true },
     { path: "/hourly", changefreq: "hourly", priority: "0.8", lastmod: true },
     { path: "/radar", changefreq: "daily", priority: "0.7" },
     { path: "/alerts", changefreq: "hourly", priority: "0.7" },
@@ -959,7 +1153,7 @@ const ABOUT = {
         { href: "/mcp", label: "/mcp", note: "MCP server (Streamable HTTP): get_current_conditions, get_forecast, get_alerts, get_crosby_news, get_school_events" },
         { href: "/.well-known/mcp/server-card.json", label: "MCP server card", note: "discovery metadata" },
         { href: "/llms.txt", label: "/llms.txt", note: "plain-language site summary for LLMs (llmstxt.org)" },
-        { href: "/?format=md", label: "This site as Markdown", note: "the weather page, rendered for agents" },
+        { href: "/weather?format=md", label: "The forecast as Markdown", note: "the weather page, rendered for agents" },
       ],
     },
     {
@@ -1036,7 +1230,7 @@ const ABOUT_ES = {
         { href: "/mcp", label: "/mcp", note: "servidor MCP (Streamable HTTP): get_current_conditions, get_forecast, get_alerts, get_crosby_news, get_school_events" },
         { href: "/.well-known/mcp/server-card.json", label: "Tarjeta del servidor MCP", note: "metadatos de descubrimiento" },
         { href: "/llms.txt", label: "/llms.txt", note: "resumen del sitio en lenguaje sencillo para LLM (llmstxt.org)" },
-        { href: "/es?format=md", label: "Este sitio en Markdown", note: "la página del tiempo, en español para agentes" },
+        { href: "/es/weather?format=md", label: "El pronóstico en Markdown", note: "la página del tiempo, en español para agentes" },
       ],
     },
     {
@@ -1504,7 +1698,8 @@ ${topbar("/sitemap", lang)}
   <section class="card">
     <h2>${t("Weather &amp; Forecast", "Clima y pronóstico")}</h2>
     <ul>
-      ${lk("/", t("Weather", "Clima"), t("Current conditions, 12-hour hourly strip, and 7-day forecast.", "Condiciones actuales, franja horaria de 12 horas y pronóstico a 7 días."))}
+      ${lk("/", t("Home", "Inicio"), t("The Crosby front page — conditions, water, news, and school events at a glance.", "La página principal de Crosby — condiciones, agua, noticias y eventos escolares de un vistazo."))}
+      ${lk("/weather", t("Weather", "Clima"), t("Current conditions, 12-hour hourly strip, and 7-day forecast.", "Condiciones actuales, franja horaria de 12 horas y pronóstico a 7 días."))}
       ${lk("/hourly", t("Hourly Forecast", "Pronóstico por hora"), t("Full 48-hour hour-by-hour forecast table.", "Tabla completa de pronóstico hora por hora de 48 horas."))}
       ${lk("/radar", t("Radar", "Radar"), t("Live NWS KHGX radar loop for the Crosby area.", "Radar en vivo del NWS KHGX para la zona de Crosby."))}
       ${lk("/alerts", t("Alerts", "Alertas"), t("Active NWS weather alerts plus a severe-weather guide.", "Alertas meteorológicas activas del NWS más una guía de clima severo."))}
@@ -1563,7 +1758,8 @@ function sitemapPageMarkdown(lang) {
     "",
     `## ${t("Weather & Forecast", "Clima y pronóstico")}`,
     "",
-    lk("/", t("Weather", "Clima"), t("Current conditions, hourly, and 7-day forecast.", "Condiciones actuales, por hora y pronóstico a 7 días.")),
+    lk("/", t("Home", "Inicio"), t("The Crosby front page.", "La página principal de Crosby.")),
+    lk("/weather", t("Weather", "Clima"), t("Current conditions, hourly, and 7-day forecast.", "Condiciones actuales, por hora y pronóstico a 7 días.")),
     lk("/hourly", t("Hourly Forecast", "Pronóstico por hora"), t("Full 48-hour table.", "Tabla completa de 48 horas.")),
     lk("/radar", t("Radar", "Radar"), t("Live NWS KHGX radar loop.", "Radar en vivo del NWS KHGX.")),
     lk("/alerts", t("Alerts", "Alertas"), t("Active weather alerts plus severe-weather guide.", "Alertas activas más guía de clima severo.")),
@@ -1648,7 +1844,7 @@ ${topbar("/radar", lang)}
     <p>${T(lang, `The KHGX radar is sited at Galveston Bay, roughly 40 miles south of Crosby, giving it a low-angle view of storms approaching from the Gulf. Crosby sits in northeast Harris County, a low-lying area that is especially prone to flash flooding during slow-moving Gulf Coast storms. A rotating hook echo or tight circulation on the southwest flank of a storm cell can indicate a tornado threat &mdash; check <a href="/alerts">active alerts</a> for any warnings already issued by the National Weather Service.`, `El radar KHGX está ubicado en la bahía de Galveston, a unos 65 km al sur de Crosby, lo que le da una vista de ángulo bajo de las tormentas que se acercan desde el Golfo. Crosby se encuentra en el noreste del condado de Harris, una zona baja especialmente propensa a inundaciones repentinas durante las tormentas lentas de la costa del Golfo. Un eco en forma de gancho o una circulación cerrada en el flanco suroeste de una celda de tormenta puede indicar amenaza de tornado &mdash; consulta las <a href="/es/alerts">alertas activas</a> para ver cualquier aviso ya emitido por el Servicio Meteorológico Nacional.`)}</p>
     <p>${T(lang, `During hurricane season (June&ndash;November) the radar helps track the outer rain bands of tropical systems well before they make landfall. The <a href="https://www.weather.gov/hgx/">NWS Houston/Galveston office</a> is the authoritative source for warnings and watches covering Crosby.`, `Durante la temporada de huracanes (junio&ndash;noviembre) el radar ayuda a rastrear las bandas de lluvia exteriores de los sistemas tropicales mucho antes de que toquen tierra. La <a href="https://www.weather.gov/hgx/">oficina del NWS en Houston/Galveston</a> es la fuente autorizada de avisos y vigilancias para Crosby.`)}</p>
   </section>
-  <p class="intro"><a href="${lang === "es" ? "/es" : "/"}">&larr; ${T(lang, "Back to the Crosby forecast", "Volver al pronóstico de Crosby")}</a></p>
+  <p class="intro"><a href="${lang === "es" ? "/es/weather" : "/weather"}">&larr; ${T(lang, "Back to the forecast", "Volver al pronóstico")}</a></p>
 </main>
 ${footer({ page: "/radar", lang, source: T(lang, `Radar imagery from the U.S. National Weather Service (<a href="https://radar.weather.gov">radar.weather.gov</a>).`, `Imágenes de radar del Servicio Meteorológico Nacional de EE. UU. (<a href="https://radar.weather.gov">radar.weather.gov</a>).`), data })}
 </body>
@@ -1666,7 +1862,7 @@ function radarMarkdown(lang) {
     T(lang, "The loop animates the most recent reflectivity scans (refreshed every few minutes) so you can see showers and thunderstorms moving across the region.", "La animación reproduce los escaneos de reflectividad más recientes (actualizados cada pocos minutos) para que veas chubascos y tormentas moverse por la región."),
     "",
     "---",
-    `[crosbynews.com](${canonicalFor("/", lang)}) · [${T(lang, "forecast", "pronóstico")}](${canonicalFor("/", lang)}) · [${T(lang, "hourly", "por hora")}](${canonicalFor("/hourly", lang)})`,
+    `[crosbynews.com](${canonicalFor("/", lang)}) · [${T(lang, "forecast", "pronóstico")}](${canonicalFor("/weather", lang)}) · [${T(lang, "hourly", "por hora")}](${canonicalFor("/hourly", lang)})`,
   ].join("\n");
 }
 // --- end Radar page -------------------------------------------------------
@@ -1790,7 +1986,7 @@ ${topbar("/hourly", lang)}
   ${lang === "es" ? `<p class="intro nws-note">${ES_NWS_NOTE}</p>` : ""}
   <p class="intro feels-note">${T(lang, "Temp shows the “feels like” temperature in parentheses.", "La temperatura muestra la sensación térmica entre paréntesis.")}</p>
 ${body || `<p class="none">${T(lang, "Hourly forecast is temporarily unavailable.", "El pronóstico por hora no está disponible temporalmente.")}</p>`}
-  <p class="intro"><a href="${lang === "es" ? "/es" : "/"}">&larr; ${T(lang, "Back to the Crosby forecast", "Volver al pronóstico de Crosby")}</a> &middot; <a href="${lang === "es" ? "/es/radar" : "/radar"}">Radar</a></p>
+  <p class="intro"><a href="${lang === "es" ? "/es/weather" : "/weather"}">&larr; ${T(lang, "Back to the forecast", "Volver al pronóstico")}</a> &middot; <a href="${lang === "es" ? "/es/radar" : "/radar"}">Radar</a></p>
 </main>
 ${footer({ page: "/hourly", lang, source: T(lang, `Data from the U.S. National Weather Service (<a href="https://weather.gov">weather.gov</a>).`, `Datos del Servicio Meteorológico Nacional de EE. UU. (<a href="https://weather.gov">weather.gov</a>).`), data })}
 </body>
@@ -1819,7 +2015,7 @@ function hourlyMarkdown(data, lang) {
     const feels = feelsLikeRawF(h);
     out.push(`| ${hourLabel(h.startTime, lang)} | ${cell(translateConditions(h.shortForecast, lang))} | ${h.temperature}°${h.temperatureUnit} | ${feels != null ? feels + "°" : "–"} | ${pop(h)}% | ${cell(translateWind(h.windSpeed, lang))} ${cell(translateDir(h.windDirection, lang))} |`);
   }
-  out.push("", "---", `[crosbynews.com](${canonicalFor("/", lang)}) · [${T(lang, "forecast", "pronóstico")}](${canonicalFor("/", lang)}) · [radar](${canonicalFor("/radar", lang)})`);
+  out.push("", "---", `[crosbynews.com](${canonicalFor("/", lang)}) · [${T(lang, "forecast", "pronóstico")}](${canonicalFor("/weather", lang)}) · [radar](${canonicalFor("/radar", lang)})`);
   return out.join("\n");
 }
 // --- end Hourly page ------------------------------------------------------
@@ -1945,7 +2141,7 @@ ${topbar("/alerts", lang)}
 <main id="main">
   <h1>${T(lang, "Crosby, TX Weather Alerts", "Alertas meteorológicas de Crosby, TX")}</h1>
   ${status}
-  <p class="intro"><a href="${lang === "es" ? "/es" : "/"}">&larr; ${T(lang, "Back to the forecast", "Volver al pronóstico")}</a> &middot; <a href="${lang === "es" ? "/es/radar" : "/radar"}">Radar</a> &middot; ${T(lang, `Official source: <a href="https://www.weather.gov/hgx/">NWS Houston/Galveston</a>. In an emergency, call 911.`, `Fuente oficial: <a href="https://www.weather.gov/hgx/">NWS Houston/Galveston</a>. En una emergencia, llama al 911.`)}</p>
+  <p class="intro"><a href="${lang === "es" ? "/es/weather" : "/weather"}">&larr; ${T(lang, "Back to the forecast", "Volver al pronóstico")}</a> &middot; <a href="${lang === "es" ? "/es/radar" : "/radar"}">Radar</a> &middot; ${T(lang, `Official source: <a href="https://www.weather.gov/hgx/">NWS Houston/Galveston</a>. In an emergency, call 911.`, `Fuente oficial: <a href="https://www.weather.gov/hgx/">NWS Houston/Galveston</a>. En una emergencia, llama al 911.`)}</p>
 
   <div data-nosnippet>
   <h2 class="ref-head">${T(lang, "Severe Weather Guide", "Guía de clima severo")}</h2>
@@ -2070,7 +2266,7 @@ ${topbar("/news", lang)}
     <p>${T(lang, "The community regularly experiences Gulf Coast weather events &mdash; tropical storms, flash flooding, and severe thunderstorms &mdash; making it a distinct news beat separate from the wider Houston metro. Stories here focus on Crosby and the nearby northeast Harris County communities of Huffman, Highlands, Channelview, and Atascocita.", "La comunidad vive con frecuencia fenómenos meteorológicos de la costa del Golfo &mdash; tormentas tropicales, inundaciones repentinas y tormentas severas &mdash; lo que la convierte en un tema de noticias propio, distinto del área metropolitana de Houston. Las notas aquí se centran en Crosby y en las comunidades cercanas del noreste del condado de Harris: Huffman, Highlands, Channelview y Atascocita.")}</p>
     <p class="disclaimer">${T(lang, "Headlines are aggregated from public news sources and filtered to stories about Crosby, TX and nearby communities. crosbynews.com isn&rsquo;t the publisher &mdash; each link goes to the original outlet. Spotted something off-topic? It&rsquo;s automated filtering and we tune it over time.", "Los titulares se recopilan de fuentes de noticias públicas y se filtran para notas sobre Crosby, TX y comunidades cercanas. crosbynews.com no es el editor &mdash; cada enlace lleva al medio original. ¿Viste algo fuera de tema? Es un filtrado automático y lo ajustamos con el tiempo.")}</p>
   </section>
-  <p class="intro"><a href="${lang === "es" ? "/es" : "/"}">&larr; ${T(lang, "Back to the forecast", "Volver al pronóstico")}</a></p>
+  <p class="intro"><a href="${lang === "es" ? "/es/weather" : "/weather"}">&larr; ${T(lang, "Back to the forecast", "Volver al pronóstico")}</a></p>
 </main>
 ${footer({ page: "/news", lang, source: T(lang, "Weather data from the U.S. National Weather Service. News headlines aggregated from public sources.", "Datos del tiempo del Servicio Meteorológico Nacional de EE. UU. Titulares de noticias recopilados de fuentes públicas.") })}
 </body>
@@ -2360,7 +2556,7 @@ ${topbar("/calendar", lang)}
   ${body}
   ${calendarSubscribe(lang)}
   <p class="disclaimer">${T(lang, `crosbynews.com isn't affiliated with Crosby ISD. Events are pulled from the district's public calendar feed (<a href="${CISD_SITE}">crosbyisd.org</a>); event titles are shown in the district's original English. Always confirm dates with the district.`, `crosbynews.com no está afiliado a Crosby ISD. Los eventos provienen del calendario público del distrito (<a href="${CISD_SITE}">crosbyisd.org</a>); los títulos de los eventos se muestran en el inglés original del distrito. Confirma siempre las fechas con el distrito.`)}</p>
-  <p class="intro"><a href="${lang === "es" ? "/es" : "/"}">&larr; ${T(lang, "Back to the forecast", "Volver al pronóstico")}</a></p>
+  <p class="intro"><a href="${lang === "es" ? "/es/weather" : "/weather"}">&larr; ${T(lang, "Back to the forecast", "Volver al pronóstico")}</a></p>
 </main>
 ${footer({ page: "/calendar", lang, source: T(lang, `Calendar data from <a href="${CISD_SITE}">Crosby ISD</a>.`, `Datos del calendario de <a href="${CISD_SITE}">Crosby ISD</a>.`) })}
 </body>
@@ -2641,7 +2837,7 @@ ${topbar("/water", lang)}
 ${cards}
   </div>
   <p class="safety">${T(lang, "In a flood emergency call 911. Never drive or walk into floodwater &mdash; turn around, don't drown. This page mirrors official NWS data for convenience; the authoritative source for each gauge is linked in its title, and warnings appear on the <a href=\"/alerts\">alerts page</a>.", "En una emergencia por inundación llama al 911. Nunca conduzcas ni camines hacia el agua de inundación &mdash; da la vuelta, no te arriesgues. Esta página refleja datos oficiales del NWS por comodidad; la fuente autorizada de cada medidor está enlazada en su título, y los avisos aparecen en la <a href=\"/es/alerts\">página de alertas</a>.")}</p>
-  <p class="intro"><a href="${lang === "es" ? "/es" : "/"}">&larr; ${T(lang, "Back to the forecast", "Volver al pronóstico")}</a> &middot; <a href="${lang === "es" ? "/es/radar" : "/radar"}">Radar</a></p>
+  <p class="intro"><a href="${lang === "es" ? "/es/weather" : "/weather"}">&larr; ${T(lang, "Back to the forecast", "Volver al pronóstico")}</a> &middot; <a href="${lang === "es" ? "/es/radar" : "/radar"}">Radar</a></p>
 </main>
 ${footer({ page: "/water", lang, source: T(lang, `Water data from the NOAA/NWS <a href="https://water.noaa.gov">National Water Prediction Service</a>.`, `Datos de agua del <a href="https://water.noaa.gov">Servicio Nacional de Predicción de Agua</a> de NOAA/NWS.`) })}
 </body>
@@ -2759,8 +2955,8 @@ function renderMarkdown(data, lang) {
 // Shared cache + discovery headers for the homepage in either representation.
 // Homepage discovery headers: markdown alternate, sitemap, API catalog, and
 // the OpenAPI service description (RFC 8288 Link relations).
-function linkHeader(lang) {
-  const alt = lang === "es" ? `${SITE}/es` : `${SITE}/`;
+function linkHeader(enPath, lang) {
+  const alt = SITE + (lang === "es" ? esPath(enPath) : enPath);
   return (
     `<${alt}>; rel="alternate"; type="text/markdown", ` +
     `<${SITE}/sitemap.xml>; rel="sitemap", ` +
@@ -4149,42 +4345,76 @@ async function _fetch(request, env, ctx) {
       });
     }
 
-    // Otherwise only the root (and its /es counterpart) serves a page.
+    // The full forecast — what the root used to serve, now at its own URL so
+    // the root can be a hub. Content-negotiated like every content page.
+    if (page === "/weather") {
+      try {
+        const { data, cache } = await loadWeather(env);
+        const accept = (request.headers.get("accept") || "").toLowerCase();
+        const wantsMarkdown = accept.includes("text/markdown") || url.searchParams.get("format") === "md";
+        if (wantsMarkdown) {
+          const md = renderMarkdown(data, lang);
+          return new Response(md, {
+            headers: {
+              "content-type": "text/markdown; charset=utf-8",
+              "cache-control": "public, max-age=300",
+              vary: "Accept",
+              link: linkHeader("/weather", lang),
+              "x-markdown-tokens": String(Math.ceil(md.length / 4)),
+              "x-cache": cache,
+            },
+          });
+        }
+        return new Response(renderHtml(data, lang), {
+          headers: { "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=300", vary: "Accept", link: linkHeader("/weather", lang), "x-cache": cache },
+        });
+      } catch (err) {
+        return new Response(renderError(err), { status: 502, headers: { "content-type": "text/html; charset=utf-8" } });
+      }
+    }
+
+    // Otherwise only the root (and its /es counterpart) serves the hub.
     if (page !== "/") {
       return new Response("Not found", { status: 404, headers: { "content-type": "text/plain; charset=utf-8" } });
     }
 
     try {
-      // loadWeather() reads the cache, refreshing on a missing/stale-shaped
-      // entry so a deploy that changes the cached shape self-heals.
-      const { data, cache } = await loadWeather(env);
+      // The hub summarizes every section, so it loads all four datasets — in
+      // parallel, so one slow source can't serially block the front page. Each
+      // loader self-heals on a cold cache; a rejected one shouldn't blank the
+      // whole page, so failures degrade to an empty shape.
+      const [wRes, water, news, cal] = await Promise.all([
+        loadWeather(env).catch(() => ({ data: { hourly: [], periods: [], alerts: [], updated: null }, cache: "miss-warmfail" })),
+        loadWater(env).catch(() => ({ gauges: [] })),
+        loadNews(env).catch(() => ({ items: [] })),
+        loadCalendar(env).catch(() => ({ events: [] })),
+      ]);
+      const weather = wRes.data;
 
-      // Content negotiation: agents asking for markdown get markdown; the
-      // default stays HTML for browsers. Vary: Accept keeps caches honest.
       const accept = (request.headers.get("accept") || "").toLowerCase();
       const wantsMarkdown = accept.includes("text/markdown") || url.searchParams.get("format") === "md";
 
       if (wantsMarkdown) {
-        const md = renderMarkdown(data, lang);
+        const md = homeMarkdown(weather, water, news, cal, lang);
         return new Response(md, {
           headers: {
             "content-type": "text/markdown; charset=utf-8",
             "cache-control": "public, max-age=300",
             vary: "Accept",
-            link: linkHeader(lang),
+            link: linkHeader("/", lang),
             "x-markdown-tokens": String(Math.ceil(md.length / 4)),
-            "x-cache": cache,
+            "x-cache": wRes.cache,
           },
         });
       }
 
-      return new Response(renderHtml(data, lang), {
+      return new Response(homeHtml(weather, water, news, cal, lang), {
         headers: {
           "content-type": "text/html; charset=utf-8",
           "cache-control": "public, max-age=300",
           vary: "Accept",
-          link: linkHeader(lang),
-          "x-cache": cache,
+          link: linkHeader("/", lang),
+          "x-cache": wRes.cache,
         },
       });
     } catch (err) {
@@ -4200,8 +4430,8 @@ async function _fetch(request, env, ctx) {
 // `?format=md` variants — and the http→https pair — consolidate onto one URL for
 // crawlers that read the HTTP layer (reinforces the in-HTML <link rel="canonical">).
 const PAGE_PATHS = new Set([
-  "/", "/hourly", "/radar", "/alerts", "/water", "/news", "/calendar", "/about", "/privacy", "/contact", "/sitemap",
-  "/es", "/es/hourly", "/es/radar", "/es/alerts", "/es/water", "/es/news", "/es/calendar", "/es/about", "/es/privacy", "/es/contact", "/es/sitemap",
+  "/", "/weather", "/hourly", "/radar", "/alerts", "/water", "/news", "/calendar", "/about", "/privacy", "/contact", "/sitemap",
+  "/es", "/es/weather", "/es/hourly", "/es/radar", "/es/alerts", "/es/water", "/es/news", "/es/calendar", "/es/about", "/es/privacy", "/es/contact", "/es/sitemap",
 ]);
 
 export default {

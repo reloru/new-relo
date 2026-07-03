@@ -146,8 +146,9 @@ directory name becomes the `/command`. Current skills:
   `footer({ page, lang, source, data })` renders a shared
   footer on every page: per-page source attribution, a links row (Home · About ·
   Privacy · Contact · Sitemap · View as Markdown), and an independent-project
-  disclaimer. Weather pages (`/`, `/hourly`, `/radar`, `/alerts`) also show an
-  alert-status + freshness line when `data` is passed.
+  disclaimer. Weather pages (`/`, `/weather`, `/hourly`, `/radar`, `/alerts` —
+  the `WEATHER_PAGES` set) also show an alert-status + freshness line when `data`
+  is passed.
 - SEO/structured data: every HTML page emits schema.org JSON-LD — `JSONLD_SITE`
   (a `WebSite` + `Organization` `@graph`) sitewide; `/about` adds `AboutPage`
   plus `JSONLD_DATASET` (a `Dataset` describing the public weather API, for
@@ -164,9 +165,11 @@ directory name becomes the `/command`. Current skills:
 
 ## Languages (English + Mexican Spanish)
 - The site is bilingual: English at the root paths and Mexican Spanish (`es-MX`)
-  under an **`/es` prefix** (`/es`, `/es/hourly`, `/es/radar`, `/es/alerts`,
-  `/es/news`, `/es/calendar`, `/es/about`, `/es/privacy`, `/es/contact`,
-  `/es/sitemap`). Same ten content pages, same markdown negotiation.
+  under an **`/es` prefix** (`/es`, `/es/weather`, `/es/hourly`, `/es/radar`,
+  `/es/alerts`, `/es/water`, `/es/news`, `/es/calendar`, `/es/about`,
+  `/es/privacy`, `/es/contact`, `/es/sitemap`). Same eleven content pages, same
+  markdown negotiation. (`/es` is the Spanish hub; `/es/weather` the Spanish
+  forecast.)
 - **One set of render functions serves both languages** (no duplicated pages, so
   they can't drift). Each `*Html`/`*Markdown` takes a `lang` arg; the i18n block
   near the top of `src/index.js` holds the machinery: `T(lang,en,es)` for inline
@@ -197,17 +200,29 @@ directory name becomes the `/command`. Current skills:
   with `/es` (not `/es/`).
 
 ## Routes (agent-readiness)
-- `/` — the weather page. Content-negotiated: `Accept: text/markdown` (or
-  `?format=md`) returns a markdown rendering; browsers get HTML. `Vary: Accept`.
-  The homepage `Link` header advertises the markdown alternate, sitemap,
-  api-catalog, and OpenAPI service-desc. All twenty content pages (the ten
-  English routes `/`, `/hourly`, `/radar`, `/alerts`, `/news`, `/calendar`,
-  `/about`, `/privacy`, `/contact`, `/sitemap` and their `/es` Spanish
-  counterparts) also emit an HTTP
-  `Link: rel="canonical"` header —
-  added centrally in the `fetch` wrapper via `PAGE_PATHS` — so the `?format=md`
-  variants and the http→https pair consolidate onto one URL. (See the Languages
-  section for the `/es` bilingual setup.)
+- `/` — the **homepage hub** (`homeHtml`/`homeMarkdown`): the "front page of
+  Crosby." Kept weather-forward (current conditions + feels-like hero, so the
+  root retains its weather SEO relevance) plus an alert banner and at-a-glance
+  section cards linking into Weather, Water, News, and the School Calendar. It
+  loads all four datasets in parallel (`Promise.all`, each `.catch`-degrading to
+  an empty shape) so one slow/failed source can't blank or serially block the
+  page. Content-negotiated (`?format=md` / `Accept: text/markdown`). The full
+  forecast moved to `/weather` during the 2026 nav/homepage restructure (root
+  used to serve the forecast). The Bing `msvalidate.01` verification meta lives
+  on the hub (the root Bing has on file).
+- `/weather` — the full forecast (`renderHtml`/`renderMarkdown`): current
+  conditions hero, 12-hour strip, 7-day forecast. Canonical `/weather`; this is
+  what the root served pre-restructure. Content-negotiated. The homepage/`/weather`
+  `Link` header advertises the markdown alternate, sitemap, api-catalog, and
+  OpenAPI service-desc (via the parameterized `linkHeader(enPath, lang)`). All
+  twenty-two content pages (the eleven English routes `/`, `/weather`, `/hourly`,
+  `/radar`, `/alerts`, `/water`, `/news`, `/calendar`, `/about`, `/privacy`,
+  `/contact`, `/sitemap` and their `/es` Spanish counterparts) emit an HTTP
+  `Link: rel="canonical"` header — added centrally in the `fetch` wrapper via
+  `PAGE_PATHS` — so the `?format=md` variants and the http→https pair consolidate
+  onto one URL. Back-links from the sub-pages say "← Back to the forecast" and
+  point at `/weather`; the nav's "Home" points at `/`, "Weather" at `/weather`.
+  (See the Languages section for the `/es` bilingual setup.)
 - `/hourly` — full multi-day hourly forecast table, grouped by day. Reuses the
   cached NWS hourly data. `fetchWeather()` keeps 48 hourly periods; the homepage
   strip, the homepage markdown, and `/api/weather` each `.slice(0, 12)` so only
@@ -287,8 +302,9 @@ directory name becomes the `/command`. Current skills:
   `ttl` 60. Advertised via `<link rel="alternate" type="application/rss+xml">`
   on `/alerts` + `/news` (both languages), llms.txt `## Optional`, and the
   `/sitemap` page. English-only like the API; no `/es` variants.
-- `/sitemap.xml` — lists `/`, `/hourly`, `/radar`, `/alerts`, `/news`,
-  `/calendar`, `/about`, `/privacy`, `/contact`, `/sitemap` in both languages
+- `/sitemap.xml` — lists `/`, `/weather`, `/hourly`, `/radar`, `/alerts`,
+  `/water`, `/news`, `/calendar`, `/about`, `/privacy`, `/contact`, `/sitemap`
+  in both languages
   (each English route plus its `/es` counterpart), every `<url>` carrying
   `xhtml:link` hreflang alternates (`en-US`, `es-MX`, `x-default`).
 - `/llms.txt` — plain-language site summary for LLMs (llmstxt.org). Served as
