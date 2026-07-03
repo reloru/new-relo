@@ -268,11 +268,21 @@ directory name becomes the `/command`. Current skills:
   2026-07-02 audit; keep it OFF so the Worker's self-refreshing version serves.
 - `/api/weather` — public JSON (location, current, hourly, forecast, alerts),
   CORS `*`. `/api/health` — status + cache freshness.
+- `/api/news` and `/api/calendar` — the same KV data behind `/news` and
+  `/calendar` as public JSON (CORS `*`): news items (title/link/source/
+  published ISO/`category` community|incident, folding the internal crime
+  flag) and upcoming Crosby ISD events (soonest first, capped 60; floating
+  Central wall-clock — timed events as zone-less ISO local time, all-day as
+  plain dates, same convention as the Event JSON-LD). Both documented in
+  `/openapi.json` + the api-catalog, and exposed as MCP tools
+  `get_crosby_news` / `get_school_events`. English-only like the rest of the
+  API.
 - `/.well-known/api-catalog` (`application/linkset+json`, RFC 9727) and
   `/openapi.json` (OpenAPI 3.1) describe the API. All read from the same KV
   cache via `loadWeather()`.
 - `/mcp` — stateless MCP server (Streamable HTTP, JSON-RPC) with tools
-  `get_current_conditions`, `get_forecast`, `get_alerts`. Discovery card at
+  `get_current_conditions`, `get_forecast`, `get_alerts`, `get_crosby_news`,
+  `get_school_events`. Discovery card at
   `/.well-known/mcp/server-card.json`. A GET (or HEAD) gets a human explainer
   page (`mcpInfoHtml()`, noindex), markdown-negotiated like the content pages
   (`Accept: text/markdown` / `?format=md` → `mcpInfoMarkdown()`, so the footer's

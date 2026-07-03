@@ -718,8 +718,10 @@ Every page is also available in Mexican Spanish (es-MX) under the /es prefix —
 Every page supports \`Accept: text/markdown\` (or \`?format=md\`) for a clean markdown rendering.
 
 - REST API: \`GET ${SITE}/api/weather\` — JSON with current conditions, hourly, 7-day forecast, and alerts. No auth.
+- News API: \`GET ${SITE}/api/news\` — recent Crosby-area headlines (JSON).
+- School calendar API: \`GET ${SITE}/api/calendar\` — upcoming Crosby ISD events (JSON).
 - OpenAPI spec: \`${SITE}/openapi.json\`
-- MCP server (Streamable HTTP): \`${SITE}/mcp\` — tools: \`get_current_conditions\`, \`get_forecast\`, \`get_alerts\`
+- MCP server (Streamable HTTP): \`${SITE}/mcp\` — tools: \`get_current_conditions\`, \`get_forecast\`, \`get_alerts\`, \`get_crosby_news\`, \`get_school_events\`
 - MCP server card: \`${SITE}/.well-known/mcp/server-card.json\`
 
 ## Data policy
@@ -861,6 +863,8 @@ const ABOUT = {
       ],
       links: [
         { href: "/api/weather", label: "/api/weather", note: "current conditions, hourly, 7-day forecast, and alerts (JSON)" },
+        { href: "/api/news", label: "/api/news", note: "recent local news headlines (JSON)" },
+        { href: "/api/calendar", label: "/api/calendar", note: "upcoming Crosby ISD school calendar events (JSON)" },
         { href: "/api/health", label: "/api/health", note: "service status and cache freshness" },
         { href: "/openapi.json", label: "/openapi.json", note: "OpenAPI 3.1 description of the API" },
         { href: "/.well-known/api-catalog", label: "/.well-known/api-catalog", note: "RFC 9727 API catalog" },
@@ -872,7 +876,7 @@ const ABOUT = {
         "This site is designed to be readable by AI agents as well as people. Every page is available as Markdown (send an Accept: text/markdown header, or add ?format=md to the URL), and there is a Model Context Protocol (MCP) server that exposes the weather as callable tools.",
       ],
       links: [
-        { href: "/mcp", label: "/mcp", note: "MCP server (Streamable HTTP): get_current_conditions, get_forecast, get_alerts" },
+        { href: "/mcp", label: "/mcp", note: "MCP server (Streamable HTTP): get_current_conditions, get_forecast, get_alerts, get_crosby_news, get_school_events" },
         { href: "/.well-known/mcp/server-card.json", label: "MCP server card", note: "discovery metadata" },
         { href: "/llms.txt", label: "/llms.txt", note: "plain-language site summary for LLMs (llmstxt.org)" },
         { href: "/?format=md", label: "This site as Markdown", note: "the weather page, rendered for agents" },
@@ -935,6 +939,8 @@ const ABOUT_ES = {
       ],
       links: [
         { href: "/api/weather", label: "/api/weather", note: "condiciones actuales, por hora, pronóstico a 7 días y alertas (JSON)" },
+        { href: "/api/news", label: "/api/news", note: "titulares de noticias locales recientes (JSON)" },
+        { href: "/api/calendar", label: "/api/calendar", note: "próximos eventos del calendario escolar de Crosby ISD (JSON)" },
         { href: "/api/health", label: "/api/health", note: "estado del servicio y antigüedad de la caché" },
         { href: "/openapi.json", label: "/openapi.json", note: "descripción OpenAPI 3.1 de la API" },
         { href: "/.well-known/api-catalog", label: "/.well-known/api-catalog", note: "catálogo de API (RFC 9727)" },
@@ -946,7 +952,7 @@ const ABOUT_ES = {
         "Este sitio está diseñado para que lo lean tanto las personas como los agentes de IA. Cada página está disponible en Markdown (envía un encabezado Accept: text/markdown, o agrega ?format=md a la URL) y hay un servidor del Protocolo de Contexto de Modelo (MCP) que expone el tiempo como herramientas invocables.",
       ],
       links: [
-        { href: "/mcp", label: "/mcp", note: "servidor MCP (Streamable HTTP): get_current_conditions, get_forecast, get_alerts" },
+        { href: "/mcp", label: "/mcp", note: "servidor MCP (Streamable HTTP): get_current_conditions, get_forecast, get_alerts, get_crosby_news, get_school_events" },
         { href: "/.well-known/mcp/server-card.json", label: "Tarjeta del servidor MCP", note: "metadatos de descubrimiento" },
         { href: "/llms.txt", label: "/llms.txt", note: "resumen del sitio en lenguaje sencillo para LLM (llmstxt.org)" },
         { href: "/es?format=md", label: "Este sitio en Markdown", note: "la página del tiempo, en español para agentes" },
@@ -1445,6 +1451,8 @@ ${topbar("/sitemap", lang)}
     <h2>${t("For Developers &amp; Agents", "Para desarrolladores y agentes")}</h2>
     <ul>
       ${extLk("/api/weather", t("Weather API", "API del clima"), t("JSON: current conditions, hourly, 7-day, and alerts.", "JSON: condiciones actuales, por hora, 7 días y alertas."))}
+      ${extLk("/api/news", t("News API", "API de noticias"), t("JSON: recent local headlines.", "JSON: titulares locales recientes."))}
+      ${extLk("/api/calendar", t("School Calendar API", "API del calendario escolar"), t("JSON: upcoming Crosby ISD events.", "JSON: próximos eventos de Crosby ISD."))}
       ${extLk("/api/health", t("Health Check", "Estado del servicio"), t("Service status and cache freshness.", "Estado del servicio y antigüedad de la caché."))}
       ${extLk("/openapi.json", "OpenAPI 3.1", t("Machine-readable API description.", "Descripción de la API legible por máquinas."))}
       ${extLk("/mcp", t("MCP Server", "Servidor MCP"), t("Model Context Protocol server (Streamable HTTP).", "Servidor del Protocolo de Contexto de Modelo (Streamable HTTP)."))}
@@ -1490,6 +1498,8 @@ function sitemapPageMarkdown(lang) {
     `## ${t("For Developers & Agents", "Para desarrolladores y agentes")}`,
     "",
     extLk("/api/weather", t("Weather API", "API del clima"), "JSON"),
+    extLk("/api/news", t("News API", "API de noticias"), "JSON"),
+    extLk("/api/calendar", t("School Calendar API", "API del calendario escolar"), "JSON"),
     extLk("/api/health", t("Health", "Estado"), t("Status + cache.", "Estado + caché.")),
     extLk("/openapi.json", "OpenAPI 3.1", t("API spec.", "Especificación de la API.")),
     extLk("/mcp", t("MCP Server", "Servidor MCP"), "Streamable HTTP"),
@@ -2381,17 +2391,57 @@ function apiWeather(data) {
   };
 }
 
+// JSON shape served at /api/news — the routine-curated headlines the /news
+// page renders (read-only; the KV key is written out-of-band, see the News
+// pipeline). `category` folds the internal crime flag into the same
+// community/incident split the page shows.
+function apiNews(data) {
+  return {
+    location: "Crosby, TX",
+    source: "Aggregated from public news sources, filtered for relevance to Crosby, TX",
+    updated: data.updated ?? null,
+    items: (data.items ?? []).map((n) => ({
+      title: n.title,
+      link: n.link,
+      source: n.source || null,
+      published: n.ts ? new Date(n.ts).toISOString() : null,
+      category: n.crime ? "incident" : "community",
+    })),
+  };
+}
+
+// JSON shape served at /api/calendar — upcoming Crosby ISD events. The feed's
+// datetimes are floating local (Central); like the Event JSON-LD, timed values
+// are emitted as zone-less ISO 8601 local time and all-day events as plain
+// dates, preserving the district's authored wall-clock.
+function apiCalendar(data) {
+  const iso = (ms, allDay) =>
+    allDay ? new Date(ms).toISOString().slice(0, 10) : new Date(ms).toISOString().slice(0, 19);
+  return {
+    district: "Crosby Independent School District",
+    source: "Crosby ISD public iCal feed (crosbyisd.org)",
+    timezone: TZ,
+    updated: data.updated ?? null,
+    events: upcomingEvents(data.events ?? []).map((e) => ({
+      summary: e.summary,
+      location: e.location || null,
+      start: iso(e.start, e.allDay),
+      end: e.end ? iso(e.end, e.allDay) : null,
+      allDay: !!e.allDay,
+    })),
+  };
+}
+
 // RFC 9727 / RFC 9264 API catalog (application/linkset+json).
 function apiCatalog() {
+  const entry = (anchor, doc) => ({
+    anchor: `${SITE}${anchor}`,
+    "service-desc": [{ href: `${SITE}/openapi.json`, type: "application/json" }],
+    "service-doc": [{ href: `${SITE}${doc}`, type: "text/html" }],
+    status: [{ href: `${SITE}/api/health`, type: "application/json" }],
+  });
   return {
-    linkset: [
-      {
-        anchor: `${SITE}/api/weather`,
-        "service-desc": [{ href: `${SITE}/openapi.json`, type: "application/json" }],
-        "service-doc": [{ href: `${SITE}/`, type: "text/html" }],
-        status: [{ href: `${SITE}/api/health`, type: "application/json" }],
-      },
-    ],
+    linkset: [entry("/api/weather", "/"), entry("/api/news", "/news"), entry("/api/calendar", "/calendar")],
   };
 }
 
@@ -2453,13 +2503,36 @@ function openApiSpec() {
       expires: { type: "string", format: "date-time" },
     },
   };
+  const NewsItem = {
+    type: "object",
+    properties: {
+      title: { type: "string" },
+      link: { type: "string", format: "uri" },
+      source: { type: ["string", "null"] },
+      published: { type: ["string", "null"], format: "date-time" },
+      category: { type: "string", enum: ["community", "incident"] },
+    },
+  };
+  const SchoolEvent = {
+    type: "object",
+    properties: {
+      summary: { type: "string" },
+      location: { type: ["string", "null"] },
+      start: {
+        type: "string",
+        description: "All-day events: a date (YYYY-MM-DD). Timed events: zone-less ISO 8601 local time (America/Chicago wall-clock, as authored by the district).",
+      },
+      end: { type: ["string", "null"] },
+      allDay: { type: "boolean" },
+    },
+  };
   return {
     openapi: "3.1.0",
     info: {
-      title: "crosbynews.com Weather API",
-      version: "1.0.0",
+      title: "crosbynews.com API",
+      version: "1.1.0",
       description:
-        "Current conditions, hourly and 7-day forecast, and active alerts for Crosby, Texas, sourced from the U.S. National Weather Service. Public, no authentication.",
+        "Crosby, Texas community data: current conditions, hourly and 7-day forecast, and active alerts from the U.S. National Weather Service; recent local news headlines; and the Crosby ISD school calendar. Public, no authentication.",
       contact: { url: `${SITE}/` },
       license: { name: "Public domain (NWS source data)", url: "https://www.weather.gov/disclaimer" },
     },
@@ -2475,6 +2548,32 @@ function openApiSpec() {
               content: { "application/json": { schema: { $ref: "#/components/schemas/Weather" } } },
             },
             "502": { description: "Upstream (NWS) unavailable" },
+          },
+        },
+      },
+      "/api/news": {
+        get: {
+          operationId: "getNews",
+          summary: "Recent local news headlines for Crosby, TX",
+          responses: {
+            "200": {
+              description: "Curated headline list (community items first on the site; incidents flagged by category)",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/News" } } },
+            },
+            "502": { description: "News cache unavailable" },
+          },
+        },
+      },
+      "/api/calendar": {
+        get: {
+          operationId: "getCalendar",
+          summary: "Upcoming Crosby ISD school calendar events",
+          responses: {
+            "200": {
+              description: "Upcoming events (soonest first, capped at 60)",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/SchoolCalendar" } } },
+            },
+            "502": { description: "Calendar unavailable" },
           },
         },
       },
@@ -2525,6 +2624,27 @@ function openApiSpec() {
         HourlyPeriod,
         Period,
         Alert,
+        News: {
+          type: "object",
+          properties: {
+            location: { type: "string" },
+            source: { type: "string" },
+            updated: { type: ["string", "null"], format: "date-time" },
+            items: { type: "array", items: NewsItem },
+          },
+        },
+        NewsItem,
+        SchoolCalendar: {
+          type: "object",
+          properties: {
+            district: { type: "string" },
+            source: { type: "string" },
+            timezone: { type: "string" },
+            updated: { type: ["string", "null"], format: "date-time" },
+            events: { type: "array", items: SchoolEvent },
+          },
+        },
+        SchoolEvent,
       },
     },
   };
@@ -2579,6 +2699,26 @@ function mcpTools() {
       description: "Active NWS weather alerts for Crosby, TX. Returns an empty list when none are active.",
       inputSchema: { type: "object", properties: {}, additionalProperties: false },
     },
+    {
+      name: "get_crosby_news",
+      title: "Local news",
+      description:
+        "Recent local news headlines for Crosby, TX and nearby northeast Harris County communities, aggregated from public sources and filtered for relevance. Empty when nothing recent.",
+      inputSchema: { type: "object", properties: {}, additionalProperties: false },
+    },
+    {
+      name: "get_school_events",
+      title: "School calendar",
+      description:
+        "Upcoming Crosby ISD school-calendar events: first/last day of school, holidays, no-school and early-release days, testing windows, and campus activities.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          limit: { type: "integer", minimum: 1, maximum: 60, description: "Maximum events to return (default 15)." },
+        },
+        additionalProperties: false,
+      },
+    },
   ];
 }
 
@@ -2587,7 +2727,7 @@ function mcpServerCard() {
     serverInfo: MCP_SERVER_INFO,
     protocolVersion: MCP_PROTOCOL_VERSION,
     description:
-      "Live weather for Crosby, Texas (U.S. National Weather Service): current conditions, forecast, and active alerts.",
+      "Live Crosby, Texas data: weather from the U.S. National Weather Service (current conditions, forecast, active alerts), recent local news headlines, and the Crosby ISD school calendar.",
     transport: { type: "streamable-http", endpoint: `${SITE}/mcp` },
     capabilities: { tools: { listChanged: false } },
     tools: mcpTools().map((t) => ({ name: t.name, title: t.title, description: t.description })),
@@ -2686,6 +2826,35 @@ these tools. Prefer a webpage? See the [live forecast](${SITE}/),
 }
 
 async function mcpCallTool(name, args, env) {
+  // News and calendar tools read their own KV keys — handled first so they
+  // don't pay for (or fail on) a weather load they never use.
+  if (name === "get_crosby_news") {
+    const news = await loadNews(env);
+    const items = news.items ?? [];
+    const text = items.length
+      ? items
+          .map((n) => `- ${n.title}${n.source ? ` (${n.source}${n.ts ? `, ${newsDate(n.ts)}` : ""})` : ""}`)
+          .join("\n")
+      : "No recent Crosby news right now.";
+    return { content: [{ type: "text", text }], structuredContent: apiNews(news) };
+  }
+  if (name === "get_school_events") {
+    const cal = await loadCalendar(env);
+    const limit = Math.min(Math.max(Number(args?.limit) || 15, 1), 60);
+    const payload = apiCalendar(cal);
+    payload.events = payload.events.slice(0, limit);
+    const shown = upcomingEvents(cal.events ?? []).slice(0, limit);
+    const text = shown.length
+      ? shown
+          .map((e) => {
+            const when = new Date(e.start).toLocaleDateString("en-US", { timeZone: "UTC", weekday: "short", month: "short", day: "numeric" });
+            return `- ${when}: ${e.summary}${e.allDay ? "" : ` (${calTime(e.start)})`}${e.location ? ` — ${e.location}` : ""}`;
+          })
+          .join("\n")
+      : "No upcoming Crosby ISD events are posted right now.";
+    return { content: [{ type: "text", text }], structuredContent: payload };
+  }
+
   const { data } = await loadWeather(env);
   if (name === "get_current_conditions") {
     const now = data.hourly?.[0] ?? null;
@@ -2749,7 +2918,8 @@ async function mcpHandle(msg, env) {
         protocolVersion: typeof params?.protocolVersion === "string" ? params.protocolVersion : MCP_PROTOCOL_VERSION,
         capabilities: { tools: { listChanged: false } },
         serverInfo: MCP_SERVER_INFO,
-        instructions: "Live weather for Crosby, Texas from the U.S. National Weather Service.",
+        instructions:
+          "Live Crosby, Texas data: weather from the U.S. National Weather Service, plus local news headlines and the Crosby ISD school calendar.",
       });
     case "ping":
       return rpcResult(id, {});
@@ -2807,6 +2977,13 @@ MCP server (Streamable HTTP, JSON-RPC):
 
 - Endpoint: https://crosbynews.com/mcp
 - Tools: get_current_conditions, get_forecast (optional hours 1-12), get_alerts
+
+## Other Crosby data (same API and MCP server)
+
+- GET https://crosbynews.com/api/news - recent local Crosby headlines (JSON);
+  MCP tool: get_crosby_news
+- GET https://crosbynews.com/api/calendar - upcoming Crosby ISD school
+  calendar events (JSON); MCP tool: get_school_events (optional limit 1-60)
 
 ## Notes
 
@@ -3036,6 +3213,46 @@ async function _fetch(request, env, ctx) {
         });
       } catch (err) {
         return new Response(JSON.stringify({ error: "upstream_unavailable", message: err && err.message }), {
+          status: 502,
+          headers: { "content-type": "application/json; charset=utf-8", "access-control-allow-origin": "*" },
+        });
+      }
+    }
+
+    // Local news as JSON — same read-only KV data the /news page renders.
+    if (path === "/api/news") {
+      try {
+        const data = await loadNews(env);
+        return new Response(JSON.stringify(apiNews(data)), {
+          headers: {
+            "content-type": "application/json; charset=utf-8",
+            "access-control-allow-origin": "*",
+            "cache-control": "public, max-age=900",
+            link: `<${SITE}/openapi.json>; rel="service-desc"; type="application/json"`,
+          },
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ error: "unavailable", message: err && err.message }), {
+          status: 502,
+          headers: { "content-type": "application/json; charset=utf-8", "access-control-allow-origin": "*" },
+        });
+      }
+    }
+
+    // Crosby ISD school calendar as JSON — same cron-owned KV data as /calendar.
+    if (path === "/api/calendar") {
+      try {
+        const data = await loadCalendar(env);
+        return new Response(JSON.stringify(apiCalendar(data)), {
+          headers: {
+            "content-type": "application/json; charset=utf-8",
+            "access-control-allow-origin": "*",
+            "cache-control": "public, max-age=1800",
+            link: `<${SITE}/openapi.json>; rel="service-desc"; type="application/json"`,
+          },
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ error: "unavailable", message: err && err.message }), {
           status: 502,
           headers: { "content-type": "application/json; charset=utf-8", "access-control-allow-origin": "*" },
         });
