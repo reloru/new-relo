@@ -128,9 +128,10 @@ directory name becomes the `/command`. Current skills:
 - Caching: the cron (`*/15 * * * *`) writes the forecast + active alerts to the
   WEATHER KV namespace under key "weather" as JSON. `fetch()` serves that cache
   and falls back to a live fetch + warm on a cold cache. The same cron also
-  refreshes the `calendar` key (Crosby ISD iCal, throttled to ~6h); `fetch()`
-  cold-warms it too. (The third key, `news`, is written out-of-band — see the
-  News pipeline.)
+  refreshes the `calendar` key (Crosby ISD iCal, throttled to ~6h) and the
+  `water` key (NWPS river/bayou gauges, every tick — levels move fast in a
+  flood); `fetch()` cold-warms both. (The `news` key is written out-of-band —
+  see the News pipeline.)
 - Styling: an inline `<style>` block in the rendered HTML — no build step,
   no static assets.
 - Chrome: `topbar(current, lang)` renders the site header with nav links, and
@@ -223,6 +224,24 @@ directory name becomes the `/command`. Current skills:
 - `/alerts` — active NWS alerts for Crosby plus an evergreen severe-weather
   guide (`ALERT_GUIDE`) so the page stays substantial when nothing is active
   (avoids thin content). Markdown-negotiated.
+- `/water` — live river/bayou levels for the waters that flood Crosby / NE
+  Harris County (Cedar Bayou nr Crosby, San Jacinto R nr Sheldon + at Lake
+  Houston, Luce Bayou nr Huffman, Goose Creek, E Fork San Jacinto — the
+  `WATER_GAUGES` list of NWPS location IDs). Uses the **cron + KV pattern**
+  (key `water`, cron-owned, refreshed every tick): `fetchWater()` pulls each
+  gauge from NOAA/NWS NWPS (`api.water.noaa.gov/nwps/v1/gauges/{lid}`), which
+  gives observed stage + flow + the flood-category THRESHOLDS all keyed to the
+  same gauge datum (so reading and thresholds are directly comparable — never
+  mixed). NWPS's own `floodCategory` drives the colored badge (Normal → Action
+  → Minor → Moderate → Major); we never invent a classification. `-9999`
+  (undefined threshold) / `-999` (no forecast) are sentinels, filtered by
+  `waterNum()`. Per-gauge try/catch; `fetchWater()` throws only if EVERY gauge
+  fails, so a total NWPS outage aborts-without-writing and the last snapshot
+  survives. No API key needed (NWPS is public; a USGS key exists in reserve if
+  we later want USGS's higher-frequency observed data). `loadWater()` cold-warms
+  like `loadCalendar()`. Emits a 911/turn-around-don't-drown safety note and
+  links each gauge's official NWPS page. Markdown-negotiated. Nav label
+  "Water Levels" / "Niveles de agua".
 - `/news` — local news for Crosby + nearby towns. The Worker is a pure renderer:
   it serves the WEATHER KV `news` key (read-only via `loadNews()`). That key is
   written out-of-band by `scripts/fetch-news.mjs` (see "News pipeline"), NOT by
@@ -300,6 +319,10 @@ directory name becomes the `/command`. Current skills:
   `/openapi.json` + the api-catalog, and exposed as MCP tools
   `get_crosby_news` / `get_school_events`. English-only like the rest of the
   API.
+- `/api/water` — the same NWPS data behind `/water` as public JSON (CORS `*`):
+  per-gauge id/name/usgsId, observed stage (ft) + flow (cfs), `category`, NWS
+  `thresholds`, and the official NWPS `officialUrl`. Documented in
+  `/openapi.json` + api-catalog; MCP tool `get_river_levels`. English-only.
 - `/.well-known/api-catalog` (`application/linkset+json`, RFC 9727) and
   `/openapi.json` (OpenAPI 3.1) describe the API. All read from the same KV
   cache via `loadWeather()`.
@@ -428,6 +451,6 @@ directory name becomes the `/command`. Current skills:
 - `wrangler kv key get/put/list` default to *local* (miniflare) state. To read
   or write the real production namespace, pass `--remote`. (A get without it can
   say "Value not found" even when the deployed Worker is reading the key fine.)
-- The WEATHER namespace holds three keys: `weather` and `calendar` (both
-  cron-owned — the Worker refreshes them) and `news` (routine-owned — written
-  out-of-band, the Worker only reads it).
+- The WEATHER namespace holds four keys: `weather`, `calendar`, and `water`
+  (all cron-owned — the Worker refreshes them) and `news` (routine-owned —
+  written out-of-band, the Worker only reads it).
