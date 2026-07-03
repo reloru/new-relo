@@ -96,6 +96,26 @@ directory name becomes the `/command`. Current skills:
 - Content: live data from the U.S. National Weather Service (api.weather.gov)
   for Crosby, TX (lat 29.9119, lon -95.0608). NWS requires a `User-Agent` on
   every request — we send "crosbynews.com".
+- Derived data: "feels like" temperature (`feelsLikeF`/`feelsLikeRawF` in
+  `src/index.js`) is the one number on the site NOT taken verbatim from NWS —
+  it's the heat index or wind chill, computed in-Worker from NWS's own
+  published formulas applied to the temperature/humidity/wind NWS already
+  returns. `feelsLikeRawF()` (the unconditional value) feeds `/api/weather`
+  (as `feelsLike` on `current` and each `hourly` entry) and the `/hourly` table
+  (a "Feels"/"Sensación" column, showing "–" when it doesn't apply);
+  `feelsLikeF()` gates it to prominent single-value spots (hero, homepage
+  markdown, MCP `get_current_conditions` text) so it only shows when >=3°F
+  different from air temp — otherwise it's noise. Sunrise/sunset
+  (`sunTimes`/`sunTimesForCtDate`) is the other derived value: computed
+  astronomically in-Worker (standard sunrise equation, SunCalc formulation —
+  the NWS forecast API doesn't provide sun times), validated against published
+  Houston-area times across summer/winter/equinox dates. Shown in the hero and
+  homepage markdown (today's), on `/hourly` per day heading, and in
+  `/api/weather` (`sun.sunrise`/`sun.sunset` ISO) + MCP `get_current_conditions`.
+  `sunTimesForCtDate()` anchors to noon Central of the timestamp's calendar
+  date so evening hours can't round into the next solar day. Both derived
+  values are documented honestly on `/about` as the two exceptions to "we
+  don't adjust the numbers."
 - Caching: the cron (`*/15 * * * *`) writes the forecast + active alerts to the
   WEATHER KV namespace under key "weather" as JSON. `fetch()` serves that cache
   and falls back to a live fetch + warm on a cold cache. The same cron also
