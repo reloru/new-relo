@@ -124,8 +124,10 @@ directory name becomes the `/command`. Current skills:
   News pipeline.)
 - Styling: an inline `<style>` block in the rendered HTML — no build step,
   no static assets.
-- Chrome: `topbar(current, lang)` renders the site header with nav links. On
-  screens ≤600px it collapses into a CSS-only hamburger menu (native `<details>`
+- Chrome: `topbar(current, lang)` renders the site header with nav links, and
+  starts with a visually-hidden skip-to-content link (`.skip-link`, appears on
+  keyboard focus) targeting `<main id="main">` — present on every page. On
+  screens ≤600px the nav collapses into a CSS-only hamburger menu (native `<details>`
   element, no JS). **Invariant:** desktop relies on
   `.nav-menu::details-content { content-visibility: visible }` to keep the links
   inline — current Chromium hides closed-`<details>` content via
@@ -137,7 +139,9 @@ directory name becomes the `/command`. Current skills:
   disclaimer. Weather pages (`/`, `/hourly`, `/radar`, `/alerts`) also show an
   alert-status + freshness line when `data` is passed.
 - SEO/structured data: every HTML page emits schema.org JSON-LD — `JSONLD_SITE`
-  (a `WebSite` + `Organization` `@graph`) sitewide; `/about` adds `AboutPage`,
+  (a `WebSite` + `Organization` `@graph`) sitewide; `/about` adds `AboutPage`
+  plus `JSONLD_DATASET` (a `Dataset` describing the public weather API, for
+  dataset search engines — a truthful type, unlike forecast markup),
   `/contact` adds `ContactPage`, `/privacy` adds `WebPage`, and `/calendar`
   adds `Event` nodes. It's a `<script type="application/ld+json">` data block
   (not executable), so CSP needs no hash for it. Kept deliberately honest — no
@@ -199,8 +203,10 @@ directory name becomes the `/command`. Current skills:
   strip, the homepage markdown, and `/api/weather` each `.slice(0, 12)` so only
   `/hourly` shows the full 48. Same markdown negotiation.
 - `/radar` — embeds the NWS KHGX (Houston-Galveston) radar loop, which covers
-  Crosby. The GIF is proxied via `/radar-image` (locked to that one upstream,
-  short edge TTL) so it's crawlable and edge-cached. Same markdown negotiation.
+  Crosby. The GIF is proxied via `/radar-image` (locked to fixed upstreams,
+  short edge TTL) so it's crawlable and edge-cached; `?still=1` serves the
+  latest single frame (`KHGX_0.gif`) instead of the loop, linked from the page
+  for users who prefer a non-animated image. Same markdown negotiation.
 - `/about` — static "what this site is" page (source, cadence, API/MCP, NWS
   attribution, contact, disclaimer). Same markdown negotiation. Content lives once in the
   `ABOUT` object; `aboutHtml()`/`aboutMarkdown()` render it so the two can't
