@@ -696,6 +696,72 @@ function renderError(err) {
 </body></html>`;
 }
 
+// --- RSS feeds (RSS 2.0) ----------------------------------------------------
+// /alerts.xml and /news.xml — the no-accounts, no-tracking notification
+// channel: feed readers (and automations built on them) get storm alerts and
+// curated town news without the site knowing who they are. English-only,
+// like the API. Rendered from the same KV data as the HTML pages.
+const rssDate = (x) => {
+  const d = new Date(x ?? Date.now());
+  return (isNaN(d.getTime()) ? new Date() : d).toUTCString();
+};
+
+function alertsRss(data) {
+  const items = (data.alerts ?? [])
+    .map(
+      (a) => `
+  <item>
+    <title>${esc(a.event || "Weather alert")}</title>
+    <link>${SITE}/alerts</link>
+    <guid isPermaLink="false">${esc(a.id || `${a.event} ${a.sent || a.effective || ""}`)}</guid>
+    <pubDate>${rssDate(a.sent || a.effective || data.updated)}</pubDate>
+    <description>${esc([a.headline, a.description, a.instruction ? `What to do: ${a.instruction}` : ""].filter(Boolean).join("\n\n"))}</description>
+  </item>`
+    )
+    .join("");
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+<channel>
+  <title>Crosby, TX Weather Alerts — crosbynews.com</title>
+  <link>${SITE}/alerts</link>
+  <description>Active National Weather Service alerts for Crosby, Texas. The feed is empty when no alerts are active — items appear only when NWS issues one. Not a substitute for official warning channels.</description>
+  <language>en-us</language>
+  <ttl>15</ttl>
+  <lastBuildDate>${rssDate(data.updated)}</lastBuildDate>${items}
+</channel>
+</rss>
+`;
+}
+
+function newsRss(data) {
+  const items = (data.items ?? [])
+    .map(
+      (n) => `
+  <item>
+    <title>${esc(n.title)}</title>
+    <link>${esc(n.link)}</link>
+    <guid isPermaLink="true">${esc(n.link)}</guid>${n.ts ? `
+    <pubDate>${rssDate(n.ts)}</pubDate>` : ""}
+    <category>${n.crime ? "incident" : "community"}</category>
+    <description>${esc(n.source ? `Via ${n.source}. ` : "")}Curated for relevance to Crosby, TX by crosbynews.com.</description>
+  </item>`
+    )
+    .join("");
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+<channel>
+  <title>Crosby, TX News — crosbynews.com</title>
+  <link>${SITE}/news</link>
+  <description>Recent local news headlines for Crosby, Texas and nearby northeast Harris County communities, aggregated from public sources and filtered for relevance. Links go to the original outlets.</description>
+  <language>en-us</language>
+  <ttl>60</ttl>
+  <lastBuildDate>${rssDate(data.updated)}</lastBuildDate>${items}
+</channel>
+</rss>
+`;
+}
+// --- end RSS feeds ----------------------------------------------------------
+
 // /llms.txt — concise site summary for LLMs (llmstxt.org spec).
 function llmsTxt() {
   return `# crosbynews.com
@@ -738,6 +804,8 @@ Source data is U.S. government public domain (NWS). No authentication required. 
 
 ## Optional
 
+- [Alerts RSS](${SITE}/alerts.xml): Active NWS weather alerts as an RSS 2.0 feed (empty when all clear).
+- [News RSS](${SITE}/news.xml): Curated Crosby-area headlines as an RSS 2.0 feed.
 - [Sitemap](${SITE}/sitemap.xml): All pages in both languages, with hreflang alternates.
 - [API catalog](${SITE}/.well-known/api-catalog): Machine-readable index of the API endpoints (RFC 9727 linkset).
 - [Security contact](${SITE}/.well-known/security.txt): How to report a security issue (RFC 9116).
@@ -1465,6 +1533,8 @@ ${topbar("/sitemap", lang)}
       ${extLk("/openapi.json", "OpenAPI 3.1", t("Machine-readable API description.", "Descripción de la API legible por máquinas."))}
       ${extLk("/mcp", t("MCP Server", "Servidor MCP"), t("Model Context Protocol server (Streamable HTTP).", "Servidor del Protocolo de Contexto de Modelo (Streamable HTTP)."))}
       ${extLk("/llms.txt", "llms.txt", t("Plain-language site summary for LLMs.", "Resumen del sitio en lenguaje sencillo para LLM."))}
+      ${extLk("/alerts.xml", t("Alerts RSS", "RSS de alertas"), t("Active weather alerts as an RSS feed.", "Alertas meteorológicas activas como feed RSS."))}
+      ${extLk("/news.xml", t("News RSS", "RSS de noticias"), t("Local headlines as an RSS feed.", "Titulares locales como feed RSS."))}
       ${extLk("/.well-known/api-catalog", t("API Catalog", "Catálogo de API"), t("RFC 9727 machine-readable API index.", "Índice de API legible por máquinas (RFC 9727)."))}
       ${extLk("/sitemap.xml", t("XML Sitemap", "Sitemap XML"), t("Machine-readable sitemap for crawlers.", "Sitemap legible por máquinas para rastreadores."))}
     </ul>
@@ -1512,6 +1582,8 @@ function sitemapPageMarkdown(lang) {
     extLk("/openapi.json", "OpenAPI 3.1", t("API spec.", "Especificación de la API.")),
     extLk("/mcp", t("MCP Server", "Servidor MCP"), "Streamable HTTP"),
     extLk("/llms.txt", "llms.txt", t("LLM summary.", "Resumen para LLM.")),
+    extLk("/alerts.xml", t("Alerts RSS", "RSS de alertas"), "RSS 2.0"),
+    extLk("/news.xml", t("News RSS", "RSS de noticias"), "RSS 2.0"),
     extLk("/.well-known/api-catalog", t("API Catalog", "Catálogo de API"), "RFC 9727"),
     extLk("/sitemap.xml", t("XML Sitemap", "Sitemap XML"), t("For crawlers.", "Para rastreadores.")),
     "",
@@ -1827,6 +1899,7 @@ function alertsHtml(data, lang) {
 ${OG_COMMON}
 <link rel="canonical" href="${canonicalFor("/alerts", lang)}">
 ${hreflangTags("/alerts")}
+<link rel="alternate" type="application/rss+xml" title="Crosby, TX Weather Alerts (RSS)" href="/alerts.xml">
 ${JSONLD_SITE}
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="alternate icon" href="/favicon.ico">
@@ -1963,6 +2036,7 @@ function newsHtml(data, lang) {
 ${OG_COMMON}
 <link rel="canonical" href="${canonicalFor("/news", lang)}">
 ${hreflangTags("/news")}
+<link rel="alternate" type="application/rss+xml" title="Crosby, TX News (RSS)" href="/news.xml">
 ${JSONLD_SITE}
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="alternate icon" href="/favicon.ico">
@@ -3108,6 +3182,27 @@ async function _fetch(request, env, ctx) {
       return new Response(sitemapXml(), {
         headers: { "content-type": "application/xml; charset=utf-8", "cache-control": "public, max-age=3600" },
       });
+    }
+    // RSS feeds — rendered from the same KV data as the HTML pages.
+    if (path === "/alerts.xml") {
+      try {
+        const { data } = await loadWeather(env);
+        return new Response(alertsRss(data), {
+          headers: { "content-type": "application/rss+xml; charset=utf-8", "cache-control": "public, max-age=300" },
+        });
+      } catch (err) {
+        return new Response("Feed temporarily unavailable", { status: 502, headers: { "content-type": "text/plain; charset=utf-8" } });
+      }
+    }
+    if (path === "/news.xml") {
+      try {
+        const data = await loadNews(env);
+        return new Response(newsRss(data), {
+          headers: { "content-type": "application/rss+xml; charset=utf-8", "cache-control": "public, max-age=900" },
+        });
+      } catch (err) {
+        return new Response("Feed temporarily unavailable", { status: 502, headers: { "content-type": "text/plain; charset=utf-8" } });
+      }
     }
     // RFC 9116 security contact. Expires is computed ~1 year out on each request,
     // so the file never goes stale on this self-maintaining site.

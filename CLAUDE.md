@@ -261,6 +261,13 @@ directory name becomes the `/command`. Current skills:
 - `/robots.txt` — RFC 9309 rules, explicit AI-crawler allows, and a `Sitemap:`
   reference. Open by default (public NWS data). (No `Content-Signal` line — it
   confused some crawlers when present, so it's intentionally omitted.)
+- `/alerts.xml` and `/news.xml` — RSS 2.0 feeds rendered from the same KV
+  data as the pages (the no-accounts notification channel). Alerts feed:
+  guid = the NWS alert URN, empty channel when all clear, `ttl` 15;
+  news feed: guid = the article link, `<category>` community|incident,
+  `ttl` 60. Advertised via `<link rel="alternate" type="application/rss+xml">`
+  on `/alerts` + `/news` (both languages), llms.txt `## Optional`, and the
+  `/sitemap` page. English-only like the API; no `/es` variants.
 - `/sitemap.xml` — lists `/`, `/hourly`, `/radar`, `/alerts`, `/news`,
   `/calendar`, `/about`, `/privacy`, `/contact`, `/sitemap` in both languages
   (each English route plus its `/es` counterpart), every `<url>` carrying
