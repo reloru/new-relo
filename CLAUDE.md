@@ -372,6 +372,18 @@ directory name becomes the `/command`. Current skills:
   `ttl` 60. Advertised via `<link rel="alternate" type="application/rss+xml">`
   on `/alerts` + `/news` (both languages), llms.txt `## Optional`, and the
   `/sitemap` page. English-only like the API; no `/es` variants.
+- `/badge.svg` — hotlinkable live-weather badge (SVG, 300×80, brand-styled
+  with the favicon sun-and-cloud): current temp + condition (truncated to
+  fit), gated feels-like, and a status flag ("✓ NO ALERTS" green / "⚠ N
+  ALERTS" red). Rendered by `badgeSvg(data)` from the same KV cache
+  (`loadWeather`); CORS `*`, `cache-control: max-age=300, s-maxage=900`
+  (≈ the cron cadence) so hotlinks cost almost nothing. On total data
+  failure it serves a neutral "unavailable" badge (no alert claim) with a
+  60s cache instead of a broken image. Text rows use tspan flow, so
+  variable-width values never collide. English-only; an asset, not a page
+  (no PAGE_PATHS/sitemap.xml entry, mirroring `/radar-image`). Documented
+  on `/developers` ("Embeddable weather badge", with the copy-paste `<img>`
+  snippet), the human `/sitemap` developer list, and llms.txt `## Optional`.
 - `/sitemap.xml` — lists `/`, `/weather`, `/hourly`, `/radar`, `/alerts`,
   `/water`, `/news`, `/calendar`, `/emergency`, `/about`, `/developers`, `/privacy`, `/contact`, `/sitemap`
   in both languages

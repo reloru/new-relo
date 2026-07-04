@@ -1225,6 +1225,7 @@ Source data is U.S. government public domain (NWS). No authentication required. 
 
 - [Alerts RSS](${SITE}/alerts.xml): Active NWS weather alerts as an RSS 2.0 feed (empty when all clear).
 - [News RSS](${SITE}/news.xml): Curated Crosby-area headlines as an RSS 2.0 feed.
+- [Weather badge](${SITE}/badge.svg): Hotlinkable live SVG badge — current temperature, conditions, feels-like, and an alert flag.
 - [Sitemap](${SITE}/sitemap.xml): All pages in both languages, with hreflang alternates.
 - [API catalog](${SITE}/.well-known/api-catalog): Machine-readable index of the API endpoints (RFC 9727 linkset).
 - [Security contact](${SITE}/.well-known/security.txt): How to report a security issue (RFC 9116).
@@ -1728,6 +1729,13 @@ const DEVELOPERS = {
       ],
     },
     {
+      h: "Embeddable weather badge",
+      p: ["Put live Crosby weather on your own site with one image tag — a small SVG (300×80) showing the current temperature, conditions, feels-like, and an alert flag. Edge-cached and refreshed on the same 15-minute cycle as everything else; no key, no script, CORS open."],
+      links: [
+        { href: "/badge.svg", label: "/badge.svg", note: `the live badge — embed with <img src="https://crosbynews.com/badge.svg" width="300" height="80" alt="Crosby, TX weather">` },
+      ],
+    },
+    {
       h: "Terms & attribution",
       p: [
         "Public and unauthenticated, no rate limits — please be reasonable with polling (the data refreshes every 15 minutes). Weather and water data are U.S. government public domain from the National Weather Service and NOAA; news headlines link to their original publishers.",
@@ -1795,6 +1803,13 @@ const DEVELOPERS_ES = {
       links: [
         { href: "/alerts.xml", label: "/alerts.xml", note: "alertas activas del NWS (RSS 2.0; vacío cuando no hay ninguna)" },
         { href: "/news.xml", label: "/news.xml", note: "titulares seleccionados del área de Crosby (RSS 2.0)" },
+      ],
+    },
+    {
+      h: "Insignia del clima para incrustar",
+      p: ["Pon el clima de Crosby en vivo en tu propio sitio con una sola etiqueta de imagen — un SVG pequeño (300×80) con la temperatura actual, las condiciones, la sensación térmica y un indicador de alertas. Con caché en el borde y actualizado en el mismo ciclo de 15 minutos que todo lo demás; sin clave, sin scripts, CORS abierto. El texto de la insignia está en inglés."],
+      links: [
+        { href: "/badge.svg", label: "/badge.svg", note: `la insignia en vivo — incrústala con <img src="https://crosbynews.com/badge.svg" width="300" height="80" alt="Crosby, TX weather">` },
       ],
     },
     {
@@ -2451,6 +2466,7 @@ ${topbar("/sitemap", lang)}
       ${extLk("/llms.txt", "llms.txt", t("Plain-language site summary for LLMs.", "Resumen del sitio en lenguaje sencillo para LLM."))}
       ${extLk("/alerts.xml", t("Alerts RSS", "RSS de alertas"), t("Active weather alerts as an RSS feed.", "Alertas meteorológicas activas como feed RSS."))}
       ${extLk("/news.xml", t("News RSS", "RSS de noticias"), t("Local headlines as an RSS feed.", "Titulares locales como feed RSS."))}
+      ${extLk("/badge.svg", t("Weather Badge", "Insignia del clima"), t("Hotlinkable live SVG weather badge for other sites.", "Insignia SVG del clima en vivo para enlazar desde otros sitios."))}
       ${extLk("/.well-known/api-catalog", t("API Catalog", "Catálogo de API"), t("RFC 9727 machine-readable API index.", "Índice de API legible por máquinas (RFC 9727)."))}
       ${extLk("/sitemap.xml", t("XML Sitemap", "Sitemap XML"), t("Machine-readable sitemap for crawlers.", "Sitemap legible por máquinas para rastreadores."))}
     </ul>
@@ -2504,6 +2520,7 @@ function sitemapPageMarkdown(lang) {
     extLk("/llms.txt", "llms.txt", t("LLM summary.", "Resumen para LLM.")),
     extLk("/alerts.xml", t("Alerts RSS", "RSS de alertas"), "RSS 2.0"),
     extLk("/news.xml", t("News RSS", "RSS de noticias"), "RSS 2.0"),
+    extLk("/badge.svg", t("Weather Badge", "Insignia del clima"), t("Hotlinkable SVG.", "SVG para enlazar.")),
     extLk("/.well-known/api-catalog", t("API Catalog", "Catálogo de API"), "RFC 9727"),
     extLk("/sitemap.xml", t("XML Sitemap", "Sitemap XML"), t("For crawlers.", "Para rastreadores.")),
     "",
@@ -3745,6 +3762,46 @@ function apiWeather(data) {
   };
 }
 
+// /badge.svg — a small, hotlinkable live-weather badge other local sites can
+// embed with a plain <img>. Hand-built SVG string in the brand style (the
+// favicon's sun-and-cloud at left), system fonts only (an <img> context can't
+// fetch webfonts anyway). Text rows use tspan flow so variable-width values
+// (temp, condition) never need manual collision math; the condition is
+// truncated to fit the card. Pass `data` = null to render the neutral
+// "unavailable" badge (no alert flag — we don't know, so we don't claim).
+// English-only like the other non-page endpoints.
+function badgeSvg(data) {
+  const cur = data ? currentHourly(data) : null;
+  const temp = typeof cur?.temperature === "number" ? `${cur.temperature}°${cur.temperatureUnit || "F"}` : "–";
+  const feels = feelsLikeF(cur);
+  let cond = cur?.shortForecast || "Data unavailable";
+  if (cond.length > 20) cond = cond.slice(0, 19).trimEnd() + "…";
+  const alerts = (data?.alerts ?? []).length;
+  // Top-right status flag: end-anchored text (no pill rect, so no width math).
+  // "No alerts" is worth stating — same philosophy as the hub's status card.
+  const flag = !data
+    ? ""
+    : alerts
+      ? `<text x="288" y="24" text-anchor="end" font-size="12" font-weight="800" fill="#ffa294">&#9888; ${alerts} ALERT${alerts === 1 ? "" : "S"}</text>`
+      : `<text x="288" y="24" text-anchor="end" font-size="11" font-weight="700" fill="#7fd39b">&#10004; NO ALERTS</text>`;
+  const title = data
+    ? `Crosby, TX weather: ${temp} ${cur?.shortForecast || "unavailable"}${feels != null ? `, feels like ${feels}°` : ""}${alerts ? ` — ${alerts} active alert${alerts === 1 ? "" : "s"}` : " — no active alerts"} — crosbynews.com`
+    : "Crosby, TX weather — data temporarily unavailable — crosbynews.com";
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="80" viewBox="0 0 300 80" role="img" aria-labelledby="bt">
+<title id="bt">${esc(title)}</title>
+<rect width="300" height="80" rx="12" fill="#0b3d61"/>
+<circle cx="30" cy="34" r="12" fill="#f5b301"/>
+<ellipse cx="39" cy="43" rx="16" ry="9" fill="#dfe7ee"/>
+<g font-family="system-ui,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
+<text x="64" y="24" font-size="11" font-weight="700" letter-spacing="1.5" fill="#9fc1d9">CROSBY, TX</text>
+<text x="64" y="52"><tspan font-size="25" font-weight="800" fill="#ffffff">${esc(temp)}</tspan><tspan dx="8" font-size="13" fill="#dfe7ee">${esc(cond)}</tspan></text>
+<text x="64" y="70" font-size="11" fill="#9fc1d9">${feels != null ? esc(`Feels like ${feels}° · `) : ""}crosbynews.com</text>
+${flag}
+</g>
+</svg>
+`;
+}
+
 // JSON shape served at /api/news — the routine-curated headlines the /news
 // page renders (read-only; the KV key is written out-of-band, see the News
 // pipeline). `category` folds the internal crime flag into the same
@@ -4631,6 +4688,31 @@ async function _fetch(request, env, ctx) {
       return new Response(body, {
         headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "public, max-age=86400" },
       });
+    }
+    // Hotlinkable live-weather badge — see /developers ("Embeddable weather
+    // badge"). Same KV cache as the pages; edge-cached near the cron cadence
+    // so hotlinks are nearly free. On total data failure serves the neutral
+    // "unavailable" badge with a short cache instead of a broken image.
+    if (path === "/badge.svg") {
+      try {
+        const { data } = await loadWeather(env);
+        return new Response(badgeSvg(data), {
+          headers: {
+            "content-type": "image/svg+xml; charset=utf-8",
+            "cache-control": "public, max-age=300, s-maxage=900",
+            "access-control-allow-origin": "*",
+          },
+        });
+      } catch (err) {
+        console.error("badge render failed:", err && err.stack);
+        return new Response(badgeSvg(null), {
+          headers: {
+            "content-type": "image/svg+xml; charset=utf-8",
+            "cache-control": "public, max-age=60",
+            "access-control-allow-origin": "*",
+          },
+        });
+      }
     }
     // Serve the favicon as a real file. Browsers and crawlers auto-request
     // /favicon.ico; serving it (as SVG) avoids needless 404s in crawl stats.
