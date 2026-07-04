@@ -38,6 +38,14 @@ directory name becomes the `/command`. Current skills:
   - **Deploy** (`cloudflare/wrangler-action@v3`) — runs on push to `main` only, after check passes.
 - `wranglerVersion: "4"` is required in the wrangler-action config. Without it, the action
   installs wrangler 3.x, which can't parse `wrangler.jsonc` and fails with "Missing entry-point".
+  CI installs the latest 4.x; the repo's `wrangler` devDependency is pinned to match
+  (`^4.107.0`) so local `wrangler dev` behaves like the CI/prod runtime.
+- **Compatibility date gotcha:** `wrangler.jsonc`'s `compatibility_date` (currently
+  `2026-07-01`) must be ≤ the bundled `workerd`'s ceiling. Production always runs the newest
+  `workerd`, so any past date is fine there — but a *local* `wrangler dev` on an older pinned
+  wrangler fails with "The Workers runtime failed to start" if the date is newer than its
+  runtime. So bump the `wrangler` devDependency and the compat date together, and re-run
+  `wrangler dev` to confirm the runtime still boots.
 - `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"` is set on the deploy step (GitHub is migrating
   Actions to Node 24; this opts in early to suppress deprecation failures).
 - The workflow installs **Node 22** via `actions/setup-node@v4` for the job steps (the
