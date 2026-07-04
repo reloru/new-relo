@@ -19,8 +19,9 @@ directory name becomes the `/command`. Current skills:
   below (never `wrangler login`; the binding-permission gotcha; manual deploy
   ships the working tree, not git).
 - `/kv` — inspect/edit the production `WEATHER` KV namespace, always with
-  `--remote` (the KV gotcha below). Knows `weather` + `calendar` (cron-owned) vs
-  `news` (routine-owned); read commands are pre-authorized, put/delete are not.
+  `--remote` (the KV gotcha below). Knows `weather` + `calendar` + `water` +
+  `tropics` (cron-owned) vs `news` (routine-owned); read commands are
+  pre-authorized, put/delete are not.
 
 ## Deploy
 - Deploy with `npx wrangler deploy`. Never run `wrangler login` — auth comes
@@ -136,9 +137,10 @@ directory name becomes the `/command`. Current skills:
 - Caching: the cron (`*/15 * * * *`) writes the forecast + active alerts to the
   WEATHER KV namespace under key "weather" as JSON. `fetch()` serves that cache
   and falls back to a live fetch + warm on a cold cache. The same cron also
-  refreshes the `calendar` key (Crosby ISD iCal, throttled to ~6h) and the
+  refreshes the `calendar` key (Crosby ISD iCal, throttled to ~6h), the
   `water` key (NWPS river/bayou gauges, every tick — levels move fast in a
-  flood); `fetch()` cold-warms both. (The `news` key is written out-of-band —
+  flood), and the `tropics` key (NHC CurrentStorms.json, throttled ~1h);
+  `fetch()` cold-warms all three. (The `news` key is written out-of-band —
   see the News pipeline.)
 - Styling: an inline `<style>` block in the rendered HTML — no build step,
   no static assets.
@@ -182,9 +184,9 @@ directory name becomes the `/command`. Current skills:
 ## Languages (English + Mexican Spanish)
 - The site is bilingual: English at the root paths and Mexican Spanish (`es-MX`)
   under an **`/es` prefix** (`/es`, `/es/weather`, `/es/hourly`, `/es/radar`,
-  `/es/alerts`, `/es/water`, `/es/news`, `/es/calendar`, `/es/emergency`,
-  `/es/about`, `/es/developers`, `/es/privacy`, `/es/contact`, `/es/sitemap`).
-  Same fourteen content pages, same markdown negotiation. (`/es` is the Spanish hub;
+  `/es/alerts`, `/es/water`, `/es/tropics`, `/es/news`, `/es/calendar`,
+  `/es/emergency`, `/es/about`, `/es/developers`, `/es/privacy`, `/es/contact`,
+  `/es/sitemap`). Same fifteen content pages, same markdown negotiation. (`/es` is the Spanish hub;
   `/es/weather` the Spanish forecast.)
 - **One set of render functions serves both languages** (no duplicated pages, so
   they can't drift). Each `*Html`/`*Markdown` takes a `lang` arg; the i18n block
@@ -251,8 +253,8 @@ directory name becomes the `/command`. Current skills:
   what the root served pre-restructure. Content-negotiated. The homepage/`/weather`
   `Link` header advertises the markdown alternate, sitemap, api-catalog, and
   OpenAPI service-desc (via the parameterized `linkHeader(enPath, lang)`). All
-  twenty-eight content pages (the fourteen English routes `/`, `/weather`, `/hourly`,
-  `/radar`, `/alerts`, `/water`, `/news`, `/calendar`, `/emergency`, `/about`, `/developers`,
+  thirty content pages (the fifteen English routes `/`, `/weather`, `/hourly`,
+  `/radar`, `/alerts`, `/water`, `/tropics`, `/news`, `/calendar`, `/emergency`, `/about`, `/developers`,
   `/privacy`, `/contact`, `/sitemap` and their `/es` Spanish counterparts) emit an HTTP
   `Link: rel="canonical"` header — added centrally in the `fetch` wrapper via
   `PAGE_PATHS` — so the `?format=md` variants and the http→https pair consolidate
@@ -306,6 +308,27 @@ directory name becomes the `/command`. Current skills:
   like `loadCalendar()`. Emits a 911/turn-around-don't-drown safety note and
   links each gauge's official NWPS page. Markdown-negotiated. Nav label
   "Water Levels" / "Niveles de agua".
+- `/tropics` — Atlantic tropical outlook (`tropicsHtml`/`tropicsMarkdown`).
+  **Cron + KV pattern** (key `tropics`, cron-owned, throttled ~hourly):
+  `fetchTropics()` reads NOAA NHC's `CurrentStorms.json`, filtered to the
+  Atlantic basin (storm ids `al…` — Pacific storms don't threaten Crosby) and
+  throws on failure so a transient NHC outage never wipes the last snapshot;
+  `loadTropics()` cold-warms, degrading to an empty shape. **Worker
+  reachability to www.nhc.noaa.gov was canary-verified from the deployed
+  Worker runtime** (temporary debug route, 200 + real body, then removed)
+  before committing to the upstream. Quiet basin (most of the year) renders a
+  green all-clear panel + an evergreen "hurricane season and Crosby" guide
+  (inland rain flooding is the local threat, not surge; watch-vs-warning;
+  links to NHC, `/alerts`, `/water`, `/emergency`) so the page never goes
+  thin; active storms render violet cards (classification + name via the
+  `NHC_CLASS` hand dictionary, winds in mph — NHC's `intensity` is in KNOTS,
+  converted `kt × 1.15078` rounded to 5 like NHC's own advisories — pressure,
+  position, movement compass direction only since `movementSpeed`'s unit
+  isn't clearly documented, and the official advisory link). The **homepage
+  strip** (`hubTropicsBanner`, violet, calmer than the red alerts banner)
+  self-hides when the basin is quiet; the hub loads tropics as its fifth
+  parallel dataset. Storm names/advisories stay in NHC English. In the topbar
+  as `m-only` under Weather. Markdown-negotiated.
 - `/news` — local news for Crosby + nearby towns. The Worker is a pure renderer:
   it serves the WEATHER KV `news` key (read-only via `loadNews()`). That key is
   written out-of-band by `scripts/fetch-news.mjs` (see "News pipeline"), NOT by
@@ -409,7 +432,7 @@ directory name becomes the `/command`. Current skills:
   on `/developers` ("Embeddable weather badge", with the copy-paste `<img>`
   snippet), the human `/sitemap` developer list, and llms.txt `## Optional`.
 - `/sitemap.xml` — lists `/`, `/weather`, `/hourly`, `/radar`, `/alerts`,
-  `/water`, `/news`, `/calendar`, `/emergency`, `/about`, `/developers`, `/privacy`, `/contact`, `/sitemap`
+  `/water`, `/tropics`, `/news`, `/calendar`, `/emergency`, `/about`, `/developers`, `/privacy`, `/contact`, `/sitemap`
   in both languages
   (each English route plus its `/es` counterpart), every `<url>` carrying
   `xhtml:link` hreflang alternates (`en-US`, `es-MX`, `x-default`).
@@ -573,6 +596,6 @@ directory name becomes the `/command`. Current skills:
 - `wrangler kv key get/put/list` default to *local* (miniflare) state. To read
   or write the real production namespace, pass `--remote`. (A get without it can
   say "Value not found" even when the deployed Worker is reading the key fine.)
-- The WEATHER namespace holds four keys: `weather`, `calendar`, and `water`
-  (all cron-owned — the Worker refreshes them) and `news` (routine-owned —
-  written out-of-band, the Worker only reads it).
+- The WEATHER namespace holds five keys: `weather`, `calendar`, `water`, and
+  `tropics` (all cron-owned — the Worker refreshes them) and `news`
+  (routine-owned — written out-of-band, the Worker only reads it).
