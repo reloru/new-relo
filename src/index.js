@@ -446,7 +446,10 @@ const BASE_CSS = `
      content via ::details-content { content-visibility:hidden }, which
      display:contents does NOT override — without this the desktop nav vanishes. */
   .nav-menu::details-content { content-visibility: visible; }
-  @media (max-width:600px) {
+  /* Collapse to the grouped hamburger below 920px. The full inline bar needs
+     ~920px to fit the (longer) Spanish labels on one row; below that it wrapped
+     to two rows on landscape phones, so the hamburger is cleaner there. */
+  @media (max-width:920px) {
     .topbar { gap:0.35rem 0.6rem; padding:0.55rem 0.85rem; flex-wrap:nowrap; }
     .topbar .brand { font-size:0.88rem; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .topbar nav { gap:0.4rem 0.95rem; font-size:0.86rem; flex:0 0 auto; flex-wrap:nowrap; }

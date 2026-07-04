@@ -3,7 +3,7 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "crosbynews",
   "main": "src/index.js",
-  "compatibility_date": "2025-09-01",
+  "compatibility_date": "2026-07-01",
 
   // Cached NWS forecast + alerts JSON live here under the "weather" key.
   "kv_namespaces": [
