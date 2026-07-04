@@ -182,9 +182,9 @@ directory name becomes the `/command`. Current skills:
 ## Languages (English + Mexican Spanish)
 - The site is bilingual: English at the root paths and Mexican Spanish (`es-MX`)
   under an **`/es` prefix** (`/es`, `/es/weather`, `/es/hourly`, `/es/radar`,
-  `/es/alerts`, `/es/water`, `/es/news`, `/es/calendar`, `/es/about`,
-  `/es/developers`, `/es/privacy`, `/es/contact`, `/es/sitemap`). Same twelve
-  content pages, same markdown negotiation. (`/es` is the Spanish hub;
+  `/es/alerts`, `/es/water`, `/es/news`, `/es/calendar`, `/es/emergency`,
+  `/es/about`, `/es/developers`, `/es/privacy`, `/es/contact`, `/es/sitemap`).
+  Same fourteen content pages, same markdown negotiation. (`/es` is the Spanish hub;
   `/es/weather` the Spanish forecast.)
 - **One set of render functions serves both languages** (no duplicated pages, so
   they can't drift). Each `*Html`/`*Markdown` takes a `lang` arg; the i18n block
@@ -251,8 +251,8 @@ directory name becomes the `/command`. Current skills:
   what the root served pre-restructure. Content-negotiated. The homepage/`/weather`
   `Link` header advertises the markdown alternate, sitemap, api-catalog, and
   OpenAPI service-desc (via the parameterized `linkHeader(enPath, lang)`). All
-  twenty-four content pages (the twelve English routes `/`, `/weather`, `/hourly`,
-  `/radar`, `/alerts`, `/water`, `/news`, `/calendar`, `/about`, `/developers`,
+  twenty-eight content pages (the fourteen English routes `/`, `/weather`, `/hourly`,
+  `/radar`, `/alerts`, `/water`, `/news`, `/calendar`, `/emergency`, `/about`, `/developers`,
   `/privacy`, `/contact`, `/sitemap` and their `/es` Spanish counterparts) emit an HTTP
   `Link: rel="canonical"` header — added centrally in the `fetch` wrapper via
   `PAGE_PATHS` — so the `?format=md` variants and the http→https pair consolidate
@@ -326,6 +326,27 @@ directory name becomes the `/command`. Current skills:
   Event titles stay in the district's official English (small `ES_EVENT` dict +
   English fallback, same policy as NWS text). Markdown-negotiated. The label in
   the nav is "School Calendar" / "Calendario escolar".
+- `/emergency` — bilingual emergency-resources directory for Crosby / NE Harris
+  County: 911 + non-emergency numbers (HCSO, Poison Control, 988, 211, plus a
+  "Houston 311 doesn't cover unincorporated Crosby" note), official alert
+  channels (ReadyHarris, NWS HGX), flood tools (county FWS, the FEMT
+  address-level floodplain lookup, HCFCD, FloodSmart/NFIP 30-day-wait basics,
+  our `/water`), roads (TranStar, DriveTexas), CenterPoint outage/gas-leak
+  reporting, the East Harris County **CAER industrial-incident line**
+  (281-476-2237 / ehcma.org — Crosby has plants of its own), shelters/recovery
+  (Red Cross, DisasterAssistance.gov), and hurricane prep (H-GAC Zip-Zone
+  evacuation maps; Crosby is outside the surge zones). Pure static content,
+  zero data loading — content in `EMERGENCY`/`EMERGENCY_ES` objects;
+  `emergencyHtml()`/`emergencyMarkdown()` render. Every external link + phone
+  number was curl-verified before shipping (`texaspoison.com` is a parked
+  domain now — poison numbers point at poison.org; ready.gov /
+  disasterassistance.gov / ehcma.org WAF-block datacenter curl but are
+  canonical). Phone numbers are `tel:` links. JSON-LD: `WebPage`.
+  Markdown-negotiated. In the topbar as an `m-only` link under "More" (kept off
+  the flat desktop bar to avoid re-wrapping it); linked prominently from
+  `/alerts` (the intro row under the status panel, both languages + markdown)
+  and from the shared footer ("Emergency" / "Emergencias"), `/sitemap`, and
+  llms.txt.
 - `/privacy` — full privacy policy page. No cookies, no trackers, no personal
   data — details on logging, third-party data sources, and analytics. Content
   lives in `PRIVACY`/`PRIVACY_ES` objects; `privacyHtml()`/`privacyMarkdown()`
@@ -352,7 +373,7 @@ directory name becomes the `/command`. Current skills:
   on `/alerts` + `/news` (both languages), llms.txt `## Optional`, and the
   `/sitemap` page. English-only like the API; no `/es` variants.
 - `/sitemap.xml` — lists `/`, `/weather`, `/hourly`, `/radar`, `/alerts`,
-  `/water`, `/news`, `/calendar`, `/about`, `/developers`, `/privacy`, `/contact`, `/sitemap`
+  `/water`, `/news`, `/calendar`, `/emergency`, `/about`, `/developers`, `/privacy`, `/contact`, `/sitemap`
   in both languages
   (each English route plus its `/es` counterpart), every `<url>` carrying
   `xhtml:link` hreflang alternates (`en-US`, `es-MX`, `x-default`).
