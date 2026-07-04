@@ -114,6 +114,26 @@ function feelsLikeRawF(period) {
   const windMph = parseInt(period?.windSpeed, 10);
   return heatIndexF(t, rh) ?? windChillF(t, Number.isFinite(windMph) ? windMph : NaN);
 }
+// The hourly period covering the wall clock RIGHT NOW. NWS's forecastHourly
+// product regenerates on its own lazy schedule — its first period is the hour
+// the product was generated, which can lag the real clock by an hour or more
+// even when our KV cache is fresh (user screenshots: hero said "5:00 PM" at
+// 6:19 PM). Never trust hourly[0] to be "now"; pick the period whose
+// start/end straddle Date.now(), else the latest already-started one.
+function currentHourly(data) {
+  const hours = data?.hourly ?? [];
+  const now = Date.now();
+  let started = null;
+  for (const h of hours) {
+    const s = Date.parse(h.startTime);
+    if (!Number.isFinite(s) || s > now) continue;
+    const e = Date.parse(h.endTime);
+    if (Number.isFinite(e) && now < e) return h;
+    started = h;
+  }
+  return started || hours[0] || null;
+}
+
 // Gated version for prominent single-value displays (hero, homepage markdown,
 // MCP text): only surfaces when meaningfully different from the air
 // temperature, so a table-free reader doesn't see noisy "88° feels like 89°".
@@ -335,7 +355,7 @@ function renderAlerts(alerts, lang) {
 }
 
 function renderHero(data, lang) {
-  const now = data.hourly?.[0];
+  const now = currentHourly(data);
   const lead = data.periods?.[0];
   // Degenerate NWS response (zero hourly periods): suppress the hero panel but
   // still emit the page's single <h1> so it never renders heading-less.
@@ -702,22 +722,163 @@ function hubWaterSummary(water, lang) {
   return { cls: "w-normal", label: T(lang, "All normal", "Todo normal"), detail: T(lang, "No area gauges at flood stage", "Ningún medidor del área en etapa de inundación") };
 }
 
+// Compass abbreviations spelled out for the hero's plain-language wind line
+// ("8 mph from the southeast"). Same 16-point set NWS uses.
+const DIR_WORDS_EN = { N: "north", NNE: "north-northeast", NE: "northeast", ENE: "east-northeast", E: "east", ESE: "east-southeast", SE: "southeast", SSE: "south-southeast", S: "south", SSW: "south-southwest", SW: "southwest", WSW: "west-southwest", W: "west", WNW: "west-northwest", NW: "northwest", NNW: "north-northwest" };
+const DIR_WORDS_ES = { N: "norte", NNE: "nornoreste", NE: "noreste", ENE: "estenoreste", E: "este", ESE: "estesureste", SE: "sureste", SSE: "sursureste", S: "sur", SSW: "sursuroeste", SW: "suroeste", WSW: "oestesuroeste", W: "oeste", WNW: "oestenoroeste", NW: "noroeste", NNW: "nornoroeste" };
+const dirWord = (dir, lang) => (lang === "es" ? DIR_WORDS_ES : DIR_WORDS_EN)[dir] || dir || "";
+
+// NWS alert severity, worst-first, for picking the banner's primary alert.
+const ALERT_SEVERITY_RANK = { Extreme: 4, Severe: 3, Moderate: 2, Minor: 1 };
+const alertRank = (a) => ALERT_SEVERITY_RANK[a?.severity] ?? 0;
+
+// One short verbatim-NWS line summarizing an alert: the first line of the
+// description when it reads like a title (SWS products lead with one, e.g.
+// "Dangerous Heat Likely Through Holiday Weekend"), else the NWS headline,
+// truncated. Display-only; the full official text lives on /alerts.
+function alertSummaryLine(a) {
+  const first = String(a?.description || "").split(/\n/).map((s) => s.trim()).find(Boolean) || "";
+  // Only use the first line when it reads like a title — warning products
+  // start with "* WHAT..." / "..." section markup, which is not a summary.
+  const line = first && first.length <= 110 && !/^[.*]/.test(first) ? first : String(a?.headline || "");
+  return line.length > 110 ? line.slice(0, 109).trimEnd() + "…" : line;
+}
+
+// Progressive disclosure for alerts on the hub (full products live on
+// /alerts): nothing when quiet; a compact banner with count, condensed
+// type list, and the primary alert's one-line summary for 1–3 alerts; just
+// count + worst type when 4+. Alert text itself stays official NWS English.
+function hubAlertsBanner(alerts, lang) {
+  if (!alerts.length) return "";
+  const aUrl = lang === "es" ? "/es/alerts" : "/alerts";
+  const byType = new Map();
+  for (const a of alerts) byType.set(a.event, (byType.get(a.event) || 0) + 1);
+  const primary = alerts.reduce((x, y) => (alertRank(y) > alertRank(x) ? y : x));
+  const n = alerts.length;
+  const sameType = byType.size === 1;
+  // English pluralizer good for NWS event nouns (Statement/Warning/Watch/Advisory).
+  const plural = (s) => (/y$/.test(s) ? s.replace(/y$/, "ies") : /(ch|sh|s|x)$/.test(s) ? s + "es" : s + "s");
+  const title =
+    n === 1
+      ? esc(primary.event)
+      : sameType
+        ? T(lang, `${n} Active ${esc(plural(alerts[0].event))}`, `${n} alertas activas: ${esc(alerts[0].event)}`)
+        : T(lang, `${n} Active Weather Alerts`, `${n} alertas meteorológicas activas`);
+  let body = "";
+  if (n <= 3) {
+    const types = !sameType && n > 1 ? `<ul class="ab-types">${[...byType].map(([ev, c]) => `<li>${esc(ev)}${c > 1 ? ` &times;${c}` : ""}</li>`).join("")}</ul>` : "";
+    const summary = alertSummaryLine(primary);
+    body = `${types}${summary ? `<p class="ab-headline">${esc(summary)}</p>` : ""}`;
+  } else {
+    body = `<p class="ab-headline">${T(lang, "Highest severity:", "Mayor severidad:")} ${esc(primary.event)}</p>`;
+  }
+  return `<a class="alert-banner" href="${aUrl}">
+    <p class="ab-title">&#9888;&#65039; ${title}</p>
+    ${body}
+    <p class="ab-link">${T(lang, "View all alerts", "Ver todas las alertas")} &rarr;</p>
+  </a>`;
+}
+
+// "Today at a Glance" numbers, all from the cached NWS data: daily periods
+// for high/low, today's hourly periods (Central calendar day) for feels-like
+// max, peak rain chance, wind range + prevailing direction and gusts, and the
+// current hour for humidity/dew point.
+function todayGlance(weather, lang) {
+  const ctDay = (iso) => new Date(iso).toLocaleDateString("en-CA", { timeZone: TZ });
+  const today = ctDay(new Date().toISOString());
+  const hours = (weather.hourly ?? []).filter((h) => ctDay(h.startTime) === today);
+  const periods = weather.periods ?? [];
+  const dayP = periods.find((p) => p.isDaytime);
+  const nightP = periods.find((p) => !p.isDaytime);
+  const now = currentHourly(weather);
+
+  const rows = [];
+  const add = (label, val) => val != null && val !== "" && rows.push([label, val]);
+  add(T(lang, "High", "Máx."), dayP ? `${dayP.temperature}°` : null);
+  add(T(lang, "Low", "Mín."), nightP ? `${nightP.temperature}°` : null);
+  const feelsMax = hours.reduce((m, h) => Math.max(m, feelsLikeRawF(h) ?? -Infinity), -Infinity);
+  if (feelsMax > -Infinity && dayP && feelsMax >= dayP.temperature) add(T(lang, "Feels like up to", "Sensación hasta"), `${feelsMax}°`);
+  const popMax = hours.reduce((m, h) => Math.max(m, pop(h)), 0);
+  add(T(lang, "Rain chance", "Prob. de lluvia"), `${popMax}%`);
+  const speeds = hours.flatMap((h) => String(h.windSpeed || "").match(/\d+/g) || []).map(Number);
+  const dirs = hours.map((h) => h.windDirection).filter(Boolean);
+  if (speeds.length) {
+    const mode = dirs.length ? [...dirs.reduce((m, d) => m.set(d, (m.get(d) || 0) + 1), new Map())].sort((a, b) => b[1] - a[1])[0][0] : "";
+    const lo = Math.min(...speeds), hi = Math.max(...speeds);
+    add(T(lang, "Wind", "Viento"), `${translateDir(mode, lang)} ${lo === hi ? lo : `${lo}–${hi}`} mph`);
+  }
+  const gusts = hours.flatMap((h) => String(h.windGust || "").match(/\d+/g) || []).map(Number);
+  if (gusts.length) add(T(lang, "Gusts to", "Rachas hasta"), `${Math.max(...gusts)} mph`);
+  const rh = now?.relativeHumidity?.value;
+  if (typeof rh === "number") add(T(lang, "Humidity", "Humedad"), `${Math.round(rh)}%`);
+  const dpC = now?.dewpoint?.value;
+  if (typeof dpC === "number") add(T(lang, "Dew point", "Punto de rocío"), `${Math.round((dpC * 9) / 5 + 32)}°`);
+  return rows;
+}
+
+// Short, honest explainers for the glance numbers people ask about most.
+// Native <details> — progressive disclosure with zero JS.
+function glanceExplainers(lang) {
+  const items = [
+    [
+      T(lang, "About feels-like temperature", "Acerca de la sensación térmica"),
+      T(
+        lang,
+        "The heat index or wind chill: what the air feels like to your body once humidity or wind is factored in, computed with the National Weather Service's own formulas.",
+        "El índice de calor o la sensación por viento: cómo se siente el aire para tu cuerpo al considerar la humedad o el viento, calculado con las fórmulas oficiales del Servicio Meteorológico Nacional."
+      ),
+    ],
+    [
+      T(lang, "About humidity", "Acerca de la humedad"),
+      T(
+        lang,
+        "How much moisture the air holds relative to its maximum. High humidity slows the evaporation of sweat, so hot days feel hotter.",
+        "Cuánta humedad contiene el aire en relación con su máximo. La humedad alta frena la evaporación del sudor, así que los días calurosos se sienten más calurosos."
+      ),
+    ],
+    [
+      T(lang, "About dew point", "Acerca del punto de rocío"),
+      T(
+        lang,
+        "The temperature the air would have to cool to for dew to form. Above about 70° feels muggy; below about 55° feels dry.",
+        "La temperatura a la que el aire tendría que enfriarse para que se forme rocío. Arriba de unos 70° se siente bochornoso; abajo de unos 55° se siente seco."
+      ),
+    ],
+  ];
+  return items.map(([q, a]) => `<details class="about"><summary>&#9432; ${q}</summary><p>${a}</p></details>`).join("");
+}
+
 function homeHtml(weather, water, news, cal, lang) {
-  const now = weather.hourly?.[0];
+  const now = currentHourly(weather);
   const feels = now ? feelsLikeF(now) : null;
   const alerts = weather.alerts ?? [];
   const wUrl = lang === "es" ? "/es/weather" : "/weather";
 
+  // Hero: temp + condition on one line, then plain-language lines — feels
+  // like, wind spelled out, rain chance — then NWS's own prose summary (the
+  // lead period's detailedForecast IS the natural-language forecast, no
+  // invention needed) and the cache's freshness stamp instead of a clock
+  // time that can't be trusted to the minute.
+  const lead = (weather.periods ?? [])[0];
+  const windLine =
+    now?.windSpeed && now?.windDirection
+      ? `${esc(translateWind(now.windSpeed, lang))} ${T(lang, "from the", "del")} ${esc(dirWord(now.windDirection, lang))}`
+      : "";
+  const popNow = now ? pop(now) : 0;
+  const updatedLine = weather.updated ? `${T(lang, "Updated", "Actualizado")} ${esc(clockTime(weather.updated, lang))} CT` : "";
   const hero = now
     ? `<section class="hub-hero">
       ${now.icon ? `<img class="hero-icon" src="${iconUrl(now.icon, "large")}" alt="${esc(translateConditions(now.shortForecast, lang))}" width="104" height="104" fetchpriority="high">` : ""}
       <div class="hub-hero-now">
-        <p class="hub-temp">${esc(now.temperature)}&deg;<span>${esc(now.temperatureUnit)}</span></p>
-        <p class="hub-cond">${esc(translateConditions(now.shortForecast, lang))}${feels != null ? ` &middot; ${T(lang, "feels", "sensación")} ${esc(feels)}&deg;` : ""}</p>
-        <p class="hub-hero-meta">${T(lang, "Now in Crosby, TX", "Ahora en Crosby, TX")}${now.startTime ? ` &middot; ${esc(clockTime(now.startTime, lang))} CT` : ""}</p>
+        <p class="hub-temp">${esc(now.temperature)}&deg;<span>${esc(now.temperatureUnit)}</span> <span class="hub-cond-inline">${esc(translateConditions(now.shortForecast, lang))}</span></p>
+        ${feels != null ? `<p class="hub-line">${T(lang, "Feels like", "Sensación térmica de")} ${esc(feels)}&deg;</p>` : ""}
+        ${windLine ? `<p class="hub-line">${windLine}</p>` : ""}
+        ${popNow ? `<p class="hub-line">${popNow}% ${T(lang, "chance of precipitation", "de probabilidad de lluvia")}</p>` : ""}
+        <p class="hub-hero-meta">${updatedLine}</p>
       </div>
       <a class="hub-cta" href="${wUrl}">${T(lang, "Full forecast", "Pronóstico completo")} &rarr;</a>
-    </section>`
+    </section>
+    ${lead?.detailedForecast ? `<p class="hub-summary"><strong>${esc(translatePeriodName(lead.name, lang))}:</strong> ${esc(lead.detailedForecast)}</p>` : ""}`
     : `<section class="hub-hero"><div class="hub-hero-now"><p class="hub-cond">${T(lang, "Live weather for Crosby, Texas", "Clima en vivo para Crosby, Texas")}</p><p class="hub-hero-meta">${T(lang, "Conditions temporarily unavailable.", "Condiciones no disponibles temporalmente.")}</p></div><a class="hub-cta" href="${wUrl}">${T(lang, "Forecast", "Pronóstico")} &rarr;</a></section>`;
 
   const dayPeek = (weather.periods ?? [])
@@ -740,16 +901,34 @@ function homeHtml(weather, water, news, cal, lang) {
     : `<li class="muted">${T(lang, "No upcoming events posted.", "No hay eventos próximos publicados.")}</li>`;
 
   const lk = (en, es) => (lang === "es" ? esPath(en) : en);
+  const glanceRows = todayGlance(weather, lang)
+    .map(([k, v]) => `<li><span class="pk-label">${k}</span><span class="pk-val">${v}</span></li>`)
+    .join("");
+  const alertsUpdated = weather.updated ? `${T(lang, "Updated", "Actualizado")} ${esc(clockTime(weather.updated, lang))}` : "";
+  const waterUpdated = water.updated ? `${T(lang, "Updated", "Actualizado")} ${esc(clockTime(water.updated, lang))}` : "";
+  const alertTypes = [...new Set(alerts.map((a) => a.event))];
   const cards = `<div class="hub-grid">
+      ${glanceRows ? `<section class="hub-card">
+        <h2>${T(lang, "Today at a Glance", "Hoy de un vistazo")}</h2>
+        <ul class="peek">${glanceRows}</ul>
+        ${glanceExplainers(lang)}
+      </section>` : ""}
       <section class="hub-card">
         <h2><a href="${lk("/weather")}">${T(lang, "Weather", "Clima")}</a></h2>
         <ul class="peek">${dayPeek || `<li class="muted">${T(lang, "Forecast unavailable.", "Pronóstico no disponible.")}</li>`}</ul>
         <p class="hub-links"><a href="${lk("/hourly")}">${T(lang, "Hourly", "Por hora")}</a> &middot; <a href="${lk("/radar")}">Radar</a> &middot; <a href="${lk("/alerts")}">${T(lang, "Alerts", "Alertas")}</a></p>
       </section>
       <section class="hub-card">
+        <h2><a href="${lk("/alerts")}">${T(lang, "Alerts", "Alertas")}</a></h2>
+        <p class="hub-water ${alerts.length ? "w-moderate" : "w-normal"}"><span class="hub-water-badge">${alerts.length ? `${alerts.length} ${T(lang, "Active", "Activas")}` : T(lang, "None", "Ninguna")}</span></p>
+        <p class="hub-water-detail">${alerts.length ? esc(alertTypes.slice(0, 3).join(" · ")) + (alertTypes.length > 3 ? " …" : "") : T(lang, "No active weather alerts", "Sin alertas meteorológicas activas")}</p>
+        ${alertsUpdated ? `<p class="hub-stamp">${alertsUpdated}</p>` : ""}
+      </section>
+      <section class="hub-card">
         <h2><a href="${lk("/water")}">${T(lang, "Water Levels", "Niveles de agua")}</a></h2>
         <p class="hub-water ${ws.cls}"><span class="hub-water-badge">${esc(ws.label)}</span></p>
-        <p class="hub-water-detail">${ws.detail}</p>
+        ${WATER_FLOOD_CATS.some((c) => ws.cls === waterCatClass(c)) || ws.cls === "w-unknown" ? `<p class="hub-water-detail">${ws.detail}</p>` : ""}
+        ${waterUpdated ? `<p class="hub-stamp">${waterUpdated}</p>` : ""}
       </section>
       <section class="hub-card">
         <h2><a href="${lk("/news")}">${T(lang, "Local News", "Noticias locales")}</a></h2>
@@ -821,7 +1000,21 @@ ${JSONLD_SITE}
   .hub-water.w-moderate .hub-water-badge { background:#b5301f; }
   .hub-water.w-major .hub-water-badge { background:#6f1fa0; }
   .hub-water-detail { margin:0; font-size:0.85rem; color:var(--muted); }
+  .hub-stamp { margin:0.35rem 0 0; font-size:0.78rem; color:var(--muted); }
   .muted { color:var(--muted); font-style:italic; }
+  .hub-cond-inline { font-size:1.15rem; font-weight:600; vertical-align:baseline; margin-left:0.3rem; }
+  .hub-line { margin:0.22rem 0 0; font-size:0.95rem; opacity:0.95; }
+  .hub-summary { margin:0.7rem 0 0; color:var(--muted); font-size:0.95rem; }
+  .alert-banner { display:block; background:linear-gradient(135deg,#a3271b,#d44230); color:#fff; text-decoration:none; border-radius:12px; padding:0.85rem 1.05rem; margin-top:0.8rem; }
+  .alert-banner:hover .ab-link { text-decoration:underline; }
+  .ab-title { margin:0; font-weight:800; font-size:1.05rem; }
+  .ab-types { margin:0.3rem 0 0; padding-left:1.15rem; font-size:0.9rem; }
+  .ab-headline { margin:0.35rem 0 0; font-size:0.9rem; opacity:0.95; }
+  .ab-link { margin:0.45rem 0 0; font-size:0.88rem; font-weight:700; }
+  .about { margin-top:0.45rem; font-size:0.85rem; }
+  .about summary { cursor:pointer; color:var(--accent); list-style:none; }
+  .about summary::-webkit-details-marker { display:none; }
+  .about p { margin:0.3rem 0 0.2rem; color:var(--muted); }
   .alerts { display:grid; gap:0.6rem; margin-top:0.8rem; }
   .alert { background:#fff4f3; border-left:5px solid #c0392b; border-radius:10px; padding:0.8rem 1rem; }
   .alert h3 { margin:0 0 0.3rem; color:#a3271b; }
@@ -837,7 +1030,7 @@ ${JSONLD_SITE}
 ${topbar("/", lang)}
 <main id="main">
   <h1 class="visually-h1">${T(lang, "Crosby, Texas", "Crosby, Texas")}</h1>
-  ${renderAlerts(alerts, lang)}
+  ${hubAlertsBanner(alerts, lang)}
   ${hero}
   ${cards}
 </main>
@@ -848,16 +1041,31 @@ ${footer({ page: "/", lang, source: T(lang, `Weather from the U.S. National Weat
 }
 
 function homeMarkdown(weather, water, news, cal, lang) {
-  const now = weather.hourly?.[0];
+  const now = currentHourly(weather);
   const feels = now ? feelsLikeF(now) : null;
   const out = [`# ${T(lang, "Crosby, Texas", "Crosby, Texas")}`, "", `_${T(lang, "The front page for Crosby, TX — weather, water levels, local news, and school calendar.", "La página principal de Crosby, TX — clima, niveles de agua, noticias locales y calendario escolar.")}_`, ""];
   if (now) {
-    out.push(`**${now.temperature}°${now.temperatureUnit}** — ${translateConditions(now.shortForecast, lang)}${feels != null ? ` (${T(lang, "feels like", "sensación térmica de")} ${feels}°)` : ""}. [${T(lang, "Full forecast", "Pronóstico completo")}](${canonicalFor("/weather", lang)})`, "");
+    const windLine = now.windSpeed && now.windDirection ? `; ${T(lang, "wind", "viento")} ${translateWind(now.windSpeed, lang)} ${T(lang, "from the", "del")} ${dirWord(now.windDirection, lang)}` : "";
+    const popNow = pop(now) ? `; ${pop(now)}% ${T(lang, "chance of precipitation", "de probabilidad de lluvia")}` : "";
+    out.push(`**${now.temperature}°${now.temperatureUnit}** — ${translateConditions(now.shortForecast, lang)}${feels != null ? ` (${T(lang, "feels like", "sensación térmica de")} ${feels}°)` : ""}${windLine}${popNow}. [${T(lang, "Full forecast", "Pronóstico completo")}](${canonicalFor("/weather", lang)})`, "");
+    if (weather.updated) out.push(`_${T(lang, "Updated", "Actualizado")} ${clockTime(weather.updated, lang)} CT_`, "");
   }
   const alerts = weather.alerts ?? [];
-  if (alerts.length) out.push(`**${T(lang, "Active alerts", "Alertas activas")}:** ${alerts.map((a) => a.event).join("; ")}. [${T(lang, "Details", "Detalles")}](${canonicalFor("/alerts", lang)})`, "");
+  if (alerts.length) {
+    const primary = alerts.reduce((x, y) => (alertRank(y) > alertRank(x) ? y : x));
+    const summary = alertSummaryLine(primary);
+    out.push(`**⚠️ ${alerts.length} ${T(lang, alerts.length === 1 ? "active alert" : "active alerts", alerts.length === 1 ? "alerta activa" : "alertas activas")}:** ${[...new Set(alerts.map((a) => a.event))].join("; ")}${summary ? ` — ${summary}` : ""}. [${T(lang, "View all alerts", "Ver todas las alertas")}](${canonicalFor("/alerts", lang)})`, "");
+  }
+  const glance = todayGlance(weather, lang);
+  if (glance.length) {
+    out.push(`## ${T(lang, "Today at a glance", "Hoy de un vistazo")}`, "");
+    for (const [k, v] of glance) out.push(`- ${k}: ${v}`);
+    out.push("");
+  }
   const ws = hubWaterSummary(water, lang);
-  out.push(`**${T(lang, "Water levels", "Niveles de agua")}:** ${ws.label.replace(/&[a-z]+;/g, "")} — ${String(ws.detail).replace(/<[^>]+>/g, "")}. [${T(lang, "All gauges", "Todos los medidores")}](${canonicalFor("/water", lang)})`, "");
+  const wsNormal = ws.cls === "w-normal";
+  const wsStamp = water.updated ? ` (${T(lang, "updated", "actualizado")} ${clockTime(water.updated, lang)} CT)` : "";
+  out.push(`**${T(lang, "Water levels", "Niveles de agua")}:** ${ws.label.replace(/&[a-z]+;/g, "")}${wsNormal ? "" : ` — ${String(ws.detail).replace(/<[^>]+>/g, "")}`}${wsStamp}. [${T(lang, "All gauges", "Todos los medidores")}](${canonicalFor("/water", lang)})`, "");
   const newsItems = (news.items ?? []).filter((n) => !n.crime).slice(0, 3);
   if (newsItems.length) {
     out.push("", `## ${T(lang, "Local news", "Noticias locales")}`, "");
@@ -2904,7 +3112,7 @@ function apiWater(data) {
 // `Accept: text/markdown` (or ?format=md).
 function renderMarkdown(data, lang) {
   const cell = (s) => String(s ?? "").replace(/\|/g, "/").replace(/\s*\n\s*/g, " ");
-  const now = data.hourly?.[0];
+  const now = currentHourly(data);
   const lead = data.periods?.[0];
   const out = [];
   out.push(`# ${T(lang, `${data.place || "Crosby, TX"} Weather`, `Clima en ${data.place || "Crosby, TX"}`)}`, "");
@@ -3021,7 +3229,7 @@ function apiWeather(data) {
     source: "U.S. National Weather Service (api.weather.gov)",
     updated: data.updated ?? null,
     sun: sun ? { sunrise: new Date(sun.sunrise).toISOString(), sunset: new Date(sun.sunset).toISOString() } : null,
-    current: data.hourly?.[0] ? withFeels(data.hourly[0]) : null,
+    current: currentHourly(data) ? withFeels(currentHourly(data)) : null,
     hourly: (data.hourly ?? []).slice(0, 12).map(withFeels),
     forecast: data.periods ?? [],
     alerts: data.alerts ?? [],
@@ -3428,7 +3636,7 @@ async function mcpGetPrompt(name, env) {
     throw e;
   }
   const [{ data }, news, cal] = await Promise.all([loadWeather(env), loadNews(env), loadCalendar(env)]);
-  const now = data.hourly?.[0];
+  const now = currentHourly(data);
   const lead = data.periods?.[0];
   const sun = sunTimesForCtDate(Date.now());
   const feels = feelsLikeF(now);
@@ -3652,7 +3860,7 @@ async function mcpCallTool(name, args, env) {
 
   const { data } = await loadWeather(env);
   if (name === "get_current_conditions") {
-    const now = data.hourly?.[0] ?? null;
+    const now = currentHourly(data);
     const feels = feelsLikeF(now);
     const sun = sunTimesForCtDate(Date.now());
     const text = now
