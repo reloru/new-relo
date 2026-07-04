@@ -498,7 +498,7 @@ function topbar(current, lang = "en") {
   <nav>
     <details class="nav-menu">
       <summary aria-label="${t("Menu", "Menú")}">&#9776;</summary>
-      <div class="nav-links">${link("/", t("Home", "Inicio"))} ${group(t("Weather", "Clima"))} ${link("/weather", t("Weather", "Clima"))} ${link("/hourly", t("Hourly", "Por hora"), "m-only")} ${link("/radar", t("Radar", "Radar"))} ${link("/alerts", t("Alerts", "Alertas"))} ${link("/water", t("Water Levels", "Niveles de agua"))} ${group(t("Community", "Comunidad"))} ${link("/news", t("News", "Noticias"))} ${link("/calendar", t("School Calendar", "Calendario escolar"))} ${group(t("More", "Más"))} ${link("/about", t("About", "Acerca de"))}</div>
+      <div class="nav-links">${link("/", t("Home", "Inicio"))} ${group(t("Weather", "Clima"))} ${link("/weather", t("Weather", "Clima"))} ${link("/hourly", t("Hourly", "Por hora"), "m-only")} ${link("/radar", t("Radar", "Radar"))} ${link("/alerts", t("Alerts", "Alertas"))} ${link("/water", t("Water Levels", "Niveles de agua"))} ${group(t("Community", "Comunidad"))} ${link("/news", t("News", "Noticias"))} ${link("/calendar", t("School Calendar", "Calendario escolar"))} ${group(t("More", "Más"))} ${link("/about", t("About", "Acerca de"))} ${link("/developers", t("Developers", "Desarrolladores"), "m-only")}</div>
     </details>
     ${toggle}
   </nav>
@@ -517,7 +517,7 @@ function footer({ page, lang = "en", source, data }) {
   ${T(lang, "Updated", "Actualizado")} ${esc(fullTime(data.updated, lang))} CT &middot; ${T(lang, "refreshes every 15 minutes.", "se actualiza cada 15 minutos.")}`
     : source;
 
-  const links = `<div class="footer-links">${lk("/", T(lang, "Home", "Inicio"))} &middot; ${lk("/about", T(lang, "About", "Acerca de"))} &middot; ${lk("/privacy", T(lang, "Privacy", "Privacidad"))} &middot; ${lk("/contact", T(lang, "Contact", "Contacto"))} &middot; ${lk("/sitemap", T(lang, "Sitemap", "Mapa del sitio"))} &middot; <a href="${mdHref}">${T(lang, "View as Markdown", "Ver en Markdown")}</a></div>`;
+  const links = `<div class="footer-links">${lk("/", T(lang, "Home", "Inicio"))} &middot; ${lk("/about", T(lang, "About", "Acerca de"))} &middot; ${lk("/developers", T(lang, "Developers", "Desarrolladores"))} &middot; ${lk("/privacy", T(lang, "Privacy", "Privacidad"))} &middot; ${lk("/contact", T(lang, "Contact", "Contacto"))} &middot; ${lk("/sitemap", T(lang, "Sitemap", "Mapa del sitio"))} &middot; <a href="${mdHref}">${T(lang, "View as Markdown", "Ver en Markdown")}</a></div>`;
 
   const disclaimer = `<div class="footer-disclaimer">${T(lang, "crosbynews.com is an independent project and is not affiliated with the National Weather Service, NOAA, or any government agency.", "crosbynews.com es un proyecto independiente y no está afiliado al Servicio Meteorológico Nacional, la NOAA ni ninguna agencia gubernamental.")}</div>`;
 
@@ -610,7 +610,7 @@ const JSONLD_SITE = `<script type="application/ld+json">${JSON.stringify({
   ],
 })}</script>`;
 
-// schema.org Dataset describing the public weather API — emitted on /about
+// schema.org Dataset describing the public weather API — emitted on /developers
 // (both languages; the API itself is English-only and language-neutral) so
 // dataset search engines (e.g. Google Dataset Search) can discover it. Honest:
 // unlike forecast markup, a Dataset is a truthful schema type for what the API
@@ -622,7 +622,7 @@ const JSONLD_DATASET = `<script type="application/ld+json">${JSON.stringify({
   name: "Crosby, TX weather — current conditions, forecast, and alerts",
   description:
     "Current conditions, hourly forecast, 7-day forecast, and active National Weather Service alerts for Crosby, Texas (northeast Harris County), refreshed every 15 minutes from the U.S. National Weather Service (api.weather.gov). Free public JSON API, no authentication.",
-  url: SITE + "/about",
+  url: SITE + "/developers",
   isAccessibleForFree: true,
   license: "https://www.weather.gov/disclaimer",
   creator: { "@id": ORG_ID },
@@ -1194,7 +1194,8 @@ crosbynews.com is an independent weather and news site for Crosby, TX (northeast
 - [Water Levels](${SITE}/water): Live river and bayou levels with NWS flood stages for Cedar Bayou, the San Jacinto River, Luce Bayou and other waters that flood the Crosby / NE Harris County area.
 - [News](${SITE}/news): Recent local headlines about Crosby, TX and nearby communities, filtered for relevance.
 - [School Calendar](${SITE}/calendar): Upcoming Crosby ISD school calendar events (first day, holidays, no-school/early-release days, testing, athletics) rendered from the district's public iCal feed, plus one-tap subscribe links.
-- [About](${SITE}/about): What this site is, where data comes from, and how to access the API and MCP server.
+- [About](${SITE}/about): What this site is, where its data comes from, how often it updates, and how it's built.
+- [Developers & Agents](${SITE}/developers): The public JSON API, OpenAPI spec, MCP server, RSS feeds, agent skills, and Markdown views — all in one place, no authentication.
 - [Privacy](${SITE}/privacy): Privacy policy — no cookies, no trackers, no personal data.
 - [Contact](${SITE}/contact): How to reach us — general inquiries and security reporting.
 - [Sitemap](${SITE}/sitemap): Human-readable site map with every page and endpoint.
@@ -1297,6 +1298,7 @@ function sitemapXml() {
     { path: "/news", changefreq: "daily", priority: "0.6" },
     { path: "/calendar", changefreq: "daily", priority: "0.6" },
     { path: "/about", changefreq: "monthly", priority: "0.5" },
+    { path: "/developers", changefreq: "monthly", priority: "0.4" },
     { path: "/privacy", changefreq: "monthly", priority: "0.3" },
     { path: "/contact", changefreq: "monthly", priority: "0.3" },
     { path: "/sitemap", changefreq: "monthly", priority: "0.3" },
@@ -1334,9 +1336,9 @@ ${urls.join("\n")}
 const ABOUT = {
   title: "About crosbynews.com",
   description:
-    "What crosbynews.com is, where its weather data comes from, how often it updates, and the public API and MCP server it offers.",
+    "What crosbynews.com is, where its weather and local data come from, how often it updates, and how it's built.",
   intro:
-    "crosbynews.com is a fast, no-frills weather page for Crosby, Texas. It shows current conditions, an hourly outlook, a 7-day forecast, and any active weather alerts — and nothing else. No ads, no trackers, no sign-up.",
+    "crosbynews.com is a fast, ad-free front page for Crosby, Texas — live National Weather Service conditions and forecast, river and bayou flood levels, local news, and the Crosby ISD school calendar, all in one place. No ads, no trackers, no sign-up.",
   sections: [
     {
       h: "Where the data comes from",
@@ -1352,30 +1354,12 @@ const ABOUT = {
       ],
     },
     {
-      h: "A weather API for developers and agents",
+      h: "For developers & agents",
       p: [
-        "The same data powering this page is available as a free, public, no-authentication JSON API:",
+        "The same data powering this site is available as a free, public, no-authentication JSON API — plus an OpenAPI spec, a Model Context Protocol (MCP) server, RSS feeds, and a Markdown version of every page. It's all documented on one page:",
       ],
       links: [
-        { href: "/api/weather", label: "/api/weather", note: "current conditions, hourly, 7-day forecast, and alerts (JSON)" },
-        { href: "/api/news", label: "/api/news", note: "recent local news headlines (JSON)" },
-        { href: "/api/calendar", label: "/api/calendar", note: "upcoming Crosby ISD school calendar events (JSON)" },
-        { href: "/api/water", label: "/api/water", note: "river/bayou levels with NWS flood stages (JSON)" },
-        { href: "/api/health", label: "/api/health", note: "service status and cache freshness" },
-        { href: "/openapi.json", label: "/openapi.json", note: "OpenAPI 3.1 description of the API" },
-        { href: "/.well-known/api-catalog", label: "/.well-known/api-catalog", note: "RFC 9727 API catalog" },
-      ],
-    },
-    {
-      h: "Built for AI agents",
-      p: [
-        "This site is designed to be readable by AI agents as well as people. Every page is available as Markdown (send an Accept: text/markdown header, or add ?format=md to the URL), and there is a Model Context Protocol (MCP) server that exposes the weather as callable tools.",
-      ],
-      links: [
-        { href: "/mcp", label: "/mcp", note: "MCP server (Streamable HTTP): get_current_conditions, get_forecast, get_alerts, get_crosby_news, get_school_events" },
-        { href: "/.well-known/mcp/server-card.json", label: "MCP server card", note: "discovery metadata" },
-        { href: "/llms.txt", label: "/llms.txt", note: "plain-language site summary for LLMs (llmstxt.org)" },
-        { href: "/weather?format=md", label: "The forecast as Markdown", note: "the weather page, rendered for agents" },
+        { href: "/developers", label: "Developers & agents", note: "the API, MCP server, feeds, and agent integrations" },
       ],
     },
     {
@@ -1411,9 +1395,9 @@ const ABOUT = {
 const ABOUT_ES = {
   title: "Acerca de crosbynews.com",
   description:
-    "Qué es crosbynews.com, de dónde provienen sus datos del tiempo, con qué frecuencia se actualiza y la API pública y el servidor MCP que ofrece.",
+    "Qué es crosbynews.com, de dónde provienen sus datos meteorológicos y locales, con qué frecuencia se actualiza y cómo está construido.",
   intro:
-    "crosbynews.com es una página del tiempo rápida y sencilla para Crosby, Texas. Muestra las condiciones actuales, un pronóstico por hora, un pronóstico a 7 días y cualquier alerta meteorológica activa, y nada más. Sin anuncios, sin rastreadores, sin registro.",
+    "crosbynews.com es una página principal rápida y sin anuncios para Crosby, Texas: condiciones y pronóstico en vivo del Servicio Meteorológico Nacional, niveles de inundación de ríos y arroyos, noticias locales y el calendario escolar de Crosby ISD, todo en un solo lugar. Sin anuncios, sin rastreadores, sin registro.",
   sections: [
     {
       h: "De dónde provienen los datos",
@@ -1429,30 +1413,12 @@ const ABOUT_ES = {
       ],
     },
     {
-      h: "Una API del tiempo para desarrolladores y agentes",
+      h: "Para desarrolladores y agentes",
       p: [
-        "Los mismos datos que alimentan esta página están disponibles como una API JSON gratuita, pública y sin autenticación (la API se ofrece en inglés):",
+        "Los mismos datos que alimentan este sitio están disponibles como una API JSON gratuita, pública y sin autenticación, además de una especificación OpenAPI, un servidor del Protocolo de Contexto de Modelo (MCP), feeds RSS y una versión en Markdown de cada página. Todo está documentado en una sola página:",
       ],
       links: [
-        { href: "/api/weather", label: "/api/weather", note: "condiciones actuales, por hora, pronóstico a 7 días y alertas (JSON)" },
-        { href: "/api/news", label: "/api/news", note: "titulares de noticias locales recientes (JSON)" },
-        { href: "/api/calendar", label: "/api/calendar", note: "próximos eventos del calendario escolar de Crosby ISD (JSON)" },
-        { href: "/api/water", label: "/api/water", note: "niveles de ríos/arroyos con las etapas de inundación del NWS (JSON)" },
-        { href: "/api/health", label: "/api/health", note: "estado del servicio y antigüedad de la caché" },
-        { href: "/openapi.json", label: "/openapi.json", note: "descripción OpenAPI 3.1 de la API" },
-        { href: "/.well-known/api-catalog", label: "/.well-known/api-catalog", note: "catálogo de API (RFC 9727)" },
-      ],
-    },
-    {
-      h: "Hecho para agentes de IA",
-      p: [
-        "Este sitio está diseñado para que lo lean tanto las personas como los agentes de IA. Cada página está disponible en Markdown (envía un encabezado Accept: text/markdown, o agrega ?format=md a la URL) y hay un servidor del Protocolo de Contexto de Modelo (MCP) que expone el tiempo como herramientas invocables.",
-      ],
-      links: [
-        { href: "/mcp", label: "/mcp", note: "servidor MCP (Streamable HTTP): get_current_conditions, get_forecast, get_alerts, get_crosby_news, get_school_events" },
-        { href: "/.well-known/mcp/server-card.json", label: "Tarjeta del servidor MCP", note: "metadatos de descubrimiento" },
-        { href: "/llms.txt", label: "/llms.txt", note: "resumen del sitio en lenguaje sencillo para LLM (llmstxt.org)" },
-        { href: "/es/weather?format=md", label: "El pronóstico en Markdown", note: "la página del tiempo, en español para agentes" },
+        { href: "/es/developers", label: "Desarrolladores y agentes", note: "la API, el servidor MCP, los feeds y las integraciones para agentes" },
       ],
     },
     {
@@ -1654,7 +1620,6 @@ ${OG_COMMON}
 <link rel="canonical" href="${canonicalFor("/about", lang)}">
 ${hreflangTags("/about")}
 ${JSONLD_SITE}
-${JSONLD_DATASET}
 ${jsonldAbout(lang)}
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="alternate icon" href="/favicon.ico">
@@ -1693,6 +1658,240 @@ function aboutMarkdown(lang) {
   return out.join("\n");
 }
 // --- end About page -------------------------------------------------------
+
+// --- Developers & agents page ---------------------------------------------
+// The site's agent/developer surface, gathered onto one page (moved off /about
+// during the 2026 restructure so /about stays human-facing). Same {h,p,links}
+// content-object shape as ABOUT so developersHtml/developersMarkdown render it
+// without drift. The API + MCP are English-only, so both languages list the
+// same endpoints; only the prose and self-referential markdown link localize.
+const DEVELOPERS = {
+  title: "Developers & Agents",
+  description:
+    "The crosbynews.com API, MCP server, RSS feeds, and agent integrations for Crosby, TX — free, public, no authentication.",
+  intro:
+    "crosbynews.com is built to be read by machines as well as people. Everything below is public and free, with no API key or sign-up. Source data is U.S. government public domain (NWS/NOAA) — attribute it as \"U.S. National Weather Service.\"",
+  sections: [
+    {
+      h: "JSON API",
+      p: ["Every dataset behind the site is a plain JSON endpoint with open CORS (Access-Control-Allow-Origin: *) and no rate limits. The polled endpoints also support conditional GET (ETag / If-None-Match → 304):"],
+      links: [
+        { href: "/api/weather", label: "/api/weather", note: "current conditions, hourly, 7-day forecast, alerts, plus feels-like and sun times" },
+        { href: "/api/water", label: "/api/water", note: "river/bayou stage, flow, and NWS flood stages" },
+        { href: "/api/news", label: "/api/news", note: "recent local Crosby-area headlines" },
+        { href: "/api/calendar", label: "/api/calendar", note: "upcoming Crosby ISD school events" },
+        { href: "/api/health", label: "/api/health", note: "service status and cache freshness" },
+      ],
+    },
+    {
+      h: "Specs & discovery",
+      p: ["Machine-readable descriptions and a discovery catalog:"],
+      links: [
+        { href: "/openapi.json", label: "/openapi.json", note: "OpenAPI 3.1 description of every endpoint" },
+        { href: "/.well-known/api-catalog", label: "/.well-known/api-catalog", note: "RFC 9727 API catalog (linkset)" },
+      ],
+    },
+    {
+      h: "Markdown for every page",
+      p: ["Any page returns clean Markdown instead of HTML when you send an Accept: text/markdown header or append ?format=md — handy for LLMs and text pipelines. The forecast, hub, water, news, alerts, and calendar pages all support it."],
+      links: [
+        { href: "/weather?format=md", label: "/weather?format=md", note: "the forecast, rendered as Markdown" },
+        { href: "/llms.txt", label: "/llms.txt", note: "plain-language site summary for LLMs (llmstxt.org)" },
+      ],
+    },
+    {
+      h: "MCP server",
+      p: [
+        "A stateless Model Context Protocol server (Streamable HTTP, JSON-RPC) exposes the data as callable tools — get_current_conditions, get_forecast, get_alerts, get_river_levels, get_crosby_news, get_school_events — plus a crosby_briefing prompt and readable resources.",
+        "Connect from Claude Code: claude mcp add --transport http crosbynews https://crosbynews.com/mcp",
+      ],
+      links: [
+        { href: "/mcp", label: "/mcp", note: "MCP endpoint (POST JSON-RPC); a GET shows a human explainer" },
+        { href: "/.well-known/mcp/server-card.json", label: "MCP server card", note: "discovery metadata" },
+      ],
+    },
+    {
+      h: "Agent skills",
+      p: ["An agentskills.io (v0.2.0) discovery index points to a real SKILL.md for the Crosby weather data; its digest is a runtime hash of the file, so the two can't drift."],
+      links: [
+        { href: "/.well-known/agent-skills/index.json", label: "/.well-known/agent-skills/index.json", note: "agent-skills discovery index" },
+      ],
+    },
+    {
+      h: "RSS feeds",
+      p: ["Watch alerts and local news in any feed reader — the no-account, no-tracking notification channel:"],
+      links: [
+        { href: "/alerts.xml", label: "/alerts.xml", note: "active NWS alerts (RSS 2.0; empty when all clear)" },
+        { href: "/news.xml", label: "/news.xml", note: "curated Crosby-area headlines (RSS 2.0)" },
+      ],
+    },
+    {
+      h: "Terms & attribution",
+      p: [
+        "Public and unauthenticated, no rate limits — please be reasonable with polling (the data refreshes every 15 minutes). Weather and water data are U.S. government public domain from the National Weather Service and NOAA; news headlines link to their original publishers.",
+        "crosbynews.com is an independent project and is not affiliated with the National Weather Service, NOAA, Crosby ISD, or any government agency.",
+      ],
+    },
+  ],
+};
+
+const DEVELOPERS_ES = {
+  title: "Desarrolladores y agentes",
+  description:
+    "La API de crosbynews.com, el servidor MCP, los feeds RSS y las integraciones para agentes de Crosby, TX — gratis, público, sin autenticación.",
+  intro:
+    "crosbynews.com está hecho para que lo lean tanto las máquinas como las personas. Todo lo de abajo es público y gratuito, sin clave de API ni registro. Los datos provienen del dominio público del gobierno de EE. UU. (NWS/NOAA); atribúyelos como «U.S. National Weather Service». La API y el servidor MCP se ofrecen en inglés.",
+  sections: [
+    {
+      h: "API JSON",
+      p: ["Cada conjunto de datos del sitio es un endpoint JSON con CORS abierto (Access-Control-Allow-Origin: *) y sin límites de tasa. Los endpoints consultados con frecuencia también admiten GET condicional (ETag / If-None-Match → 304):"],
+      links: [
+        { href: "/api/weather", label: "/api/weather", note: "condiciones actuales, por hora, pronóstico a 7 días, alertas, sensación térmica y horas de sol" },
+        { href: "/api/water", label: "/api/water", note: "nivel y caudal de ríos/arroyos y etapas de inundación del NWS" },
+        { href: "/api/news", label: "/api/news", note: "titulares locales recientes del área de Crosby" },
+        { href: "/api/calendar", label: "/api/calendar", note: "próximos eventos escolares de Crosby ISD" },
+        { href: "/api/health", label: "/api/health", note: "estado del servicio y antigüedad de la caché" },
+      ],
+    },
+    {
+      h: "Especificaciones y descubrimiento",
+      p: ["Descripciones legibles por máquinas y un catálogo de descubrimiento:"],
+      links: [
+        { href: "/openapi.json", label: "/openapi.json", note: "descripción OpenAPI 3.1 de cada endpoint" },
+        { href: "/.well-known/api-catalog", label: "/.well-known/api-catalog", note: "catálogo de API RFC 9727 (linkset)" },
+      ],
+    },
+    {
+      h: "Markdown en cada página",
+      p: ["Cualquier página devuelve Markdown limpio en lugar de HTML si envías un encabezado Accept: text/markdown o agregas ?format=md — útil para LLM y flujos de texto."],
+      links: [
+        { href: "/es/weather?format=md", label: "/es/weather?format=md", note: "el pronóstico, en Markdown" },
+        { href: "/llms.txt", label: "/llms.txt", note: "resumen del sitio en lenguaje sencillo para LLM (llmstxt.org)" },
+      ],
+    },
+    {
+      h: "Servidor MCP",
+      p: [
+        "Un servidor del Protocolo de Contexto de Modelo sin estado (Streamable HTTP, JSON-RPC) expone los datos como herramientas invocables — get_current_conditions, get_forecast, get_alerts, get_river_levels, get_crosby_news, get_school_events — además de un prompt crosby_briefing y recursos legibles.",
+        "Conéctate desde Claude Code: claude mcp add --transport http crosbynews https://crosbynews.com/mcp",
+      ],
+      links: [
+        { href: "/mcp", label: "/mcp", note: "endpoint MCP (POST JSON-RPC); un GET muestra una página explicativa" },
+        { href: "/.well-known/mcp/server-card.json", label: "Tarjeta del servidor MCP", note: "metadatos de descubrimiento" },
+      ],
+    },
+    {
+      h: "Habilidades para agentes",
+      p: ["Un índice de descubrimiento agentskills.io (v0.2.0) apunta a un SKILL.md real para los datos del clima de Crosby; su digest es un hash del archivo en tiempo de ejecución, así que no pueden desincronizarse."],
+      links: [
+        { href: "/.well-known/agent-skills/index.json", label: "/.well-known/agent-skills/index.json", note: "índice de descubrimiento de habilidades" },
+      ],
+    },
+    {
+      h: "Feeds RSS",
+      p: ["Sigue las alertas y las noticias locales en cualquier lector de feeds — el canal de notificaciones sin cuentas ni rastreo:"],
+      links: [
+        { href: "/alerts.xml", label: "/alerts.xml", note: "alertas activas del NWS (RSS 2.0; vacío cuando no hay ninguna)" },
+        { href: "/news.xml", label: "/news.xml", note: "titulares seleccionados del área de Crosby (RSS 2.0)" },
+      ],
+    },
+    {
+      h: "Términos y atribución",
+      p: [
+        "Público y sin autenticación, sin límites de tasa — sé razonable con la frecuencia de consulta (los datos se actualizan cada 15 minutos). Los datos meteorológicos y de agua son de dominio público del gobierno de EE. UU. (NWS y NOAA); los titulares enlazan a sus editores originales.",
+        "crosbynews.com es un proyecto independiente y no está afiliado al Servicio Meteorológico Nacional, la NOAA, Crosby ISD ni ninguna agencia gubernamental.",
+      ],
+    },
+  ],
+};
+
+function jsonldDevelopers(lang) {
+  const D = lang === "es" ? DEVELOPERS_ES : DEVELOPERS;
+  return `<script type="application/ld+json">${JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    "@id": canonicalFor("/developers", lang) + "#webpage",
+    url: canonicalFor("/developers", lang),
+    name: D.title,
+    description: D.description,
+    inLanguage: lang === "es" ? "es-MX" : "en-US",
+    isPartOf: { "@id": WEBSITE_ID },
+    about: { "@id": ORG_ID },
+  })}</script>`;
+}
+
+function developersHtml(lang) {
+  const D = lang === "es" ? DEVELOPERS_ES : DEVELOPERS;
+  const body = D.sections
+    .map((s) => {
+      const paras = (s.p || []).map((t) => `<p>${esc(t)}</p>`).join("\n      ");
+      const links = s.links
+        ? `<ul class="links">${s.links
+            .map((l) => `<li><a href="${l.href}"><code>${esc(l.label)}</code></a> &mdash; ${esc(l.note)}</li>`)
+            .join("")}</ul>`
+        : "";
+      return `      <section class="card">
+        <h2>${esc(s.h)}</h2>
+        ${paras}
+        ${links}
+      </section>`;
+    })
+    .join("\n");
+  return `<!DOCTYPE html>
+<html lang="${T(lang, "en", "es-MX")}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${esc(D.title)} &mdash; crosbynews.com</title>
+<meta name="description" content="${esc(D.description)}">
+<meta name="theme-color" content="#0b3d61">
+<meta property="og:title" content="${esc(D.title)}">
+<meta property="og:description" content="${esc(D.description)}">
+<meta property="og:type" content="website">
+<meta property="og:url" content="${canonicalFor("/developers", lang)}">
+${OG_COMMON}
+<link rel="canonical" href="${canonicalFor("/developers", lang)}">
+${hreflangTags("/developers")}
+${JSONLD_SITE}
+${JSONLD_DATASET}
+${jsonldDevelopers(lang)}
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="alternate icon" href="/favicon.ico">
+<style>${BASE_CSS}
+  .card { background:var(--card); border-radius:12px; padding:0.9rem 1.1rem; margin-top:1rem; box-shadow:0 1px 3px rgba(0,0,0,0.07); }
+  .card h2 { margin:0 0 0.5rem; }
+  .card p { margin:0.5rem 0; }
+  .lede { font-size:1.05rem; color:var(--ink); }
+  .links { margin:0.5rem 0 0; padding-left:1.1rem; }
+  .links li { margin:0.3rem 0; }
+  code { background:color-mix(in srgb,var(--ink) 10%, transparent); padding:0.05rem 0.3rem; border-radius:4px; font-size:0.9em; }
+</style>
+</head>
+<body>
+${topbar("/developers", lang)}
+<main id="main">
+  <h1>${esc(D.title)}</h1>
+  <p class="lede">${esc(D.intro)}</p>
+${body}
+</main>
+${footer({ page: "/developers", lang, source: T(lang, `Data from the U.S. National Weather Service (<a href="https://weather.gov">weather.gov</a>) and NOAA/NWS.`, `Datos del Servicio Meteorológico Nacional de EE. UU. (<a href="https://weather.gov">weather.gov</a>) y de NOAA/NWS.`) })}
+</body>
+</html>`;
+}
+
+function developersMarkdown(lang) {
+  const D = lang === "es" ? DEVELOPERS_ES : DEVELOPERS;
+  const out = [`# ${D.title}`, "", D.intro, ""];
+  for (const s of D.sections) {
+    out.push(`## ${s.h}`, "");
+    for (const t of s.p || []) out.push(t, "");
+    for (const l of s.links || []) out.push(`- [${l.label}](${l.href}) — ${l.note}`);
+    if (s.links) out.push("");
+  }
+  out.push("---", `[crosbynews.com](${canonicalFor("/", lang)}) · ${T(lang, "weather for Crosby, Texas", "clima para Crosby, Texas")}`);
+  return out.join("\n");
+}
+// --- end Developers & agents page -----------------------------------------
 
 // --- Privacy page ---------------------------------------------------------
 
@@ -1949,6 +2148,7 @@ ${topbar("/sitemap", lang)}
   <section class="card">
     <h2>${t("For Developers &amp; Agents", "Para desarrolladores y agentes")}</h2>
     <ul>
+      ${lk("/developers", t("Developers &amp; Agents", "Desarrolladores y agentes"), t("Start here — the API, MCP server, feeds, and agent integrations, documented on one page.", "Empieza aquí — la API, el servidor MCP, los feeds y las integraciones para agentes, en una sola página."))}
       ${extLk("/api/weather", t("Weather API", "API del clima"), t("JSON: current conditions, hourly, 7-day, and alerts.", "JSON: condiciones actuales, por hora, 7 días y alertas."))}
       ${extLk("/api/news", t("News API", "API de noticias"), t("JSON: recent local headlines.", "JSON: titulares locales recientes."))}
       ${extLk("/api/calendar", t("School Calendar API", "API del calendario escolar"), t("JSON: upcoming Crosby ISD events.", "JSON: próximos eventos de Crosby ISD."))}
@@ -2000,6 +2200,7 @@ function sitemapPageMarkdown(lang) {
     "",
     `## ${t("For Developers & Agents", "Para desarrolladores y agentes")}`,
     "",
+    lk("/developers", t("Developers & Agents", "Desarrolladores y agentes"), t("Start here — API, MCP, feeds, agents on one page.", "Empieza aquí — API, MCP, feeds y agentes en una página.")),
     extLk("/api/weather", t("Weather API", "API del clima"), "JSON"),
     extLk("/api/news", t("News API", "API de noticias"), "JSON"),
     extLk("/api/calendar", t("School Calendar API", "API del calendario escolar"), "JSON"),
@@ -4384,6 +4585,21 @@ async function _fetch(request, env, ctx) {
       });
     }
 
+    // Developers & agents page — the API/MCP/feeds detail that used to live on
+    // /about. Same static content-negotiated treatment.
+    if (page === "/developers") {
+      const accept = (request.headers.get("accept") || "").toLowerCase();
+      const wantsMarkdown = accept.includes("text/markdown") || url.searchParams.get("format") === "md";
+      if (wantsMarkdown) {
+        return new Response(developersMarkdown(lang), {
+          headers: { "content-type": "text/markdown; charset=utf-8", "cache-control": "public, max-age=3600", vary: "Accept" },
+        });
+      }
+      return new Response(developersHtml(lang), {
+        headers: { "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=3600", vary: "Accept" },
+      });
+    }
+
     // Radar page — the radar image is a separate proxy; loadWeather() is a
     // cheap KV read so the footer can show the same freshness line as the
     // other weather pages.
@@ -4652,8 +4868,8 @@ async function _fetch(request, env, ctx) {
 // `?format=md` variants — and the http→https pair — consolidate onto one URL for
 // crawlers that read the HTTP layer (reinforces the in-HTML <link rel="canonical">).
 const PAGE_PATHS = new Set([
-  "/", "/weather", "/hourly", "/radar", "/alerts", "/water", "/news", "/calendar", "/about", "/privacy", "/contact", "/sitemap",
-  "/es", "/es/weather", "/es/hourly", "/es/radar", "/es/alerts", "/es/water", "/es/news", "/es/calendar", "/es/about", "/es/privacy", "/es/contact", "/es/sitemap",
+  "/", "/weather", "/hourly", "/radar", "/alerts", "/water", "/news", "/calendar", "/about", "/developers", "/privacy", "/contact", "/sitemap",
+  "/es", "/es/weather", "/es/hourly", "/es/radar", "/es/alerts", "/es/water", "/es/news", "/es/calendar", "/es/about", "/es/developers", "/es/privacy", "/es/contact", "/es/sitemap",
 ]);
 
 export default {
