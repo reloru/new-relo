@@ -27,6 +27,98 @@ const FAVICON_SVG =
   "<circle cx='13' cy='15' r='8' fill='#f5b301'/>" +
   "<ellipse cx='19' cy='20' rx='10' ry='6' fill='#dfe7ee'/></svg>";
 
+// App icon for the PWA manifest (/icon.svg): the favicon art on a full-bleed
+// brand-navy square. Full-bleed (no rounded corners) because it's declared
+// `purpose: "any maskable"` — platforms cut maskable icons to their own shape,
+// and transparent corners would show through the mask. The art stays inside
+// the maskable safe zone (a centered circle of 40% radius).
+const ICON_SVG =
+  "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'>" +
+  "<rect width='512' height='512' fill='#0b3d61'/>" +
+  "<circle cx='216' cy='240' r='92' fill='#f5b301'/>" +
+  "<ellipse cx='286' cy='298' rx='118' ry='68' fill='#dfe7ee'/></svg>";
+
+// Web app manifest (/manifest.json) — makes the site installable and names
+// the PWA. `display: standalone` so an installed copy opens app-like; colors
+// match the brand navy and BASE_CSS light background.
+const MANIFEST = {
+  name: "Crosby News — Crosby, TX Weather",
+  short_name: "Crosby News",
+  description: "Live weather, alerts, water levels, local news, and school events for Crosby, Texas.",
+  id: "/",
+  start_url: "/",
+  scope: "/",
+  display: "standalone",
+  background_color: "#eef2f6",
+  theme_color: "#0b3d61",
+  lang: "en-US",
+  icons: [{ src: "/icon.svg", sizes: "any", type: "image/svg+xml", purpose: "any maskable" }],
+};
+
+// Service worker (/sw.js) — offline resilience for storm time, when Crosby's
+// connectivity is at its flakiest exactly when the site matters most. Served
+// as a Worker route (no static assets, per the repo rule) with `no-cache` so
+// deploys pick up on the next visit. Strategy: precache the storm-critical
+// pages at install, then network-first for navigations (always fresh online)
+// with the last-good cached copy as the offline fallback. Bump CACHE when
+// changing this script's behavior so old caches are swept on activate.
+// Registered from HOME_SCRIPT (its CSP hash recomputes automatically).
+const SW_SCRIPT = `// crosbynews.com service worker - offline cache of storm-critical pages.
+var CACHE = "crosby-v1";
+var PRECACHE = ["/", "/alerts", "/es", "/es/alerts", "/manifest.json", "/favicon.svg"];
+
+self.addEventListener("install", function (e) {
+  e.waitUntil(
+    caches.open(CACHE).then(function (c) { return c.addAll(PRECACHE); }).then(function () { return self.skipWaiting(); })
+  );
+});
+
+self.addEventListener("activate", function (e) {
+  e.waitUntil(
+    caches.keys()
+      .then(function (keys) { return Promise.all(keys.filter(function (k) { return k !== CACHE; }).map(function (k) { return caches.delete(k); })); })
+      .then(function () { return self.clients.claim(); })
+  );
+});
+
+self.addEventListener("fetch", function (e) {
+  var req = e.request;
+  if (req.method !== "GET") return;
+  var url = new URL(req.url);
+  if (url.origin !== location.origin) return;
+
+  // Navigations: network first so pages are always fresh online; cache the
+  // successful copy (query-less URLs only, so variants can't bloat the cache)
+  // and fall back to it - or to the language hub - when the network dies.
+  if (req.mode === "navigate") {
+    e.respondWith(
+      fetch(req).then(function (res) {
+        if (res.ok && !url.search) {
+          var copy = res.clone();
+          caches.open(CACHE).then(function (c) { c.put(req, copy); });
+        }
+        return res;
+      }).catch(function (err) {
+        // ignoreVary: the content pages send "Vary: Accept", and a navigation's
+        // Accept header never equals the precache fetch's "*/*" - without it
+        // every offline match misses and falls through to the hub.
+        return caches.match(req, { ignoreVary: true }).then(function (hit) {
+          if (hit) return hit;
+          var hub = url.pathname === "/es" || url.pathname.indexOf("/es/") === 0 ? "/es" : "/";
+          return caches.match(hub, { ignoreVary: true }).then(function (fb) { if (fb) return fb; throw err; });
+        });
+      })
+    );
+    return;
+  }
+
+  // Precached assets (favicon, manifest): cache first, network fallback.
+  if (PRECACHE.indexOf(url.pathname) !== -1) {
+    e.respondWith(caches.match(req, { ignoreVary: true }).then(function (hit) { return hit || fetch(req); }));
+  }
+});
+`;
+
 async function getJson(url) {
   const res = await fetch(url, { headers: NWS_HEADERS });
   if (!res.ok) {
@@ -543,6 +635,13 @@ setTimeout(function () {
   });
 }, 900000);
 
+// Offline resilience: register the service worker (storm-time cache of the
+// hub + alerts — see SW_SCRIPT). Progressive enhancement: rejected/absent
+// registration is silently ignored.
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/sw.js").catch(function () {});
+}
+
 // WebMCP: expose Crosby weather as in-browser agent tools. Progressive
 // enhancement — a no-op in browsers without navigator.modelContext.
 (function () {
@@ -661,6 +760,7 @@ ${OG_COMMON}
 <link rel="canonical" href="${canonicalFor("/weather", lang)}">
 ${hreflangTags("/weather")}
 ${JSONLD_SITE}
+<link rel="manifest" href="/manifest.json">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="alternate icon" href="/favicon.ico">
 <style>${BASE_CSS}
@@ -977,6 +1077,7 @@ ${OG_COMMON}
 <link rel="canonical" href="${canonicalFor("/", lang)}">
 ${hreflangTags("/")}
 ${JSONLD_SITE}
+<link rel="manifest" href="/manifest.json">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="alternate icon" href="/favicon.ico">
 <style>${BASE_CSS}
@@ -1624,6 +1725,7 @@ ${OG_COMMON}
 ${hreflangTags("/about")}
 ${JSONLD_SITE}
 ${jsonldAbout(lang)}
+<link rel="manifest" href="/manifest.json">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="alternate icon" href="/favicon.ico">
 <style>${BASE_CSS}
@@ -1872,6 +1974,7 @@ ${hreflangTags("/developers")}
 ${JSONLD_SITE}
 ${JSONLD_DATASET}
 ${jsonldDevelopers(lang)}
+<link rel="manifest" href="/manifest.json">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="alternate icon" href="/favicon.ico">
 <style>${BASE_CSS}
@@ -1960,6 +2063,7 @@ ${OG_COMMON}
 ${hreflangTags("/privacy")}
 ${JSONLD_SITE}
 ${jsonldPrivacy(lang)}
+<link rel="manifest" href="/manifest.json">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="alternate icon" href="/favicon.ico">
 <style>${BASE_CSS}
@@ -2048,6 +2152,7 @@ ${OG_COMMON}
 ${hreflangTags("/contact")}
 ${JSONLD_SITE}
 ${jsonldContact(lang)}
+<link rel="manifest" href="/manifest.json">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="alternate icon" href="/favicon.ico">
 <style>${BASE_CSS}
@@ -2337,6 +2442,7 @@ ${OG_COMMON}
 ${hreflangTags("/emergency")}
 ${JSONLD_SITE}
 ${jsonldEmergency(lang)}
+<link rel="manifest" href="/manifest.json">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="alternate icon" href="/favicon.ico">
 <style>${BASE_CSS}
@@ -2407,6 +2513,7 @@ ${OG_COMMON}
 <link rel="canonical" href="${canonicalFor("/sitemap", lang)}">
 ${hreflangTags("/sitemap")}
 ${JSONLD_SITE}
+<link rel="manifest" href="/manifest.json">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="alternate icon" href="/favicon.ico">
 <style>${BASE_CSS}
@@ -2554,6 +2661,7 @@ ${OG_COMMON}
 <link rel="canonical" href="${canonicalFor("/radar", lang)}">
 ${hreflangTags("/radar")}
 ${JSONLD_SITE}
+<link rel="manifest" href="/manifest.json">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="alternate icon" href="/favicon.ico">
 <style>${BASE_CSS}
@@ -2662,6 +2770,7 @@ ${OG_COMMON}
 <link rel="canonical" href="${canonicalFor("/hourly", lang)}">
 ${hreflangTags("/hourly")}
 ${JSONLD_SITE}
+<link rel="manifest" href="/manifest.json">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="alternate icon" href="/favicon.ico">
 <style>${BASE_CSS}
@@ -2838,6 +2947,7 @@ ${OG_COMMON}
 ${hreflangTags("/alerts")}
 <link rel="alternate" type="application/rss+xml" title="Crosby, TX Weather Alerts (RSS)" href="/alerts.xml">
 ${JSONLD_SITE}
+<link rel="manifest" href="/manifest.json">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="alternate icon" href="/favicon.ico">
 <style>${BASE_CSS}
@@ -2975,6 +3085,7 @@ ${OG_COMMON}
 ${hreflangTags("/news")}
 <link rel="alternate" type="application/rss+xml" title="Crosby, TX News (RSS)" href="/news.xml">
 ${JSONLD_SITE}
+<link rel="manifest" href="/manifest.json">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="alternate icon" href="/favicon.ico">
 <style>${BASE_CSS}
@@ -3256,6 +3367,7 @@ ${OG_COMMON}
 ${hreflangTags("/calendar")}
 ${JSONLD_SITE}
 ${jsonldEvents(events, lang)}
+<link rel="manifest" href="/manifest.json">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="alternate icon" href="/favicon.ico">
 <style>${BASE_CSS}
@@ -3530,6 +3642,7 @@ ${OG_COMMON}
 <link rel="canonical" href="${canonicalFor("/water", lang)}">
 ${hreflangTags("/water")}
 ${JSONLD_SITE}
+<link rel="manifest" href="/manifest.json">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="alternate icon" href="/favicon.ico">
 <style>${BASE_CSS}
@@ -4294,6 +4407,7 @@ function mcpInfoHtml() {
 <meta name="description" content="Model Context Protocol (MCP) server for Crosby, TX weather: connect an AI agent to get live conditions, forecast, and alerts.">
 <meta name="theme-color" content="#0b3d61">
 <meta name="robots" content="noindex">
+<link rel="manifest" href="/manifest.json">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="alternate icon" href="/favicon.ico">
 <style>${BASE_CSS}
@@ -4719,6 +4833,24 @@ async function _fetch(request, env, ctx) {
     if (path === "/favicon.ico" || path === "/favicon.svg") {
       return new Response(FAVICON_SVG, {
         headers: { "content-type": "image/svg+xml; charset=utf-8", "cache-control": "public, max-age=604800, immutable" },
+      });
+    }
+    // PWA surface: manifest + app icon + service worker (see the constants up
+    // top). The SW gets `no-cache` so a deploy's new worker is picked up on
+    // the next visit rather than after a stale-cache window.
+    if (path === "/manifest.json") {
+      return new Response(JSON.stringify(MANIFEST, null, 2), {
+        headers: { "content-type": "application/manifest+json; charset=utf-8", "cache-control": "public, max-age=3600" },
+      });
+    }
+    if (path === "/icon.svg") {
+      return new Response(ICON_SVG, {
+        headers: { "content-type": "image/svg+xml; charset=utf-8", "cache-control": "public, max-age=604800, immutable" },
+      });
+    }
+    if (path === "/sw.js") {
+      return new Response(SW_SCRIPT, {
+        headers: { "content-type": "text/javascript; charset=utf-8", "cache-control": "no-cache" },
       });
     }
     // CORS preflight for the public API.
