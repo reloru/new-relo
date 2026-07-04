@@ -201,15 +201,35 @@ directory name becomes the `/command`. Current skills:
 
 ## Routes (agent-readiness)
 - `/` — the **homepage hub** (`homeHtml`/`homeMarkdown`): the "front page of
-  Crosby." Kept weather-forward (current conditions + feels-like hero, so the
-  root retains its weather SEO relevance) plus an alert banner and at-a-glance
-  section cards linking into Weather, Water, News, and the School Calendar. It
-  loads all four datasets in parallel (`Promise.all`, each `.catch`-degrading to
-  an empty shape) so one slow/failed source can't blank or serially block the
+  Crosby," designed as a scannable local dashboard. Weather-forward hero
+  (temp + condition, "Feels like", wind spelled out via `dirWord()`, rain
+  chance, NWS's own `detailedForecast` prose as the summary line, and the
+  cache's `Updated` stamp — NOT a clock time). **Alerts use progressive
+  disclosure** (`hubAlertsBanner()`): no banner when quiet; 1–3 alerts → a
+  compact red banner (count, condensed types, primary alert's one-line summary
+  via `alertSummaryLine()`, severity-ranked) linking to `/alerts`; 4+ → count +
+  highest-severity type only. Full alert products render ONLY on `/alerts` and
+  `/weather` — never dump whole NWS statements on the hub (user-reported: one
+  SWS ate 80% of the mobile page). Cards: **Today at a Glance**
+  (`todayGlance()`: high/low, feels-like max, peak rain chance, wind
+  range+gusts, humidity, dew point — all from cached data — plus `<details>`
+  explainers for feels-like/humidity/dew point), Weather peek, an **Alerts
+  status card** (count or "None" — no-alerts is news), Water (badge +
+  `Updated` stamp; detail line only when not normal), News, Calendar. It loads
+  all four datasets in parallel (`Promise.all`, each `.catch`-degrading to an
+  empty shape) so one slow/failed source can't blank or serially block the
   page. Content-negotiated (`?format=md` / `Accept: text/markdown`). The full
   forecast moved to `/weather` during the 2026 nav/homepage restructure (root
   used to serve the forecast). The Bing `msvalidate.01` verification meta lives
   on the hub (the root Bing has on file).
+- **Current-conditions invariant:** never render `hourly[0]` as "now" — NWS's
+  `forecastHourly` first period is the product's generation hour and can lag
+  the wall clock by 1h+ even with a fresh cache (user screenshots: hero said
+  5:00 PM at 6:19 PM). `currentHourly(data)` picks the period covering
+  `Date.now()`; it feeds the hub + `/weather` heroes, both markdowns,
+  `/api/weather` `current`, and MCP `get_current_conditions`/the briefing
+  prompt. Freshness labels show `data.updated` (when WE refreshed), not period
+  start times.
 - `/weather` — the full forecast (`renderHtml`/`renderMarkdown`): current
   conditions hero, 12-hour strip, 7-day forecast. Canonical `/weather`; this is
   what the root served pre-restructure. Content-negotiated. The homepage/`/weather`
