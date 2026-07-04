@@ -372,7 +372,31 @@ directory name becomes the `/command`. Current skills:
   `ttl` 60. Advertised via `<link rel="alternate" type="application/rss+xml">`
   on `/alerts` + `/news` (both languages), llms.txt `## Optional`, and the
   `/sitemap` page. English-only like the API; no `/es` variants.
-- `/badge.svg` — hotlinkable live-weather badge (SVG, 300×80, brand-styled
+- **PWA/offline** — `/manifest.json` (web app manifest: installable,
+  `display: standalone`, brand colors), `/icon.svg` (512px app icon —
+  full-bleed navy square, `purpose: "any maskable"`, art inside the maskable
+  safe zone), and `/sw.js` (hand-written service worker, no build step). The
+  SW precaches the storm-critical pages (`/`, `/alerts`, `/es`, `/es/alerts`,
+  manifest, favicon) at install, then runs **network-first for navigations**
+  (always fresh online; caches query-less copies as it goes) with the
+  last-good copy — or the language hub — as the offline fallback, so the site
+  still answers during storm-time connectivity drops. All three are Worker
+  routes (constants `MANIFEST`/`ICON_SVG`/`SW_SCRIPT` near the favicon), per
+  the no-static-assets rule. `/sw.js` is served `no-cache` so deploys take
+  effect next visit; **bump the `CACHE` version inside SW_SCRIPT when
+  changing SW behavior** (activate sweeps old caches). Registration lives in
+  `HOME_SCRIPT` (so its CSP hash recomputes automatically); every page's
+  `<head>` carries `<link rel="manifest">`. CSP note: worker-src isn't set,
+  so SW loading falls back to `script-src 'self'`, which passes.
+  **Vary gotcha (caught in testing):** the content pages send `Vary: Accept`
+  and the Cache API respects Vary — a navigation's Accept header never equals
+  the precache fetch's `*/*`, so every SW `caches.match` MUST pass
+  `{ ignoreVary: true }` or offline matches all miss and collapse to the hub.
+  Offline behavior is verified with the two-phase Playwright test (register +
+  precache with the dev server up, then KILL the server and navigate) —
+  Playwright's `setOffline` does NOT apply to SW-initiated fetches, so it
+  cannot test this. This is the service-worker foundation the future
+  severe-alert Web Push item builds on.
   with the favicon sun-and-cloud): current temp + condition (truncated to
   fit), gated feels-like, and a status flag ("✓ NO ALERTS" green / "⚠ N
   ALERTS" red). Rendered by `badgeSvg(data)` from the same KV cache
