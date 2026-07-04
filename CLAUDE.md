@@ -145,10 +145,13 @@ directory name becomes the `/command`. Current skills:
 - Chrome: `topbar(current, lang)` renders the site header with nav links, and
   starts with a visually-hidden skip-to-content link (`.skip-link`, appears on
   keyboard focus) targeting `<main id="main">` — present on every page. On
-  screens ≤600px the nav collapses into a CSS-only hamburger menu (native `<details>`
-  element, no JS). One markup, two layouts: the desktop bar is a flat inline row,
+  screens ≤920px the nav collapses into a CSS-only hamburger menu (native `<details>`
+  element, no JS). (The breakpoint was raised from 600px to 920px so landscape
+  phones stop wrapping the toolbar — worst in Spanish, where the labels are
+  longer.) One markup, two layouts: the desktop bar is a flat inline row,
   while the mobile menu adds group headers (`.nav-group-label` — Weather /
-  Community / More) and a mobile-only Hourly link (`a.m-only`), both
+  Community / More) and the mobile-only links `a.m-only` (Hourly under Weather,
+  Developers under More), all
   `display:none` on desktop and shown only inside the open hamburger. Español
   stays a standalone toggle (never folded into the menu); the hamburger is a
   44px tap target spaced clear of it. **Invariant:** desktop relies on
@@ -158,16 +161,16 @@ directory name becomes the `/command`. Current skills:
   that rule makes the entire desktop nav disappear (only brand + Español show).
   `footer({ page, lang, source, data })` renders a shared
   footer on every page: per-page source attribution, a links row (Home · About ·
-  Privacy · Contact · Sitemap · View as Markdown), and an independent-project
+  Developers · Privacy · Contact · Sitemap · View as Markdown), and an independent-project
   disclaimer. Weather pages (`/`, `/weather`, `/hourly`, `/radar`, `/alerts` —
   the `WEATHER_PAGES` set) also show an alert-status + freshness line when `data`
   is passed.
 - SEO/structured data: every HTML page emits schema.org JSON-LD — `JSONLD_SITE`
-  (a `WebSite` + `Organization` `@graph`) sitewide; `/about` adds `AboutPage`
-  plus `JSONLD_DATASET` (a `Dataset` describing the public weather API, for
-  dataset search engines — a truthful type, unlike forecast markup),
-  `/contact` adds `ContactPage`, `/privacy` adds `WebPage`, and `/calendar`
-  adds `Event` nodes. It's a `<script type="application/ld+json">` data block
+  (a `WebSite` + `Organization` `@graph`) sitewide; `/about` adds `AboutPage`;
+  `/developers` adds `JSONLD_DATASET` (a `Dataset` describing the public weather
+  API, for dataset search engines — a truthful type, unlike forecast markup)
+  plus a `WebPage` node (`jsonldDevelopers`); `/contact` adds `ContactPage`,
+  `/privacy` adds `WebPage`, and `/calendar` adds `Event` nodes. It's a `<script type="application/ld+json">` data block
   (not executable), so CSP needs no hash for it. Kept deliberately honest — no
   schema for the forecast (no truthful type exists) and no fake ratings/FAQ.
 - Link previews: every HTML page emits Open Graph tags (`og:title`,
@@ -180,9 +183,9 @@ directory name becomes the `/command`. Current skills:
 - The site is bilingual: English at the root paths and Mexican Spanish (`es-MX`)
   under an **`/es` prefix** (`/es`, `/es/weather`, `/es/hourly`, `/es/radar`,
   `/es/alerts`, `/es/water`, `/es/news`, `/es/calendar`, `/es/about`,
-  `/es/privacy`, `/es/contact`, `/es/sitemap`). Same eleven content pages, same
-  markdown negotiation. (`/es` is the Spanish hub; `/es/weather` the Spanish
-  forecast.)
+  `/es/developers`, `/es/privacy`, `/es/contact`, `/es/sitemap`). Same twelve
+  content pages, same markdown negotiation. (`/es` is the Spanish hub;
+  `/es/weather` the Spanish forecast.)
 - **One set of render functions serves both languages** (no duplicated pages, so
   they can't drift). Each `*Html`/`*Markdown` takes a `lang` arg; the i18n block
   near the top of `src/index.js` holds the machinery: `T(lang,en,es)` for inline
@@ -248,9 +251,9 @@ directory name becomes the `/command`. Current skills:
   what the root served pre-restructure. Content-negotiated. The homepage/`/weather`
   `Link` header advertises the markdown alternate, sitemap, api-catalog, and
   OpenAPI service-desc (via the parameterized `linkHeader(enPath, lang)`). All
-  twenty-two content pages (the eleven English routes `/`, `/weather`, `/hourly`,
-  `/radar`, `/alerts`, `/water`, `/news`, `/calendar`, `/about`, `/privacy`,
-  `/contact`, `/sitemap` and their `/es` Spanish counterparts) emit an HTTP
+  twenty-four content pages (the twelve English routes `/`, `/weather`, `/hourly`,
+  `/radar`, `/alerts`, `/water`, `/news`, `/calendar`, `/about`, `/developers`,
+  `/privacy`, `/contact`, `/sitemap` and their `/es` Spanish counterparts) emit an HTTP
   `Link: rel="canonical"` header — added centrally in the `fetch` wrapper via
   `PAGE_PATHS` — so the `?format=md` variants and the http→https pair consolidate
   onto one URL. Back-links from the sub-pages say "← Back to the forecast" and
@@ -265,10 +268,23 @@ directory name becomes the `/command`. Current skills:
   short edge TTL) so it's crawlable and edge-cached; `?still=1` serves the
   latest single frame (`KHGX_0.gif`) instead of the loop, linked from the page
   for users who prefer a non-animated image. Same markdown negotiation.
-- `/about` — static "what this site is" page (source, cadence, API/MCP, NWS
-  attribution, contact, disclaimer). Same markdown negotiation. Content lives once in the
+- `/about` — static "what this site is" page (source, cadence, privacy,
+  contact, disclaimer — human-facing). Same markdown negotiation. Content lives once in the
   `ABOUT` object; `aboutHtml()`/`aboutMarkdown()` render it so the two can't
-  drift. Shared chrome (`BASE_CSS`, `topbar()` nav) is reused by all pages.
+  drift. Shared chrome (`BASE_CSS`, `topbar()` nav) is reused by all pages. The
+  API/MCP/agent detail lives on `/developers` (moved off `/about` in the 2026
+  restructure so `/about` stays human-facing); `/about` carries one pointer
+  section to it.
+- `/developers` — the developer/agent surface, gathered on one page (`DEVELOPERS`/
+  `DEVELOPERS_ES` content objects, same `{h,p,links}` shape as `ABOUT`;
+  `developersHtml()`/`developersMarkdown()` render): the public JSON API, specs
+  &amp; discovery (OpenAPI, api-catalog), Markdown-for-every-page, the MCP server,
+  agent skills, and the RSS feeds, plus terms/attribution. Emits `JSONLD_DATASET`
+  (see SEO section) — this is where the `Dataset` node now lives. Both languages
+  list the same English-only endpoints; only the prose and the self-referential
+  markdown link localize. Same markdown negotiation. In the topbar only as an
+  `m-only` link under "More" (hidden on the flat desktop bar); linked from the
+  footer, `/about`, `/sitemap`, and llms.txt.
 - `/alerts` — active NWS alerts for Crosby plus an evergreen severe-weather
   guide (`ALERT_GUIDE`) so the page stays substantial when nothing is active
   (avoids thin content). Markdown-negotiated.
@@ -336,7 +352,7 @@ directory name becomes the `/command`. Current skills:
   on `/alerts` + `/news` (both languages), llms.txt `## Optional`, and the
   `/sitemap` page. English-only like the API; no `/es` variants.
 - `/sitemap.xml` — lists `/`, `/weather`, `/hourly`, `/radar`, `/alerts`,
-  `/water`, `/news`, `/calendar`, `/about`, `/privacy`, `/contact`, `/sitemap`
+  `/water`, `/news`, `/calendar`, `/about`, `/developers`, `/privacy`, `/contact`, `/sitemap`
   in both languages
   (each English route plus its `/es` counterpart), every `<url>` carrying
   `xhtml:link` hreflang alternates (`en-US`, `es-MX`, `x-default`).
