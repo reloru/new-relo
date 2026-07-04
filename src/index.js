@@ -439,6 +439,9 @@ const BASE_CSS = `
   .nav-menu { display:contents; }
   .nav-menu summary { display:none; }
   .nav-links { display:contents; }
+  /* Group headers and mobile-only links belong to the hamburger menu only —
+     hidden on the flat desktop bar (shown in the @media block below). */
+  .nav-group-label, .nav-links a.m-only { display:none; }
   /* Desktop: show the nav links inline. Modern Chromium hides closed-<details>
      content via ::details-content { content-visibility:hidden }, which
      display:contents does NOT override — without this the desktop nav vanishes. */
@@ -446,16 +449,19 @@ const BASE_CSS = `
   @media (max-width:600px) {
     .topbar { gap:0.35rem 0.6rem; padding:0.55rem 0.85rem; flex-wrap:nowrap; }
     .topbar .brand { font-size:0.88rem; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    .topbar nav { gap:0.4rem 0.6rem; font-size:0.86rem; flex:0 0 auto; flex-wrap:nowrap; }
+    .topbar nav { gap:0.4rem 0.95rem; font-size:0.86rem; flex:0 0 auto; flex-wrap:nowrap; }
     .topbar nav .lang { order:1; }
     .topbar nav .nav-menu { order:2; }
     .nav-menu { display:block; position:relative; }
-    .nav-menu summary { display:inline-block; cursor:pointer; list-style:none; font-size:1.3rem; line-height:1; opacity:0.9; color:#fff; padding:0; }
+    /* A real 44px tap target for the hamburger, comfortably clear of Español. */
+    .nav-menu summary { display:flex; align-items:center; justify-content:center; cursor:pointer; list-style:none; font-size:1.5rem; line-height:1; opacity:0.95; color:#fff; width:2.2rem; height:2.2rem; margin-right:-0.4rem; }
     .nav-menu summary::-webkit-details-marker { display:none; }
     .nav-links { display:none; }
-    .nav-menu[open] .nav-links { display:flex; flex-direction:column; position:absolute; right:0; top:calc(100% + 0.4rem); background:var(--blue); padding:0.6rem 1rem; border-radius:0 0 8px 8px; z-index:10; gap:0.4rem; min-width:11rem; box-shadow:0 4px 12px rgba(0,0,0,0.3); }
-    .nav-links a { opacity:0.9; white-space:nowrap; padding:0.25rem 0; }
+    .nav-menu[open] .nav-links { display:flex; flex-direction:column; position:absolute; right:0; top:calc(100% + 0.5rem); background:var(--blue); padding:0.7rem 1.1rem 0.9rem; border-radius:10px; z-index:10; gap:0.15rem; min-width:13rem; box-shadow:0 6px 16px rgba(0,0,0,0.35); }
+    .nav-links a { opacity:0.92; white-space:nowrap; padding:0.35rem 0; }
     .nav-links a:hover, .nav-links a[aria-current="page"] { opacity:1; text-decoration:underline; }
+    .nav-menu[open] .nav-links a.m-only { display:block; }
+    .nav-menu[open] .nav-links .nav-group-label { display:block; font-size:0.66rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:rgba(255,255,255,0.5); margin:0.55rem 0 0.05rem; padding-top:0.5rem; border-top:1px solid rgba(255,255,255,0.14); }
   }
   main { max-width:920px; margin:0 auto; padding:1rem; }
   h2 { font-size:1.1rem; margin:1.4rem 0 0.6rem; }
@@ -472,9 +478,14 @@ const BASE_CSS = `
 // adds a language toggle linking to the same page in the other language.
 function topbar(current, lang = "en") {
   const es = lang === "es";
-  const link = (enHref, label) =>
-    `<a href="${es ? esPath(enHref) : enHref}"${current === enHref ? ' aria-current="page"' : ""}>${label}</a>`;
+  // `cls` marks a link mobile-menu-only (m-only): shown in the grouped
+  // hamburger, hidden from the flat desktop bar so the desktop nav stays lean.
+  const link = (enHref, label, cls) =>
+    `<a href="${es ? esPath(enHref) : enHref}"${cls ? ` class="${cls}"` : ""}${current === enHref ? ' aria-current="page"' : ""}>${label}</a>`;
   const t = (en, esLabel) => (es ? esLabel : en);
+  // Section labels are hidden on desktop (flat inline bar) and shown as
+  // group headers only when the mobile menu is open. One markup, two layouts.
+  const group = (label) => `<span class="nav-group-label">${label}</span>`;
   const toggle = es
     ? `<a class="lang" hreflang="en-US" lang="en" href="${current}">English</a>`
     : `<a class="lang" hreflang="es-MX" lang="es" href="${esPath(current)}">Español</a>`;
@@ -484,7 +495,7 @@ function topbar(current, lang = "en") {
   <nav>
     <details class="nav-menu">
       <summary aria-label="${t("Menu", "Menú")}">&#9776;</summary>
-      <div class="nav-links">${link("/", t("Home", "Inicio"))} ${link("/weather", t("Weather", "Clima"))} ${link("/radar", t("Radar", "Radar"))} ${link("/alerts", t("Alerts", "Alertas"))} ${link("/water", t("Water Levels", "Niveles de agua"))} ${link("/news", t("News", "Noticias"))} ${link("/calendar", t("School Calendar", "Calendario escolar"))} ${link("/about", t("About", "Acerca de"))}</div>
+      <div class="nav-links">${link("/", t("Home", "Inicio"))} ${group(t("Weather", "Clima"))} ${link("/weather", t("Weather", "Clima"))} ${link("/hourly", t("Hourly", "Por hora"), "m-only")} ${link("/radar", t("Radar", "Radar"))} ${link("/alerts", t("Alerts", "Alertas"))} ${link("/water", t("Water Levels", "Niveles de agua"))} ${group(t("Community", "Comunidad"))} ${link("/news", t("News", "Noticias"))} ${link("/calendar", t("School Calendar", "Calendario escolar"))} ${group(t("More", "Más"))} ${link("/about", t("About", "Acerca de"))}</div>
     </details>
     ${toggle}
   </nav>

@@ -138,7 +138,12 @@ directory name becomes the `/command`. Current skills:
   starts with a visually-hidden skip-to-content link (`.skip-link`, appears on
   keyboard focus) targeting `<main id="main">` — present on every page. On
   screens ≤600px the nav collapses into a CSS-only hamburger menu (native `<details>`
-  element, no JS). **Invariant:** desktop relies on
+  element, no JS). One markup, two layouts: the desktop bar is a flat inline row,
+  while the mobile menu adds group headers (`.nav-group-label` — Weather /
+  Community / More) and a mobile-only Hourly link (`a.m-only`), both
+  `display:none` on desktop and shown only inside the open hamburger. Español
+  stays a standalone toggle (never folded into the menu); the hamburger is a
+  44px tap target spaced clear of it. **Invariant:** desktop relies on
   `.nav-menu::details-content { content-visibility: visible }` to keep the links
   inline — current Chromium hides closed-`<details>` content via
   `::details-content` and `display:contents` does NOT override it, so removing
