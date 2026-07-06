@@ -134,11 +134,17 @@ async function fetchWeather() {
   const { forecast: forecastUrl, forecastHourly: hourlyUrl } = points.properties;
   const place = points.properties.relativeLocation?.properties;
 
-  // 2. Daily forecast, hourly forecast, and active alerts are independent.
-  const [forecast, hourly, alertsData] = await Promise.all([
+  // 2. Daily forecast, hourly forecast, active alerts, and the EPA UV
+  // forecast are independent. UV is failure-tolerant (uv: null) so an EPA
+  // hiccup can never block the NWS refresh.
+  const [forecast, hourly, alertsData, uv] = await Promise.all([
     getJson(forecastUrl),
     getJson(hourlyUrl),
     getJson(`https://api.weather.gov/alerts/active?point=${LAT},${LON}`),
+    fetchUv().catch((e) => {
+      console.error("EPA UV fetch failed:", e && e.message);
+      return null;
+    }),
   ]);
 
   return {
@@ -148,7 +154,67 @@ async function fetchWeather() {
     // Keep 48 hours: the homepage shows the first 12, /hourly shows them all.
     hourly: (hourly.properties.periods ?? []).slice(0, 48),
     alerts: (alertsData.features ?? []).map((f) => f.properties),
+    uv,
   };
+}
+
+// UV index — the EPA's hourly UV forecast for Crosby's ZIP (Envirofacts, no
+// API key; Worker reachability canary-verified before shipping, like NHC).
+// The one weather number on the site sourced from EPA rather than NWS. EPA
+// publishes DATE_TIME in the ZIP's LOCAL wall-clock time (Central here) and
+// the product only covers roughly 6 AM–8 PM — and its row list can wrap into
+// the previous day's evening hours, so consumers always filter by CT date.
+const UV_ZIP = "77532"; // Crosby
+const UV_MONTHS = { JAN: "01", FEB: "02", MAR: "03", APR: "04", MAY: "05", JUN: "06", JUL: "07", AUG: "08", SEP: "09", OCT: "10", NOV: "11", DEC: "12" };
+async function fetchUv() {
+  const res = await fetch(`https://data.epa.gov/efservice/getEnvirofactsUVHOURLY/ZIP/${UV_ZIP}/JSON`, {
+    headers: { "User-Agent": "crosbynews.com", Accept: "application/json" },
+  });
+  if (!res.ok) throw new Error(`EPA UV request failed: ${res.status}`);
+  const rows = await res.json();
+  const hourly = [];
+  for (const r of Array.isArray(rows) ? rows : []) {
+    // DATE_TIME like "Jul/04/2026 01 PM" (local Central wall time).
+    const m = /^([A-Za-z]{3})\/(\d{2})\/(\d{4})\s+(\d{1,2})\s+(AM|PM)$/.exec(String(r.DATE_TIME || "").trim());
+    const mon = m && UV_MONTHS[m[1].toUpperCase()];
+    if (!mon) continue;
+    let hour = Number(m[4]) % 12;
+    if (m[5].toUpperCase() === "PM") hour += 12;
+    hourly.push({ date: `${m[3]}-${mon}-${m[2]}`, hour, value: Number(r.UV_VALUE) || 0 });
+  }
+  if (!hourly.length) throw new Error("EPA UV: no parseable rows");
+  return { hourly };
+}
+
+// Current-hour and peak-of-today UV from the stored entries, matched on the
+// CT wall clock (the convention EPA publishes in). Null-safe: cache entries
+// written before this feature have no `uv`, and hours outside the product's
+// window simply don't match.
+const ctDateStr = (ms) => new Date(ms).toLocaleDateString("en-CA", { timeZone: TZ });
+function uvCurrent(data) {
+  const entries = data?.uv?.hourly;
+  if (!Array.isArray(entries)) return null;
+  const now = Date.now();
+  const date = ctDateStr(now);
+  const hour = Number(new Date(now).toLocaleString("en-US", { timeZone: TZ, hour: "2-digit", hour12: false })) % 24;
+  const hit = entries.find((e) => e.date === date && e.hour === hour);
+  return hit ? hit.value : null;
+}
+function uvPeakToday(data) {
+  const entries = data?.uv?.hourly;
+  if (!Array.isArray(entries)) return null;
+  const date = ctDateStr(Date.now());
+  const today = entries.filter((e) => e.date === date);
+  return today.length ? Math.max(...today.map((e) => e.value)) : null;
+}
+// EPA/WHO UV index categories.
+function uvCategory(v, lang = "en") {
+  if (v == null) return null;
+  if (v >= 11) return T(lang, "Extreme", "Extremo");
+  if (v >= 8) return T(lang, "Very High", "Muy alto");
+  if (v >= 6) return T(lang, "High", "Alto");
+  if (v >= 3) return T(lang, "Moderate", "Moderado");
+  return T(lang, "Low", "Bajo");
 }
 
 function esc(value) {
@@ -454,6 +520,7 @@ function renderHero(data, lang) {
   if (!now) return `<h1>${T(lang, `${esc(data.place)} Weather`, `Clima en ${esc(data.place)}`)}</h1>`;
   const feels = feelsLikeF(now);
   const sun = sunTimesForCtDate(Date.now());
+  const uvNow = uvCurrent(data);
   return `
     <section class="hero">
       ${now.icon ? `<img class="hero-icon" src="${iconUrl(now.icon, "large")}" alt="${esc(translateConditions(now.shortForecast, lang))}" width="128" height="128" fetchpriority="high">` : ""}
@@ -462,7 +529,7 @@ function renderHero(data, lang) {
         <p class="hero-temp">${esc(now.temperature)}&deg;<span>${esc(now.temperatureUnit)}</span></p>
         <p class="hero-cond">${esc(translateConditions(now.shortForecast, lang))}</p>
         ${feels != null ? `<p class="hero-feels">${T(lang, "Feels like", "Sensación térmica de")} ${esc(feels)}&deg;</p>` : ""}
-        <p class="hero-meta">${esc(data.place)} &middot; ${T(lang, "as of", "a las")} ${esc(clockTime(now.startTime, lang))} CT${pop(now) ? ` &middot; ${pop(now)}% ${T(lang, "precip", "prob. lluvia")}` : ""}</p>
+        <p class="hero-meta">${esc(data.place)} &middot; ${T(lang, "as of", "a las")} ${esc(clockTime(now.startTime, lang))} CT${pop(now) ? ` &middot; ${pop(now)}% ${T(lang, "precip", "prob. lluvia")}` : ""}${uvNow ? ` &middot; ${T(lang, "UV", "UV")} ${esc(uvNow)} (${esc(uvCategory(uvNow, lang))})` : ""}</p>
         ${sun ? `<p class="hero-meta">${T(lang, "Sunrise", "Amanecer")} ${esc(clockTime(sun.sunrise, lang))} &middot; ${T(lang, "Sunset", "Atardecer")} ${esc(clockTime(sun.sunset, lang))}</p>` : ""}
       </div>
     </section>
@@ -943,6 +1010,11 @@ function todayGlance(weather, lang) {
   if (typeof rh === "number") add(T(lang, "Humidity", "Humedad"), `${Math.round(rh)}%`);
   const dpC = now?.dewpoint?.value;
   if (typeof dpC === "number") add(T(lang, "Dew point", "Punto de rocío"), `${Math.round((dpC * 9) / 5 + 32)}°`);
+  // Peak UV gates on > 0: at night EPA's remaining hours for "today" are all
+  // 0, and "Peak UV 0" would read as if the day never had any. Daytime Crosby
+  // is always ≥ 1, so a 0 reliably means the daylight hours have passed.
+  const uvPeak = uvPeakToday(weather);
+  if (uvPeak) add(T(lang, "Peak UV", "UV máximo"), `${uvPeak} (${uvCategory(uvPeak, lang)})`);
   return rows;
 }
 
@@ -972,6 +1044,14 @@ function glanceExplainers(lang) {
         lang,
         "The temperature the air would have to cool to for dew to form. Above about 70° feels muggy; below about 55° feels dry.",
         "La temperatura a la que el aire tendría que enfriarse para que se forme rocío. Arriba de unos 70° se siente bochornoso; abajo de unos 55° se siente seco."
+      ),
+    ],
+    [
+      T(lang, "About the UV index", "Acerca del índice UV"),
+      T(
+        lang,
+        "The EPA's forecast of peak sunburn-causing UV radiation for today, on a scale where 3–5 is moderate, 6–7 high, 8–10 very high, and 11+ extreme. At 6 or above, use sunscreen and seek shade around midday — Gulf Coast summers routinely reach very high.",
+        "El pronóstico de la EPA sobre la radiación UV máxima que causa quemaduras hoy, en una escala donde 3–5 es moderado, 6–7 alto, 8–10 muy alto y 11+ extremo. Con 6 o más, usa protector solar y busca sombra al mediodía — los veranos de la costa del Golfo llegan seguido a muy alto."
       ),
     ],
   ];
@@ -1337,7 +1417,7 @@ Every page is also available in Mexican Spanish (es-MX) under the /es prefix —
 
 Every page supports \`Accept: text/markdown\` (or \`?format=md\`) for a clean markdown rendering.
 
-- REST API: \`GET ${SITE}/api/weather\` — JSON with current conditions, hourly, 7-day forecast, and alerts. No auth.
+- REST API: \`GET ${SITE}/api/weather\` — JSON with current conditions, hourly, 7-day forecast, alerts, sun times, and the EPA UV index. No auth.
 - News API: \`GET ${SITE}/api/news\` — recent Crosby-area headlines (JSON).
 - School calendar API: \`GET ${SITE}/api/calendar\` — upcoming Crosby ISD events (JSON).
 - Water levels API: \`GET ${SITE}/api/water\` — river/bayou stage + NWS flood stages (JSON).
@@ -1475,7 +1555,7 @@ const ABOUT = {
     {
       h: "Where the data comes from",
       p: [
-        "Every forecast, conditions reading, and alert on this site comes directly from the U.S. National Weather Service (api.weather.gov) for Crosby, TX (latitude 29.9119, longitude -95.0608). NWS data is in the public domain.",
+        "Every forecast, conditions reading, and alert on this site comes directly from the U.S. National Weather Service (api.weather.gov) for Crosby, TX (latitude 29.9119, longitude -95.0608). NWS data is in the public domain. The UV index is the one weather number sourced elsewhere — the U.S. EPA's public UV forecast for Crosby's ZIP code (77532).",
         "We don't editorialize or adjust the numbers — the site is a clean presentation layer over the official government forecast for the Crosby area. Two values we compute ourselves: \"feels like\" temperature (the heat index or wind chill, using the National Weather Service's own published formulas applied to its temperature, humidity, and wind data — shown only when it's meaningfully different from the air temperature) and sunrise/sunset times (standard astronomical formulas; the NWS forecast API doesn't provide them).",
       ],
     },
@@ -1534,7 +1614,7 @@ const ABOUT_ES = {
     {
       h: "De dónde provienen los datos",
       p: [
-        "Cada pronóstico, lectura de condiciones y alerta de este sitio proviene directamente del Servicio Meteorológico Nacional de EE. UU. (api.weather.gov) para Crosby, TX (latitud 29.9119, longitud -95.0608). Los datos del NWS son de dominio público.",
+        "Cada pronóstico, lectura de condiciones y alerta de este sitio proviene directamente del Servicio Meteorológico Nacional de EE. UU. (api.weather.gov) para Crosby, TX (latitud 29.9119, longitud -95.0608). Los datos del NWS son de dominio público. El índice UV es el único dato meteorológico de otra fuente: el pronóstico UV público de la EPA de EE. UU. para el código postal de Crosby (77532).",
         "No editorializamos ni ajustamos las cifras: el sitio es una capa de presentación limpia sobre el pronóstico oficial del gobierno para la zona de Crosby. Dos valores los calculamos nosotros mismos: la \"sensación térmica\" (el índice de calor o la sensación por viento, con las fórmulas oficiales del Servicio Meteorológico Nacional aplicadas a su temperatura, humedad y viento, y solo se muestra cuando difiere de forma notable de la temperatura del aire) y las horas de amanecer y atardecer (fórmulas astronómicas estándar; la API de pronóstico del NWS no las ofrece). Las condiciones se traducen al español con un diccionario propio; las descripciones detalladas del pronóstico y las alertas se muestran en su idioma oficial, inglés.",
       ],
     },
@@ -4028,8 +4108,9 @@ function renderMarkdown(data, lang) {
   if (now) {
     const feels = feelsLikeF(now);
     const sun = sunTimesForCtDate(Date.now());
+    const uvNow = uvCurrent(data);
     out.push(T(lang, "## Now", "## Ahora"));
-    out.push(`**${now.temperature}°${now.temperatureUnit}** — ${translateConditions(now.shortForecast, lang)} (${T(lang, "as of", "a las")} ${clockTime(now.startTime, lang)} CT)${feels != null ? ` · ${T(lang, "feels like", "sensación térmica de")} ${feels}°` : ""}${pop(now) ? ` · ${pop(now)}% ${T(lang, "precip", "prob. lluvia")}` : ""}`, "");
+    out.push(`**${now.temperature}°${now.temperatureUnit}** — ${translateConditions(now.shortForecast, lang)} (${T(lang, "as of", "a las")} ${clockTime(now.startTime, lang)} CT)${feels != null ? ` · ${T(lang, "feels like", "sensación térmica de")} ${feels}°` : ""}${pop(now) ? ` · ${pop(now)}% ${T(lang, "precip", "prob. lluvia")}` : ""}${uvNow ? ` · ${T(lang, "UV", "UV")} ${uvNow} (${uvCategory(uvNow, lang)})` : ""}`, "");
     if (sun) out.push(`${T(lang, "Sunrise", "Amanecer")} ${clockTime(sun.sunrise, lang)} · ${T(lang, "Sunset", "Atardecer")} ${clockTime(sun.sunset, lang)} CT`, "");
   }
   if (lead) out.push(`**${translatePeriodName(lead.name, lang)}:** ${lead.detailedForecast}`, "");
@@ -4135,6 +4216,15 @@ function apiWeather(data) {
     source: "U.S. National Weather Service (api.weather.gov)",
     updated: data.updated ?? null,
     sun: sun ? { sunrise: new Date(sun.sunrise).toISOString(), sunset: new Date(sun.sunset).toISOString() } : null,
+    // UV is EPA-sourced (not NWS), so it's a separate object — clearly labeled,
+    // not folded into `current`. Null when the EPA fetch failed or the current
+    // hour is outside the product's ~6am–8pm window.
+    uv: (() => {
+      const cur = uvCurrent(data), peak = uvPeakToday(data);
+      return cur != null || peak != null
+        ? { current: cur, currentCategory: uvCategory(cur), peakToday: peak, peakCategory: uvCategory(peak), source: "U.S. EPA (Envirofacts UV, ZIP 77532)" }
+        : null;
+    })(),
     current: currentHourly(data) ? withFeels(currentHourly(data)) : null,
     hourly: (data.hourly ?? []).slice(0, 12).map(withFeels),
     forecast: data.periods ?? [],
@@ -4338,9 +4428,9 @@ function openApiSpec() {
     openapi: "3.1.0",
     info: {
       title: "crosbynews.com API",
-      version: "1.1.0",
+      version: "1.2.0",
       description:
-        "Crosby, Texas community data: current conditions, hourly and 7-day forecast, and active alerts from the U.S. National Weather Service; recent local news headlines; and the Crosby ISD school calendar. Public, no authentication.",
+        "Crosby, Texas community data: current conditions, hourly and 7-day forecast, active alerts, and the EPA UV index from the U.S. National Weather Service and EPA; recent local news headlines; and the Crosby ISD school calendar. Public, no authentication.",
       contact: { url: `${SITE}/` },
       license: { name: "Public domain (NWS source data)", url: "https://www.weather.gov/disclaimer" },
     },
@@ -4434,6 +4524,17 @@ function openApiSpec() {
               properties: {
                 sunrise: { type: "string", format: "date-time" },
                 sunset: { type: "string", format: "date-time" },
+              },
+            },
+            uv: {
+              type: ["object", "null"],
+              description: "UV index from the U.S. EPA's UV forecast for Crosby's ZIP (77532) — not an NWS field. null when the EPA fetch failed or the current hour is outside the product's daytime window.",
+              properties: {
+                current: { type: ["integer", "null"], description: "UV index for the current hour (Central time)." },
+                currentCategory: { type: ["string", "null"], description: "Low / Moderate / High / Very High / Extreme." },
+                peakToday: { type: ["integer", "null"], description: "Highest forecast UV index for today." },
+                peakCategory: { type: ["string", "null"] },
+                source: { type: "string" },
               },
             },
             current: { anyOf: [HourlyPeriod, { type: "null" }] },
@@ -4588,6 +4689,8 @@ async function mcpGetPrompt(name, env) {
   const feels = feelsLikeF(now);
   const lines = ["# Live Crosby, TX data (as of " + fullTime(data.updated) + " CT)", ""];
   if (now) lines.push(`Now: ${now.temperature}°${now.temperatureUnit}, ${now.shortForecast}${feels != null ? `, feels like ${feels}°` : ""}${pop(now) ? `, ${pop(now)}% precip` : ""}.`);
+  const uvNow = uvCurrent(data), uvPk = uvPeakToday(data);
+  if (uvNow || uvPk) lines.push(`UV index: ${uvNow ? `${uvNow} (${uvCategory(uvNow)}) now` : ""}${uvNow && uvPk ? ", " : ""}${uvPk ? `${uvPk} peak today` : ""}.`);
   if (lead) lines.push(`${lead.name}: ${lead.detailedForecast}`);
   if (sun) lines.push(`Sunrise ${clockTime(sun.sunrise)}, sunset ${clockTime(sun.sunset)} CT.`);
   const alerts = data.alerts ?? [];
@@ -4810,9 +4913,11 @@ async function mcpCallTool(name, args, env) {
     const now = currentHourly(data);
     const feels = feelsLikeF(now);
     const sun = sunTimesForCtDate(Date.now());
+    const uvNow = uvCurrent(data);
     const text = now
       ? `Crosby, TX: ${now.temperature}°${now.temperatureUnit}, ${now.shortForecast}` +
         `${feels != null ? `, feels like ${feels}°` : ""}${pop(now) ? `, ${pop(now)}% precip` : ""} (as of ${clockTime(now.startTime)} CT).` +
+        `${uvNow ? ` UV index ${uvNow} (${uvCategory(uvNow)}).` : ""}` +
         `${sun ? ` Sunrise ${clockTime(sun.sunrise)}, sunset ${clockTime(sun.sunset)} CT.` : ""}`
       : "Current conditions are unavailable.";
     return {
@@ -4821,6 +4926,7 @@ async function mcpCallTool(name, args, env) {
         location: data.place,
         updated: data.updated,
         sun: sun ? { sunrise: new Date(sun.sunrise).toISOString(), sunset: new Date(sun.sunset).toISOString() } : null,
+        uv: uvNow != null ? { current: uvNow, currentCategory: uvCategory(uvNow), peakToday: uvPeakToday(data) } : null,
         current: now ? { ...now, feelsLike: feelsLikeRawF(now) } : null,
       },
     };
