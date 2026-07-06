@@ -134,15 +134,20 @@ async function fetchWeather() {
   const { forecast: forecastUrl, forecastHourly: hourlyUrl } = points.properties;
   const place = points.properties.relativeLocation?.properties;
 
-  // 2. Daily forecast, hourly forecast, active alerts, and the EPA UV
-  // forecast are independent. UV is failure-tolerant (uv: null) so an EPA
-  // hiccup can never block the NWS refresh.
-  const [forecast, hourly, alertsData, uv] = await Promise.all([
+  // 2. Daily forecast, hourly forecast, active alerts, the EPA UV forecast,
+  // and the modeled air-quality index are independent. UV and AQI are each
+  // failure-tolerant (null on error) so a third-party hiccup can never block
+  // the NWS refresh.
+  const [forecast, hourly, alertsData, uv, aqi] = await Promise.all([
     getJson(forecastUrl),
     getJson(hourlyUrl),
     getJson(`https://api.weather.gov/alerts/active?point=${LAT},${LON}`),
     fetchUv().catch((e) => {
       console.error("EPA UV fetch failed:", e && e.message);
+      return null;
+    }),
+    fetchAqi().catch((e) => {
+      console.error("Open-Meteo AQI fetch failed:", e && e.message);
       return null;
     }),
   ]);
@@ -155,6 +160,7 @@ async function fetchWeather() {
     hourly: (hourly.properties.periods ?? []).slice(0, 48),
     alerts: (alertsData.features ?? []).map((f) => f.properties),
     uv,
+    aqi,
   };
 }
 
@@ -215,6 +221,65 @@ function uvCategory(v, lang = "en") {
   if (v >= 6) return T(lang, "High", "Alto");
   if (v >= 3) return T(lang, "Moderate", "Moderado");
   return T(lang, "Low", "Bajo");
+}
+
+// Air quality (US AQI) — the site's one MODELED number, and the only one from
+// a non-US-government source. There's no EPA/AirNow monitor in Crosby, so
+// rather than misattribute a distant monitor's reading, we show Open-Meteo's
+// modeled US AQI for Crosby's coordinates (its CAMS-based forecast, no API
+// key) and label it "modeled" everywhere it appears — never as a measurement.
+// Worker reachability to air-quality-api.open-meteo.com was canary-verified
+// from the deployed runtime before shipping. Folded into the `weather` KV
+// entry as `aqi:{...}`, failure-tolerant (aqi:null on any error) so it can
+// never block the NWS refresh. Unlike UV, AQI is meaningful day and night.
+const AQI_POLLUTANTS = {
+  us_aqi_pm2_5: ["PM2.5", "PM2.5"],
+  us_aqi_pm10: ["PM10", "PM10"],
+  us_aqi_ozone: ["ozone", "ozono"],
+  us_aqi_nitrogen_dioxide: ["nitrogen dioxide", "dióxido de nitrógeno"],
+  us_aqi_sulphur_dioxide: ["sulfur dioxide", "dióxido de azufre"],
+  us_aqi_carbon_monoxide: ["carbon monoxide", "monóxido de carbono"],
+};
+async function fetchAqi() {
+  const fields = ["us_aqi", ...Object.keys(AQI_POLLUTANTS), "pm2_5", "pm10", "ozone"].join(",");
+  const res = await fetch(
+    `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${LAT}&longitude=${LON}&current=${fields}&timezone=America%2FChicago`,
+    { headers: { "User-Agent": "crosbynews.com", Accept: "application/json" } }
+  );
+  if (!res.ok) throw new Error(`Open-Meteo AQI request failed: ${res.status}`);
+  const j = await res.json();
+  const c = j.current || {};
+  const usAqi = typeof c.us_aqi === "number" ? Math.round(c.us_aqi) : null;
+  if (usAqi == null) throw new Error("Open-Meteo AQI: no us_aqi value");
+  // Dominant pollutant = the component whose sub-AQI drives the overall (the
+  // max component AQI; overall US AQI is the max of the components).
+  let dominant = null, best = -1;
+  for (const key of Object.keys(AQI_POLLUTANTS)) {
+    const v = c[key];
+    if (typeof v === "number" && v > best) { best = v; dominant = key; }
+  }
+  return {
+    usAqi,
+    dominant, // internal key, mapped to a label at render time
+    pm25: typeof c.pm2_5 === "number" ? c.pm2_5 : null,
+    pm10: typeof c.pm10 === "number" ? c.pm10 : null,
+    ozone: typeof c.ozone === "number" ? c.ozone : null,
+    time: c.time || null,
+  };
+}
+// EPA US AQI categories (the official 0–500 bands).
+function aqiCategory(v, lang = "en") {
+  if (v == null) return null;
+  if (v > 300) return T(lang, "Hazardous", "Peligroso");
+  if (v > 200) return T(lang, "Very Unhealthy", "Muy insalubre");
+  if (v > 150) return T(lang, "Unhealthy", "Insalubre");
+  if (v > 100) return T(lang, "Unhealthy for Sensitive Groups", "Insalubre para grupos sensibles");
+  if (v > 50) return T(lang, "Moderate", "Moderada");
+  return T(lang, "Good", "Buena");
+}
+function aqiDominantLabel(key, lang = "en") {
+  const pair = AQI_POLLUTANTS[key];
+  return pair ? T(lang, pair[0], pair[1]) : null;
 }
 
 function esc(value) {
@@ -521,6 +586,7 @@ function renderHero(data, lang) {
   const feels = feelsLikeF(now);
   const sun = sunTimesForCtDate(Date.now());
   const uvNow = uvCurrent(data);
+  const aqi = data.aqi;
   return `
     <section class="hero">
       ${now.icon ? `<img class="hero-icon" src="${iconUrl(now.icon, "large")}" alt="${esc(translateConditions(now.shortForecast, lang))}" width="128" height="128" fetchpriority="high">` : ""}
@@ -529,7 +595,7 @@ function renderHero(data, lang) {
         <p class="hero-temp">${esc(now.temperature)}&deg;<span>${esc(now.temperatureUnit)}</span></p>
         <p class="hero-cond">${esc(translateConditions(now.shortForecast, lang))}</p>
         ${feels != null ? `<p class="hero-feels">${T(lang, "Feels like", "Sensación térmica de")} ${esc(feels)}&deg;</p>` : ""}
-        <p class="hero-meta">${esc(data.place)} &middot; ${T(lang, "as of", "a las")} ${esc(clockTime(now.startTime, lang))} CT${pop(now) ? ` &middot; ${pop(now)}% ${T(lang, "precip", "prob. lluvia")}` : ""}${uvNow ? ` &middot; ${T(lang, "UV", "UV")} ${esc(uvNow)} (${esc(uvCategory(uvNow, lang))})` : ""}</p>
+        <p class="hero-meta">${esc(data.place)} &middot; ${T(lang, "as of", "a las")} ${esc(clockTime(now.startTime, lang))} CT${pop(now) ? ` &middot; ${pop(now)}% ${T(lang, "precip", "prob. lluvia")}` : ""}${uvNow ? ` &middot; ${T(lang, "UV", "UV")} ${esc(uvNow)} (${esc(uvCategory(uvNow, lang))})` : ""}${aqi?.usAqi != null ? ` &middot; ${T(lang, "Air", "Aire")} ${esc(aqi.usAqi)} (${esc(aqiCategory(aqi.usAqi, lang))}, ${T(lang, "modeled", "modelado")})` : ""}</p>
         ${sun ? `<p class="hero-meta">${T(lang, "Sunrise", "Amanecer")} ${esc(clockTime(sun.sunrise, lang))} &middot; ${T(lang, "Sunset", "Atardecer")} ${esc(clockTime(sun.sunset, lang))}</p>` : ""}
       </div>
     </section>
@@ -1015,6 +1081,10 @@ function todayGlance(weather, lang) {
   // is always ≥ 1, so a 0 reliably means the daylight hours have passed.
   const uvPeak = uvPeakToday(weather);
   if (uvPeak) add(T(lang, "Peak UV", "UV máximo"), `${uvPeak} (${uvCategory(uvPeak, lang)})`);
+  // Air quality is meaningful day and night, so no gating — but it's modeled,
+  // so the label says so and the explainer spells it out.
+  const aqi = weather.aqi;
+  if (aqi?.usAqi != null) add(T(lang, "Air quality (modeled)", "Calidad del aire (modelada)"), `${aqi.usAqi} (${aqiCategory(aqi.usAqi, lang)})`);
   return rows;
 }
 
@@ -1052,6 +1122,14 @@ function glanceExplainers(lang) {
         lang,
         "The EPA's forecast of peak sunburn-causing UV radiation for today, on a scale where 3–5 is moderate, 6–7 high, 8–10 very high, and 11+ extreme. At 6 or above, use sunscreen and seek shade around midday — Gulf Coast summers routinely reach very high.",
         "El pronóstico de la EPA sobre la radiación UV máxima que causa quemaduras hoy, en una escala donde 3–5 es moderado, 6–7 alto, 8–10 muy alto y 11+ extremo. Con 6 o más, usa protector solar y busca sombra al mediodía — los veranos de la costa del Golfo llegan seguido a muy alto."
+      ),
+    ],
+    [
+      T(lang, "About air quality (modeled)", "Acerca de la calidad del aire (modelada)"),
+      T(
+        lang,
+        "The U.S. AQI on the standard 0–500 scale: 0–50 good, 51–100 moderate, 101–150 unhealthy for sensitive groups, 151+ unhealthy for everyone. Unlike every other number here, this one is modeled — there's no EPA air monitor in Crosby, so it comes from Open-Meteo's forecast rather than a nearby instrument, and it's a useful estimate (helpful during wildfire-smoke days) rather than an official reading.",
+        "El Índice de Calidad del Aire de EE. UU. en la escala estándar de 0 a 500: 0–50 buena, 51–100 moderada, 101–150 insalubre para grupos sensibles, 151+ insalubre para todos. A diferencia de los demás datos aquí, este es modelado: no hay un monitor de aire de la EPA en Crosby, así que proviene del pronóstico de Open-Meteo y no de un instrumento cercano; es una estimación útil (sobre todo en días con humo de incendios), no una medición oficial."
       ),
     ],
   ];
@@ -1417,7 +1495,7 @@ Every page is also available in Mexican Spanish (es-MX) under the /es prefix —
 
 Every page supports \`Accept: text/markdown\` (or \`?format=md\`) for a clean markdown rendering.
 
-- REST API: \`GET ${SITE}/api/weather\` — JSON with current conditions, hourly, 7-day forecast, alerts, sun times, and the EPA UV index. No auth.
+- REST API: \`GET ${SITE}/api/weather\` — JSON with current conditions, hourly, 7-day forecast, alerts, sun times, the EPA UV index, and a modeled air-quality index (labeled as modeled, not a monitor reading). No auth.
 - News API: \`GET ${SITE}/api/news\` — recent Crosby-area headlines (JSON).
 - School calendar API: \`GET ${SITE}/api/calendar\` — upcoming Crosby ISD events (JSON).
 - Water levels API: \`GET ${SITE}/api/water\` — river/bayou stage + NWS flood stages (JSON).
@@ -1556,6 +1634,7 @@ const ABOUT = {
       h: "Where the data comes from",
       p: [
         "Every forecast, conditions reading, and alert on this site comes directly from the U.S. National Weather Service (api.weather.gov) for Crosby, TX (latitude 29.9119, longitude -95.0608). NWS data is in the public domain. The UV index is the one weather number sourced elsewhere — the U.S. EPA's public UV forecast for Crosby's ZIP code (77532).",
+        "The air quality index (AQI) is different, and we label it so wherever it appears: it's modeled, not measured. There's no EPA air monitor in Crosby, so rather than borrow a distant monitor's reading and call it local, we show Open-Meteo's modeled forecast for Crosby's coordinates. Treat it as a useful estimate — genuinely handy on wildfire-smoke days — not an official measurement.",
         "We don't editorialize or adjust the numbers — the site is a clean presentation layer over the official government forecast for the Crosby area. Two values we compute ourselves: \"feels like\" temperature (the heat index or wind chill, using the National Weather Service's own published formulas applied to its temperature, humidity, and wind data — shown only when it's meaningfully different from the air temperature) and sunrise/sunset times (standard astronomical formulas; the NWS forecast API doesn't provide them).",
       ],
     },
@@ -1615,6 +1694,7 @@ const ABOUT_ES = {
       h: "De dónde provienen los datos",
       p: [
         "Cada pronóstico, lectura de condiciones y alerta de este sitio proviene directamente del Servicio Meteorológico Nacional de EE. UU. (api.weather.gov) para Crosby, TX (latitud 29.9119, longitud -95.0608). Los datos del NWS son de dominio público. El índice UV es el único dato meteorológico de otra fuente: el pronóstico UV público de la EPA de EE. UU. para el código postal de Crosby (77532).",
+        "El índice de calidad del aire (AQI) es distinto, y lo etiquetamos así donde aparece: es modelado, no medido. No hay un monitor de aire de la EPA en Crosby, así que en lugar de tomar la lectura de un monitor lejano y llamarla local, mostramos el pronóstico modelado de Open-Meteo para las coordenadas de Crosby. Tómalo como una estimación útil — de veras práctica en días con humo de incendios — no como una medición oficial.",
         "No editorializamos ni ajustamos las cifras: el sitio es una capa de presentación limpia sobre el pronóstico oficial del gobierno para la zona de Crosby. Dos valores los calculamos nosotros mismos: la \"sensación térmica\" (el índice de calor o la sensación por viento, con las fórmulas oficiales del Servicio Meteorológico Nacional aplicadas a su temperatura, humedad y viento, y solo se muestra cuando difiere de forma notable de la temperatura del aire) y las horas de amanecer y atardecer (fórmulas astronómicas estándar; la API de pronóstico del NWS no las ofrece). Las condiciones se traducen al español con un diccionario propio; las descripciones detalladas del pronóstico y las alertas se muestran en su idioma oficial, inglés.",
       ],
     },
@@ -4109,8 +4189,9 @@ function renderMarkdown(data, lang) {
     const feels = feelsLikeF(now);
     const sun = sunTimesForCtDate(Date.now());
     const uvNow = uvCurrent(data);
+    const aqi = data.aqi;
     out.push(T(lang, "## Now", "## Ahora"));
-    out.push(`**${now.temperature}°${now.temperatureUnit}** — ${translateConditions(now.shortForecast, lang)} (${T(lang, "as of", "a las")} ${clockTime(now.startTime, lang)} CT)${feels != null ? ` · ${T(lang, "feels like", "sensación térmica de")} ${feels}°` : ""}${pop(now) ? ` · ${pop(now)}% ${T(lang, "precip", "prob. lluvia")}` : ""}${uvNow ? ` · ${T(lang, "UV", "UV")} ${uvNow} (${uvCategory(uvNow, lang)})` : ""}`, "");
+    out.push(`**${now.temperature}°${now.temperatureUnit}** — ${translateConditions(now.shortForecast, lang)} (${T(lang, "as of", "a las")} ${clockTime(now.startTime, lang)} CT)${feels != null ? ` · ${T(lang, "feels like", "sensación térmica de")} ${feels}°` : ""}${pop(now) ? ` · ${pop(now)}% ${T(lang, "precip", "prob. lluvia")}` : ""}${uvNow ? ` · ${T(lang, "UV", "UV")} ${uvNow} (${uvCategory(uvNow, lang)})` : ""}${aqi?.usAqi != null ? ` · ${T(lang, "Air", "Aire")} ${aqi.usAqi} (${aqiCategory(aqi.usAqi, lang)}, ${T(lang, "modeled", "modelado")})` : ""}`, "");
     if (sun) out.push(`${T(lang, "Sunrise", "Amanecer")} ${clockTime(sun.sunrise, lang)} · ${T(lang, "Sunset", "Atardecer")} ${clockTime(sun.sunset, lang)} CT`, "");
   }
   if (lead) out.push(`**${translatePeriodName(lead.name, lang)}:** ${lead.detailedForecast}`, "");
@@ -4225,6 +4306,22 @@ function apiWeather(data) {
         ? { current: cur, currentCategory: uvCategory(cur), peakToday: peak, peakCategory: uvCategory(peak), source: "U.S. EPA (Envirofacts UV, ZIP 77532)" }
         : null;
     })(),
+    // Air quality is MODELED (no monitor in Crosby), so it's a separate object
+    // with an explicit `modeled: true` flag and a source note — never presented
+    // as an official measurement. Null when the upstream fetch failed.
+    airQuality: data.aqi?.usAqi != null
+      ? {
+          usAqi: data.aqi.usAqi,
+          category: aqiCategory(data.aqi.usAqi),
+          dominantPollutant: aqiDominantLabel(data.aqi.dominant),
+          pm2_5: data.aqi.pm25,
+          pm10: data.aqi.pm10,
+          ozone: data.aqi.ozone,
+          concentrationUnit: "µg/m³",
+          modeled: true,
+          source: "Open-Meteo (CAMS-based model); modeled forecast, not an official monitor reading",
+        }
+      : null,
     current: currentHourly(data) ? withFeels(currentHourly(data)) : null,
     hourly: (data.hourly ?? []).slice(0, 12).map(withFeels),
     forecast: data.periods ?? [],
@@ -4428,9 +4525,9 @@ function openApiSpec() {
     openapi: "3.1.0",
     info: {
       title: "crosbynews.com API",
-      version: "1.2.0",
+      version: "1.3.0",
       description:
-        "Crosby, Texas community data: current conditions, hourly and 7-day forecast, active alerts, and the EPA UV index from the U.S. National Weather Service and EPA; recent local news headlines; and the Crosby ISD school calendar. Public, no authentication.",
+        "Crosby, Texas community data: current conditions, hourly and 7-day forecast, active alerts, the EPA UV index, and a modeled air-quality index from the U.S. National Weather Service, EPA, and Open-Meteo; recent local news headlines; and the Crosby ISD school calendar. Public, no authentication.",
       contact: { url: `${SITE}/` },
       license: { name: "Public domain (NWS source data)", url: "https://www.weather.gov/disclaimer" },
     },
@@ -4534,6 +4631,21 @@ function openApiSpec() {
                 currentCategory: { type: ["string", "null"], description: "Low / Moderate / High / Very High / Extreme." },
                 peakToday: { type: ["integer", "null"], description: "Highest forecast UV index for today." },
                 peakCategory: { type: ["string", "null"] },
+                source: { type: "string" },
+              },
+            },
+            airQuality: {
+              type: ["object", "null"],
+              description: "US Air Quality Index — MODELED (Open-Meteo, CAMS-based), not an official monitor reading, since no EPA monitor sits in Crosby. `modeled: true` is always set. null when the fetch failed.",
+              properties: {
+                usAqi: { type: "integer", description: "US AQI, 0–500 scale." },
+                category: { type: "string", description: "Good / Moderate / Unhealthy for Sensitive Groups / Unhealthy / Very Unhealthy / Hazardous." },
+                dominantPollutant: { type: ["string", "null"], description: "The pollutant driving the overall AQI." },
+                pm2_5: { type: ["number", "null"], description: "PM2.5 concentration in concentrationUnit." },
+                pm10: { type: ["number", "null"] },
+                ozone: { type: ["number", "null"] },
+                concentrationUnit: { type: "string" },
+                modeled: { type: "boolean" },
                 source: { type: "string" },
               },
             },
@@ -4691,6 +4803,7 @@ async function mcpGetPrompt(name, env) {
   if (now) lines.push(`Now: ${now.temperature}°${now.temperatureUnit}, ${now.shortForecast}${feels != null ? `, feels like ${feels}°` : ""}${pop(now) ? `, ${pop(now)}% precip` : ""}.`);
   const uvNow = uvCurrent(data), uvPk = uvPeakToday(data);
   if (uvNow || uvPk) lines.push(`UV index: ${uvNow ? `${uvNow} (${uvCategory(uvNow)}) now` : ""}${uvNow && uvPk ? ", " : ""}${uvPk ? `${uvPk} peak today` : ""}.`);
+  if (data.aqi?.usAqi != null) lines.push(`Air quality (modeled, not a monitor reading): US AQI ${data.aqi.usAqi} (${aqiCategory(data.aqi.usAqi)}).`);
   if (lead) lines.push(`${lead.name}: ${lead.detailedForecast}`);
   if (sun) lines.push(`Sunrise ${clockTime(sun.sunrise)}, sunset ${clockTime(sun.sunset)} CT.`);
   const alerts = data.alerts ?? [];
@@ -4914,10 +5027,12 @@ async function mcpCallTool(name, args, env) {
     const feels = feelsLikeF(now);
     const sun = sunTimesForCtDate(Date.now());
     const uvNow = uvCurrent(data);
+    const aqi = data.aqi;
     const text = now
       ? `Crosby, TX: ${now.temperature}°${now.temperatureUnit}, ${now.shortForecast}` +
         `${feels != null ? `, feels like ${feels}°` : ""}${pop(now) ? `, ${pop(now)}% precip` : ""} (as of ${clockTime(now.startTime)} CT).` +
         `${uvNow ? ` UV index ${uvNow} (${uvCategory(uvNow)}).` : ""}` +
+        `${aqi?.usAqi != null ? ` Air quality (modeled) US AQI ${aqi.usAqi} (${aqiCategory(aqi.usAqi)}).` : ""}` +
         `${sun ? ` Sunrise ${clockTime(sun.sunrise)}, sunset ${clockTime(sun.sunset)} CT.` : ""}`
       : "Current conditions are unavailable.";
     return {
@@ -4927,6 +5042,7 @@ async function mcpCallTool(name, args, env) {
         updated: data.updated,
         sun: sun ? { sunrise: new Date(sun.sunrise).toISOString(), sunset: new Date(sun.sunset).toISOString() } : null,
         uv: uvNow != null ? { current: uvNow, currentCategory: uvCategory(uvNow), peakToday: uvPeakToday(data) } : null,
+        airQuality: aqi?.usAqi != null ? { usAqi: aqi.usAqi, category: aqiCategory(aqi.usAqi), dominantPollutant: aqiDominantLabel(aqi.dominant), modeled: true, source: "Open-Meteo (modeled, not a monitor reading)" } : null,
         current: now ? { ...now, feelsLike: feelsLikeRawF(now) } : null,
       },
     };

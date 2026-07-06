@@ -123,6 +123,23 @@ directory name becomes the `/command`. Current skills:
   `weather` cache entry has no `uv`** — the freshness check keys on `hourly`,
   so UV stays absent (and gracefully hidden) only until the next cron write
   (≤15 min) or a cold-cache warm.
+- Air quality (AQI): the site's one **modeled** number and its only non-US-gov
+  source. No EPA/AirNow monitor sits in Crosby, so rather than misattribute a
+  distant monitor, `fetchAqi()` pulls Open-Meteo's modeled US AQI (CAMS-based,
+  no API key) for Crosby's coordinates — Worker reachability canary-verified
+  from the deployed runtime first. Folded into the `weather` KV entry as
+  `aqi:{usAqi,dominant,pm25,pm10,ozone,time}`, a fifth parallel call in
+  `fetchWeather()`, failure-tolerant (`aqi:null` on any error). **Labeled
+  "modeled" everywhere it appears** — the hero/`Now` meta ("Air 47 (Good,
+  modeled)"), the homepage glance row "Air quality (modeled)" + its explainer,
+  `/api/weather` (`airQuality:{…, modeled:true, source}`) and MCP
+  `get_current_conditions`/briefing — never presented as a measurement.
+  Categories are the EPA 0–500 bands via `aqiCategory()`; the dominant
+  pollutant comes from Open-Meteo's per-pollutant sub-AQIs. Meaningful day and
+  night (unlike UV), so it's not gated. The honest "modeled, not a monitor
+  reading" disclosure lives on `/about`. (AirNow — the official monitor
+  source — was skipped: it needs a managed API key; if one is added later,
+  swapping the upstream is localized to `fetchAqi()`.)
 - Derived data: "feels like" temperature (`feelsLikeF`/`feelsLikeRawF` in
   `src/index.js`) is the one number on the site NOT taken verbatim from NWS —
   it's the heat index or wind chill, computed in-Worker from NWS's own
@@ -465,8 +482,8 @@ directory name becomes the `/command`. Current skills:
   fixed `Expires` when enabled — it was found on and disabled during the
   2026-07-02 audit; keep it OFF so the Worker's self-refreshing version serves.
 - `/api/weather` — public JSON (location, current, hourly, forecast, alerts,
-  plus the derived `sun` and the EPA `uv` object), CORS `*`. `/api/health` —
-  status + cache freshness.
+  plus the derived `sun`, the EPA `uv` object, and the modeled `airQuality`
+  object), CORS `*`. `/api/health` — status + cache freshness.
 - Conditional GET: the polled endpoints (`/api/weather`, `/api/news`,
   `/api/calendar`, `/alerts.xml`, `/news.xml`) send weak ETags derived from
   the KV freshness stamp (plus the Central calendar date where the body
