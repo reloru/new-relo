@@ -105,6 +105,24 @@ directory name becomes the `/command`. Current skills:
 - Content: live data from the U.S. National Weather Service (api.weather.gov)
   for Crosby, TX (lat 29.9119, lon -95.0608). NWS requires a `User-Agent` on
   every request — we send "crosbynews.com".
+- UV index: the one weather number NOT from NWS. `fetchUv()` pulls the U.S.
+  EPA's hourly UV forecast for Crosby's ZIP (77532) from EPA Envirofacts
+  (`data.epa.gov/efservice/getEnvirofactsUVHOURLY/ZIP/77532/JSON`, no API key;
+  Worker reachability canary-verified from the deployed runtime before
+  shipping). It's folded into the existing `weather` KV entry as `uv:{hourly}`,
+  NOT its own key/page — `fetchWeather()` fetches it as a fourth parallel call,
+  failure-tolerant (`uv:null` on any EPA error so an EPA hiccup never blocks
+  the NWS refresh). EPA publishes `DATE_TIME` in the ZIP's LOCAL (Central)
+  wall-clock and its rows can wrap into the prior evening, so `uvCurrent`/
+  `uvPeakToday` match on the CT date+hour. Shown (gated to UV>0, so night's
+  "0" doesn't read as a dead daytime) on the `/weather` hero, the homepage
+  "Today at a Glance" (Peak UV) + a glance explainer, `/weather` + homepage
+  markdown, `/api/weather` (`uv:{current,currentCategory,peakToday,...}`, raw
+  0s kept), and MCP `get_current_conditions` + the briefing. Categories
+  (Low/Moderate/High/Very High/Extreme) via `uvCategory()`. **A pre-feature
+  `weather` cache entry has no `uv`** — the freshness check keys on `hourly`,
+  so UV stays absent (and gracefully hidden) only until the next cron write
+  (≤15 min) or a cold-cache warm.
 - Derived data: "feels like" temperature (`feelsLikeF`/`feelsLikeRawF` in
   `src/index.js`) is the one number on the site NOT taken verbatim from NWS —
   it's the heat index or wind chill, computed in-Worker from NWS's own
@@ -446,8 +464,9 @@ directory name becomes the `/command`. Current skills:
   (dashboard, Security Center) silently overrides this route at the edge with a
   fixed `Expires` when enabled — it was found on and disabled during the
   2026-07-02 audit; keep it OFF so the Worker's self-refreshing version serves.
-- `/api/weather` — public JSON (location, current, hourly, forecast, alerts),
-  CORS `*`. `/api/health` — status + cache freshness.
+- `/api/weather` — public JSON (location, current, hourly, forecast, alerts,
+  plus the derived `sun` and the EPA `uv` object), CORS `*`. `/api/health` —
+  status + cache freshness.
 - Conditional GET: the polled endpoints (`/api/weather`, `/api/news`,
   `/api/calendar`, `/alerts.xml`, `/news.xml`) send weak ETags derived from
   the KV freshness stamp (plus the Central calendar date where the body
