@@ -40,6 +40,12 @@ command below passes `--remote` — keep it.
   just renders it. **Overwriting or deleting `news` loses the snapshot until the
   next routine run (up to ~a day).** Treat writes/deletes here as destructive.
 
+Also present (Web Push, don't hand-edit): `push_notified` (cron dedupe list of
+already-pushed alert IDs) and one entry per subscriber under the `push:` prefix
+(anonymous push subscriptions). Deleting a `push:` entry just unsubscribes that
+device; deleting `push_notified` re-notifies every active severe warning next
+tick. `list` will show these alongside the content keys.
+
 ## Read (safe)
 List keys:
 ```bash
