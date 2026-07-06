@@ -453,8 +453,47 @@ directory name becomes the `/command`. Current skills:
   Offline behavior is verified with the two-phase Playwright test (register +
   precache with the dev server up, then KILL the server and navigate) —
   Playwright's `setOffline` does NOT apply to SW-initiated fetches, so it
-  cannot test this. This is the service-worker foundation the future
-  severe-alert Web Push item builds on.
+  cannot test this. This is the service-worker foundation the severe-alert
+  Web Push feature (below) builds on; **the SW now also carries the `push` +
+  `notificationclick` handlers** (hence `CACHE` = `crosby-v2`).
+- **Severe-alert Web Push** — opt-in browser push for life-threatening
+  **warnings only** (`SEVERE_PUSH_EVENTS`: Tornado / Flash Flood / Hurricane /
+  Hurricane Force Wind / Extreme Wind / Tropical Storm Warning — warnings, never
+  watches/advisories, to avoid alert fatigue). **Design: empty VAPID wake-up +
+  local composition** — the cron sends a *payload-less* VAPID-authed POST (no
+  ECDH/HKDF/AES-GCM payload encryption at all); the SW `push` handler then
+  fetches `/api/weather` and composes the notification itself from the live
+  alerts (`userVisibleOnly` is satisfied even in the expired-by-now race via a
+  generic fallback). `notificationclick` focuses/opens `/alerts`. **Keys:** a
+  P-256 VAPID keypair — `VAPID_PRIVATE_KEY` (private JWK JSON) + `VAPID_PUBLIC_KEY`
+  (base64url raw point) are **Worker secrets** (set via `wrangler secret put`;
+  also in gitignored `.dev.vars` for local dev). `vapidAuth()` signs a short
+  ES256 JWT (WebCrypto ECDSA already yields the raw r‖s JWS form — no DER
+  unwrap). To **rotate**, generate a new pair and `wrangler secret put` both;
+  existing subscriptions keep working only if the public key is unchanged, so a
+  rotation invalidates them (subscribers re-opt-in). The whole feature no-ops
+  cleanly if the secrets are absent (endpoints 503 / UI hides). **Storage:** one
+  KV entry per subscription under the `push:` prefix (key = hash of the
+  endpoint, so re-subscribing overwrites), value = `{endpoint, keys, added}`;
+  plus a `push_notified` key holding the alert IDs already pushed (dedupe, so an
+  ongoing warning doesn't re-notify every 15 min — reconciled each tick to
+  only-currently-active IDs so a reissued warning under a new ID can notify
+  again). **SSRF guard:** the cron POSTs to whatever endpoint was stored, so
+  `/api/push/subscribe` allowlists real push hosts only (`*.googleapis.com`,
+  `*.push.apple.com`, `*.notify.windows.com`, `*.push.services.mozilla.com`) —
+  never an arbitrary URL. Dead subs are pruned on 404/410. **Endpoints:**
+  `GET /api/push/vapid-key` (public key, or null → UI hides), `POST
+  /api/push/subscribe`, `POST /api/push/unsubscribe`. **Opt-in UI** lives on
+  `/alerts` (`PUSH_CLIENT_SCRIPT`, its own CSP hash; language-agnostic bytes —
+  all strings via `data-*` on `#push-optin`, so one hash serves both langs);
+  progressive-enhancement, stays hidden without push support or a VAPID key.
+  Privacy policy has a "Push notifications" section (both languages): only an
+  anonymous subscription is stored, no message content is sent through it,
+  deletable anytime. **Verifiable in-sandbox:** VAPID JWT sign/verify round-trip,
+  subscribe/unsubscribe, SSRF rejection, the dedup/reconcile state machine, and
+  prune-on-404 (sending an empty wake-up to a bogus FCM token → 404 → pruned).
+  **NOT verifiable in-sandbox:** a real notification landing on a device (needs a
+  real browser push subscription) — that's a manual real-device check.
   with the favicon sun-and-cloud): current temp + condition (truncated to
   fit), gated feels-like, and a status flag ("✓ NO ALERTS" green / "⚠ N
   ALERTS" red). Rendered by `badgeSvg(data)` from the same KV cache
@@ -632,6 +671,11 @@ directory name becomes the `/command`. Current skills:
 - `wrangler kv key get/put/list` default to *local* (miniflare) state. To read
   or write the real production namespace, pass `--remote`. (A get without it can
   say "Value not found" even when the deployed Worker is reading the key fine.)
-- The WEATHER namespace holds five keys: `weather`, `calendar`, `water`, and
-  `tropics` (all cron-owned — the Worker refreshes them) and `news`
-  (routine-owned — written out-of-band, the Worker only reads it).
+- The WEATHER namespace holds five content keys: `weather`, `calendar`, `water`,
+  and `tropics` (all cron-owned — the Worker refreshes them) and `news`
+  (routine-owned — written out-of-band, the Worker only reads it). It also holds
+  the Web Push state: `push_notified` (cron-owned dedupe list) and one entry per
+  subscriber under the `push:` prefix (written by `/api/push/subscribe`, pruned
+  by the cron). Don't hand-edit the `push:*`/`push_notified` keys — deleting a
+  `push:` entry just unsubscribes that device; deleting `push_notified` would
+  re-notify every currently-active severe warning on the next tick.

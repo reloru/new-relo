@@ -63,9 +63,14 @@ const MANIFEST = {
 // with the last-good cached copy as the offline fallback. Bump CACHE when
 // changing this script's behavior so old caches are swept on activate.
 // Registered from HOME_SCRIPT (its CSP hash recomputes automatically).
-const SW_SCRIPT = `// crosbynews.com service worker - offline cache of storm-critical pages.
-var CACHE = "crosby-v1";
+const SW_SCRIPT = `// crosbynews.com service worker - offline cache of storm-critical pages
+// plus severe-alert Web Push (empty wake-up + local composition).
+var CACHE = "crosby-v2";
 var PRECACHE = ["/", "/alerts", "/es", "/es/alerts", "/manifest.json", "/favicon.svg"];
+// Warning events that earn a push (life-threatening; warnings only, never
+// watches/advisories - avoids alert fatigue). Kept in sync with the Worker's
+// SEVERE_PUSH_EVENTS.
+var PUSH_EVENTS = ["Tornado Warning", "Flash Flood Warning", "Hurricane Warning", "Hurricane Force Wind Warning", "Extreme Wind Warning", "Tropical Storm Warning"];
 
 self.addEventListener("install", function (e) {
   e.waitUntil(
@@ -116,6 +121,55 @@ self.addEventListener("fetch", function (e) {
   if (PRECACHE.indexOf(url.pathname) !== -1) {
     e.respondWith(caches.match(req, { ignoreVary: true }).then(function (hit) { return hit || fetch(req); }));
   }
+});
+
+// Severe-alert push. The Worker sends an EMPTY wake-up (no encrypted payload),
+// so the SW composes the notification here from live data - it fetches the
+// current alerts and shows the active severe warning(s). userVisibleOnly
+// requires we always show something, so an expired-by-now race falls back to a
+// generic prompt rather than a silent (penalized) push.
+self.addEventListener("push", function (e) {
+  e.waitUntil(
+    fetch("/api/weather", { cache: "no-store" })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        var alerts = (data && data.alerts) || [];
+        var severe = alerts.filter(function (a) { return PUSH_EVENTS.indexOf(a.event) !== -1; });
+        if (!severe.length) {
+          return self.registration.showNotification("Crosby, TX weather alert", {
+            body: "A severe weather alert may be active. Tap for details.",
+            icon: "/icon.svg", badge: "/icon.svg", tag: "crosby-alert", data: { url: "/alerts" },
+          });
+        }
+        return Promise.all(severe.map(function (a) {
+          return self.registration.showNotification("\\u26A0\\uFE0F " + a.event + " - Crosby, TX", {
+            body: a.headline || (a.description ? String(a.description).split("\\n")[0] : "Take shelter and follow official guidance."),
+            icon: "/icon.svg", badge: "/icon.svg",
+            tag: a.id || a.event, renotify: true, requireInteraction: true,
+            data: { url: "/alerts" },
+          });
+        }));
+      })
+      .catch(function () {
+        return self.registration.showNotification("Crosby, TX weather alert", {
+          body: "A severe weather alert may be active. Tap for details.",
+          icon: "/icon.svg", badge: "/icon.svg", tag: "crosby-alert", data: { url: "/alerts" },
+        });
+      })
+  );
+});
+
+self.addEventListener("notificationclick", function (e) {
+  e.notification.close();
+  var target = (e.notification.data && e.notification.data.url) || "/alerts";
+  e.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(function (list) {
+      for (var i = 0; i < list.length; i++) {
+        if (list[i].url.indexOf(target) !== -1 && "focus" in list[i]) return list[i].focus();
+      }
+      if (self.clients.openWindow) return self.clients.openWindow(target);
+    })
+  );
 });
 `;
 
@@ -807,6 +861,71 @@ if ("serviceWorker" in navigator) {
     if (typeof mc.provideContext === "function") mc.provideContext({ tools: tools });
     else if (typeof mc.registerTool === "function") tools.forEach(function (t) { mc.registerTool(t); });
   } catch (e) {}
+})();
+`;
+
+// Severe-alert push opt-in (the /alerts page). One constant so its CSP hash is
+// derived from the exact bytes shipped (like HOME_SCRIPT). Language-agnostic:
+// all user-facing strings are read from data-* attributes on the container, so
+// the same bytes (one hash) serve both languages. Progressive enhancement —
+// the container stays hidden unless the browser supports push AND the server
+// returns a VAPID key.
+const PUSH_CLIENT_SCRIPT = `
+(function () {
+  var el = document.getElementById("push-optin");
+  if (!el) return;
+  if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) return;
+  var d = el.dataset;
+  var descEl = el.querySelector(".push-desc");
+  var btn = el.querySelector(".push-btn");
+  var statusEl = el.querySelector(".push-status");
+  var vapidKey = null, reg = null;
+
+  function toBytes(s) {
+    var pad = "====".slice((s.length + 3) % 4);
+    var b = (s + pad).replace(/-/g, "+").replace(/_/g, "/");
+    var raw = atob(b), arr = new Uint8Array(raw.length);
+    for (var i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+    return arr;
+  }
+  function setState(subbed) {
+    descEl.textContent = subbed ? d.on : d.off;
+    btn.textContent = subbed ? d.unsub : d.sub;
+    btn.setAttribute("aria-pressed", subbed ? "true" : "false");
+    btn.dataset.subbed = subbed ? "1" : "";
+  }
+
+  async function init() {
+    try { vapidKey = (await (await fetch("/api/push/vapid-key")).json()).key; } catch (e) {}
+    if (!vapidKey) return;
+    try { await navigator.serviceWorker.register("/sw.js"); reg = await navigator.serviceWorker.ready; } catch (e) { return; }
+    var sub = null;
+    try { sub = await reg.pushManager.getSubscription(); } catch (e) {}
+    setState(!!sub);
+    el.hidden = false;
+  }
+
+  btn && btn.addEventListener("click", async function () {
+    btn.disabled = true; statusEl.textContent = "";
+    try {
+      var sub = await reg.pushManager.getSubscription();
+      if (sub && btn.dataset.subbed) {
+        try { await fetch("/api/push/unsubscribe", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ endpoint: sub.endpoint }) }); } catch (e) {}
+        await sub.unsubscribe();
+        setState(false);
+      } else {
+        var perm = await Notification.requestPermission();
+        if (perm !== "granted") { statusEl.textContent = d.blocked; btn.disabled = false; return; }
+        sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: toBytes(vapidKey) });
+        var r = await fetch("/api/push/subscribe", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(sub) });
+        if (!r.ok) throw new Error("subscribe failed");
+        setState(true);
+      }
+    } catch (e) { statusEl.textContent = d.error; }
+    btn.disabled = false;
+  });
+
+  init();
 })();
 `;
 
@@ -1754,10 +1873,18 @@ const PRIVACY = {
     {
       h: "Third-party data sources",
       p: [
-        "The site displays data from three external sources. None of these involve sharing any user data with those sources:",
-        "U.S. National Weather Service (api.weather.gov) — public-domain weather forecasts, conditions, and alerts for Crosby, TX. The Worker fetches this data server-side; your browser never contacts the NWS directly.",
-        "Google News — local news headlines are aggregated from public RSS feeds by an out-of-band process and cached. Your browser never contacts Google News directly.",
-        "Crosby ISD (crosbyisd.org) — the school district's public iCal calendar feed is fetched server-side and cached. Your browser never contacts Crosby ISD directly.",
+        "The site displays data from several external, public sources. All of it is fetched server-side and cached — your browser never contacts these sources directly, and none of it involves sharing any user data:",
+        "U.S. National Weather Service (api.weather.gov) — public-domain forecasts, conditions, and alerts for Crosby, TX; and the U.S. EPA (UV index) and NOAA (river/bayou levels, tropical outlook).",
+        "Open-Meteo — a modeled air-quality index for Crosby's coordinates (labeled as modeled throughout).",
+        "Google News — local news headlines aggregated from public RSS feeds by an out-of-band process and cached.",
+        "Crosby ISD (crosbyisd.org) — the school district's public iCal calendar feed.",
+      ],
+    },
+    {
+      h: "Push notifications (optional)",
+      p: [
+        "If you opt in to severe-weather alerts on the Alerts page, your browser creates an anonymous \"push subscription\" — a unique address at your browser vendor's push service (Google, Apple, Mozilla, or Microsoft) plus a pair of keys. We store only that subscription, so we can wake your device when a tornado, flash-flood, or hurricane warning is issued for Crosby. It carries no personal information and isn't tied to any identity.",
+        "We never send message content through it: the wake-up is empty, and the notification text is assembled on your own device from the public alerts feed. Turn it off anytime with the same button (or in your browser's site settings) and the stored subscription is deleted. Dead subscriptions are also pruned automatically.",
       ],
     },
     {
@@ -1788,10 +1915,18 @@ const PRIVACY_ES = {
     {
       h: "Fuentes de datos de terceros",
       p: [
-        "El sitio muestra datos de tres fuentes externas. Ninguna de ellas implica compartir datos de usuario con dichas fuentes:",
-        "Servicio Meteorológico Nacional de EE. UU. (api.weather.gov) — pronósticos, condiciones y alertas de dominio público para Crosby, TX. El Worker obtiene estos datos del lado del servidor; tu navegador nunca contacta al NWS directamente.",
-        "Google News — los titulares de noticias locales se recopilan de fuentes RSS públicas mediante un proceso externo y se almacenan en caché. Tu navegador nunca contacta a Google News directamente.",
-        "Crosby ISD (crosbyisd.org) — el calendario público iCal del distrito escolar se obtiene del lado del servidor y se almacena en caché. Tu navegador nunca contacta a Crosby ISD directamente.",
+        "El sitio muestra datos de varias fuentes externas y públicas. Todo se obtiene del lado del servidor y se almacena en caché — tu navegador nunca contacta estas fuentes directamente, y ninguna implica compartir datos de usuario:",
+        "Servicio Meteorológico Nacional de EE. UU. (api.weather.gov) — pronósticos, condiciones y alertas de dominio público para Crosby, TX; además de la EPA de EE. UU. (índice UV) y la NOAA (niveles de ríos/arroyos, panorama tropical).",
+        "Open-Meteo — un índice de calidad del aire modelado para las coordenadas de Crosby (etiquetado como modelado en todo el sitio).",
+        "Google News — titulares de noticias locales recopilados de fuentes RSS públicas mediante un proceso externo y almacenados en caché.",
+        "Crosby ISD (crosbyisd.org) — el calendario público iCal del distrito escolar.",
+      ],
+    },
+    {
+      h: "Notificaciones push (opcional)",
+      p: [
+        "Si te suscribes a las alertas de clima severo en la página de Alertas, tu navegador crea una «suscripción push» anónima: una dirección única en el servicio push de tu navegador (Google, Apple, Mozilla o Microsoft) más un par de claves. Solo guardamos esa suscripción para poder despertar tu dispositivo cuando se emita un aviso de tornado, inundación repentina o huracán para Crosby. No contiene información personal ni está vinculada a ninguna identidad.",
+        "Nunca enviamos contenido a través de ella: el aviso de despertar va vacío y el texto de la notificación se arma en tu propio dispositivo a partir del feed público de alertas. Desactívala cuando quieras con el mismo botón (o en la configuración del sitio de tu navegador) y la suscripción guardada se elimina. Las suscripciones inactivas también se depuran automáticamente.",
       ],
     },
     {
@@ -3168,6 +3303,12 @@ ${JSONLD_SITE}
   .ref-line { margin:0.25rem 0; font-size:0.85rem; }
   .ref-label { display:inline-block; min-width:3.1rem; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.04em; font-weight:700; color:var(--accent); }
   .intro { color:var(--muted); margin:0.6rem 0 0; }
+  .push-optin { margin-top:1rem; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:0.9rem 1.1rem; }
+  .push-optin .push-desc { margin:0 0 0.6rem; font-size:0.95rem; }
+  .push-btn { font:inherit; font-weight:700; color:#fff; background:var(--accent); border:none; border-radius:8px; padding:0.55rem 1rem; cursor:pointer; }
+  .push-btn:hover { filter:brightness(1.07); }
+  .push-btn:disabled { opacity:0.6; cursor:default; }
+  .push-status { margin:0.5rem 0 0; font-size:0.85rem; color:var(--muted); }
 </style>
 </head>
 <body>
@@ -3177,6 +3318,18 @@ ${topbar("/alerts", lang)}
   ${status}
   <p class="intro"><a href="${lang === "es" ? "/es/weather" : "/weather"}">&larr; ${T(lang, "Back to the forecast", "Volver al pronóstico")}</a> &middot; <a href="${lang === "es" ? "/es/radar" : "/radar"}">Radar</a> &middot; <a href="${lang === "es" ? "/es/emergency" : "/emergency"}"><strong>${T(lang, "Emergency resources", "Recursos de emergencia")}</strong></a> &middot; ${T(lang, `Official source: <a href="https://www.weather.gov/hgx/">NWS Houston/Galveston</a>. In an emergency, call 911.`, `Fuente oficial: <a href="https://www.weather.gov/hgx/">NWS Houston/Galveston</a>. En una emergencia, llama al 911.`)}</p>
 
+  <section class="push-optin" id="push-optin" hidden aria-label="${T(lang, "Severe weather alerts on this device", "Alertas de clima severo en este dispositivo")}"
+    data-sub="${T(lang, "Turn on severe alerts", "Activar alertas severas")}"
+    data-unsub="${T(lang, "Turn off alerts on this device", "Desactivar alertas en este dispositivo")}"
+    data-off="${T(lang, "Get a push notification on this device when a tornado, flash flood, or hurricane warning is issued for Crosby. No account needed, and you can turn it off anytime. Detailed alert text stays in official NWS English.", "Recibe una notificación en este dispositivo cuando se emita un aviso de tornado, inundación repentina o huracán para Crosby. Sin cuenta, y puedes desactivarla cuando quieras. El texto detallado de la alerta permanece en el inglés oficial del NWS.")}"
+    data-on="${T(lang, "Alerts are on for this device. You'll be notified of tornado, flash-flood, and hurricane warnings for Crosby.", "Las alertas están activadas en este dispositivo. Se te notificará de avisos de tornado, inundación repentina y huracán para Crosby.")}"
+    data-blocked="${T(lang, "Notifications are blocked in your browser settings. Enable them for this site to receive alerts.", "Las notificaciones están bloqueadas en la configuración de tu navegador. Actívalas para este sitio para recibir alertas.")}"
+    data-error="${T(lang, "Couldn't update alerts just now. Please try again.", "No se pudieron actualizar las alertas ahora. Inténtalo de nuevo.")}">
+    <p class="push-desc"></p>
+    <button type="button" class="push-btn" aria-pressed="false"></button>
+    <p class="push-status" role="status"></p>
+  </section>
+
   <div data-nosnippet>
   <h2 class="ref-head">${T(lang, "Severe Weather Guide", "Guía de clima severo")}</h2>
   <p class="ref-note">${T(lang, `The guide below explains common NWS alert types in plain language &mdash; what each one means and what to do if one is issued. It&rsquo;s here for reference; no action is needed when the status above shows &ldquo;All clear.&rdquo; If an alert is active for Crosby, it will appear in the green panel at the top of this page. In any emergency, call&nbsp;911 and follow guidance from local officials and the <a href="https://www.weather.gov/hgx/">NWS Houston/Galveston</a> office.`, `La guía siguiente explica en lenguaje sencillo los tipos de alerta más comunes del NWS: qué significa cada una y qué hacer si se emite. Está aquí como referencia; no se requiere ninguna acción cuando el estado de arriba indica «Todo despejado». Si hay una alerta activa para Crosby, aparecerá en el panel de la parte superior de esta página. En cualquier emergencia, llama al&nbsp;911 y sigue las indicaciones de las autoridades locales y de la <a href="https://www.weather.gov/hgx/">oficina del NWS en Houston/Galveston</a>.`)}</p>
@@ -3184,6 +3337,7 @@ ${topbar("/alerts", lang)}
   </div>
 </main>
 ${footer({ page: "/alerts", lang, source: T(lang, `Data from the U.S. National Weather Service (<a href="https://weather.gov">weather.gov</a>).`, `Datos del Servicio Meteorológico Nacional de EE. UU. (<a href="https://weather.gov">weather.gov</a>).`), data })}
+<script>${PUSH_CLIENT_SCRIPT}</script>
 </body>
 </html>`;
 }
@@ -5203,6 +5357,7 @@ let CSP_CACHE = null;
 async function contentSecurityPolicy() {
   if (!CSP_CACHE) {
     const scriptHash = await sha256Base64(HOME_SCRIPT);
+    const pushHash = await sha256Base64(PUSH_CLIENT_SCRIPT);
     CSP_CACHE = [
       "default-src 'self'",
       "base-uri 'self'",
@@ -5210,7 +5365,7 @@ async function contentSecurityPolicy() {
       "frame-ancestors 'self'",
       "img-src 'self' data:",
       "style-src 'self' 'unsafe-inline'",
-      `script-src 'self' 'unsafe-inline' 'sha256-${scriptHash}' https://static.cloudflareinsights.com`,
+      `script-src 'self' 'unsafe-inline' 'sha256-${scriptHash}' 'sha256-${pushHash}' https://static.cloudflareinsights.com`,
       "connect-src 'self' https://cloudflareinsights.com",
       "form-action 'self'",
     ].join("; ");
@@ -5451,6 +5606,43 @@ async function _fetch(request, env, ctx) {
           "cache-control": "no-store",
         },
       });
+    }
+
+    // --- Severe-alert Web Push endpoints ---
+    // Public VAPID key so the browser can subscribe. null when unconfigured, so
+    // the client hides the opt-in UI.
+    if (path === "/api/push/vapid-key") {
+      return new Response(JSON.stringify({ key: env.VAPID_PUBLIC_KEY || null }), {
+        headers: { "content-type": "application/json; charset=utf-8", "access-control-allow-origin": "*", "cache-control": "public, max-age=3600" },
+      });
+    }
+    // Store a subscription. Body: a PushSubscription JSON ({endpoint, keys}).
+    // Endpoint is allowlisted to real push hosts (SSRF guard). Idempotent:
+    // keyed by a hash of the endpoint.
+    if (path === "/api/push/subscribe" && request.method === "POST") {
+      if (!env.VAPID_PRIVATE_KEY) return new Response(JSON.stringify({ error: "push_unavailable" }), { status: 503, headers: { "content-type": "application/json", "access-control-allow-origin": "*" } });
+      let sub = null;
+      try { sub = await request.json(); } catch {}
+      if (!sub || typeof sub.endpoint !== "string" || !pushEndpointAllowed(sub.endpoint)) {
+        return new Response(JSON.stringify({ error: "invalid_subscription" }), { status: 400, headers: { "content-type": "application/json", "access-control-allow-origin": "*" } });
+      }
+      const record = { endpoint: sub.endpoint, keys: sub.keys || null, added: new Date().toISOString() };
+      try {
+        await env.WEATHER.put(await pushKeyFor(sub.endpoint), JSON.stringify(record));
+      } catch (e) {
+        return new Response(JSON.stringify({ error: "store_failed" }), { status: 500, headers: { "content-type": "application/json", "access-control-allow-origin": "*" } });
+      }
+      return new Response(JSON.stringify({ ok: true }), { headers: { "content-type": "application/json", "access-control-allow-origin": "*" } });
+    }
+    // Remove a subscription. Body: {endpoint}.
+    if (path === "/api/push/unsubscribe" && request.method === "POST") {
+      let body = null;
+      try { body = await request.json(); } catch {}
+      if (!body || typeof body.endpoint !== "string") {
+        return new Response(JSON.stringify({ error: "invalid_request" }), { status: 400, headers: { "content-type": "application/json", "access-control-allow-origin": "*" } });
+      }
+      try { await env.WEATHER.delete(await pushKeyFor(body.endpoint)); } catch {}
+      return new Response(JSON.stringify({ ok: true }), { headers: { "content-type": "application/json", "access-control-allow-origin": "*" } });
     }
 
     if (path === "/api/weather") {
@@ -5897,6 +6089,135 @@ async function _fetch(request, env, ctx) {
     }
 }
 
+// --- Severe-alert Web Push ---------------------------------------------------
+// Opt-in browser push for life-threatening warnings only. Design: the Worker
+// sends an EMPTY VAPID-authenticated wake-up (no encrypted payload — sidesteps
+// the ECDH/HKDF/AES-GCM payload encryption entirely); the service worker
+// composes the notification locally from /api/weather. We store only an
+// anonymous push endpoint + its keys (no personal data), one KV entry per
+// subscription under the `push:` prefix, and prune dead ones on 404/410.
+const PUSH_PREFIX = "push:";
+const PUSH_NOTIFIED_KEY = "push_notified"; // alert IDs already pushed (dedupe)
+// Warnings that earn a push — warnings only, never watches/advisories. Kept in
+// sync with PUSH_EVENTS in SW_SCRIPT.
+const SEVERE_PUSH_EVENTS = new Set([
+  "Tornado Warning",
+  "Flash Flood Warning",
+  "Hurricane Warning",
+  "Hurricane Force Wind Warning",
+  "Extreme Wind Warning",
+  "Tropical Storm Warning",
+]);
+// SSRF guard: the cron POSTs to whatever endpoint a subscription stored, so we
+// only ever accept real browser push-service hosts. Without this, a crafted
+// subscribe body could turn our cron into an SSRF vector.
+const PUSH_HOST_ALLOW = [
+  /\.googleapis\.com$/, // FCM (Chrome/Edge/Android)
+  /\.push\.apple\.com$/, // Safari/iOS
+  /\.notify\.windows\.com$/, // legacy Edge/Windows
+  /\.push\.services\.mozilla\.com$/, // Firefox
+];
+function pushEndpointAllowed(endpoint) {
+  try {
+    const u = new URL(endpoint);
+    return u.protocol === "https:" && PUSH_HOST_ALLOW.some((re) => re.test(u.hostname));
+  } catch {
+    return false;
+  }
+}
+
+const b64urlToBytes = (s) => {
+  s = String(s).replace(/-/g, "+").replace(/_/g, "/");
+  while (s.length % 4) s += "=";
+  const bin = atob(s);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+};
+const bytesToB64url = (bytes) => {
+  let bin = "";
+  for (const b of new Uint8Array(bytes)) bin += String.fromCharCode(b);
+  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+};
+const b64urlJson = (obj) => bytesToB64url(new TextEncoder().encode(JSON.stringify(obj)));
+
+// Build a VAPID Authorization header for a given push endpoint. Signs a short
+// ES256 JWT (WebCrypto ECDSA P-256 already yields the raw r||s form JWS wants,
+// so no DER unwrapping) with the private JWK secret. Returns null if the
+// VAPID secrets aren't configured, so the whole feature no-ops safely.
+async function vapidAuth(endpoint, env) {
+  if (!env.VAPID_PRIVATE_KEY || !env.VAPID_PUBLIC_KEY) return null;
+  const { origin } = new URL(endpoint);
+  const jwk = JSON.parse(env.VAPID_PRIVATE_KEY);
+  const key = await crypto.subtle.importKey("jwk", jwk, { name: "ECDSA", namedCurve: "P-256" }, false, ["sign"]);
+  const header = b64urlJson({ typ: "JWT", alg: "ES256" });
+  const payload = b64urlJson({ aud: origin, exp: Math.floor(Date.now() / 1000) + 12 * 3600, sub: "mailto:security@crosbynews.com" });
+  const unsigned = `${header}.${payload}`;
+  const sig = await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, key, new TextEncoder().encode(unsigned));
+  const jwt = `${unsigned}.${bytesToB64url(sig)}`;
+  return { Authorization: `vapid t=${jwt}, k=${env.VAPID_PUBLIC_KEY}` };
+}
+
+// Send one empty wake-up. 201/202 = accepted; 404/410 = subscription gone
+// (caller prunes). Returns the HTTP status (or 0 on network error).
+async function sendPush(subscription, env) {
+  const headers = await vapidAuth(subscription.endpoint, env);
+  if (!headers) return 0;
+  try {
+    const res = await fetch(subscription.endpoint, {
+      method: "POST",
+      headers: { ...headers, TTL: "3600", "Content-Length": "0", Urgency: "high" },
+    });
+    return res.status;
+  } catch (e) {
+    console.error("push send failed:", e && e.message);
+    return 0;
+  }
+}
+
+// A stable KV key for a subscription (hash of its endpoint), so re-subscribing
+// the same browser overwrites rather than duplicates.
+async function pushKeyFor(endpoint) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(endpoint));
+  return PUSH_PREFIX + [...new Uint8Array(buf)].slice(0, 16).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+// Cron hook: if any NEW severe warning is active (not already notified), wake
+// every subscriber once, then remember the alert IDs so ongoing warnings don't
+// re-notify every 15 minutes. Prunes dead subscriptions and stale notified IDs.
+async function pushSevereAlerts(env, alerts) {
+  if (!env.VAPID_PRIVATE_KEY) return; // feature not configured
+  const severe = (alerts ?? []).filter((a) => SEVERE_PUSH_EVENTS.has(a.event));
+  const activeIds = severe.map((a) => a.id).filter(Boolean);
+  let notified = [];
+  try {
+    notified = (await env.WEATHER.get(PUSH_NOTIFIED_KEY, "json")) || [];
+  } catch {}
+  const fresh = activeIds.filter((id) => !notified.includes(id));
+  // Always reconcile the notified set to only-currently-active IDs (so an alert
+  // that clears and later reissues under a new ID can notify again).
+  const nextNotified = activeIds.slice();
+  if (JSON.stringify(nextNotified.sort()) !== JSON.stringify([...notified].sort())) {
+    await env.WEATHER.put(PUSH_NOTIFIED_KEY, JSON.stringify(nextNotified));
+  }
+  if (!fresh.length) return; // nothing new to announce
+
+  const list = await env.WEATHER.list({ prefix: PUSH_PREFIX });
+  for (const k of list.keys) {
+    let sub = null;
+    try {
+      sub = await env.WEATHER.get(k.name, "json");
+    } catch {}
+    if (!sub || !sub.endpoint) {
+      await env.WEATHER.delete(k.name);
+      continue;
+    }
+    const status = await sendPush(sub, env);
+    if (status === 404 || status === 410) await env.WEATHER.delete(k.name); // gone — prune
+  }
+}
+// --- end Severe-alert Web Push -----------------------------------------------
+
 // The content pages, each its own canonical URL. Their responses get an HTTP
 // `Link: rel="canonical"` header in the wrapper below, so the content-negotiated
 // `?format=md` variants — and the http→https pair — consolidate onto one URL for
@@ -5938,6 +6259,14 @@ export default {
     try {
       const data = await fetchWeather();
       await env.WEATHER.put(KV_KEY, JSON.stringify(data));
+      // After a fresh forecast, wake push subscribers for any NEW severe
+      // warning. Independent of the writes below; a push failure is logged and
+      // never blocks the cache refresh (own try/catch inside).
+      try {
+        await pushSevereAlerts(env, data.alerts);
+      } catch (e) {
+        console.error("Cron push dispatch failed:", e && e.stack);
+      }
     } catch (e) {
       console.error("Cron weather refresh failed:", e && e.stack);
     }
