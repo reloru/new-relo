@@ -8,6 +8,45 @@
 - **Keep this file current:** when you change a route, a behavior, or an
   invariant that lives outside the Worker, update CLAUDE.md in the same PR.
 
+## Agent operating notes (process, not site mechanics)
+Not about the Worker's behavior — about working this repo session-to-session
+as a coding agent. A human reading for site behavior can skip this section.
+
+- **There is no task tracker that persists across sessions.** The
+  TaskList/TaskCreate tools are session-local — a fresh session reports zero
+  tasks even right after a prior session logged (and completed) dozens. If a
+  prompt says "check the tracker for the backlog," the backlog is the text of
+  that prompt (or what's written here in CLAUDE.md) — there's nothing else to
+  query. To hand a backlog to a future session, write it into CLAUDE.md or the
+  triggering prompt itself; don't assume TaskCreate state will still be there.
+- **Verify a new external upstream before writing any feature code against
+  it.** A sandbox/container `curl` succeeding is not sufficient proof — Google
+  News answers fine from a container but 503s the deployed Worker's IPs (the
+  reason the news pipeline runs out-of-band at all). The pattern used for NHC
+  (`/tropics`), EPA (UV), and Open-Meteo (AQI) — all confirmed this way before
+  any feature code existed: add a temporary `/debug-<name>-canary` route that
+  fetches the candidate upstream, `npx wrangler deploy` it for real (not just
+  `wrangler dev` — must be the actual edge runtime and its egress IPs), curl
+  the *live* URL to confirm a real 200 + body, then `git restore` the file and
+  redeploy clean before building anything that depends on it.
+- **`AskUserQuestion` can fail silently in automated/routine-driven sessions**
+  (observed failure: "Tool permission request failed: Error: Tool permission
+  stream closed before response received" — there's no human available to
+  answer synchronously in that context). When genuinely blocked on a decision
+  only the user can make, don't retry the tool — lay out the tradeoffs and
+  named options directly in your response text and end the turn; the user
+  answers in their next message instead of through the tool UI.
+- **`.claude/skills/*/SKILL.md` files drift independently of CLAUDE.md** —
+  nothing forces them to be touched when a feature ships. Concretely happened
+  here: `/kv`'s SKILL.md still described three KV keys for two feature-cycles
+  after `/water` shipped a fourth. When a change touches something a skill
+  describes (KV keys, routes, deploy steps), grep the skills directory too,
+  not just this file.
+- **Ship each independent change as its own small PR**, verified live before
+  starting the next one, rather than batching several features into one PR.
+  This is how the 2026 Tier-1/3 roadmap (PRs #48–70) got done without any PR
+  becoming hard to review or revert in isolation.
+
 ## Repo skills (.claude/)
 Committed Claude Code skills live under `.claude/skills/<name>/SKILL.md` — the
 directory name becomes the `/command`. Current skills:
@@ -56,7 +95,15 @@ directory name becomes the `/command`. Current skills:
   level — same token as used by the manual deploy path.
 - PRs are squash-merged. After a squash-merge, the old branch diverges from main (its history
   is rewritten into one commit). Always branch fresh off `origin/main` before starting new work;
-  never reuse a branch that was already merged.
+  never reuse a branch that was already merged **by just continuing to commit on it** — main has
+  a rewritten single commit where your branch has the full original history, so a naive push
+  diverges or conflicts.
+  There's one sanctioned exception, used repeatedly across PRs #48–70: to keep working on the
+  *same* long-lived feature branch across many small PRs, reconcile immediately after each
+  squash-merge with `git fetch origin main && git merge -X ours origin/main` (merge, not rebase)
+  and push, before opening the next PR from that branch. `-X ours` discards the now-redundant
+  diff (main already has your changes, squashed) while keeping the branch valid for a fresh PR.
+  This is different from resuming a stale branch untouched — always reconcile first.
 - The repo is **public**. Branch protection on `main` is **enabled** (classic protection):
   it requires the `Syntax check` status check and blocks force-pushes + branch deletion, with
   admin bypass left on (`enforce_admins: false`) and no required PR reviews — so solo squash-
