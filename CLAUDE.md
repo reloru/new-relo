@@ -486,7 +486,16 @@ directory name becomes the `/command`. Current skills:
   /api/push/subscribe`, `POST /api/push/unsubscribe`. **Opt-in UI** lives on
   `/alerts` (`PUSH_CLIENT_SCRIPT`, its own CSP hash; language-agnostic bytes —
   all strings via `data-*` on `#push-optin`, so one hash serves both langs);
-  progressive-enhancement, stays hidden without push support or a VAPID key.
+  progressive-enhancement, stays hidden without push support or a VAPID key —
+  EXCEPT iPhone Safari tabs, where it shows an add-to-Home-Screen hint
+  (`data-ios`) instead: **iOS exposes Web Push only to Home-Screen web apps**,
+  so a plain-tab visitor would otherwise never learn the feature exists.
+  Two Safari gotchas baked into the click handler (found in the real-device
+  soft launch): `Notification.requestPermission()` must be the FIRST await in
+  the tap handler (Safari only honors it during the tap's transient
+  activation), and base64url→bytes padding uses the plain while-loop — a
+  slicker closed-form pad expression shipped broken once (atob threw on every
+  subscribe attempt, in every browser).
   Privacy policy has a "Push notifications" section (both languages): only an
   anonymous subscription is stored, no message content is sent through it,
   deletable anytime. **Verifiable in-sandbox:** VAPID JWT sign/verify round-trip,

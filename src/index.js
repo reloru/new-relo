@@ -874,16 +874,28 @@ const PUSH_CLIENT_SCRIPT = `
 (function () {
   var el = document.getElementById("push-optin");
   if (!el) return;
-  if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) return;
   var d = el.dataset;
   var descEl = el.querySelector(".push-desc");
   var btn = el.querySelector(".push-btn");
   var statusEl = el.querySelector(".push-status");
   var vapidKey = null, reg = null;
 
+  // iOS Safari exposes Push ONLY to Home-Screen web apps. In a plain Safari
+  // tab, don't hide the feature's existence - show how to get it instead.
+  if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {
+    if (/iPhone|iPad|iPod/.test(navigator.userAgent) && !navigator.standalone && d.ios) {
+      descEl.textContent = d.ios;
+      if (btn) btn.hidden = true;
+      el.hidden = false;
+    }
+    return;
+  }
+
   function toBytes(s) {
-    var pad = "====".slice((s.length + 3) % 4);
-    var b = (s + pad).replace(/-/g, "+").replace(/_/g, "/");
+    // base64url -> Uint8Array. Pad to a multiple of 4 (same loop as the
+    // Worker-side decoder - a slicker closed-form version shipped broken once).
+    while (s.length % 4) s += "=";
+    var b = s.replace(/-/g, "+").replace(/_/g, "/");
     var raw = atob(b), arr = new Uint8Array(raw.length);
     for (var i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
     return arr;
@@ -908,16 +920,20 @@ const PUSH_CLIENT_SCRIPT = `
   btn && btn.addEventListener("click", async function () {
     btn.disabled = true; statusEl.textContent = "";
     try {
-      var sub = await reg.pushManager.getSubscription();
-      if (sub && btn.dataset.subbed) {
-        try { await fetch("/api/push/unsubscribe", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ endpoint: sub.endpoint }) }); } catch (e) {}
-        await sub.unsubscribe();
+      if (btn.dataset.subbed) {
+        var sub = await reg.pushManager.getSubscription();
+        if (sub) {
+          try { await fetch("/api/push/unsubscribe", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ endpoint: sub.endpoint }) }); } catch (e) {}
+          await sub.unsubscribe();
+        }
         setState(false);
       } else {
+        // Permission FIRST: Safari only honors the prompt while the tap's
+        // transient activation is alive, so no other awaits may come before it.
         var perm = await Notification.requestPermission();
         if (perm !== "granted") { statusEl.textContent = d.blocked; btn.disabled = false; return; }
-        sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: toBytes(vapidKey) });
-        var r = await fetch("/api/push/subscribe", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(sub) });
+        var newSub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: toBytes(vapidKey) });
+        var r = await fetch("/api/push/subscribe", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(newSub) });
         if (!r.ok) throw new Error("subscribe failed");
         setState(true);
       }
@@ -3324,7 +3340,8 @@ ${topbar("/alerts", lang)}
     data-off="${T(lang, "Get a push notification on this device when a tornado, flash flood, or hurricane warning is issued for Crosby. No account needed, and you can turn it off anytime. Detailed alert text stays in official NWS English.", "Recibe una notificación en este dispositivo cuando se emita un aviso de tornado, inundación repentina o huracán para Crosby. Sin cuenta, y puedes desactivarla cuando quieras. El texto detallado de la alerta permanece en el inglés oficial del NWS.")}"
     data-on="${T(lang, "Alerts are on for this device. You'll be notified of tornado, flash-flood, and hurricane warnings for Crosby.", "Las alertas están activadas en este dispositivo. Se te notificará de avisos de tornado, inundación repentina y huracán para Crosby.")}"
     data-blocked="${T(lang, "Notifications are blocked in your browser settings. Enable them for this site to receive alerts.", "Las notificaciones están bloqueadas en la configuración de tu navegador. Actívalas para este sitio para recibir alertas.")}"
-    data-error="${T(lang, "Couldn't update alerts just now. Please try again.", "No se pudieron actualizar las alertas ahora. Inténtalo de nuevo.")}">
+    data-error="${T(lang, "Couldn't update alerts just now. Please try again.", "No se pudieron actualizar las alertas ahora. Inténtalo de nuevo.")}"
+    data-ios="${T(lang, "To get severe-weather alerts on an iPhone, first add this site to your Home Screen: tap the Share button, choose “Add to Home Screen,” then open Crosby News from that icon and come back to this page.", "Para recibir alertas de clima severo en un iPhone, primero agrega este sitio a tu pantalla de inicio: toca el botón Compartir, elige «Agregar a pantalla de inicio», luego abre Crosby News desde ese ícono y vuelve a esta página.")}">
     <p class="push-desc"></p>
     <button type="button" class="push-btn" aria-pressed="false"></button>
     <p class="push-status" role="status"></p>
@@ -3332,7 +3349,7 @@ ${topbar("/alerts", lang)}
 
   <div data-nosnippet>
   <h2 class="ref-head">${T(lang, "Severe Weather Guide", "Guía de clima severo")}</h2>
-  <p class="ref-note">${T(lang, `The guide below explains common NWS alert types in plain language &mdash; what each one means and what to do if one is issued. It&rsquo;s here for reference; no action is needed when the status above shows &ldquo;All clear.&rdquo; If an alert is active for Crosby, it will appear in the green panel at the top of this page. In any emergency, call&nbsp;911 and follow guidance from local officials and the <a href="https://www.weather.gov/hgx/">NWS Houston/Galveston</a> office.`, `La guía siguiente explica en lenguaje sencillo los tipos de alerta más comunes del NWS: qué significa cada una y qué hacer si se emite. Está aquí como referencia; no se requiere ninguna acción cuando el estado de arriba indica «Todo despejado». Si hay una alerta activa para Crosby, aparecerá en el panel de la parte superior de esta página. En cualquier emergencia, llama al&nbsp;911 y sigue las indicaciones de las autoridades locales y de la <a href="https://www.weather.gov/hgx/">oficina del NWS en Houston/Galveston</a>.`)}</p>
+  <p class="ref-note">${T(lang, `The guide below explains common NWS alert types in plain language &mdash; what each one means and what to do if one is issued. It&rsquo;s here for reference; no action is needed when the status above shows &ldquo;All clear.&rdquo; If an alert is active for Crosby, the panel at the top of this page turns red and shows the full alert. In any emergency, call&nbsp;911 and follow guidance from local officials and the <a href="https://www.weather.gov/hgx/">NWS Houston/Galveston</a> office.`, `La guía siguiente explica en lenguaje sencillo los tipos de alerta más comunes del NWS: qué significa cada una y qué hacer si se emite. Está aquí como referencia; no se requiere ninguna acción cuando el estado de arriba indica «Todo despejado». Si hay una alerta activa para Crosby, el panel de la parte superior de esta página se vuelve rojo y muestra la alerta completa. En cualquier emergencia, llama al&nbsp;911 y sigue las indicaciones de las autoridades locales y de la <a href="https://www.weather.gov/hgx/">oficina del NWS en Houston/Galveston</a>.`)}</p>
   <div class="ref-grid">${guide}</div>
   </div>
 </main>
