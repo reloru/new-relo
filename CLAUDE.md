@@ -501,8 +501,15 @@ directory name becomes the `/command`. Current skills:
   deletable anytime. **Verifiable in-sandbox:** VAPID JWT sign/verify round-trip,
   subscribe/unsubscribe, SSRF rejection, the dedup/reconcile state machine, and
   prune-on-404 (sending an empty wake-up to a bogus FCM token → 404 → pruned).
-  **NOT verifiable in-sandbox:** a real notification landing on a device (needs a
-  real browser push subscription) — that's a manual real-device check.
+  **NOT verifiable in-sandbox:** a real notification landing on a device (needs
+  a real browser push subscription) — that's a manual real-device check.
+  **Real-device check PASSED 2026-07-06** (iPhone, Home-Screen web app):
+  subscribe → KV entry → manual empty VAPID wake-up → APNs `201` →
+  notification displayed (generic fallback branch, correct since no severe
+  warning was active) → tap → `notificationclick` opened `/alerts`. Also
+  live-confirmed the severity gate: an active Special Weather Statement did
+  NOT push (not in `SEVERE_PUSH_EVENTS`) — only the manual wake-up did.
+- `/badge.svg` — hotlinkable live-weather badge (SVG, 300×80, brand-styled
   with the favicon sun-and-cloud): current temp + condition (truncated to
   fit), gated feels-like, and a status flag ("✓ NO ALERTS" green / "⚠ N
   ALERTS" red). Rendered by `badgeSvg(data)` from the same KV cache
