@@ -669,6 +669,9 @@ directory name becomes the `/command`. Current skills:
   otherwise rank straight in — Crosby in Merseyside/Liverpool/Sefton, England
   (UK); Crosby High School in **Waterbury, CT** (matches the `crosby high`
   relevance token); and **Crosbyton, TX**; real-estate + obituary drops;
+  `BLOTTER_RE` drops police-blotter / report-index boilerplate ("For Reports
+  Between <date> & <date>" digests, "police blotter" roundups — index pages,
+  not stories);
   `AFTERMATH` drops grief/aftermath follow-ups (vigil / "family mourns" rewrites)
   so one death doesn't spawn a string of them; `CRIME_WORDS`/`CRIME_STEMS` for
   down-ranking (word-boundary matched, so e.g. "dead" doesn't tag "deadline");
