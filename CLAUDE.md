@@ -726,7 +726,10 @@ directory name becomes the `/command`. Current skills:
   DNS:Edit alone makes the `/zones?name=` lookup return an empty list (success,
   not an error), so the script fails with "could not resolve zone id". Either
   widen the token, or set `CLOUDFLARE_ZONE_ID=09de1864babbf541c26590b0fe42f25f`
-  and a DNS:Edit-only token suffices. Note the account-owned token can't call
+  and a DNS:Edit-only token suffices. (Both `CLOUDFLARE_ZONE_ID` and the token
+  are already set in the cloud environment; if the default token is ever short
+  a scope, the env also carries `CLOUDFLARE_ZONE_API_KEY` with wider zone
+  permissions.) Note the account-owned token can't call
   `/user/tokens/verify` (returns "Invalid API Token") even when it's valid for
   zone/DNS calls — sanity-check it with a resource call, not `verify`.
 - Intentionally skipped: OAuth/OIDC, oauth-protected-resource, and auth.md —
@@ -745,11 +748,14 @@ directory name becomes the `/command`. Current skills:
   write, plus `Zone:Zone:Read` to resolve the zone id by name — or set
   `CLOUDFLARE_ZONE_ID=09de1864babbf541c26590b0fe42f25f` and a DNS:Edit-only token
   suffices.
-- **Rollout ladder** (set via the `DMARC_POLICY` env var): currently **`p=none`**
-  (monitor — collect reports, confirm iCloud mail aligns). After ~1–2 weeks of
-  clean reports, escalate `DMARC_POLICY=quarantine node scripts/dmarc.mjs`, then
-  `=reject`. Aggregate reports (`rua`) go to `security@crosbynews.com`, so that
-  alias must be a real iCloud mailbox/catch-all or the reports are silently lost.
+- **Rollout ladder** (set via the `DMARC_POLICY` env var): currently
+  **`p=quarantine`** (escalated from `p=none` on 2026-07-07 at the user's
+  direction, after ~3 weeks at none). The remaining rung is `=reject`: after
+  a clean observation window at quarantine (aggregate reports showing iCloud
+  mail aligned, nothing legitimate quarantined), run
+  `DMARC_POLICY=reject node scripts/dmarc.mjs`. Aggregate reports (`rua`) go
+  to `security@crosbynews.com`, so that alias must be a real iCloud
+  mailbox/catch-all or the reports are silently lost.
 - No SMTP port-blocking or Spamhaus PBL concern applies here: there's no origin
   server/VPS sending mail (Cloudflare Worker, no public SMTP IP), and outbound
   mail leaves from iCloud's own (non-PBL) IPs.
