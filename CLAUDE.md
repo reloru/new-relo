@@ -632,7 +632,7 @@ directory name becomes the `/command`. Current skills:
   cache via `loadWeather()`.
 - `/mcp` — stateless MCP server (Streamable HTTP, JSON-RPC) with tools
   `get_current_conditions`, `get_forecast`, `get_alerts`, `get_crosby_news`,
-  `get_school_events`; prompt `crosby_briefing` (prompts/get composes live
+  `get_school_events`, `get_river_levels`; prompt `crosby_briefing` (prompts/get composes live
   weather + alerts + news + school events server-side into a self-contained
   briefing prompt); resources `llms.txt` + `openapi.json` (readable
   in-protocol via resources/read). Discovery card at
@@ -758,7 +758,9 @@ directory name becomes the `/command`. Current skills:
 - The WEATHER namespace holds five content keys: `weather`, `calendar`, `water`,
   and `tropics` (all cron-owned — the Worker refreshes them) and `news`
   (routine-owned — written out-of-band, the Worker only reads it). It also holds
-  the Web Push state: `push_notified` (cron-owned dedupe list) and one entry per
+  the Web Push state: `push_notified` (cron-owned dedupe list — first created
+  when a severe warning actually pushes, so it's absent until then; that's the
+  normal quiet state, not a bug) and one entry per
   subscriber under the `push:` prefix (written by `/api/push/subscribe`, pruned
   by the cron). Don't hand-edit the `push:*`/`push_notified` keys — deleting a
   `push:` entry just unsubscribes that device; deleting `push_notified` would

@@ -41,10 +41,12 @@ command below passes `--remote` — keep it.
   next routine run (up to ~a day).** Treat writes/deletes here as destructive.
 
 Also present (Web Push, don't hand-edit): `push_notified` (cron dedupe list of
-already-pushed alert IDs) and one entry per subscriber under the `push:` prefix
-(anonymous push subscriptions). Deleting a `push:` entry just unsubscribes that
-device; deleting `push_notified` re-notifies every active severe warning next
-tick. `list` will show these alongside the content keys.
+already-pushed alert IDs — first created when a severe warning actually pushes,
+so it's absent until then; that's the normal quiet state, not a bug) and one
+entry per subscriber under the `push:` prefix (anonymous push subscriptions).
+Deleting a `push:` entry just unsubscribes that device; deleting
+`push_notified` re-notifies every active severe warning next tick. `list`
+shows these alongside the content keys.
 
 ## Read (safe)
 List keys:
