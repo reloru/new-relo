@@ -18,11 +18,38 @@ jobs:
       - name: Check JS syntax
         run: node --check src/index.js
 
+  # Build gate: parse wrangler.jsonc and bundle the Worker without uploading.
+  # Catches config/bundling errors and the compat-date/wrangler-pin coupling
+  # that `node --check` can't see — before they reach the production deploy.
+  # Uses the lockfile's pinned wrangler (npm ci), so CI, local dev, and this
+  # dry-run all run the identical version. No auth needed: --dry-run uploads
+  # nothing. Not the required status check (that's "Syntax check"), but the
+  # deploy job depends on it, so a broken build can't ship to prod.
+  build:
+    name: Build check (dry-run)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Build without uploading
+        run: npx wrangler deploy --dry-run
+
   deploy:
     name: Deploy to Cloudflare Workers
-    needs: check
+    needs: [check, build]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
+    # Serialize production deploys: two quick squash-merges otherwise start
+    # racing deploys, and wrangler is last-write-wins, so the older code could
+    # land last. Queue (don't cancel) so every merged commit still deploys, in
+    # order.
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
       - name: Deploy via Wrangler
