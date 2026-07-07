@@ -514,10 +514,14 @@ directory name becomes the `/command`. Current skills:
   and the Cache API respects Vary — a navigation's Accept header never equals
   the precache fetch's `*/*`, so every SW `caches.match` MUST pass
   `{ ignoreVary: true }` or offline matches all miss and collapse to the hub.
-  Offline behavior is verified with the two-phase Playwright test (register +
-  precache with the dev server up, then KILL the server and navigate) —
-  Playwright's `setOffline` does NOT apply to SW-initiated fetches, so it
-  cannot test this. This is the service-worker foundation the severe-alert
+  Offline behavior is verified by the committed **`scripts/test-sw-offline.mjs`**
+  (`NODE_PATH=/opt/node22/lib/node_modules node scripts/test-sw-offline.mjs`):
+  it boots `wrangler dev`, registers + precaches, then **KILLs the server** and
+  re-navigates against a persistent profile, asserting cached pages serve
+  themselves and uncached paths fall back to the language hub. It has to kill
+  the server because Playwright's `setOffline` does NOT apply to SW-initiated
+  fetches — run this script after any SW change instead of re-deriving the
+  procedure. This is the service-worker foundation the severe-alert
   Web Push feature (below) builds on; **the SW now also carries the `push` +
   `notificationclick` handlers** (hence `CACHE` = `crosby-v2`).
 - **Severe-alert Web Push** — opt-in browser push for life-threatening
