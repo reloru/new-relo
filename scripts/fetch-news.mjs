@@ -90,13 +90,13 @@ const REALTOR = ["zillow", "realtor.com", "redfin", "trulia", "homes.com", "har.
 const CRIME_WORDS = [
   "shooting", "shootout", "shot", "murder", "homicide", "killed", "kills", "dead",
   "death", "deadly", "dies", "died", "crash", "wreck", "collision", "fatal",
-  "rollover", "trapped", "hurt", "arrest", "charged", "charges", "suspect", "accused",
+  "rollover", "trapped", "hurt", "charged", "charges", "suspect", "accused",
   "alleged", "improper", "guilty", "sentenced", "convicted", "bomb", "assault",
   "robbery", "dwi", "dui", "cruelty", "abuse", "horrific", "starving", "raid",
   "missing", "leak", "spill", "standoff", "armed", "gunman", "indicted", "hazmat",
   "manhunt", "fighting ring",
 ];
-const CRIME_STEMS = ["stabb", "burglar", "drown", "overturn", "injur", "seiz", "evacuat", "cockfight"];
+const CRIME_STEMS = ["stabb", "burglar", "drown", "overturn", "injur", "seiz", "evacuat", "cockfight", "arrest"];
 const reEsc = (w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const CRIME_RE = new RegExp(
   "\\b(?:" + CRIME_WORDS.map(reEsc).join("|") + ")\\b|\\b(?:" + CRIME_STEMS.map(reEsc).join("|") + ")",
