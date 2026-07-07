@@ -12,13 +12,17 @@
 Not about the Worker's behavior — about working this repo session-to-session
 as a coding agent. A human reading for site behavior can skip this section.
 
-- **There is no task tracker that persists across sessions.** The
-  TaskList/TaskCreate tools are session-local — a fresh session reports zero
-  tasks even right after a prior session logged (and completed) dozens. If a
-  prompt says "check the tracker for the backlog," the backlog is the text of
-  that prompt (or what's written here in CLAUDE.md) — there's nothing else to
-  query. To hand a backlog to a future session, write it into CLAUDE.md or the
-  triggering prompt itself; don't assume TaskCreate state will still be there.
+- **`TaskList`/`TaskCreate` do NOT persist across sessions** — they're
+  session-local, so a fresh session reports zero tasks even right after a prior
+  session logged (and completed) dozens. If a prompt says "check the tracker for
+  the backlog," it does NOT mean these tools. **The persistent backlog is GitHub
+  Issues:** they survive across sessions and are queryable/writable from every
+  session via the `mcp__github__*` tools (`list_issues`, `issue_write`, …). Prefer
+  filing backlog items as Issues (label them, e.g., `backlog`) over encoding them
+  into a trigger prompt or into CLAUDE.md prose — a routine can then just say
+  "work the oldest open issue labeled `backlog`." When you DO get a backlog in
+  the prompt text (as PRs #62–72 did), treat that text as the source of truth for
+  that run; there's nothing else to query.
 - **Verify a new external upstream before writing any feature code against
   it.** A sandbox/container `curl` succeeding is not sufficient proof — Google
   News answers fine from a container but 503s the deployed Worker's IPs (the
@@ -41,7 +45,8 @@ as a coding agent. A human reading for site behavior can skip this section.
   here: `/kv`'s SKILL.md still described three KV keys for two feature-cycles
   after `/water` shipped a fourth. When a change touches something a skill
   describes (KV keys, routes, deploy steps), grep the skills directory too,
-  not just this file.
+  not just this file. (`.github/pull_request_template.md` carries a checklist
+  reminder for this + the CLAUDE.md-currency rule.)
 - **Ship each independent change as its own small PR**, verified live before
   starting the next one, rather than batching several features into one PR.
   This is how the 2026 Tier-1/3 roadmap (PRs #48–70) got done without any PR
