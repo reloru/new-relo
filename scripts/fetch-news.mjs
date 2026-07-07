@@ -61,6 +61,13 @@ const GEO_REJECT = [
 const GEO_RE = new RegExp("\\b(?:" + GEO_REJECT.join("|") + ")\\b", "i");
 // Obituaries / funeral-home noise — dropped entirely.
 const SOFT_DROP = ["obituary", "obituaries", "funeral home", "legacy.com", "in memoriam"];
+// Police-blotter / report-index boilerplate — a date-range digest title like
+// "For Reports Between June 2, 2026 (0600) & June 3, 2026 (0600)" (City of
+// Baytown posts these) is an index page, not a story. High-precision phrases
+// only: "for reports between" anchored at the start, "police blotter"
+// anywhere. /news leans community, and a blotter index is exactly what it
+// shouldn't carry.
+const BLOTTER_RE = /^\s*for reports between\b|\bpolice blotter\b/i;
 // Grief / aftermath follow-ups to a tragedy — emotional reactions, not new
 // incidents. Dropped entirely so one death doesn't spawn a string of vigil /
 // "family mourns" rewrites that crowd out community news. High-precision phrases
@@ -128,6 +135,7 @@ function areaTier(title, source) {
   if (REJECT.some((r) => t.includes(r))) return null;
   if (GEO_RE.test(title)) return null; // other-place Crosbys (UK / Waterbury CT / Crosbyton)
   if (SOFT_DROP.some((d) => blob.includes(d))) return null;
+  if (BLOTTER_RE.test(title)) return null; // blotter / report-index boilerplate
   if (AFTERMATH.some((d) => t.includes(d))) return null;
   if (RE_ADDRESS.test(title) || REALTOR.some((r) => blob.includes(r))) return null;
   const crosby = t.includes("crosby") && (REQUIRE.some((r) => t.includes(r)) || CONTEXT.some((c) => t.includes(c)));
