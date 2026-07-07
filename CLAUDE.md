@@ -73,13 +73,25 @@ directory name becomes the `/command`. Current skills:
   missing that permission — widen it in the Cloudflare dashboard, not a code bug.
 
 ## CI / GitHub Actions
-- `.github/workflows/deploy.yml` runs two jobs on every push/PR to `main`:
-  - **Syntax check** (`node --check src/index.js`) — runs on all PRs and pushes.
-  - **Deploy** (`cloudflare/wrangler-action@v3`) — runs on push to `main` only, after check passes.
+- `.github/workflows/deploy.yml` runs three jobs on every push/PR to `main`:
+  - **Syntax check** (`node --check src/index.js`) — runs on all PRs and pushes. The **only
+    required** status check (branch protection keys on the exact name "Syntax check", so don't
+    rename this job).
+  - **Build check (dry-run)** (`npm ci` + `npx wrangler deploy --dry-run`) — runs on all PRs and
+    pushes. Parses `wrangler.jsonc` and bundles the Worker without uploading, catching
+    config/bundling errors and the compat-date/wrangler-pin coupling that `node --check` can't
+    see. No auth needed (`--dry-run` uploads nothing). NOT a required check (adding it to branch
+    protection needs the admin API), but **the deploy job `needs` it**, so a broken build blocks
+    the prod deploy even though a PR could technically still be merged with it red.
+  - **Deploy** (`cloudflare/wrangler-action@v3`) — runs on push to `main` only, after BOTH checks
+    pass (`needs: [check, build]`). Has a `concurrency: { group: deploy-production,
+    cancel-in-progress: false }` guard so two quick squash-merges deploy in order instead of
+    racing (wrangler is last-write-wins).
 - `wranglerVersion: "4"` is required in the wrangler-action config. Without it, the action
   installs wrangler 3.x, which can't parse `wrangler.jsonc` and fails with "Missing entry-point".
-  CI installs the latest 4.x; the repo's `wrangler` devDependency is pinned to match
-  (`^4.107.0`) so local `wrangler dev` behaves like the CI/prod runtime.
+  The deploy action installs the latest 4.x; the build-check job and local dev use the repo's
+  pinned `wrangler` devDependency (`^4.107.0`, via `npm ci`) so the dry-run, local `wrangler dev`,
+  and prod runtime stay aligned.
 - **Compatibility date gotcha:** `wrangler.jsonc`'s `compatibility_date` (currently
   `2026-07-01`) must be ≤ the bundled `workerd`'s ceiling. Production always runs the newest
   `workerd`, so any past date is fine there — but a *local* `wrangler dev` on an older pinned
