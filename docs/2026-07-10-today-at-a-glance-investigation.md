@@ -547,6 +547,36 @@ ever drops morning hours (its evening product retained them; afternoon
 behavior unobserved).
 
 ---
-*Investigation performed 2026-07-10 ~04:55–05:35 UTC on the live site,
-Cloudflare account APIs, api.weather.gov, data.epa.gov, and
-air-quality-api.open-meteo.com, from repo commit `30a08d1`.*
+
+## 10. Addendum — cross-provider comparison vs. Apple Weather (2026-07-10 ~3:40 AM CT)
+
+The user compared the live glance against the iPhone Weather app (Apple's
+in-house model; AQI by BreezoMeter). Each difference was re-verified live at
+~5:00 AM CT and decomposes into provider methodology or timing — none is a
+site defect:
+
+| Row | Site (glance) | Apple Weather | Explanation | Evidence |
+|---|---|---|---|---|
+| Feels like up to | 102° | "feels like 82°–93°" | The site computes the **NWS heat index** over NWS hourly forecast values; re-fetched live at 10:05 UTC, NWS's own product gives a today-max of **102 at noon (T=90, RH=64)**. Apple uses its own cooler-running apparent-temperature formula. Calibration point from Apple's own screen: it says *yesterday's* feels-like peaked at **97**, while NWS observations yesterday computed heat index **102–105** (§4.3) — the two scales genuinely differ by ~5–8°F in Gulf-summer conditions, independent of this site. | **CONFIRMED** (live NWS refetch; §4.3 obs) |
+| Peak UV | 11 (Extreme) | 6 (peak today) | EPA Envirofacts, re-fetched live at ~10:04 UTC, currently publishes **11 at 1 PM** for ZIP 77532 — the site renders its stated source verbatim. Apple's UV comes from its own model; with thunderstorms forecast, a heavily cloud-adjusted 6 vs. EPA's 11 is a large but genuine provider split. (EPA's product nominally includes clouds but is generated on its own cycle.) | **CONFIRMED** site-matches-source (live EPA fetch); provider divergence **CONFIRMED**, cause of Apple's lower number **HYPOTHESIS** (cloud adjustment) |
+| Air quality | 47→50 (Good) | 32 (BreezoMeter) | Two different *models* (Open-Meteo/CAMS vs BreezoMeter) — no monitor exists in Crosby, which is exactly why the row is labeled "modeled." Both read "Good." ±15–20 points between air-quality models is ordinary. | **CONFIRMED** (live API values; both modeled) |
+| High | 91° | 92° | NWS revised 92→91 overnight — captured live at the 05:30 UTC cron tick (§6 e). Apple's model says 92. One-degree provider/revision-timing split. | **CONFIRMED** (§6 e) |
+| Rain chance | 45% | 55% | Site = NWS PoP (the Friday period is 45% in the live daily forecast; the glance shows the max hourly PoP). Apple's own PoP model says 55%. | **CONFIRMED** (live `/api/weather` forecast) |
+| Humidity / Dew point | 85% / 75° (current-hour NWS forecast) | 89% now / 75° (observed) | Site shows the NWS *forecast* for the hour covering now (§3); Apple shows an observation. 4-point RH gap is forecast-vs-observed, dew points agree. | **CONFIRMED** code path; values within normal spread |
+| Wind / Gusts | S 0–10 mph, no Gusts row | 2–10 mph, gusts to 17 | Same speed range. The NWS hourly product carried no `windGust` values for today, so the site's Gusts row is absent by design (§3); Apple's gust number is its own model output. | **CONFIRMED** (product has no gusts; row gated on presence) |
+
+Net: the iPhone comparison independently *supports* the report's central
+finding — the site is a faithful renderer of the U.S.-government sources it
+cites (NWS heat index, EPA UV, and labeled-modeled Open-Meteo AQI), and
+cross-provider disagreement (especially feels-like formulas and UV models)
+is the expected background level, not evidence of a defect. It also
+reinforces recommendation 4 (label each row's basis): a reader comparing
+against a phone app has no way to see that "Feels like up to" is the NWS
+heat-index scale and "Peak UV" is EPA's product, both of which run higher
+than Apple's equivalents.
+
+---
+*Investigation performed 2026-07-10 ~04:55–05:35 UTC (addendum ~10:00–10:10
+UTC) on the live site, Cloudflare account APIs, api.weather.gov,
+data.epa.gov, and air-quality-api.open-meteo.com, from repo commit
+`30a08d1`.*
