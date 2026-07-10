@@ -1209,6 +1209,12 @@ function todayGlance(weather, lang) {
   if (feelsMax > -Infinity && dayP && feelsMax >= dayP.temperature) add(T(lang, "Feels like up to", "Sensación hasta"), `${feelsMax}°`);
   const popMax = hours.reduce((m, h) => Math.max(m, pop(h)), 0);
   add(T(lang, "Peak rain chance", "Prob. máx. de lluvia"), `${popMax}%`);
+  // Peak UV gates on > 0: at night EPA's remaining hours for "today" are all
+  // 0, and "Peak UV 0" would read as if the day never had any. Daytime Crosby
+  // is always ≥ 1, so a 0 reliably means the daylight hours have passed.
+  // Grouped with the day's other peaks (above the current-hour "now" rows).
+  const uvPeak = uvPeakToday(weather);
+  if (uvPeak) add(T(lang, "Peak UV", "UV máximo"), `${uvPeak} (${uvCategory(uvPeak, lang)})`);
   const speeds = hours.flatMap((h) => String(h.windSpeed || "").match(/\d+/g) || []).map(Number);
   const dirs = hours.map((h) => h.windDirection).filter(Boolean);
   if (speeds.length) {
@@ -1218,20 +1224,17 @@ function todayGlance(weather, lang) {
   }
   const gusts = hours.flatMap((h) => String(h.windGust || "").match(/\d+/g) || []).map(Number);
   if (gusts.length) add(T(lang, "Gusts to", "Rachas hasta"), `${Math.max(...gusts)} mph`);
+  // The three current-hour readings, kept together at the end so the "now" rows
+  // read as one set, distinct from the day's peaks/ranges above.
   const rh = now?.relativeHumidity?.value;
   if (typeof rh === "number") add(T(lang, "Humidity now", "Humedad ahora"), `${Math.round(rh)}%`);
   const dpC = now?.dewpoint?.value;
   if (typeof dpC === "number") add(T(lang, "Dew point now", "Punto de rocío ahora"), `${Math.round((dpC * 9) / 5 + 32)}°`);
-  // Peak UV gates on > 0: at night EPA's remaining hours for "today" are all
-  // 0, and "Peak UV 0" would read as if the day never had any. Daytime Crosby
-  // is always ≥ 1, so a 0 reliably means the daylight hours have passed.
-  const uvPeak = uvPeakToday(weather);
-  if (uvPeak) add(T(lang, "Peak UV", "UV máximo"), `${uvPeak} (${uvCategory(uvPeak, lang)})`);
   // Air quality is meaningful day and night, so no gating — but it's modeled,
-  // so the label says so and the explainer spells it out. "now" marks it as a
-  // current value like humidity/dew point, not a daily peak.
+  // so the value carries a "modeled" tag (matching the hero's "Air N (Cat,
+  // modeled)"). "now" marks it as a current value like humidity/dew point.
   const aqi = weather.aqi;
-  if (aqi?.usAqi != null) add(T(lang, "Air quality now (modeled)", "Calidad del aire ahora (modelada)"), `${aqi.usAqi} (${aqiCategory(aqi.usAqi, lang)})`);
+  if (aqi?.usAqi != null) add(T(lang, "Air quality now", "Calidad del aire ahora"), `${aqi.usAqi} (${aqiCategory(aqi.usAqi, lang)}, ${T(lang, "modeled", "modelado")})`);
   return rows;
 }
 

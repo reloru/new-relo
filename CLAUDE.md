@@ -195,7 +195,9 @@ directory name becomes the `/command`. Current skills:
   `aqi:{usAqi,dominant,pm25,pm10,ozone,time}`, a fifth parallel call in
   `fetchWeather()`, failure-tolerant (`aqi:null` on any error). **Labeled
   "modeled" everywhere it appears** — the hero/`Now` meta ("Air 47 (Good,
-  modeled)"), the homepage glance row "Air quality (modeled)" + its explainer,
+  modeled)"), the homepage "Today at a Glance" row (label "Air quality now",
+  value tagged "N (Category, modeled)" — same shape as the hero) + its
+  explainer,
   `/api/weather` (`airQuality:{…, modeled:true, source}`) and MCP
   `get_current_conditions`/briefing — never presented as a measurement.
   Categories are the EPA 0–500 bands via `aqiCategory()`; the dominant
@@ -328,9 +330,10 @@ directory name becomes the `/command`. Current skills:
   highest-severity type only. Full alert products render ONLY on `/alerts` and
   `/weather` — never dump whole NWS statements on the hub (user-reported: one
   SWS ate 80% of the mobile page). Cards: **Today at a Glance**
-  (`todayGlance()`: high/low, feels-like max, peak rain chance, wind
-  range+gusts, current-hour humidity/dew point, Peak UV, modeled AQI — all
-  from cached data — plus `<details>` explainers). **Time-basis labeling**
+  (`todayGlance()`: the day's peaks/ranges first — high/low, feels-like max,
+  peak rain chance, Peak UV, wind range+gusts — then the three current-hour
+  "now" rows grouped together at the end: humidity, dew point, modeled AQI —
+  all from cached data — plus `<details>` explainers). **Time-basis labeling**
   (user feedback 2026-07-10: couldn't tell highs from averages or calendar-day
   from rolling-24h vs their phone app): the card carries a date + `Updated`
   stamp (`glanceStamp()`), aggregate rows are max/range over the REMAINING
