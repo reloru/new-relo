@@ -478,6 +478,20 @@ const dayLabel = (iso, lang) => fmt(iso, { weekday: "long", month: "short", day:
 // UI uses them as HEADINGS ("Sábado 4 de jul"), where a leading capital is
 // the site-wide convention (the calendar page already does this).
 const capFirst = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+// Compact relative freshness ("6 min ago") for the glance data-source
+// footnote, computed at render time from the cache's `updated` stamp. Paired
+// with the absolute clock time so it stays unambiguous even if a tab lingers.
+function relTime(iso, lang) {
+  const ms = Date.now() - Date.parse(iso);
+  if (!(ms >= 0)) return T(lang, "just now", "hace un momento");
+  const min = Math.round(ms / 60000);
+  if (min < 1) return T(lang, "just now", "hace un momento");
+  if (min < 60) return T(lang, `${min} min ago`, `hace ${min} min`);
+  const hr = Math.round(min / 60);
+  if (hr < 24) return T(lang, `${hr} hr ago`, `hace ${hr} h`);
+  const d = Math.round(hr / 24);
+  return T(lang, `${d} day${d === 1 ? "" : "s"} ago`, `hace ${d} día${d === 1 ? "" : "s"}`);
+}
 
 // --- i18n: English + Mexican Spanish (es-MX) ------------------------------
 // The site renders in English at the root paths and in Spanish under /es.
@@ -1200,51 +1214,70 @@ function todayGlance(weather, lang) {
   const nightP = periods.find((p) => !p.isDaytime);
   const now = currentHourly(weather);
 
-  const rows = [];
-  const add = (label, val) => val != null && val !== "" && rows.push([label, val]);
+  // Two groups, the way weather apps present it (weather.com, AccuWeather, NWS):
+  // the day's outlook (highs/peaks/ranges for today) and the current-hour
+  // readings. Labels are bare metric names — the time basis ("today's high" vs
+  // "right now") lives in the group heading and each metric's expandable
+  // explainer, not in the row label.
+  const todayRows = [];
+  const nowRows = [];
+  const addTo = (arr) => (label, val) => {
+    if (val != null && val !== "") arr.push([label, val]);
+  };
+  const addDay = addTo(todayRows);
+  const addNow = addTo(nowRows);
+
+  // "High" stays "High tomorrow" in the evening once NWS drops today's daytime
+  // period — a correctness label (the number really is tomorrow's), not a
+  // decorative time qualifier.
   const dayIsToday = dayP && ctDay(dayP.startTime) === today;
-  add(dayIsToday ? T(lang, "High", "Máx.") : T(lang, "High tomorrow", "Máx. mañana"), dayP ? `${dayP.temperature}°` : null);
-  add(T(lang, "Low tonight", "Mín. esta noche"), nightP ? `${nightP.temperature}°` : null);
+  addDay(dayIsToday ? T(lang, "High", "Máx.") : T(lang, "High tomorrow", "Máx. mañana"), dayP ? `${dayP.temperature}°` : null);
+  addDay(T(lang, "Low", "Mín."), nightP ? `${nightP.temperature}°` : null);
   const feelsMax = hours.reduce((m, h) => Math.max(m, feelsLikeRawF(h) ?? -Infinity), -Infinity);
-  if (feelsMax > -Infinity && dayP && feelsMax >= dayP.temperature) add(T(lang, "Feels like up to", "Sensación hasta"), `${feelsMax}°`);
+  if (feelsMax > -Infinity && dayP && feelsMax >= dayP.temperature) addDay(T(lang, "Feels like", "Sensación térmica"), `${feelsMax}°`);
   const popMax = hours.reduce((m, h) => Math.max(m, pop(h)), 0);
-  add(T(lang, "Peak rain chance", "Prob. máx. de lluvia"), `${popMax}%`);
-  // Peak UV gates on > 0: at night EPA's remaining hours for "today" are all
-  // 0, and "Peak UV 0" would read as if the day never had any. Daytime Crosby
-  // is always ≥ 1, so a 0 reliably means the daylight hours have passed.
-  // Grouped with the day's other peaks (above the current-hour "now" rows).
+  addDay(T(lang, "Rain chance", "Prob. de lluvia"), `${popMax}%`);
+  // UV gates on > 0: at night EPA's remaining hours for "today" are all 0, and
+  // "UV index 0" would read as if the day never had any. Daytime Crosby is
+  // always ≥ 1, so a 0 reliably means the daylight hours have passed.
   const uvPeak = uvPeakToday(weather);
-  if (uvPeak) add(T(lang, "Peak UV", "UV máximo"), `${uvPeak} (${uvCategory(uvPeak, lang)})`);
+  if (uvPeak) addDay(T(lang, "UV index", "Índice UV"), `${uvPeak} (${uvCategory(uvPeak, lang)})`);
   const speeds = hours.flatMap((h) => String(h.windSpeed || "").match(/\d+/g) || []).map(Number);
   const dirs = hours.map((h) => h.windDirection).filter(Boolean);
   if (speeds.length) {
     const mode = dirs.length ? [...dirs.reduce((m, d) => m.set(d, (m.get(d) || 0) + 1), new Map())].sort((a, b) => b[1] - a[1])[0][0] : "";
     const lo = Math.min(...speeds), hi = Math.max(...speeds);
-    add(T(lang, "Wind", "Viento"), `${translateDir(mode, lang)} ${lo === hi ? lo : `${lo}–${hi}`} mph`);
+    addDay(T(lang, "Wind", "Viento"), `${translateDir(mode, lang)} ${lo === hi ? lo : `${lo}–${hi}`} mph`);
   }
   const gusts = hours.flatMap((h) => String(h.windGust || "").match(/\d+/g) || []).map(Number);
-  if (gusts.length) add(T(lang, "Gusts to", "Rachas hasta"), `${Math.max(...gusts)} mph`);
-  // The three current-hour readings, kept together at the end so the "now" rows
-  // read as one set, distinct from the day's peaks/ranges above.
+  if (gusts.length) addDay(T(lang, "Gusts", "Rachas"), `${Math.max(...gusts)} mph`);
+  // Current-hour readings. Air quality drops its inline "modeled" tag — the
+  // "About air quality" explainer states it — so the row no longer wraps.
   const rh = now?.relativeHumidity?.value;
-  if (typeof rh === "number") add(T(lang, "Humidity now", "Humedad ahora"), `${Math.round(rh)}%`);
+  if (typeof rh === "number") addNow(T(lang, "Humidity", "Humedad"), `${Math.round(rh)}%`);
   const dpC = now?.dewpoint?.value;
-  if (typeof dpC === "number") add(T(lang, "Dew point now", "Punto de rocío ahora"), `${Math.round((dpC * 9) / 5 + 32)}°`);
-  // Air quality is meaningful day and night, so no gating — but it's modeled,
-  // so the value carries a "modeled" tag (matching the hero's "Air N (Cat,
-  // modeled)"). "now" marks it as a current value like humidity/dew point.
+  if (typeof dpC === "number") addNow(T(lang, "Dew point", "Punto de rocío"), `${Math.round((dpC * 9) / 5 + 32)}°`);
   const aqi = weather.aqi;
-  if (aqi?.usAqi != null) add(T(lang, "Air quality now", "Calidad del aire ahora"), `${aqi.usAqi} (${aqiCategory(aqi.usAqi, lang)}, ${T(lang, "modeled", "modelado")})`);
-  return rows;
+  if (aqi?.usAqi != null) addNow(T(lang, "Air quality", "Calidad del aire"), `${aqi.usAqi} (${aqiCategory(aqi.usAqi, lang)})`);
+  return { today: todayRows, now: nowRows };
 }
 
-// The glance card's one-line basis stamp: which Central calendar day the
-// card describes plus the cache's freshness time. Answers "is this today?"
-// and "calendar day or rolling 24 h?" without per-row clutter.
+// The glance card's date context: which Central calendar day the card
+// describes (answers "is this today?"). The cache's freshness moved to the
+// data-source footnote (glanceSourceLine) at the bottom of the card.
 function glanceStamp(weather, lang) {
-  const date = capFirst(dayLabel(new Date().toISOString(), lang));
-  const upd = weather.updated ? ` · ${T(lang, "Updated", "Actualizado")} ${esc(clockTime(weather.updated, lang))} CT` : "";
-  return `${esc(date)}${upd}`;
+  return esc(capFirst(dayLabel(new Date().toISOString(), lang)));
+}
+
+// Tiny provenance + freshness footnote under the glance explainers: which
+// upstreams the card's numbers come from and how fresh our cache is (absolute
+// CT time plus a relative "N min ago"). Returns "" when we have no timestamp.
+// Plain text (locale date/time strings need no escaping) so it serves both the
+// HTML card and the ?format=md view.
+function glanceSourceLine(weather, lang) {
+  if (!weather.updated) return "";
+  const src = T(lang, "the National Weather Service, EPA, and Open-Meteo", "el Servicio Meteorológico Nacional, la EPA y Open-Meteo");
+  return `${T(lang, "Data from", "Datos de")} ${src} · ${T(lang, "updated", "actualizado")} ${clockTime(weather.updated, lang)} CT (${relTime(weather.updated, lang)})`;
 }
 
 // Short, honest explainers for the glance numbers people ask about most.
@@ -1255,40 +1288,40 @@ function glanceExplainers(lang) {
       T(lang, "About feels-like temperature", "Acerca de la sensación térmica"),
       T(
         lang,
-        "The heat index or wind chill: what the air feels like to your body once humidity or wind is factored in, computed with the National Weather Service's own formulas. “Feels like up to” is the highest value forecast for the rest of today, not an average. Phone weather apps often use their own gentler “feels like” formulas, so theirs can read several degrees cooler than the NWS heat index on humid days.",
-        "El índice de calor o la sensación por viento: cómo se siente el aire para tu cuerpo al considerar la humedad o el viento, calculado con las fórmulas oficiales del Servicio Meteorológico Nacional. “Sensación hasta” es el valor más alto pronosticado para lo que resta del día, no un promedio. Las apps del teléfono suelen usar sus propias fórmulas más suaves, así que pueden marcar varios grados menos que el índice de calor del NWS en días húmedos."
+        "This is the highest “feels like” expected for the rest of today — the peak, not an average. It's the heat index or wind chill: what the air feels like to your body once humidity or wind is factored in, computed with the National Weather Service's own formulas. Phone weather apps often use their own gentler “feels like” formulas, so theirs can read several degrees cooler than the NWS heat index on humid days.",
+        "Es la sensación térmica más alta prevista para lo que resta del día — el máximo, no un promedio. Es el índice de calor o la sensación por viento: cómo se siente el aire para tu cuerpo al considerar la humedad o el viento, calculado con las fórmulas oficiales del Servicio Meteorológico Nacional. Las apps del teléfono suelen usar sus propias fórmulas más suaves, así que pueden marcar varios grados menos que el índice de calor del NWS en días húmedos."
       ),
     ],
     [
       T(lang, "About humidity", "Acerca de la humedad"),
       T(
         lang,
-        "How much moisture the air holds relative to its maximum. High humidity slows the evaporation of sweat, so hot days feel hotter.",
-        "Cuánta humedad contiene el aire en relación con su máximo. La humedad alta frena la evaporación del sudor, así que los días calurosos se sienten más calurosos."
+        "This is the humidity right now — how much moisture the air holds relative to its maximum. High humidity slows the evaporation of sweat, so hot days feel hotter.",
+        "Es la humedad en este momento — cuánta humedad contiene el aire en relación con su máximo. La humedad alta frena la evaporación del sudor, así que los días calurosos se sienten más calurosos."
       ),
     ],
     [
       T(lang, "About dew point", "Acerca del punto de rocío"),
       T(
         lang,
-        "The temperature the air would have to cool to for dew to form. Above about 70° feels muggy; below about 55° feels dry.",
-        "La temperatura a la que el aire tendría que enfriarse para que se forme rocío. Arriba de unos 70° se siente bochornoso; abajo de unos 55° se siente seco."
+        "This is the dew point right now — the temperature the air would have to cool to for dew to form. Above about 70° feels muggy; below about 55° feels dry.",
+        "Es el punto de rocío en este momento — la temperatura a la que el aire tendría que enfriarse para que se forme rocío. Arriba de unos 70° se siente bochornoso; abajo de unos 55° se siente seco."
       ),
     ],
     [
       T(lang, "About the UV index", "Acerca del índice UV"),
       T(
         lang,
-        "The EPA's forecast of peak sunburn-causing UV radiation for today, on a scale where 3–5 is moderate, 6–7 high, 8–10 very high, and 11+ extreme. At 6 or above, use sunscreen and seek shade around midday — Gulf Coast summers routinely reach very high.",
-        "El pronóstico de la EPA sobre la radiación UV máxima que causa quemaduras hoy, en una escala donde 3–5 es moderado, 6–7 alto, 8–10 muy alto y 11+ extremo. Con 6 o más, usa protector solar y busca sombra al mediodía — los veranos de la costa del Golfo llegan seguido a muy alto."
+        "This is the highest UV index expected today — the EPA's forecast of peak sunburn-causing UV radiation, on a scale where 3–5 is moderate, 6–7 high, 8–10 very high, and 11+ extreme. At 6 or above, use sunscreen and seek shade around midday — Gulf Coast summers routinely reach very high.",
+        "Es el índice UV más alto previsto para hoy — el pronóstico de la EPA sobre la radiación UV máxima que causa quemaduras, en una escala donde 3–5 es moderado, 6–7 alto, 8–10 muy alto y 11+ extremo. Con 6 o más, usa protector solar y busca sombra al mediodía — los veranos de la costa del Golfo llegan seguido a muy alto."
       ),
     ],
     [
-      T(lang, "About air quality (modeled)", "Acerca de la calidad del aire (modelada)"),
+      T(lang, "About air quality", "Acerca de la calidad del aire"),
       T(
         lang,
-        "The U.S. AQI on the standard 0–500 scale: 0–50 good, 51–100 moderate, 101–150 unhealthy for sensitive groups, 151+ unhealthy for everyone. Unlike every other number here, this one is modeled — there's no EPA air monitor in Crosby, so it comes from Open-Meteo's forecast rather than a nearby instrument, and it's a useful estimate (helpful during wildfire-smoke days) rather than an official reading.",
-        "El Índice de Calidad del Aire de EE. UU. en la escala estándar de 0 a 500: 0–50 buena, 51–100 moderada, 101–150 insalubre para grupos sensibles, 151+ insalubre para todos. A diferencia de los demás datos aquí, este es modelado: no hay un monitor de aire de la EPA en Crosby, así que proviene del pronóstico de Open-Meteo y no de un instrumento cercano; es una estimación útil (sobre todo en días con humo de incendios), no una medición oficial."
+        "This is the air quality right now, on the U.S. AQI's standard 0–500 scale: 0–50 good, 51–100 moderate, 101–150 unhealthy for sensitive groups, 151+ unhealthy for everyone. Unlike every other number here, this one is modeled — there's no EPA air monitor in Crosby, so it comes from Open-Meteo's forecast rather than a nearby instrument, and it's a useful estimate (helpful during wildfire-smoke days) rather than an official reading.",
+        "Es la calidad del aire en este momento, en la escala estándar de 0 a 500 del Índice de Calidad del Aire de EE. UU.: 0–50 buena, 51–100 moderada, 101–150 insalubre para grupos sensibles, 151+ insalubre para todos. A diferencia de los demás datos aquí, este es modelado: no hay un monitor de aire de la EPA en Crosby, así que proviene del pronóstico de Open-Meteo y no de un instrumento cercano; es una estimación útil (sobre todo en días con humo de incendios), no una medición oficial."
       ),
     ],
   ];
@@ -1317,6 +1350,7 @@ function homeHtml(weather, water, news, cal, tropics, lang) {
     ? `<section class="hub-hero">
       ${now.icon ? `<img class="hero-icon" src="${iconUrl(now.icon, "large")}" alt="${esc(translateConditions(now.shortForecast, lang))}" width="104" height="104" fetchpriority="high">` : ""}
       <div class="hub-hero-now">
+        <p class="hub-eyebrow">${T(lang, "Currently in Crosby, Texas", "Actualmente en Crosby, Texas")}</p>
         <p class="hub-temp">${esc(now.temperature)}&deg;<span>${esc(now.temperatureUnit)}</span> <span class="hub-cond-inline">${esc(translateConditions(now.shortForecast, lang))}</span></p>
         ${feels != null ? `<p class="hub-line">${T(lang, "Feels like", "Sensación térmica de")} ${esc(feels)}&deg;</p>` : ""}
         ${windLine ? `<p class="hub-line">${windLine}</p>` : ""}
@@ -1348,18 +1382,22 @@ function homeHtml(weather, water, news, cal, tropics, lang) {
     : `<li class="muted">${T(lang, "No upcoming events posted.", "No hay eventos próximos publicados.")}</li>`;
 
   const lk = (en, es) => (lang === "es" ? esPath(en) : en);
-  const glanceRows = todayGlance(weather, lang)
-    .map(([k, v]) => `<li><span class="pk-label">${k}</span><span class="pk-val">${v}</span></li>`)
-    .join("");
+  const glance = todayGlance(weather, lang);
+  const glanceList = (rows) => rows.map(([k, v]) => `<li><span class="pk-label">${k}</span><span class="pk-val">${v}</span></li>`).join("");
+  const glanceTodayRows = glanceList(glance.today);
+  const glanceNowRows = glanceList(glance.now);
+  const glanceSrc = glanceSourceLine(weather, lang);
   const alertsUpdated = weather.updated ? `${T(lang, "Updated", "Actualizado")} ${esc(clockTime(weather.updated, lang))}` : "";
   const waterUpdated = water.updated ? `${T(lang, "Updated", "Actualizado")} ${esc(clockTime(water.updated, lang))}` : "";
   const alertTypes = [...new Set(alerts.map((a) => a.event))];
   const cards = `<div class="hub-grid">
-      ${glanceRows ? `<section class="hub-card">
+      ${glanceTodayRows || glanceNowRows ? `<section class="hub-card">
         <h2>${T(lang, "Today at a Glance", "Hoy de un vistazo")}</h2>
         <p class="hub-stamp">${glanceStamp(weather, lang)}</p>
-        <ul class="peek">${glanceRows}</ul>
+        ${glanceTodayRows ? `<ul class="peek">${glanceTodayRows}</ul>` : ""}
+        ${glanceNowRows ? `<p class="glance-group">${T(lang, "Right now", "Ahora mismo")}</p><ul class="peek">${glanceNowRows}</ul>` : ""}
         ${glanceExplainers(lang)}
+        ${glanceSrc ? `<p class="glance-source">${glanceSrc}</p>` : ""}
       </section>` : ""}
       <section class="hub-card">
         <h2><a href="${lk("/weather")}">${T(lang, "Weather", "Clima")}</a></h2>
@@ -1422,6 +1460,7 @@ ${JSONLD_SITE}
   .hub-temp span { font-size:1.1rem; font-weight:600; vertical-align:super; opacity:0.85; }
   .hub-cond { margin:0.2rem 0 0; font-size:1.15rem; font-weight:600; }
   .hub-hero-meta { margin:0.3rem 0 0; font-size:0.85rem; opacity:0.85; }
+  .hub-eyebrow { margin:0 0 0.2rem; font-size:0.72rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; opacity:0.85; }
   .hub-cta { flex:none; background:rgba(255,255,255,0.16); color:#fff; text-decoration:none; font-weight:700; padding:0.5rem 0.9rem; border-radius:10px; white-space:nowrap; }
   .hub-cta:hover { background:rgba(255,255,255,0.28); }
   .hub-grid { display:grid; gap:0.8rem; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); margin-top:1rem; }
@@ -1450,6 +1489,8 @@ ${JSONLD_SITE}
   .hub-water.w-major .hub-water-badge { background:#6f1fa0; }
   .hub-water-detail { margin:0; font-size:0.85rem; color:var(--muted); }
   .hub-stamp { margin:0.35rem 0 0; font-size:0.78rem; color:var(--muted); }
+  .glance-group { margin:0.75rem 0 0.15rem; font-size:0.72rem; font-weight:700; letter-spacing:0.04em; text-transform:uppercase; color:var(--muted); }
+  .glance-source { margin:0.6rem 0 0; font-size:0.72rem; line-height:1.35; color:var(--muted); }
   .muted { color:var(--muted); font-style:italic; }
   .hub-cond-inline { font-size:1.15rem; font-weight:600; vertical-align:baseline; margin-left:0.3rem; }
   .hub-line { margin:0.22rem 0 0; font-size:0.95rem; opacity:0.95; }
@@ -1502,7 +1543,7 @@ function homeMarkdown(weather, water, news, cal, tropics, lang) {
   if (now) {
     const windLine = now.windSpeed && now.windDirection ? `; ${T(lang, "wind", "viento")} ${translateWind(now.windSpeed, lang)} ${T(lang, "from the", "del")} ${dirWord(now.windDirection, lang)}` : "";
     const popNow = pop(now) ? `; ${pop(now)}% ${T(lang, "chance of precipitation", "de probabilidad de lluvia")}` : "";
-    out.push(`**${now.temperature}°${now.temperatureUnit}** — ${translateConditions(now.shortForecast, lang)}${feels != null ? ` (${T(lang, "feels like", "sensación térmica de")} ${feels}°)` : ""}${windLine}${popNow}. [${T(lang, "Full forecast", "Pronóstico completo")}](${canonicalFor("/weather", lang)})`, "");
+    out.push(`**${T(lang, "Currently in Crosby, Texas", "Actualmente en Crosby, Texas")}:** ${now.temperature}°${now.temperatureUnit} — ${translateConditions(now.shortForecast, lang)}${feels != null ? ` (${T(lang, "feels like", "sensación térmica de")} ${feels}°)` : ""}${windLine}${popNow}. [${T(lang, "Full forecast", "Pronóstico completo")}](${canonicalFor("/weather", lang)})`, "");
     if (weather.updated) out.push(`_${T(lang, "Updated", "Actualizado")} ${clockTime(weather.updated, lang)} CT_`, "");
   }
   const alerts = weather.alerts ?? [];
@@ -1516,11 +1557,17 @@ function homeMarkdown(weather, water, news, cal, tropics, lang) {
     out.push(`**🌀 ${T(lang, "Tropical activity in the Atlantic", "Actividad tropical en el Atlántico")}:** ${storms.map((s) => tropicsStormLine(s, lang)).join("; ")}. [${T(lang, "Track them", "Seguirlos")}](${canonicalFor("/tropics", lang)})`, "");
   }
   const glance = todayGlance(weather, lang);
-  if (glance.length) {
-    // glanceStamp's esc() is a no-op on locale date/time strings, so the
-    // same stamp serves the markdown view.
+  if (glance.today.length || glance.now.length) {
+    // glanceStamp's esc() is a no-op on locale date strings, so the same date
+    // serves the markdown view. "Right now" mirrors the HTML card's grouping.
     out.push(`## ${T(lang, "Today at a glance", "Hoy de un vistazo")}`, "", `_${glanceStamp(weather, lang)}_`, "");
-    for (const [k, v] of glance) out.push(`- ${k}: ${v}`);
+    for (const [k, v] of glance.today) out.push(`- ${k}: ${v}`);
+    if (glance.now.length) {
+      out.push("", `**${T(lang, "Right now", "Ahora mismo")}**`, "");
+      for (const [k, v] of glance.now) out.push(`- ${k}: ${v}`);
+    }
+    const glanceSrc = glanceSourceLine(weather, lang);
+    if (glanceSrc) out.push("", `_${glanceSrc}_`);
     out.push("");
   }
   const ws = hubWaterSummary(water, lang);

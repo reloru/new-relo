@@ -195,9 +195,11 @@ directory name becomes the `/command`. Current skills:
   `aqi:{usAqi,dominant,pm25,pm10,ozone,time}`, a fifth parallel call in
   `fetchWeather()`, failure-tolerant (`aqi:null` on any error). **Labeled
   "modeled" everywhere it appears** — the hero/`Now` meta ("Air 47 (Good,
-  modeled)"), the homepage "Today at a Glance" row (label "Air quality now",
-  value tagged "N (Category, modeled)" — same shape as the hero) + its
-  explainer,
+  modeled)"), the homepage "Today at a Glance" **"About air quality"
+  explainer** (which states it's modeled; the glance ROW itself is a bare
+  "Air quality N (Category)" with no inline "modeled" tag — the tag was dropped
+  from the row so it stops wrapping the narrow desktop column, the explainer
+  carries the disclosure),
   `/api/weather` (`airQuality:{…, modeled:true, source}`) and MCP
   `get_current_conditions`/briefing — never presented as a measurement.
   Categories are the EPA 0–500 bands via `aqiCategory()`; the dominant
@@ -330,19 +332,28 @@ directory name becomes the `/command`. Current skills:
   highest-severity type only. Full alert products render ONLY on `/alerts` and
   `/weather` — never dump whole NWS statements on the hub (user-reported: one
   SWS ate 80% of the mobile page). Cards: **Today at a Glance**
-  (`todayGlance()`: the day's peaks/ranges first — high/low, feels-like max,
-  peak rain chance, Peak UV, wind range+gusts — then the three current-hour
-  "now" rows grouped together at the end: humidity, dew point, modeled AQI —
-  all from cached data — plus `<details>` explainers). **Time-basis labeling**
-  (user feedback 2026-07-10: couldn't tell highs from averages or calendar-day
-  from rolling-24h vs their phone app): the card carries a date + `Updated`
-  stamp (`glanceStamp()`), aggregate rows are max/range over the REMAINING
-  hours of the CT calendar day (past hours excluded even when the NWS product
-  still carries them), labels are peak-phrased ("Peak rain chance", "Feels
-  like up to"), current-hour rows say "now" (Humidity/Dew point/Air quality),
-  and in the evening — when NWS drops today's daytime period — the High row
-  relabels to "High tomorrow" instead of silently showing tomorrow's number.
-  Full rationale: `docs/2026-07-10-today-at-a-glance-investigation.md`.
+  (`todayGlance()` returns `{today, now}` — two groups the way weather apps do
+  it: the day's outlook (High, Low, Feels like, Rain chance, UV index, Wind,
+  Gusts) rendered first, then a "Right now" sub-heading over the current-hour
+  readings (Humidity, Dew point, Air quality) — all from cached data). **Labels
+  are bare metric names** (no "Peak"/"now" qualifiers): the time basis lives in
+  the "Right now" group heading and in each metric's `<details>` explainer,
+  which now LEADS with what/when ("This is the highest feels-like expected for
+  the rest of today…", "This is the humidity right now…") — the weather-app
+  convention (weather.com/AccuWeather/NWS all use bare labels + a current-vs-
+  forecast split). Rationale for this over-per-row-qualifiers came from user
+  feedback 2026-07-10 (couldn't tell highs from averages / calendar-day vs
+  rolling-24h vs their phone app); the investigation is at
+  `docs/2026-07-10-today-at-a-glance-investigation.md`. Mechanics preserved:
+  aggregate rows are max/range over the REMAINING hours of the CT calendar day
+  (past hours excluded even when the NWS product still carries them), and in the
+  evening — when NWS drops today's daytime period — the High row relabels to
+  "High tomorrow" (a correctness label, kept). `glanceStamp()` is now just the
+  date ("Friday, Jul 10"); freshness moved to a tiny **data-source footnote**
+  under the explainers (`glanceSourceLine()`: "Data from the National Weather
+  Service, EPA, and Open-Meteo · updated H:MM CT (N min ago)", `relTime()` for
+  the relative part). The homepage hero also carries a "Currently in Crosby,
+  Texas" eyebrow (`.hub-eyebrow`) above the temp.
   Then: Weather peek, an **Alerts
   status card** (count or "None" — no-alerts is news), Water (badge +
   `Updated` stamp; detail line only when not normal), News, Calendar. It loads
