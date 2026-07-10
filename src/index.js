@@ -1276,8 +1276,9 @@ function glanceStamp(weather, lang) {
 // HTML card and the ?format=md view.
 function glanceSourceLine(weather, lang) {
   if (!weather.updated) return "";
-  const src = T(lang, "the National Weather Service, EPA, and Open-Meteo", "el Servicio Meteorológico Nacional, la EPA y Open-Meteo");
-  return `${T(lang, "Data from", "Datos de")} ${src} · ${T(lang, "updated", "actualizado")} ${clockTime(weather.updated, lang)} CT (${relTime(weather.updated, lang)})`;
+  // ES: "Datos" + "del Servicio…" so it reads "Datos del…" (not "de el").
+  const src = T(lang, "the National Weather Service, EPA, and Open-Meteo", "del Servicio Meteorológico Nacional, la EPA y Open-Meteo");
+  return `${T(lang, "Data from", "Datos")} ${src} · ${T(lang, "updated", "actualizado")} ${clockTime(weather.updated, lang)} CT (${relTime(weather.updated, lang)})`;
 }
 
 // Short, honest explainers for the glance numbers people ask about most.
