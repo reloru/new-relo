@@ -410,7 +410,17 @@ in the investigation session; representative values inline above):
   hour rollover lands between two copies — the incident's proposed
   mechanism; (d) exact agreement between
   a local replay of `todayGlance()` on the fetched KV bytes and the live
-  rendered HTML.
+  rendered HTML; (e) **a live cross-tick value revision**: the 05:30:53 KV
+  write changed the rendered glance to High 92°→**91°**, Rain chance
+  36%→**45%**, Humidity 79%→**85%**, Dew point 75°→**77°** (Feels-like max
+  stayed 102°) — upstream revision alone moving several displayed values in
+  one 15-minute step, no deploy, no code change; and (f) **vantage-point
+  divergence**: at that same time (through 05:33), all 13 direct NWS fetches
+  from the investigation host were still being served the `updateTime
+  04:11:19` product with *unrevised* values — so the Worker's cron fetch and
+  a concurrent outside client received **different product generations at
+  the same wall-clock moment**, direct evidence that "what the site shows"
+  and "what NWS shows you if you check" can legitimately disagree.
 - **Not reproduced:** the specific 95→102→95 flap. Why: it requires the NWS
   product's today-window/values to shift across ticks during hot daytime
   hours; the sampling window was overnight (feels-like values stable, and
@@ -500,7 +510,10 @@ rest).
 **CONFIRMED** (direct observation, all cited above): section render path and
 its single-KV-snapshot input; absence of client-side data refresh; the
 15-min `location.reload()`; deployed cron `*/15` and 96/24 h execution with
-`outcome: ok`; KV write timestamps (`04:45:53.731` → `05:00:54.213`); no
+`outcome: ok`; KV write timestamps (`04:45:53.731` → `05:00:54.213` →
+`05:15:53.835` → `05:30:53.970`); a cross-tick upstream revision moving
+four rendered glance values at the 05:30 write while concurrent direct NWS
+fetches still returned the unrevised product (§6 e–f); no
 edge-cache rules and no `cf-cache-status` on responses; deployed bundle ≡
 repo source for this path; last deploy 2026-07-07 (none in the incident
 window); zero error logs in 72 h; the Houston/Comcast `GET /` sequence
