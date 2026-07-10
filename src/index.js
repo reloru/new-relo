@@ -1178,13 +1178,23 @@ function hubTropicsBanner(tropics, lang) {
 }
 
 // "Today at a Glance" numbers, all from the cached NWS data: daily periods
-// for high/low, today's hourly periods (Central calendar day) for feels-like
-// max, peak rain chance, wind range + prevailing direction and gusts, and the
-// current hour for humidity/dew point.
+// for high/low, the REMAINING hourly periods of today (Central calendar day,
+// current hour onward — hours already past are excluded even when the NWS
+// product still carries them, so the peaks are stable and honestly
+// forward-looking) for feels-like max, peak rain chance, wind range +
+// prevailing direction and gusts, and the current hour for humidity/dew
+// point. Every aggregate row is a peak or range, never an average, and the
+// labels say which (user feedback: comparing against a phone app, they
+// couldn't tell highs from averages or "today" from a rolling 24 h — the
+// card carries a date + Updated stamp and per-row wording for exactly that).
+// In the evening NWS drops today's daytime period, so the first daytime
+// period is tomorrow's — the High row relabels itself instead of silently
+// showing tomorrow's number under "Today".
 function todayGlance(weather, lang) {
   const ctDay = (iso) => new Date(iso).toLocaleDateString("en-CA", { timeZone: TZ });
-  const today = ctDay(new Date().toISOString());
-  const hours = (weather.hourly ?? []).filter((h) => ctDay(h.startTime) === today);
+  const nowMs = Date.now();
+  const today = ctDay(new Date(nowMs).toISOString());
+  const hours = (weather.hourly ?? []).filter((h) => ctDay(h.startTime) === today && Date.parse(h.endTime) > nowMs);
   const periods = weather.periods ?? [];
   const dayP = periods.find((p) => p.isDaytime);
   const nightP = periods.find((p) => !p.isDaytime);
@@ -1192,12 +1202,13 @@ function todayGlance(weather, lang) {
 
   const rows = [];
   const add = (label, val) => val != null && val !== "" && rows.push([label, val]);
-  add(T(lang, "High", "Máx."), dayP ? `${dayP.temperature}°` : null);
-  add(T(lang, "Low", "Mín."), nightP ? `${nightP.temperature}°` : null);
+  const dayIsToday = dayP && ctDay(dayP.startTime) === today;
+  add(dayIsToday ? T(lang, "High", "Máx.") : T(lang, "High tomorrow", "Máx. mañana"), dayP ? `${dayP.temperature}°` : null);
+  add(T(lang, "Low tonight", "Mín. esta noche"), nightP ? `${nightP.temperature}°` : null);
   const feelsMax = hours.reduce((m, h) => Math.max(m, feelsLikeRawF(h) ?? -Infinity), -Infinity);
   if (feelsMax > -Infinity && dayP && feelsMax >= dayP.temperature) add(T(lang, "Feels like up to", "Sensación hasta"), `${feelsMax}°`);
   const popMax = hours.reduce((m, h) => Math.max(m, pop(h)), 0);
-  add(T(lang, "Rain chance", "Prob. de lluvia"), `${popMax}%`);
+  add(T(lang, "Peak rain chance", "Prob. máx. de lluvia"), `${popMax}%`);
   const speeds = hours.flatMap((h) => String(h.windSpeed || "").match(/\d+/g) || []).map(Number);
   const dirs = hours.map((h) => h.windDirection).filter(Boolean);
   if (speeds.length) {
@@ -1208,19 +1219,29 @@ function todayGlance(weather, lang) {
   const gusts = hours.flatMap((h) => String(h.windGust || "").match(/\d+/g) || []).map(Number);
   if (gusts.length) add(T(lang, "Gusts to", "Rachas hasta"), `${Math.max(...gusts)} mph`);
   const rh = now?.relativeHumidity?.value;
-  if (typeof rh === "number") add(T(lang, "Humidity", "Humedad"), `${Math.round(rh)}%`);
+  if (typeof rh === "number") add(T(lang, "Humidity now", "Humedad ahora"), `${Math.round(rh)}%`);
   const dpC = now?.dewpoint?.value;
-  if (typeof dpC === "number") add(T(lang, "Dew point", "Punto de rocío"), `${Math.round((dpC * 9) / 5 + 32)}°`);
+  if (typeof dpC === "number") add(T(lang, "Dew point now", "Punto de rocío ahora"), `${Math.round((dpC * 9) / 5 + 32)}°`);
   // Peak UV gates on > 0: at night EPA's remaining hours for "today" are all
   // 0, and "Peak UV 0" would read as if the day never had any. Daytime Crosby
   // is always ≥ 1, so a 0 reliably means the daylight hours have passed.
   const uvPeak = uvPeakToday(weather);
   if (uvPeak) add(T(lang, "Peak UV", "UV máximo"), `${uvPeak} (${uvCategory(uvPeak, lang)})`);
   // Air quality is meaningful day and night, so no gating — but it's modeled,
-  // so the label says so and the explainer spells it out.
+  // so the label says so and the explainer spells it out. "now" marks it as a
+  // current value like humidity/dew point, not a daily peak.
   const aqi = weather.aqi;
-  if (aqi?.usAqi != null) add(T(lang, "Air quality (modeled)", "Calidad del aire (modelada)"), `${aqi.usAqi} (${aqiCategory(aqi.usAqi, lang)})`);
+  if (aqi?.usAqi != null) add(T(lang, "Air quality now (modeled)", "Calidad del aire ahora (modelada)"), `${aqi.usAqi} (${aqiCategory(aqi.usAqi, lang)})`);
   return rows;
+}
+
+// The glance card's one-line basis stamp: which Central calendar day the
+// card describes plus the cache's freshness time. Answers "is this today?"
+// and "calendar day or rolling 24 h?" without per-row clutter.
+function glanceStamp(weather, lang) {
+  const date = capFirst(dayLabel(new Date().toISOString(), lang));
+  const upd = weather.updated ? ` · ${T(lang, "Updated", "Actualizado")} ${esc(clockTime(weather.updated, lang))} CT` : "";
+  return `${esc(date)}${upd}`;
 }
 
 // Short, honest explainers for the glance numbers people ask about most.
@@ -1231,8 +1252,8 @@ function glanceExplainers(lang) {
       T(lang, "About feels-like temperature", "Acerca de la sensación térmica"),
       T(
         lang,
-        "The heat index or wind chill: what the air feels like to your body once humidity or wind is factored in, computed with the National Weather Service's own formulas.",
-        "El índice de calor o la sensación por viento: cómo se siente el aire para tu cuerpo al considerar la humedad o el viento, calculado con las fórmulas oficiales del Servicio Meteorológico Nacional."
+        "The heat index or wind chill: what the air feels like to your body once humidity or wind is factored in, computed with the National Weather Service's own formulas. “Feels like up to” is the highest value forecast for the rest of today, not an average. Phone weather apps often use their own gentler “feels like” formulas, so theirs can read several degrees cooler than the NWS heat index on humid days.",
+        "El índice de calor o la sensación por viento: cómo se siente el aire para tu cuerpo al considerar la humedad o el viento, calculado con las fórmulas oficiales del Servicio Meteorológico Nacional. “Sensación hasta” es el valor más alto pronosticado para lo que resta del día, no un promedio. Las apps del teléfono suelen usar sus propias fórmulas más suaves, así que pueden marcar varios grados menos que el índice de calor del NWS en días húmedos."
       ),
     ],
     [
@@ -1333,6 +1354,7 @@ function homeHtml(weather, water, news, cal, tropics, lang) {
   const cards = `<div class="hub-grid">
       ${glanceRows ? `<section class="hub-card">
         <h2>${T(lang, "Today at a Glance", "Hoy de un vistazo")}</h2>
+        <p class="hub-stamp">${glanceStamp(weather, lang)}</p>
         <ul class="peek">${glanceRows}</ul>
         ${glanceExplainers(lang)}
       </section>` : ""}
@@ -1492,7 +1514,9 @@ function homeMarkdown(weather, water, news, cal, tropics, lang) {
   }
   const glance = todayGlance(weather, lang);
   if (glance.length) {
-    out.push(`## ${T(lang, "Today at a glance", "Hoy de un vistazo")}`, "");
+    // glanceStamp's esc() is a no-op on locale date/time strings, so the
+    // same stamp serves the markdown view.
+    out.push(`## ${T(lang, "Today at a glance", "Hoy de un vistazo")}`, "", `_${glanceStamp(weather, lang)}_`, "");
     for (const [k, v] of glance) out.push(`- ${k}: ${v}`);
     out.push("");
   }

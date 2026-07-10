@@ -329,8 +329,18 @@ directory name becomes the `/command`. Current skills:
   `/weather` — never dump whole NWS statements on the hub (user-reported: one
   SWS ate 80% of the mobile page). Cards: **Today at a Glance**
   (`todayGlance()`: high/low, feels-like max, peak rain chance, wind
-  range+gusts, humidity, dew point — all from cached data — plus `<details>`
-  explainers for feels-like/humidity/dew point), Weather peek, an **Alerts
+  range+gusts, current-hour humidity/dew point, Peak UV, modeled AQI — all
+  from cached data — plus `<details>` explainers). **Time-basis labeling**
+  (user feedback 2026-07-10: couldn't tell highs from averages or calendar-day
+  from rolling-24h vs their phone app): the card carries a date + `Updated`
+  stamp (`glanceStamp()`), aggregate rows are max/range over the REMAINING
+  hours of the CT calendar day (past hours excluded even when the NWS product
+  still carries them), labels are peak-phrased ("Peak rain chance", "Feels
+  like up to"), current-hour rows say "now" (Humidity/Dew point/Air quality),
+  and in the evening — when NWS drops today's daytime period — the High row
+  relabels to "High tomorrow" instead of silently showing tomorrow's number.
+  Full rationale: `docs/2026-07-10-today-at-a-glance-investigation.md`.
+  Then: Weather peek, an **Alerts
   status card** (count or "None" — no-alerts is news), Water (badge +
   `Updated` stamp; detail line only when not normal), News, Calendar. It loads
   all four datasets in parallel (`Promise.all`, each `.catch`-degrading to an
