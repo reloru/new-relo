@@ -456,6 +456,24 @@ directory name becomes the `/command`. Current skills:
   it serves the WEATHER KV `news` key (read-only via `loadNews()`). That key is
   written out-of-band by `scripts/fetch-news.mjs` (see "News pipeline"), NOT by
   the Worker — Google News blocks Cloudflare Worker IPs. Markdown-negotiated.
+  **Admin nuke** (owner-only editorial control, no accounts/public voting):
+  visiting `/news?admin=<ADMIN_KEY>` renders every article with 🗑 Hide /
+  ↩ Restore buttons (and dims already-hidden ones); the button POSTs the
+  article link + the secret to `POST /api/news/delete` (or `/api/news/restore`),
+  which the Worker checks against the `ADMIN_KEY` **Worker secret** (constant-
+  time, via `isAdmin()`) and records in the worker-owned **`news_blocklist`** KV
+  key (`{link: blockedAtMs}`, auto-pruned past 60 days). `loadNews()` filters
+  against that key so a hidden article vanishes **instantly** on the next render
+  everywhere it appears (/news, the homepage card, `/api/news`, `/news.xml`);
+  `loadNews(env, {includeBlocked:true})` is the admin variant that keeps blocked
+  items (annotated `.blocked`). The news routine also reads `news_blocklist`
+  (`loadBlocklist()`) and drops those links, so a nuked article **stays gone**
+  even though Google's RSS keeps returning it. The whole feature no-ops if
+  `ADMIN_KEY` is unset (endpoints 503, buttons never render); admin responses
+  are `private, no-store` and English/Spanish share one CSP-hashed script
+  (`NEWS_ADMIN_SCRIPT`, labels via `data-*`). No cookies or visitor data — the
+  secret lives in the URL you bookmark, checked server-side; privacy model
+  unchanged. Rotate by re-running `wrangler secret put ADMIN_KEY`.
 - `/calendar` — Crosby ISD school calendar. Renders the district's public iCal
   feed (the combined "All Calendars" feed, `feedID=BB92BE3D…`, which is the union
   of every campus) as upcoming events grouped by month, plus one-tap subscribe
@@ -798,3 +816,8 @@ directory name becomes the `/command`. Current skills:
   by the cron). Don't hand-edit the `push:*`/`push_notified` keys — deleting a
   `push:` entry just unsubscribes that device; deleting `push_notified` would
   re-notify every currently-active severe warning on the next tick.
+- The **`news_blocklist`** key is worker-owned (written by the `/api/news/delete`
+  + `/api/news/restore` admin endpoints, read by both the Worker's `loadNews()`
+  and the news routine's `loadBlocklist()`): `{articleLink: blockedAtMs}` of
+  articles the owner hid via the `/news?admin=` nuke. Deleting it just un-hides
+  everything; it self-prunes entries older than 60 days. See the `/news` route.

@@ -881,6 +881,43 @@ if ("serviceWorker" in navigator) {
 // Severe-alert push opt-in (the /alerts page). One constant so its CSP hash is
 // derived from the exact bytes shipped (like HOME_SCRIPT). Language-agnostic:
 // all user-facing strings are read from data-* attributes on the container, so
+// Admin nuke wiring for /news (only injected when the request carried a valid
+// ?admin=<secret>). Each button POSTs the article link + the secret (read from
+// the URL) to /api/news/delete or /restore; on success it flips the row's
+// blocked state in place. Language-agnostic bytes (labels via data-*), so one
+// CSP hash serves both languages, like PUSH_CLIENT_SCRIPT.
+const NEWS_ADMIN_SCRIPT = `
+(function () {
+  var key = new URLSearchParams(location.search).get("admin");
+  if (!key) return;
+  document.querySelectorAll(".news-admin-btn").forEach(function (btn) {
+    btn.addEventListener("click", async function () {
+      var li = btn.closest(".news-item");
+      var action = btn.getAttribute("data-action");
+      btn.disabled = true;
+      try {
+        var r = await fetch("/api/news/" + action, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ link: btn.getAttribute("data-link"), key: key }),
+        });
+        if (r.ok) {
+          var blocked = action === "delete";
+          if (li) li.classList.toggle("news-blocked", blocked);
+          btn.setAttribute("data-action", blocked ? "restore" : "delete");
+          btn.innerHTML = blocked ? "\\u21a9 " + btn.getAttribute("data-restore") : "\\uD83D\\uDDD1 " + btn.getAttribute("data-hide");
+        } else {
+          alert("Action failed (" + r.status + ")");
+        }
+      } catch (e) {
+        alert("Network error");
+      }
+      btn.disabled = false;
+    });
+  });
+})();
+`;
+
 // the same bytes (one hash) serve both languages. Progressive enhancement —
 // the container stays hidden unless the browser supports push AND the server
 // returns a VAPID key.
@@ -3465,11 +3502,44 @@ function alertsMarkdown(data, lang) {
 // IPs, but a routine environment can reach it — so the Worker never fetches
 // news itself; it just renders what the routine wrote.
 const NEWS_KV_KEY = "news";
+// Editorial blocklist (worker-owned, distinct from the routine-owned `news`
+// key): a map of { articleLink: blockedAtMs } written by the admin nuke
+// endpoints. `loadNews` filters against it so a nuked article vanishes on the
+// next render, and the news routine reads it too so the item stays gone even
+// though Google's RSS still returns it.
+const NEWS_BLOCKLIST_KV_KEY = "news_blocklist";
 
-// Read the routine-written news from KV (read-only; no live fetch).
-async function loadNews(env) {
-  const data = await env.WEATHER.get(NEWS_KV_KEY, "json");
-  return data && Array.isArray(data.items) ? data : { updated: null, items: [] };
+// Read the routine-written news from KV (read-only; no live fetch) and apply
+// the editorial blocklist. With { includeBlocked: true } the items are NOT
+// filtered but each is annotated `.blocked` — the admin /news view uses that to
+// show everything (with Hide/Restore buttons); every public consumer omits the
+// option and so gets the filtered list.
+async function loadNews(env, opts) {
+  const [data, block] = await Promise.all([
+    env.WEATHER.get(NEWS_KV_KEY, "json"),
+    env.WEATHER.get(NEWS_BLOCKLIST_KV_KEY, "json").catch(() => null),
+  ]);
+  const base = data && Array.isArray(data.items) ? data : { updated: null, items: [] };
+  const blocked = block && typeof block === "object" ? block : {};
+  if (opts && opts.includeBlocked) {
+    return { ...base, items: base.items.map((n) => ({ ...n, blocked: !!(n && n.link && blocked[n.link]) })) };
+  }
+  return { ...base, items: base.items.filter((n) => !(n && n.link && blocked[n.link])) };
+}
+
+// Constant-time string compare for the admin key (avoids leaking length-prefix
+// timing). Length mismatch short-circuits — it only reveals key length, which
+// is not sensitive here.
+function timingSafeEqual(a, b) {
+  if (typeof a !== "string" || typeof b !== "string" || a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+// The admin nuke is gated on a Worker secret (ADMIN_KEY). No secret set → the
+// feature is inert (endpoints 503, button never shows).
+function isAdmin(env, key) {
+  return !!env.ADMIN_KEY && timingSafeEqual(String(key || ""), env.ADMIN_KEY);
 }
 
 function newsDate(ts, lang) {
@@ -3481,26 +3551,33 @@ function newsDate(ts, lang) {
   }
 }
 
-function newsList(items, lang) {
+function newsAdminBtn(n, lang) {
+  const hide = esc(T(lang, "Hide", "Ocultar"));
+  const restore = esc(T(lang, "Restore", "Restaurar"));
+  return `<button class="news-admin-btn" type="button" data-link="${esc(n.link)}" data-action="${n.blocked ? "restore" : "delete"}" data-hide="${hide}" data-restore="${restore}">${n.blocked ? "&#8617; " + restore : "&#128465; " + hide}</button>`;
+}
+
+function newsList(items, lang, admin) {
   return `<ul class="news-list">${items
     .map(
       (n) => `
-      <li class="news-item">
+      <li class="news-item${admin && n.blocked ? " news-blocked" : ""}">
         <a class="news-title" href="${esc(n.link)}" target="_blank" rel="noopener nofollow">${esc(n.title)}</a>
         <p class="news-meta">${esc(n.source)}${n.source && n.ts ? " &middot; " : ""}${esc(newsDate(n.ts, lang))}</p>
+        ${admin ? newsAdminBtn(n, lang) : ""}
       </li>`
     )
     .join("")}</ul>`;
 }
 
-function newsHtml(data, lang) {
+function newsHtml(data, lang, admin) {
   const items = data.items ?? [];
   const community = items.filter((n) => !n.crime);
   const incidents = items.filter((n) => n.crime);
   const list = items.length
-    ? `${community.length ? newsList(community, lang) : ""}${
+    ? `${community.length ? newsList(community, lang, admin) : ""}${
         incidents.length
-          ? `<h2 class="incidents-head">${T(lang, "Public safety &amp; incidents", "Seguridad pública e incidentes")}</h2>${newsList(incidents, lang)}`
+          ? `<h2 class="incidents-head">${T(lang, "Public safety &amp; incidents", "Seguridad pública e incidentes")}</h2>${newsList(incidents, lang, admin)}`
           : ""
       }`
     : `<p class="none">${T(lang, "No recent Crosby news right now. This page refreshes automatically.", "No hay noticias recientes de Crosby por ahora. Esta página se actualiza automáticamente.")}</p>`;
@@ -3533,12 +3610,18 @@ ${JSONLD_SITE}
   .incidents-head { font-size:0.95rem; color:var(--muted); margin-top:1.6rem; border-top:1px solid var(--line); padding-top:0.9rem; }
   .intro { color:var(--muted); margin:0.6rem 0 0; }
   .disclaimer { margin-top:1.4rem; font-size:0.8rem; color:var(--muted); border-top:1px solid var(--line); padding-top:0.7rem; }
+  .admin-bar { background:#4a2fb5; color:#fff; border-radius:10px; padding:0.55rem 0.9rem; margin:0.8rem 0 0; font-size:0.85rem; font-weight:600; }
+  .news-admin-btn { margin-top:0.5rem; font-size:0.8rem; font-weight:600; padding:0.28rem 0.7rem; border:1px solid var(--line); border-radius:8px; background:var(--card); color:var(--accent); cursor:pointer; }
+  .news-admin-btn:hover { border-color:var(--accent); }
+  .news-blocked { opacity:0.5; }
+  .news-blocked .news-title { text-decoration:line-through; }
 </style>
 </head>
 <body>
 ${topbar("/news", lang)}
 <main id="main">
   <h1>${T(lang, "Crosby, TX News", "Noticias de Crosby, TX")}</h1>
+  ${admin ? `<p class="admin-bar">${T(lang, "Admin mode — hidden items are dimmed; Hide removes an article site-wide, Restore brings it back.", "Modo administrador — los elementos ocultos aparecen atenuados; Ocultar elimina un artículo en todo el sitio, Restaurar lo devuelve.")}</p>` : ""}
   <p class="intro">${T(lang, `Recent headlines about Crosby, Texas and the Crosby ISD community, gathered automatically from Texas and Houston-area news outlets and filtered for relevance to Crosby. Links open the original source.${data.updated ? ` Last updated ${esc(newsDate(data.updated))}.` : ""}`, `Titulares recientes sobre Crosby, Texas y la comunidad de Crosby ISD, recopilados automáticamente de medios de Texas y del área de Houston y filtrados por relevancia para Crosby. Los enlaces abren la fuente original; los titulares se muestran en su idioma original.${data.updated ? ` Última actualización: ${esc(newsDate(data.updated, lang))}.` : ""}`)}</p>
   ${list}
   <section class="card">
@@ -3550,6 +3633,7 @@ ${topbar("/news", lang)}
   <p class="intro"><a href="${lang === "es" ? "/es/weather" : "/weather"}">&larr; ${T(lang, "Back to the forecast", "Volver al pronóstico")}</a></p>
 </main>
 ${footer({ page: "/news", lang, source: T(lang, "Weather data from the U.S. National Weather Service. News headlines aggregated from public sources.", "Datos del tiempo del Servicio Meteorológico Nacional de EE. UU. Titulares de noticias recopilados de fuentes públicas.") })}
+${admin ? `<script>${NEWS_ADMIN_SCRIPT}</script>` : ""}
 </body>
 </html>`;
 }
@@ -5450,6 +5534,7 @@ async function contentSecurityPolicy() {
   if (!CSP_CACHE) {
     const scriptHash = await sha256Base64(HOME_SCRIPT);
     const pushHash = await sha256Base64(PUSH_CLIENT_SCRIPT);
+    const newsAdminHash = await sha256Base64(NEWS_ADMIN_SCRIPT);
     CSP_CACHE = [
       "default-src 'self'",
       "base-uri 'self'",
@@ -5457,7 +5542,7 @@ async function contentSecurityPolicy() {
       "frame-ancestors 'self'",
       "img-src 'self' data:",
       "style-src 'self' 'unsafe-inline'",
-      `script-src 'self' 'unsafe-inline' 'sha256-${scriptHash}' 'sha256-${pushHash}' https://static.cloudflareinsights.com`,
+      `script-src 'self' 'unsafe-inline' 'sha256-${scriptHash}' 'sha256-${pushHash}' 'sha256-${newsAdminHash}' https://static.cloudflareinsights.com`,
       "connect-src 'self' https://cloudflareinsights.com",
       "form-action 'self'",
     ].join("; ");
@@ -5737,6 +5822,33 @@ async function _fetch(request, env, ctx) {
       return new Response(JSON.stringify({ ok: true }), { headers: { "content-type": "application/json", "access-control-allow-origin": "*" } });
     }
 
+    // Admin nuke: hide (or restore) a news article site-wide. Same-origin only
+    // (no CORS header), gated on the ADMIN_KEY secret. Body: {link, key}. Writes
+    // the worker-owned `news_blocklist` key; `loadNews` filters against it so
+    // the change is instant, and the news routine reads it so it stays gone.
+    if ((path === "/api/news/delete" || path === "/api/news/restore") && request.method === "POST") {
+      const jsonRes = (obj, status) => new Response(JSON.stringify(obj), { status: status || 200, headers: { "content-type": "application/json" } });
+      if (!env.ADMIN_KEY) return jsonRes({ error: "admin_unavailable" }, 503);
+      let body = null;
+      try { body = await request.json(); } catch {}
+      if (!body || !isAdmin(env, body.key)) return jsonRes({ error: "unauthorized" }, 401);
+      if (typeof body.link !== "string" || !body.link) return jsonRes({ error: "invalid_request" }, 400);
+      const restoring = path === "/api/news/restore";
+      try {
+        const cur = (await env.WEATHER.get(NEWS_BLOCKLIST_KV_KEY, "json")) || {};
+        if (restoring) delete cur[body.link];
+        else cur[body.link] = Date.now();
+        // Prune entries past the 60-day mark — an article older than the news
+        // routine's 45-day freshness gate can't reappear, so its block can go.
+        const cutoff = Date.now() - 60 * 864e5;
+        for (const k of Object.keys(cur)) if (!(cur[k] > cutoff)) delete cur[k];
+        await env.WEATHER.put(NEWS_BLOCKLIST_KV_KEY, JSON.stringify(cur));
+      } catch (e) {
+        return jsonRes({ error: "store_failed" }, 500);
+      }
+      return jsonRes({ ok: true, blocked: !restoring });
+    }
+
     if (path === "/api/weather") {
       try {
         const { data, cache } = await loadWeather(env);
@@ -5989,13 +6101,16 @@ async function _fetch(request, env, ctx) {
     if (page === "/news") {
       const accept = (request.headers.get("accept") || "").toLowerCase();
       const wantsMarkdown = accept.includes("text/markdown") || url.searchParams.get("format") === "md";
+      // Admin nuke view: a valid ?admin=<secret> shows every article (blocked
+      // ones dimmed) with Hide/Restore buttons. HTML only, never cached.
+      const adminOn = !wantsMarkdown && isAdmin(env, url.searchParams.get("admin"));
       try {
-        const data = await loadNews(env);
-        const bodyText = wantsMarkdown ? newsMarkdown(data, lang) : newsHtml(data, lang);
+        const data = await loadNews(env, adminOn ? { includeBlocked: true } : undefined);
+        const bodyText = wantsMarkdown ? newsMarkdown(data, lang) : newsHtml(data, lang, adminOn);
         return new Response(bodyText, {
           headers: {
             "content-type": `${wantsMarkdown ? "text/markdown" : "text/html"}; charset=utf-8`,
-            "cache-control": "public, max-age=900",
+            "cache-control": adminOn ? "private, no-store" : "public, max-age=900",
             vary: "Accept",
           },
         });

@@ -48,6 +48,12 @@ Deleting a `push:` entry just unsubscribes that device; deleting
 `push_notified` re-notifies every active severe warning next tick. `list`
 shows these alongside the content keys.
 
+Also present (editorial, worker-owned): **`news_blocklist`** — `{articleLink:
+blockedAtMs}` of news articles the owner hid via the `/news?admin=<ADMIN_KEY>`
+nuke (written by `/api/news/delete` + `/api/news/restore`, read by `loadNews()`
+and the news routine). Deleting it just un-hides every article; it self-prunes
+past 60 days. Safe to inspect; deleting is low-risk (only un-hides).
+
 ## Read (safe)
 List keys:
 ```bash
