@@ -779,6 +779,40 @@ directory name becomes the `/command`. Current skills:
 - Intentionally skipped: OAuth/OIDC, oauth-protected-resource, and auth.md —
   the site has no protected APIs to authenticate against.
 
+## Official MCP Registry (published listing)
+- The `/mcp` server is **published to the official MCP Registry**
+  (`registry.modelcontextprotocol.io`) as **`com.crosbynews/weather`** — a
+  **remote** server (no downloadable package): `remotes: [{ type:
+  "streamable-http", url: "https://crosbynews.com/mcp" }]`. `server.json` at the
+  repo root is the source of truth (validated with `mcp-publisher validate`).
+  Verify: `curl "https://registry.modelcontextprotocol.io/v0.1/servers?search=com.crosbynews/weather"`.
+- **Namespace auth = DNS.** The `com.crosbynews` namespace is proven by a TXT
+  record on the apex `crosbynews.com`: `v=MCPv1; k=ed25519; p=<base64 pubkey>`
+  (added via the Cloudflare DNS API alongside the SPF/DKIM/DMARC/DNS-AID
+  records). **Leave that TXT record in place** — re-publishing/updating the
+  listing re-checks it.
+- **The `mcp-publisher` CLI**: the GitHub release binary download is blocked by
+  the agent egress proxy (403), but `go install
+  github.com/modelcontextprotocol/registry/cmd/publisher@latest` works (the Go
+  module proxy is allowlisted; needs Go ≥1.26, which `GOTOOLCHAIN=auto`
+  auto-fetches, and `GOSUMDB` left at its default since `sum.golang.org` is
+  reachable). The built binary is named `publisher`.
+- **To update the listing** (new tools, a metadata change): bump `version` in
+  `server.json`, then re-auth + publish. Because the publish keypair is
+  ephemeral, the flow is: `openssl genpkey -algorithm Ed25519 -out key.pem` →
+  derive the pubkey (`openssl pkey -in key.pem -pubout -outform DER | tail -c
+  32 | base64`) → overwrite the `crosbynews.com` MCP TXT record's content with
+  the new `v=MCPv1; k=ed25519; p=…` → `publisher login dns --domain
+  crosbynews.com --private-key <hex>` → `publisher publish`.
+- **PulseMCP needs no separate submission** — it ingests the official registry
+  automatically, so the listing propagates to `pulsemcp.com` on its next sync
+  (~daily). (A manual `pulsemcp.com/submit` would only create a duplicate.)
+- **Google Search Console**: the domain is **verified** — confirmed by the live
+  `google-site-verification=…` TXT record on `crosbynews.com` (checked via the
+  Cloudflare API). Sitemap submission + per-URL "Request indexing" (e.g. for the
+  now-indexable `/mcp`) are account-level actions in the GSC UI, not visible
+  from the repo.
+
 ## Email auth (SPF/DKIM/DMARC — lives in Cloudflare DNS, not the Worker)
 - The domain receives mail via **iCloud Custom Email Domain** (the published
   `contact@` and `security@crosbynews.com` addresses). The MX records
