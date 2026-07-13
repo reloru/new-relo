@@ -222,6 +222,23 @@ function jaccard(a, b) {
   return inter / (a.size + b.size - inter);
 }
 
+// Read the worker-owned editorial blocklist (article links the site owner
+// nuked via the /news admin button). Returns a Set of blocked links; a missing
+// key or any error yields an empty set (fail-open — never blocks the run).
+async function loadBlocklist() {
+  try {
+    const r = await fetch(
+      `https://api.cloudflare.com/client/v4/accounts/${ACCOUNT}/storage/kv/namespaces/${NS_ID}/values/news_blocklist`,
+      { headers: { authorization: `Bearer ${TOKEN}` } }
+    );
+    if (!r.ok) return new Set();
+    const map = await r.json().catch(() => null);
+    return new Set(map && typeof map === "object" ? Object.keys(map) : []);
+  } catch {
+    return new Set();
+  }
+}
+
 async function main() {
   if (!TOKEN || !ACCOUNT) {
     console.error("Missing CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID");
@@ -283,9 +300,16 @@ async function main() {
   }
   // Community before crime, then core-Crosby before nearby, then newest first.
   out.sort((a, b) => Number(a.crime) - Number(b.crime) || Number(a.near) - Number(b.near) || b.ts - a.ts);
+  // Editorial blocklist: articles the site owner nuked via the /news admin
+  // button (POST /api/news/delete) are stored by link in the `news_blocklist`
+  // KV key. Drop them here so a manually-hidden article stays gone even though
+  // Google's RSS keeps returning it. Read-only from the routine — the Worker
+  // owns writes/pruning.
+  const blocked = await loadBlocklist();
+  const kept = blocked.size ? out.filter((i) => !blocked.has(i.link)) : out;
   // Keep all community items, but cap incidents low so crime can't dominate the
   // page (this isn't a crime feed) or fill it with one event's many rewrites.
-  const community = out.filter((i) => !i.crime).slice(0, 20);
+  const community = kept.filter((i) => !i.crime).slice(0, 20);
   // Incidents: at most one per crime "family" and capped at 2, so the page shows
   // a couple of DISTINCT events rather than one case's many reworded headlines.
   // `out` is already priority-sorted, so the first item per family wins.
@@ -293,7 +317,7 @@ async function main() {
   // one — intended, given the "lean community" goal.)
   const incidents = [];
   const seenFam = new Set();
-  for (const i of out) {
+  for (const i of kept) {
     if (!i.crime) continue;
     const fam = crimeFamily(i.title);
     if (seenFam.has(fam)) continue;
