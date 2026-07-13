@@ -679,7 +679,9 @@ directory name becomes the `/command`. Current skills:
   briefing prompt); resources `llms.txt` + `openapi.json` (readable
   in-protocol via resources/read). Discovery card at
   `/.well-known/mcp/server-card.json`. A GET (or HEAD) gets a human explainer
-  page (`mcpInfoHtml()`, noindex), markdown-negotiated like the content pages
+  page (`mcpInfoHtml()` — **indexable**: the old `noindex` meta was removed
+  2026-07-13 so Google's AI Overviews/AI Mode can cite `/mcp` as a supporting
+  link, since a page must be indexed to be AI-citable), markdown-negotiated like the content pages
   (`Accept: text/markdown` / `?format=md` → `mcpInfoMarkdown()`, so the footer's
   "View as Markdown" link works) — except a GET asking for the SSE stream
   (`Accept: text/event-stream`, checked first), which 405s since we don't offer

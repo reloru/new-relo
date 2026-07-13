@@ -5219,7 +5219,6 @@ function mcpInfoHtml() {
 <title>MCP Server &mdash; crosbynews.com</title>
 <meta name="description" content="Model Context Protocol (MCP) server for Crosby, TX weather: connect an AI agent to get live conditions, forecast, and alerts.">
 <meta name="theme-color" content="#0b3d61">
-<meta name="robots" content="noindex">
 <link rel="manifest" href="/manifest.json">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="alternate icon" href="/favicon.ico">
