@@ -19,7 +19,7 @@ Each path should respond `200`:
 `/news`, `/calendar`, `/emergency`, `/about`, `/developers`,
 `/privacy`, `/contact`, `/sitemap`, `/es` (Spanish spot-check),
 `/robots.txt`, `/sitemap.xml`, `/llms.txt`,
-`/api/weather`, `/api/health`, `/api/news`, `/api/calendar`, `/api/water`,
+`/api/weather`, `/api/health`, `/api/news`, `/api/calendar`, `/api/water`, `/api/tropics`,
 `/alerts.xml`, `/news.xml`, `/badge.svg`,
 `/manifest.json`, `/icon.svg`, `/sw.js`,
 `/.well-known/api-catalog`, `/openapi.json`,

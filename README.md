@@ -44,12 +44,15 @@ Every page is content-negotiated — send `Accept: text/markdown` (or add
 - **REST API** — [`/api/weather`](https://crosbynews.com/api/weather): JSON with
   current conditions, hourly, 7-day forecast, and alerts. Plus
   [`/api/news`](https://crosbynews.com/api/news),
-  [`/api/calendar`](https://crosbynews.com/api/calendar), and
-  [`/api/water`](https://crosbynews.com/api/water). Public, no auth.
+  [`/api/calendar`](https://crosbynews.com/api/calendar),
+  [`/api/water`](https://crosbynews.com/api/water), and
+  [`/api/tropics`](https://crosbynews.com/api/tropics). Public, no auth.
 - **OpenAPI 3.1** — [`/openapi.json`](https://crosbynews.com/openapi.json)
 - **MCP server** (Streamable HTTP) — `https://crosbynews.com/mcp`, with tools
-  `get_current_conditions`, `get_forecast`, `get_alerts`, `get_crosby_news`,
-  `get_school_events`, and `get_river_levels`. Discovery card at
+  `get_current_conditions`, `get_forecast`, `get_alerts`, `get_tropical_outlook`,
+  `get_crosby_news`, `get_school_events`, `get_river_levels`,
+  `get_emergency_contacts`, and `get_radar` (a live radar image, inline).
+  Discovery card at
   [`/.well-known/mcp/server-card.json`](https://crosbynews.com/.well-known/mcp/server-card.json).
 - **[llms.txt](https://crosbynews.com/llms.txt)** — plain-language site summary
   for LLMs.
