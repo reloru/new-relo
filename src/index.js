@@ -1756,8 +1756,9 @@ Every page supports \`Accept: text/markdown\` (or \`?format=md\`) for a clean ma
 - News API: \`GET ${SITE}/api/news\` — recent Crosby-area headlines (JSON).
 - School calendar API: \`GET ${SITE}/api/calendar\` — upcoming Crosby ISD events (JSON).
 - Water levels API: \`GET ${SITE}/api/water\` — river/bayou stage + NWS flood stages (JSON).
+- Tropics API: \`GET ${SITE}/api/tropics\` — active Atlantic tropical cyclones from the NOAA NHC (JSON; empty storms array = quiet basin).
 - OpenAPI spec: \`${SITE}/openapi.json\`
-- MCP server (Streamable HTTP): \`${SITE}/mcp\` — tools: \`get_current_conditions\`, \`get_forecast\`, \`get_alerts\`, \`get_river_levels\`, \`get_crosby_news\`, \`get_school_events\`
+- MCP server (Streamable HTTP): \`${SITE}/mcp\` — tools: \`get_current_conditions\`, \`get_forecast\`, \`get_alerts\`, \`get_tropical_outlook\`, \`get_river_levels\`, \`get_crosby_news\`, \`get_school_events\`, \`get_emergency_contacts\`, \`get_radar\`
 - MCP server card: \`${SITE}/.well-known/mcp/server-card.json\`
 
 ## Data policy
@@ -2244,6 +2245,7 @@ const DEVELOPERS = {
       links: [
         { href: "/api/weather", label: "/api/weather", note: "current conditions, hourly, 7-day forecast, alerts, plus feels-like and sun times" },
         { href: "/api/water", label: "/api/water", note: "river/bayou stage, flow, and NWS flood stages" },
+        { href: "/api/tropics", label: "/api/tropics", note: "active Atlantic tropical cyclones from the NOAA NHC (empty when the basin is quiet)" },
         { href: "/api/news", label: "/api/news", note: "recent local Crosby-area headlines" },
         { href: "/api/calendar", label: "/api/calendar", note: "upcoming Crosby ISD school events" },
         { href: "/api/health", label: "/api/health", note: "service status and cache freshness" },
@@ -2268,7 +2270,7 @@ const DEVELOPERS = {
     {
       h: "MCP server",
       p: [
-        "A stateless Model Context Protocol server (Streamable HTTP, JSON-RPC) exposes the data as callable tools — get_current_conditions, get_forecast, get_alerts, get_river_levels, get_crosby_news, get_school_events — plus a crosby_briefing prompt and readable resources.",
+        "A stateless Model Context Protocol server (Streamable HTTP, JSON-RPC) exposes the data as callable tools — get_current_conditions, get_forecast, get_alerts, get_tropical_outlook, get_river_levels, get_crosby_news, get_school_events, get_emergency_contacts, and get_radar (a live radar image, inline) — plus a crosby_briefing prompt and readable resources.",
         "Connect from Claude Code: claude mcp add --transport http crosbynews https://crosbynews.com/mcp",
       ],
       links: [
@@ -2321,6 +2323,7 @@ const DEVELOPERS_ES = {
       links: [
         { href: "/api/weather", label: "/api/weather", note: "condiciones actuales, por hora, pronóstico a 7 días, alertas, sensación térmica y horas de sol" },
         { href: "/api/water", label: "/api/water", note: "nivel y caudal de ríos/arroyos y etapas de inundación del NWS" },
+        { href: "/api/tropics", label: "/api/tropics", note: "ciclones tropicales activos del Atlántico según el NHC de NOAA (vacío cuando la cuenca está tranquila)" },
         { href: "/api/news", label: "/api/news", note: "titulares locales recientes del área de Crosby" },
         { href: "/api/calendar", label: "/api/calendar", note: "próximos eventos escolares de Crosby ISD" },
         { href: "/api/health", label: "/api/health", note: "estado del servicio y antigüedad de la caché" },
@@ -2345,7 +2348,7 @@ const DEVELOPERS_ES = {
     {
       h: "Servidor MCP",
       p: [
-        "Un servidor del Protocolo de Contexto de Modelo sin estado (Streamable HTTP, JSON-RPC) expone los datos como herramientas invocables — get_current_conditions, get_forecast, get_alerts, get_river_levels, get_crosby_news, get_school_events — además de un prompt crosby_briefing y recursos legibles.",
+        "Un servidor del Protocolo de Contexto de Modelo sin estado (Streamable HTTP, JSON-RPC) expone los datos como herramientas invocables — get_current_conditions, get_forecast, get_alerts, get_tropical_outlook, get_river_levels, get_crosby_news, get_school_events, get_emergency_contacts y get_radar (una imagen de radar en vivo, en línea) — además de un prompt crosby_briefing y recursos legibles.",
         "Conéctate desde Claude Code: claude mcp add --transport http crosbynews https://crosbynews.com/mcp",
       ],
       links: [
@@ -4370,6 +4373,30 @@ function tropicsStormLine(s, lang) {
   return `${tropicsClassLabel(s.classification, lang)} ${s.name}${mph != null ? ` — ${mph} mph` : ""}`;
 }
 
+// JSON shape served at /api/tropics — the same NHC data behind /tropics.
+// An empty `storms` array is the normal quiet-basin state, not an error.
+function apiTropics(data) {
+  return {
+    basin: "Atlantic",
+    source: "NOAA National Hurricane Center (nhc.noaa.gov)",
+    updated: data.updated ?? null,
+    storms: (data.storms ?? []).map((s) => ({
+      id: s.id,
+      name: s.name,
+      classification: s.classification,
+      classificationLabel: tropicsClassLabel(s.classification, "en"),
+      windMph: ktToMph(s.intensityKt),
+      intensityKt: s.intensityKt,
+      pressureMb: s.pressureMb,
+      lat: s.lat,
+      lon: s.lon,
+      movementDirection: degToCompass(s.movementDeg),
+      lastUpdate: s.lastUpdate,
+      advisoryUrl: s.advisoryUrl,
+    })),
+  };
+}
+
 function tropicsHtml(data, lang) {
   const storms = data.storms ?? [];
   const title = T(lang, "Atlantic Tropical Weather", "Tiempo tropical del Atlántico");
@@ -4759,7 +4786,7 @@ function apiCatalog() {
     status: [{ href: `${SITE}/api/health`, type: "application/json" }],
   });
   return {
-    linkset: [entry("/api/weather", "/"), entry("/api/news", "/news"), entry("/api/calendar", "/calendar"), entry("/api/water", "/water")],
+    linkset: [entry("/api/weather", "/"), entry("/api/news", "/news"), entry("/api/calendar", "/calendar"), entry("/api/water", "/water"), entry("/api/tropics", "/tropics")],
   };
 }
 
@@ -4844,6 +4871,23 @@ function openApiSpec() {
       allDay: { type: "boolean" },
     },
   };
+  const Storm = {
+    type: "object",
+    properties: {
+      id: { type: "string", description: "NHC storm id (e.g. al052026). Atlantic basin only." },
+      name: { type: "string" },
+      classification: { type: "string", description: "NHC classification code: TD/TS/HU/MH/STD/STS/PTC/PC/RL." },
+      classificationLabel: { type: "string", description: "Human-readable classification (e.g. Hurricane, Tropical Storm)." },
+      windMph: { type: ["integer", "null"], description: "Max sustained winds in mph, rounded to 5 like NHC advisories (converted from NHC's knots)." },
+      intensityKt: { type: ["number", "null"], description: "Max sustained winds in knots, as NHC reports them." },
+      pressureMb: { type: ["number", "null"] },
+      lat: { type: ["number", "null"] },
+      lon: { type: ["number", "null"] },
+      movementDirection: { type: ["string", "null"], description: "Compass direction of movement (speed omitted — NHC's unit for it is not clearly documented)." },
+      lastUpdate: { type: ["string", "null"], format: "date-time" },
+      advisoryUrl: { type: "string", format: "uri", description: "The official NHC public advisory." },
+    },
+  };
   const Gauge = {
     type: "object",
     properties: {
@@ -4865,9 +4909,9 @@ function openApiSpec() {
     openapi: "3.1.0",
     info: {
       title: "crosbynews.com API",
-      version: "1.3.0",
+      version: "1.4.0",
       description:
-        "Crosby, Texas community data: current conditions, hourly and 7-day forecast, active alerts, the EPA UV index, and a modeled air-quality index from the U.S. National Weather Service, EPA, and Open-Meteo; recent local news headlines; and the Crosby ISD school calendar. Public, no authentication.",
+        "Crosby, Texas community data: current conditions, hourly and 7-day forecast, active alerts, the EPA UV index, and a modeled air-quality index from the U.S. National Weather Service, EPA, and Open-Meteo; river/bayou flood levels; the Atlantic tropical outlook; recent local news headlines; and the Crosby ISD school calendar. Public, no authentication.",
       contact: { url: `${SITE}/` },
       license: { name: "Public domain (NWS source data)", url: "https://www.weather.gov/disclaimer" },
     },
@@ -4922,6 +4966,19 @@ function openApiSpec() {
               content: { "application/json": { schema: { $ref: "#/components/schemas/Water" } } },
             },
             "502": { description: "Water data unavailable" },
+          },
+        },
+      },
+      "/api/tropics": {
+        get: {
+          operationId: "getTropics",
+          summary: "Active Atlantic tropical cyclones from the NOAA National Hurricane Center",
+          responses: {
+            "200": {
+              description: "Active Atlantic systems; an empty storms array means a quiet basin (the normal state most of the year)",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/Tropics" } } },
+            },
+            "502": { description: "Tropics data unavailable" },
           },
         },
       },
@@ -5029,6 +5086,16 @@ function openApiSpec() {
           },
         },
         Gauge,
+        Tropics: {
+          type: "object",
+          properties: {
+            basin: { type: "string" },
+            source: { type: "string" },
+            updated: { type: ["string", "null"], format: "date-time" },
+            storms: { type: "array", items: Storm },
+          },
+        },
+        Storm,
       },
     },
   };
@@ -5038,7 +5105,12 @@ function openApiSpec() {
 // A stateless Model Context Protocol server exposing the weather as callable
 // tools. Single endpoint at /mcp: POST a JSON-RPC message, get one back.
 const MCP_PROTOCOL_VERSION = "2025-06-18";
-const MCP_SERVER_INFO = { name: "crosbynews-weather", version: "1.0.0", title: "Crosby, TX Weather" };
+// Versions this server can honestly claim when a client requests them. Per
+// spec, an UNSUPPORTED requested version gets answered with our latest —
+// never echoed back (echoing e.g. "2026-07-28" would falsely promise the
+// stateless-core semantics of that revision).
+const MCP_SUPPORTED_VERSIONS = ["2025-03-26", "2025-06-18"];
+const MCP_SERVER_INFO = { name: "crosbynews-weather", version: "1.1.0", title: "Crosby, TX Weather" };
 const MCP_CORS = {
   "access-control-allow-origin": "*",
   "access-control-allow-methods": "POST, OPTIONS",
@@ -5056,32 +5128,126 @@ function mcpJson(payload, status) {
   });
 }
 
+// Every tool is a pure read of cached public data: read-only, idempotent, and
+// closed-world (a fixed set of government upstreams, no arbitrary reach).
+// Clients use these hints to skip per-call confirmation prompts.
+const MCP_READ_ONLY = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false };
+
 function mcpTools() {
+  // outputSchema fragments — shallow and honest: they name the load-bearing
+  // fields and stay permissive (additionalProperties defaults to true) since
+  // NWS/NHC objects are passed through with more fields than we enumerate.
+  // Full field docs live in /openapi.json (also an MCP resource).
+  const isoStamp = { type: ["string", "null"], description: "ISO 8601 timestamp of the last data refresh." };
+  const nwsPeriod = {
+    type: "object",
+    description:
+      "An NWS forecast period, passed through (startTime, temperature, shortForecast, windSpeed, probabilityOfPrecipitation, ...) plus computed feelsLike °F where applicable. Full schema: https://crosbynews.com/openapi.json",
+  };
   return [
     {
       name: "get_current_conditions",
       title: "Current conditions",
-      description: "Current weather for Crosby, TX: temperature, sky, and precip chance.",
+      description:
+        "Current weather for Crosby, TX: temperature, feels-like, sky, precip chance, humidity, dew point, UV index, modeled air quality, and sunrise/sunset.",
       inputSchema: { type: "object", properties: {}, additionalProperties: false },
+      outputSchema: {
+        type: "object",
+        properties: {
+          location: { type: "string" },
+          updated: isoStamp,
+          sun: { type: ["object", "null"], properties: { sunrise: { type: "string" }, sunset: { type: "string" } } },
+          uv: {
+            type: ["object", "null"],
+            description: "EPA UV index; null at night or when the EPA feed is down.",
+            properties: { current: { type: "integer" }, currentCategory: { type: "string" }, peakToday: { type: ["integer", "null"] } },
+          },
+          airQuality: {
+            type: ["object", "null"],
+            description: "US AQI — MODELED (Open-Meteo), not a monitor reading; always labeled modeled:true.",
+            properties: { usAqi: { type: "integer" }, category: { type: "string" }, dominantPollutant: { type: ["string", "null"] }, modeled: { type: "boolean" } },
+          },
+          current: { ...nwsPeriod, description: nwsPeriod.description + " Adds dewpointF and humidityPercent." },
+        },
+        required: ["location"],
+      },
+      annotations: MCP_READ_ONLY,
     },
     {
       name: "get_forecast",
       title: "Forecast",
       description:
-        "Forecast for Crosby, TX from the U.S. National Weather Service. Returns the 7-day day/night forecast, or upcoming hourly periods if `hours` is given.",
+        "Forecast for Crosby, TX from the U.S. National Weather Service. Returns the 7-day day/night forecast, or upcoming hourly periods if `hours` is given (up to 48 — through about two days out).",
       inputSchema: {
         type: "object",
         properties: {
-          hours: { type: "integer", minimum: 1, maximum: 12, description: "Return this many upcoming hourly periods instead of the daily forecast." },
+          hours: { type: "integer", minimum: 1, maximum: 48, description: "Return this many upcoming hourly periods instead of the daily forecast." },
         },
         additionalProperties: false,
       },
+      outputSchema: {
+        type: "object",
+        properties: {
+          location: { type: "string" },
+          forecast: { type: "array", description: "7-day day/night periods (daily mode).", items: nwsPeriod },
+          hourly: { type: "array", description: "Upcoming hourly periods (only when `hours` was given).", items: nwsPeriod },
+        },
+        required: ["location"],
+      },
+      annotations: MCP_READ_ONLY,
     },
     {
       name: "get_alerts",
       title: "Active alerts",
       description: "Active NWS weather alerts for Crosby, TX. Returns an empty list when none are active.",
       inputSchema: { type: "object", properties: {}, additionalProperties: false },
+      outputSchema: {
+        type: "object",
+        properties: {
+          location: { type: "string" },
+          count: { type: "integer" },
+          alerts: {
+            type: "array",
+            items: { type: "object", properties: { event: { type: "string" }, headline: { type: "string" }, severity: { type: "string" }, expires: { type: "string" } } },
+          },
+        },
+        required: ["location", "count", "alerts"],
+      },
+      annotations: MCP_READ_ONLY,
+    },
+    {
+      name: "get_tropical_outlook",
+      title: "Atlantic tropical outlook",
+      description:
+        "Active Atlantic tropical cyclones from the NOAA National Hurricane Center — the systems that matter to Crosby, TX in hurricane season (June–November). Returns an explicit all-clear when the basin is quiet.",
+      inputSchema: { type: "object", properties: {}, additionalProperties: false },
+      outputSchema: {
+        type: "object",
+        properties: {
+          basin: { type: "string" },
+          source: { type: "string" },
+          updated: isoStamp,
+          storms: {
+            type: "array",
+            description: "Empty when the basin is quiet — the normal state most of the year.",
+            items: {
+              type: "object",
+              properties: {
+                name: { type: "string" },
+                classificationLabel: { type: "string" },
+                windMph: { type: ["integer", "null"] },
+                pressureMb: { type: ["number", "null"] },
+                lat: { type: ["number", "null"] },
+                lon: { type: ["number", "null"] },
+                movementDirection: { type: ["string", "null"] },
+                advisoryUrl: { type: "string" },
+              },
+            },
+          },
+        },
+        required: ["basin", "storms"],
+      },
+      annotations: MCP_READ_ONLY,
     },
     {
       name: "get_crosby_news",
@@ -5089,6 +5255,29 @@ function mcpTools() {
       description:
         "Recent local news headlines for Crosby, TX and nearby northeast Harris County communities, aggregated from public sources and filtered for relevance. Empty when nothing recent.",
       inputSchema: { type: "object", properties: {}, additionalProperties: false },
+      outputSchema: {
+        type: "object",
+        properties: {
+          location: { type: "string" },
+          source: { type: "string" },
+          updated: isoStamp,
+          items: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                title: { type: "string" },
+                link: { type: "string" },
+                source: { type: ["string", "null"] },
+                published: { type: ["string", "null"] },
+                category: { type: "string", description: "community or incident" },
+              },
+            },
+          },
+        },
+        required: ["items"],
+      },
+      annotations: MCP_READ_ONLY,
     },
     {
       name: "get_school_events",
@@ -5102,6 +5291,30 @@ function mcpTools() {
         },
         additionalProperties: false,
       },
+      outputSchema: {
+        type: "object",
+        properties: {
+          district: { type: "string" },
+          source: { type: "string" },
+          timezone: { type: "string" },
+          updated: isoStamp,
+          events: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                summary: { type: "string" },
+                location: { type: ["string", "null"] },
+                start: { type: "string", description: "All-day: YYYY-MM-DD. Timed: zone-less ISO local time (America/Chicago wall-clock)." },
+                end: { type: ["string", "null"] },
+                allDay: { type: "boolean" },
+              },
+            },
+          },
+        },
+        required: ["events"],
+      },
+      annotations: MCP_READ_ONLY,
     },
     {
       name: "get_river_levels",
@@ -5109,6 +5322,69 @@ function mcpTools() {
       description:
         "Current water levels and NWS flood stages for the rivers and bayous that flood Crosby, TX and northeast Harris County (Cedar Bayou, San Jacinto River, Luce Bayou, and more). Each gauge reports its stage, flow, flood category, and thresholds.",
       inputSchema: { type: "object", properties: {}, additionalProperties: false },
+      outputSchema: {
+        type: "object",
+        properties: {
+          location: { type: "string" },
+          source: { type: "string" },
+          updated: isoStamp,
+          gauges: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                id: { type: "string" },
+                name: { type: "string" },
+                stage: { type: ["number", "null"], description: "Observed gauge height in ft." },
+                flow: { type: ["number", "null"], description: "Observed discharge in cfs." },
+                category: { type: "string", description: "no_flooding/action/minor/moderate/major, or not_defined where NWS defines no flood stages." },
+                thresholds: { type: "object", description: "NWS flood-stage thresholds in ft, keyed action/minor/moderate/major." },
+                officialUrl: { type: "string" },
+              },
+            },
+          },
+        },
+        required: ["gauges"],
+      },
+      annotations: MCP_READ_ONLY,
+    },
+    {
+      name: "get_emergency_contacts",
+      title: "Emergency contacts",
+      description:
+        "Emergency resource directory for Crosby, TX (unincorporated Harris County): 911 guidance, sheriff non-emergency, power-outage and gas-leak reporting, the CAER industrial-incident line, flood and road tools, shelters, and disaster assistance. Static verified directory — in a life-threatening emergency, call 911.",
+      inputSchema: { type: "object", properties: {}, additionalProperties: false },
+      outputSchema: {
+        type: "object",
+        properties: {
+          location: { type: "string" },
+          note: { type: "string" },
+          sections: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                heading: { type: "string" },
+                notes: { type: "array", items: { type: "string" } },
+                contacts: {
+                  type: "array",
+                  items: { type: "object", properties: { label: { type: "string" }, note: { type: "string" }, url: { type: "string", description: "tel: or https: URL." } } },
+                },
+              },
+            },
+          },
+        },
+        required: ["sections"],
+      },
+      annotations: MCP_READ_ONLY,
+    },
+    {
+      name: "get_radar",
+      title: "Weather radar image",
+      description:
+        "Latest NWS KHGX (Houston/Galveston) radar still image covering Crosby, TX, returned inline as a GIF. For the animated loop, see https://crosbynews.com/radar.",
+      inputSchema: { type: "object", properties: {}, additionalProperties: false },
+      annotations: MCP_READ_ONLY,
     },
   ];
 }
@@ -5122,7 +5398,7 @@ function mcpPrompts() {
       name: "crosby_briefing",
       title: "Crosby daily briefing",
       description:
-        "Compose a concise daily briefing for a Crosby, TX resident: current weather with feels-like, today's outlook, active alerts, sunrise/sunset, recent local headlines, and upcoming Crosby ISD events. The prompt arrives pre-filled with live data.",
+        "Compose a concise daily briefing for a Crosby, TX resident: current weather with feels-like, today's outlook, active alerts, sunrise/sunset, recent local headlines, and upcoming Crosby ISD events — plus river levels and Atlantic tropical systems whenever either is a live concern. The prompt arrives pre-filled with live data.",
       arguments: [],
     },
   ];
@@ -5134,7 +5410,16 @@ async function mcpGetPrompt(name, env) {
     e.code = -32602;
     throw e;
   }
-  const [{ data }, news, cal] = await Promise.all([loadWeather(env), loadNews(env), loadCalendar(env)]);
+  // Water and tropics ride along failure-tolerant: they only ever ADD lines
+  // (above-normal gauges, active storms), so a fetch hiccup must not sink the
+  // whole briefing the way a weather failure legitimately does.
+  const [{ data }, news, cal, water, tropics] = await Promise.all([
+    loadWeather(env),
+    loadNews(env),
+    loadCalendar(env),
+    loadWater(env).catch(() => ({ gauges: [] })),
+    loadTropics(env).catch(() => ({ storms: [] })),
+  ]);
   const now = currentHourly(data);
   const lead = data.periods?.[0];
   const sun = sunTimesForCtDate(Date.now());
@@ -5152,6 +5437,17 @@ async function mcpGetPrompt(name, env) {
       ? `ACTIVE ALERTS: ${alerts.map((a) => `${a.event}${a.headline ? ` — ${a.headline}` : ""}`).join("; ")}`
       : "No active weather alerts."
   );
+  // Quiet rivers and a quiet basin add nothing — only surface either when it
+  // is actually a live concern, so calm-day briefings stay short.
+  const flooding = (water.gauges ?? []).filter((g) => WATER_FLOOD_CATS.includes(g.category));
+  if (flooding.length)
+    lines.push(
+      `RIVER/BAYOU LEVELS ABOVE NORMAL: ${flooding
+        .map((g) => `${g.name} at ${g.stage != null ? `${g.stage} ft` : "n/a"} (${waterCatLabel(g.category, "en")})`)
+        .join("; ")}. Details: ${SITE}/water`
+    );
+  const storms = tropics.storms ?? [];
+  if (storms.length) lines.push(`ACTIVE ATLANTIC TROPICAL SYSTEMS: ${storms.map((s) => tropicsStormLine(s, "en")).join("; ")}. Details: ${SITE}/tropics`);
   const items = (news.items ?? []).slice(0, 5);
   if (items.length) {
     lines.push("", "Recent local headlines:");
@@ -5167,7 +5463,7 @@ async function mcpGetPrompt(name, env) {
   }
   lines.push(
     "",
-    "Using ONLY the data above, write a friendly, concise daily briefing for a Crosby, TX resident. Lead with anything safety-relevant (alerts, extreme heat index). Keep it under 150 words. Note that weather data is from the U.S. National Weather Service."
+    "Using ONLY the data above, write a friendly, concise daily briefing for a Crosby, TX resident. Lead with anything safety-relevant (alerts, flooding rivers, tropical systems, extreme heat index). Keep it under 150 words. Note that weather data is from the U.S. National Weather Service."
   );
   return {
     description: "Data-grounded prompt for a Crosby, TX daily briefing.",
@@ -5205,7 +5501,7 @@ function mcpServerCard() {
     serverInfo: MCP_SERVER_INFO,
     protocolVersion: MCP_PROTOCOL_VERSION,
     description:
-      "Live Crosby, Texas data: weather from the U.S. National Weather Service (current conditions, forecast, active alerts), river/bayou flood levels, recent local news headlines, and the Crosby ISD school calendar.",
+      "Live Crosby, Texas data: weather from the U.S. National Weather Service (current conditions, forecast, active alerts), the Atlantic tropical outlook, river/bayou flood levels, a live radar image, recent local news headlines, the Crosby ISD school calendar, and an emergency-contacts directory.",
     transport: { type: "streamable-http", endpoint: `${SITE}/mcp` },
     capabilities: { tools: { listChanged: false }, prompts: { listChanged: false }, resources: { listChanged: false } },
     tools: mcpTools().map((t) => ({ name: t.name, title: t.title, description: t.description })),
@@ -5363,9 +5659,76 @@ these tools. Prefer a webpage? See the [live forecast](${SITE}/),
 `;
 }
 
+// ArrayBuffer → base64, chunked so String.fromCharCode never sees an argument
+// list long enough to overflow the call stack (radar stills run ~50–150 KB).
+function bufToBase64(buf) {
+  const bytes = new Uint8Array(buf);
+  let bin = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(bin);
+}
+
 async function mcpCallTool(name, args, env) {
-  // News and calendar tools read their own KV keys — handled first so they
-  // don't pay for (or fail on) a weather load they never use.
+  // News, calendar, water, and tropics tools read their own KV keys — handled
+  // first so they don't pay for (or fail on) a weather load they never use.
+  if (name === "get_tropical_outlook") {
+    const tropics = await loadTropics(env);
+    const payload = apiTropics(tropics);
+    const text = payload.storms.length
+      ? payload.storms
+          .map((s) => {
+            const bits = [];
+            if (s.windMph != null) bits.push(`${s.windMph} mph winds`);
+            if (s.pressureMb != null) bits.push(`${s.pressureMb} mb`);
+            if (s.lat != null && s.lon != null) bits.push(`near ${Math.abs(s.lat)}°${s.lat < 0 ? "S" : "N"} ${Math.abs(s.lon)}°${s.lon < 0 ? "W" : "E"}`);
+            if (s.movementDirection) bits.push(`moving ${s.movementDirection}`);
+            return `- ${s.classificationLabel} ${s.name}${bits.length ? ` — ${bits.join(", ")}` : ""} (advisory: ${s.advisoryUrl})`;
+          })
+          .join("\n")
+      : "No active tropical systems in the Atlantic basin — all clear. (Hurricane season runs June–November; Crosby's local threat is inland rain flooding, not surge.)";
+    return { content: [{ type: "text", text }], structuredContent: payload };
+  }
+  if (name === "get_emergency_contacts") {
+    const abs = (href) => (href.startsWith("/") ? `${SITE}${href}` : href);
+    const payload = {
+      location: "Crosby, TX (unincorporated Harris County)",
+      note: "In an immediate emergency — medical crisis, fire, crime in progress, water entering a home — call 911. Crosby is unincorporated, so Houston's 311 does not cover it.",
+      sections: EMERGENCY.sections.map((s) => ({
+        heading: s.h,
+        notes: s.p ?? [],
+        contacts: (s.links ?? []).map((l) => ({ label: l.label, note: l.note, url: abs(l.href) })),
+      })),
+    };
+    const text = [
+      "Emergency resources for Crosby, TX. In an immediate emergency, call 911.",
+      ...payload.sections
+        .filter((s) => s.contacts.length)
+        .map((s) => `${s.heading}:\n${s.contacts.map((c) => `- ${c.label} — ${c.note}`).join("\n")}`),
+      `Full directory: ${SITE}/emergency`,
+    ].join("\n\n");
+    return { content: [{ type: "text", text }], structuredContent: payload };
+  }
+  if (name === "get_radar") {
+    let res = null;
+    try {
+      res = await fetch("https://radar.weather.gov/ridge/standard/KHGX_0.gif", {
+        headers: { "User-Agent": "crosbynews.com", Accept: "image/gif,image/*" },
+        cf: { cacheTtl: 180, cacheEverything: true },
+      });
+    } catch {}
+    if (!res || !res.ok) {
+      return {
+        content: [{ type: "text", text: `Radar imagery is temporarily unavailable — see ${SITE}/radar for the live loop.` }],
+      };
+    }
+    const data = bufToBase64(await res.arrayBuffer());
+    return {
+      content: [
+        { type: "text", text: `Latest NWS KHGX radar still (covers Crosby, TX — the Houston/Galveston radar). Animated loop: ${SITE}/radar` },
+        { type: "image", data, mimeType: res.headers.get("content-type")?.split(";")[0] || "image/gif" },
+      ],
+    };
+  }
   if (name === "get_crosby_news") {
     const news = await loadNews(env);
     const items = news.items ?? [];
@@ -5431,14 +5794,25 @@ async function mcpCallTool(name, args, env) {
         sun: sun ? { sunrise: new Date(sun.sunrise).toISOString(), sunset: new Date(sun.sunset).toISOString() } : null,
         uv: uvNow != null ? { current: uvNow, currentCategory: uvCategory(uvNow), peakToday: uvPeakToday(data) } : null,
         airQuality: aqi?.usAqi != null ? { usAqi: aqi.usAqi, category: aqiCategory(aqi.usAqi), dominantPollutant: aqiDominantLabel(aqi.dominant), modeled: true, source: "Open-Meteo (modeled, not a monitor reading)" } : null,
-        current: now ? { ...now, feelsLike: feelsLikeRawF(now) } : null,
+        current: now
+          ? {
+              ...now,
+              feelsLike: feelsLikeRawF(now),
+              // Normalized conveniences: NWS reports dew point in °C and wraps
+              // humidity in a unit object — chat clients want plain numbers.
+              dewpointF: typeof now.dewpoint?.value === "number" ? Math.round((now.dewpoint.value * 9) / 5 + 32) : null,
+              humidityPercent: typeof now.relativeHumidity?.value === "number" ? Math.round(now.relativeHumidity.value) : null,
+            }
+          : null,
       },
     };
   }
   if (name === "get_forecast") {
     const hours = Number(args?.hours) || 0;
     if (hours > 0) {
-      const slice = (data.hourly ?? []).slice(0, Math.min(hours, 12));
+      // The KV cache keeps 48 hourly periods (the /hourly page's supply) —
+      // serve up to all of them so "tomorrow evening" is answerable.
+      const slice = (data.hourly ?? []).slice(0, Math.min(hours, 48));
       const text =
         slice
           .map((h) => {
@@ -5475,11 +5849,11 @@ async function mcpHandle(msg, env) {
   switch (method) {
     case "initialize":
       return rpcResult(id, {
-        protocolVersion: typeof params?.protocolVersion === "string" ? params.protocolVersion : MCP_PROTOCOL_VERSION,
+        protocolVersion: MCP_SUPPORTED_VERSIONS.includes(params?.protocolVersion) ? params.protocolVersion : MCP_PROTOCOL_VERSION,
         capabilities: { tools: { listChanged: false }, prompts: { listChanged: false }, resources: { listChanged: false } },
         serverInfo: MCP_SERVER_INFO,
         instructions:
-          "Live Crosby, Texas data: weather from the U.S. National Weather Service, river/bayou flood levels, local news headlines, and the Crosby ISD school calendar.",
+          "Live Crosby, Texas data: weather from the U.S. National Weather Service, the Atlantic tropical outlook, river/bayou flood levels, a radar image, local news headlines, the Crosby ISD school calendar, and an emergency-contacts directory.",
       });
     case "ping":
       return rpcResult(id, {});
@@ -5550,7 +5924,7 @@ REST API (public, no auth):
 MCP server (Streamable HTTP, JSON-RPC):
 
 - Endpoint: https://crosbynews.com/mcp
-- Tools: get_current_conditions, get_forecast (optional hours 1-12), get_alerts
+- Tools: get_current_conditions, get_forecast (optional hours 1-48), get_alerts
 
 ## Other Crosby data (same API and MCP server)
 
@@ -5560,6 +5934,10 @@ MCP server (Streamable HTTP, JSON-RPC):
   calendar events (JSON); MCP tool: get_school_events (optional limit 1-60)
 - GET https://crosbynews.com/api/water - river/bayou levels with NWS flood
   stages for the Crosby area (JSON); MCP tool: get_river_levels
+- GET https://crosbynews.com/api/tropics - active Atlantic tropical cyclones
+  from the NOAA NHC (JSON); MCP tool: get_tropical_outlook
+- MCP-only tools: get_emergency_contacts (Crosby emergency directory) and
+  get_radar (latest NWS KHGX radar still, returned as an inline image)
 
 ## Notes
 
@@ -5984,6 +6362,25 @@ async function _fetch(request, env, ctx) {
           "content-type": "application/json; charset=utf-8",
           "access-control-allow-origin": "*",
           "cache-control": "public, max-age=300",
+          link: `<${SITE}/openapi.json>; rel="service-desc"; type="application/json"`,
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ error: "unavailable", message: err && err.message }), {
+          status: 502,
+          headers: { "content-type": "application/json; charset=utf-8", "access-control-allow-origin": "*" },
+        });
+      }
+    }
+
+    // Atlantic tropical outlook as JSON — same cron-owned KV data as /tropics.
+    // An empty storms array is the normal quiet-basin state.
+    if (path === "/api/tropics") {
+      try {
+        const data = await loadTropics(env);
+        return conditional(request, data.updated ?? "none", () => JSON.stringify(apiTropics(data)), {
+          "content-type": "application/json; charset=utf-8",
+          "access-control-allow-origin": "*",
+          "cache-control": "public, max-age=900",
           link: `<${SITE}/openapi.json>; rel="service-desc"; type="application/json"`,
         });
       } catch (err) {

@@ -671,7 +671,8 @@ directory name becomes the `/command`. Current skills:
   plus the derived `sun`, the EPA `uv` object, and the modeled `airQuality`
   object), CORS `*`. `/api/health` — status + cache freshness.
 - Conditional GET: the polled endpoints (`/api/weather`, `/api/news`,
-  `/api/calendar`, `/alerts.xml`, `/news.xml`) send weak ETags derived from
+  `/api/calendar`, `/api/water`, `/api/tropics`, `/alerts.xml`, `/news.xml`)
+  send weak ETags derived from
   the KV freshness stamp (plus the Central calendar date where the body
   depends on it: sun times, upcoming-events cutoff) and `Last-Modified`
   where the stamp is a date; `If-None-Match` → body-less 304 (see
@@ -690,16 +691,38 @@ directory name becomes the `/command`. Current skills:
   per-gauge id/name/usgsId, observed stage (ft) + flow (cfs), `category`, NWS
   `thresholds`, and the official NWPS `officialUrl`. Documented in
   `/openapi.json` + api-catalog; MCP tool `get_river_levels`. English-only.
+- `/api/tropics` — the same NHC data behind `/tropics` as public JSON (CORS
+  `*`): per-storm id/name/classification (+ human `classificationLabel`),
+  `windMph` (converted from NHC knots, rounded to 5), `intensityKt`,
+  `pressureMb`, position, `movementDirection` (compass only), and the official
+  `advisoryUrl`. An empty `storms` array is the normal quiet-basin state.
+  Documented in `/openapi.json` + api-catalog; MCP tool `get_tropical_outlook`.
+  English-only.
 - `/.well-known/api-catalog` (`application/linkset+json`, RFC 9727) and
   `/openapi.json` (OpenAPI 3.1) describe the API. All read from the same KV
   cache via `loadWeather()`.
 - `/mcp` — stateless MCP server (Streamable HTTP, JSON-RPC) with tools
-  `get_current_conditions`, `get_forecast`, `get_alerts`, `get_crosby_news`,
-  `get_school_events`, `get_river_levels`; prompt `crosby_briefing` (prompts/get composes live
-  weather + alerts + news + school events server-side into a self-contained
-  briefing prompt); resources `llms.txt` + `openapi.json` (readable
-  in-protocol via resources/read). Discovery card at
-  `/.well-known/mcp/server-card.json`. A GET (or HEAD) gets a human explainer
+  `get_current_conditions`, `get_forecast` (optional `hours` 1–48, the full
+  KV hourly supply), `get_alerts`, `get_tropical_outlook`, `get_crosby_news`,
+  `get_school_events`, `get_river_levels`, `get_emergency_contacts` (the
+  static `EMERGENCY` directory as a tool), and `get_radar` (fetches the NWS
+  KHGX still `KHGX_0.gif` server-side and returns it as inline MCP image
+  content, base64 GIF, with a text fallback when the upstream is down — the
+  one tool whose result is an image, so it has no `structuredContent`/
+  `outputSchema`). Every tool carries `annotations` (`readOnlyHint: true`,
+  `openWorldHint: false` — the shared `MCP_READ_ONLY` const) so clients can
+  skip per-call confirmation, and every data tool declares an `outputSchema`
+  (shallow + permissive: NWS/NHC objects pass through with more fields than
+  enumerated; full docs live in `/openapi.json`). `get_current_conditions`
+  adds normalized `dewpointF`/`humidityPercent` alongside the raw NWS fields.
+  `initialize` only echoes a requested protocolVersion from
+  `MCP_SUPPORTED_VERSIONS` (else answers with our latest, per spec — never
+  parrot an unsupported version like `2026-07-28`). Prompt `crosby_briefing`
+  (prompts/get composes live weather + alerts + news + school events — plus
+  river gauges above normal and active Atlantic storms, each only when
+  present — server-side into a self-contained briefing prompt); resources
+  `llms.txt` + `openapi.json` (readable in-protocol via resources/read).
+  Discovery card at `/.well-known/mcp/server-card.json`. A GET (or HEAD) gets a human explainer
   page (`mcpInfoHtml()` — **indexable**: the old `noindex` meta was removed
   2026-07-13 so Google's AI Overviews/AI Mode can cite `/mcp` as a supporting
   link, since a page must be indexed to be AI-citable), markdown-negotiated like the content pages
