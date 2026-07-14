@@ -47,10 +47,35 @@ as a coding agent. A human reading for site behavior can skip this section.
   describes (KV keys, routes, deploy steps), grep the skills directory too,
   not just this file. (`.github/pull_request_template.md` carries a checklist
   reminder for this + the CLAUDE.md-currency rule.)
-- **Ship each independent change as its own small PR**, verified live before
-  starting the next one, rather than batching several features into one PR.
-  This is how the 2026 Tier-1/3 roadmap (PRs #48–70) got done without any PR
-  becoming hard to review or revert in isolation.
+## Claude Code PR workflow (merge autonomy)
+Owner policy (set 2026-07-14): a Claude Code session owns its PR end-to-end
+and does not wait for human approval at any step.
+
+- **One independent change per PR**, verified live before the next one starts,
+  rather than batching several features into one. This is how the 2026
+  Tier-1/3 roadmap (PRs #48–70) got done without any PR becoming hard to
+  review or revert in isolation.
+- **Implement, then verify for real** — `node --check` and the dry-run build
+  must pass, and the change itself gets exercised (live `curl` after a deploy,
+  `wrangler dev`, or a committed test script), not just syntax-checked.
+- **Document in the same PR** — update CLAUDE.md and any `.claude/skills/`
+  file the change makes stale (the drift gotcha above) when routes, KV keys,
+  behaviors, or deploy steps change.
+- **Squash-merge to `main` yourself** once correctness and doc-currency are
+  verified; no additional approval required. The only merge gate is the
+  required `Syntax check` CI job.
+- **Post-merge, verify the deploy** — confirm CI's deploy job landed, then run
+  `/verify-site` (it already encodes the full live-site checklist: routes →
+  200, one-hop canonicalization, security headers, markdown negotiation,
+  unknown-path 404 — don't re-derive those checks ad hoc). Report status
+  plainly: Worker live, routes answering, KV readable.
+- **Branch cleanup is the one step a session cannot do.** The cloud git proxy
+  rejects `git push --delete`, and the GitHub API paths for both ref deletion
+  and repo-settings writes 403 through the egress proxy ("not permitted
+  through this proxy" — verified 2026-07-14). Don't burn time retrying:
+  either the owner clicks "Delete branch" on the merged PR, or — better —
+  enables Settings → General → Pull Requests → "Automatically delete head
+  branches" so cleanup happens on its own.
 
 ## Repo skills (.claude/)
 Committed Claude Code skills live under `.claude/skills/<name>/SKILL.md` — the
