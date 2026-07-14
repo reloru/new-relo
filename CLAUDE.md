@@ -69,13 +69,23 @@ and does not wait for human approval at any step.
   200, one-hop canonicalization, security headers, markdown negotiation,
   unknown-path 404 — don't re-derive those checks ad hoc). Report status
   plainly: Worker live, routes answering, KV readable.
-- **Branch cleanup is the one step a session cannot do.** The cloud git proxy
-  rejects `git push --delete`, and the GitHub API paths for both ref deletion
-  and repo-settings writes 403 through the egress proxy ("not permitted
-  through this proxy" — verified 2026-07-14). Don't burn time retrying:
-  either the owner clicks "Delete branch" on the merged PR, or — better —
-  enables Settings → General → Pull Requests → "Automatically delete head
-  branches" so cleanup happens on its own.
+- **Branch cleanup now happens on its own.** "Automatically delete head
+  branches" is **ON** (owner enabled it 2026-07-14), so a squash-merge deletes
+  its own head branch — a session no longer needs to flag cleanup or the owner
+  to click "Delete branch." Two caveats: (1) it only fires on *future* merges,
+  so the ~31 pre-existing stray `claude/*` branches are orphaned and only the
+  owner can remove them (bulk-delete on the branches page); (2) a session still
+  **cannot** delete a branch or write repo settings itself — the cloud git
+  proxy rejects `git push --delete` and the GitHub API ref-deletion +
+  repo-settings paths 403 through the egress proxy ("not permitted through this
+  proxy" — re-verified 2026-07-14, unchanged by the workflow-permission
+  toggles, which govern Actions' `GITHUB_TOKEN`, not a session's credentials).
+  So don't retry those writes; the auto-delete setting is what does the work.
+- **Merge method is squash by *convention*, not enforced.** All three methods
+  (merge/squash/rebase) remain enabled on the repo, so nothing stops a stray
+  merge commit (PR #91 landed as one). Always choose squash when merging, and
+  keep in mind the divergence gotcha in the CI section below (a squashed branch
+  can't just keep committing onto `main`'s rewritten history).
 
 ## Repo skills (.claude/)
 Committed Claude Code skills live under `.claude/skills/<name>/SKILL.md` — the
