@@ -365,7 +365,15 @@ directory name becomes the `/command`. Current skills:
   page. Content-negotiated (`?format=md` / `Accept: text/markdown`). The full
   forecast moved to `/weather` during the 2026 nav/homepage restructure (root
   used to serve the forecast). The Bing `msvalidate.01` verification meta lives
-  on the hub (the root Bing has on file).
+  on the hub (the root Bing has on file). **Bing Webmaster URL submission**: the
+  site is verified in Bing Webmaster Tools and the cloud env carries
+  `BING_WEBMASTER_API_KEY`, so a session can push URLs for (re)indexing via the
+  JSON API — `POST https://ssl.bing.com/webmaster/api.svc/json/SubmitUrlbatch?apikey=$BING_WEBMASTER_API_KEY`
+  with body `{siteUrl, urlList}`; check remaining quota with
+  `GetUrlSubmissionQuota` (daily 100 / monthly 1900). All 30 content-page URLs
+  (both languages) plus `/mcp` and `/es/mcp` were submitted on 2026-07-14.
+  (Google indexing is not API-driven here — Search Console is DNS-verified; see
+  the MCP Registry section.)
 - **Current-conditions invariant:** never render `hourly[0]` as "now" — NWS's
   `forecastHourly` first period is the product's generation hour and can lag
   the wall clock by 1h+ even with a fresh cache (user screenshots: hero said
