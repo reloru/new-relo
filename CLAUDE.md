@@ -310,9 +310,12 @@ directory name becomes the `/command`. Current skills:
   authoritative source, and mistranslating a warning is unsafe.
 - Routing: `_fetch` maps an `/es` request to its English path + `lang="es"`
   (`page = path.slice(3)`), then the shared content-page handlers render either
-  language. Non-page routes (API, MCP, assets, `.well-known`) are English-only
-  and never carry an `/es` prefix; the JSON API and MCP server are intentionally
-  English-only too.
+  language. Non-page routes (API, assets, `.well-known`) are English-only
+  and never carry an `/es` prefix; the JSON API and the MCP **protocol/API** are
+  intentionally English-only too. **Exception: `/es/mcp`** is a Spanish HUMAN
+  explainer (GET/HEAD only) — the protocol still lives only at `/mcp`, and the
+  Spanish page tells readers to connect to `/mcp`, not `/es/mcp` (a POST to
+  `/es/mcp` 404s; it is not an endpoint).
 - SEO wiring: every page emits reciprocal `hreflang` link tags (`en-US`,
   `es-MX`, `x-default`→English) via `hreflangTags()`; `<html lang>`, `<title>`,
   description, OG, and `<link rel=canonical>` are all per-language
@@ -695,7 +698,13 @@ directory name becomes the `/command`. Current skills:
   (`Accept: text/markdown` / `?format=md` → `mcpInfoMarkdown()`, so the footer's
   "View as Markdown" link works) — except a GET asking for the SSE stream
   (`Accept: text/event-stream`, checked first), which 405s since we don't offer
-  that stream (Streamable HTTP spec). POST does the protocol.
+  that stream (Streamable HTTP spec). POST does the protocol. Both explainer
+  renderers take a `lang` arg: **`/es/mcp`** is a Spanish HUMAN explainer
+  (GET/HEAD only; `mcpInfoHtml("es")`/`mcpInfoMarkdown("es")`) that describes the
+  server in Spanish, links its en/es pair via `hreflangTags("/mcp")` +
+  per-language `canonical`, and repeatedly tells readers to connect to the
+  English `/mcp` (not `/es/mcp`). The protocol is unchanged — a POST to `/es/mcp`
+  404s (it's a page, not an endpoint).
 - `/icons/...` — proxies NWS weather icons from `api.weather.gov/icons/`
   through our origin (locked to that prefix, not an open proxy). NWS's
   robots.txt disallows all crawling, so hotlinked icons are uncrawlable;

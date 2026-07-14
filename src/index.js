@@ -5216,19 +5216,23 @@ function mcpServerCard() {
 }
 
 // Human-facing explainer shown when a browser opens /mcp (which only speaks
-// POST JSON-RPC). Lists the tools and how to connect.
-function mcpInfoHtml() {
+// POST JSON-RPC). Lists the tools and how to connect. The MCP protocol/API is
+// English-only; `lang` renders a Spanish HUMAN explainer at /es/mcp that points
+// readers back at the English /mcp endpoint (never /es/mcp) to actually connect.
+function mcpInfoHtml(lang) {
   const tools = mcpTools()
     .map((t) => `<li><code>${esc(t.name)}</code> &mdash; ${esc(t.description)}</li>`)
     .join("\n      ");
   return `<!DOCTYPE html>
-<html lang="en">
+<html lang="${T(lang, "en", "es-MX")}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MCP Server &mdash; crosbynews.com</title>
-<meta name="description" content="Model Context Protocol (MCP) server for Crosby, TX weather: connect an AI agent to get live conditions, forecast, and alerts.">
+<title>${T(lang, "MCP Server", "Servidor MCP")} &mdash; crosbynews.com</title>
+<meta name="description" content="${T(lang, "Model Context Protocol (MCP) server for Crosby, TX weather: connect an AI agent to get live conditions, forecast, and alerts.", "Servidor de Model Context Protocol (MCP) para datos de Crosby, TX: conecta un agente de IA para obtener el clima en vivo, el pronóstico y las alertas.")}">
 <meta name="theme-color" content="#0b3d61">
+<link rel="canonical" href="${canonicalFor("/mcp", lang)}">
+${hreflangTags("/mcp")}
 <link rel="manifest" href="/manifest.json">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="alternate icon" href="/favicon.ico">
@@ -5242,43 +5246,88 @@ function mcpInfoHtml() {
 </style>
 </head>
 <body>
-${topbar("")}
+${topbar("/mcp", lang)}
 <main id="main">
-  <h1>MCP Server</h1>
-  <p class="intro">This is the Model Context Protocol (MCP) endpoint for crosbynews.com. It is meant for AI agents, not browsers &mdash; it speaks JSON-RPC over HTTP POST. This page just explains what it is.</p>
+  <h1>${T(lang, "MCP Server", "Servidor MCP")}</h1>
+  <p class="intro">${T(lang, "This is the Model Context Protocol (MCP) endpoint for crosbynews.com. It is meant for AI agents, not browsers &mdash; it speaks JSON-RPC over HTTP POST. This page just explains what it is.", "Este es el punto de acceso de Model Context Protocol (MCP) de crosbynews.com. Está pensado para agentes de IA, no para navegadores &mdash; usa JSON-RPC sobre HTTP POST. Esta página solo explica qué es.")}</p>
+  ${lang === "es" ? `<section class="card"><h2>Idioma</h2><p>El servidor MCP funciona <strong>solo en inglés</strong>. Para conectarte, usa la URL en inglés <code>${SITE}/mcp</code> &mdash; <strong>no</strong> <code>${SITE}/es/mcp</code>, que es únicamente esta página explicativa en español.</p></section>` : ""}
   <section class="card">
-    <h2>Endpoint</h2>
-    <p><code>${SITE}/mcp</code> &middot; transport: Streamable HTTP (JSON-RPC 2.0). Discovery card: <a href="/.well-known/mcp/server-card.json">/.well-known/mcp/server-card.json</a>.</p>
+    <h2>${T(lang, "Endpoint", "Punto de acceso")}</h2>
+    <p><code>${SITE}/mcp</code> &middot; ${T(lang, "transport", "transporte")}: Streamable HTTP (JSON-RPC 2.0). ${T(lang, "Discovery card", "Tarjeta de descubrimiento")}: <a href="/.well-known/mcp/server-card.json">/.well-known/mcp/server-card.json</a>.</p>
   </section>
   <section class="card">
-    <h2>Tools</h2>
+    <h2>${T(lang, "Tools", "Herramientas")}</h2>
+    ${lang === "es" ? `<p class="intro">Los nombres y las descripciones de las herramientas se muestran en inglés &mdash; el servidor responde en inglés.</p>` : ""}
     <ul>
       ${tools}
     </ul>
   </section>
   <section class="card">
-    <h2>Prompts &amp; resources</h2>
-    <p>The prompt <code>crosby_briefing</code> returns a data-grounded daily-briefing prompt with live weather, alerts, headlines, and school events already filled in. Resources expose <a href="/llms.txt"><code>llms.txt</code></a> and the <a href="/openapi.json">OpenAPI spec</a> in-protocol.</p>
+    <h2>${T(lang, "Prompts &amp; resources", "Prompts y recursos")}</h2>
+    <p>${T(lang, `The prompt <code>crosby_briefing</code> returns a data-grounded daily-briefing prompt with live weather, alerts, headlines, and school events already filled in. Resources expose <a href="/llms.txt"><code>llms.txt</code></a> and the <a href="/openapi.json">OpenAPI spec</a> in-protocol.`, `El prompt <code>crosby_briefing</code> devuelve un resumen diario con datos reales: clima en vivo, alertas, titulares y eventos escolares ya incluidos. Los recursos exponen <a href="/llms.txt"><code>llms.txt</code></a> y la <a href="/openapi.json">especificación OpenAPI</a> dentro del protocolo.`)}</p>
   </section>
   <section class="card">
-    <h2>Connect from Claude Code</h2>
+    <h2>${T(lang, "Connect from Claude Code", "Conectar desde Claude Code")}</h2>
     <pre>claude mcp add --transport http crosbynews ${SITE}/mcp</pre>
-    <p class="intro">Then ask, e.g., "what's the forecast for Crosby, TX?" and the agent will call these tools. Prefer a webpage? See the <a href="/">live forecast</a>, <a href="/hourly">hourly</a>, and <a href="/radar">radar</a>.</p>
+    <p class="intro">${T(lang, `Then ask, e.g., "what's the forecast for Crosby, TX?" and the agent will call these tools. Prefer a webpage? See the <a href="/">live forecast</a>, <a href="/hourly">hourly</a>, and <a href="/radar">radar</a>.`, `Luego pregunta, por ejemplo, "¿cuál es el pronóstico para Crosby, TX?" y el agente llamará a estas herramientas. ¿Prefieres una página web? Mira el <a href="/es/weather">pronóstico en vivo</a>, <a href="/es/hourly">por hora</a> y <a href="/es/radar">radar</a>.`)}</p>
   </section>
 </main>
-${footer({ page: "/mcp", lang: "en", source: `Data from the U.S. National Weather Service (<a href="https://weather.gov">weather.gov</a>).` })}
+${footer({ page: "/mcp", lang: lang === "es" ? "es" : "en", source: T(lang, `Data from the U.S. National Weather Service (<a href="https://weather.gov">weather.gov</a>).`, `Datos del Servicio Meteorológico Nacional de EE. UU. (<a href="https://weather.gov">weather.gov</a>).`) })}
 </body>
 </html>`;
 }
 
 // Markdown rendering of the same explainer, served when an agent asks for it
 // (Accept: text/markdown / ?format=md) — so the footer's "View as Markdown"
-// link works here like it does on every content page. English-only, like the
-// HTML explainer.
-function mcpInfoMarkdown() {
+// link works here like it does on every content page. `lang` mirrors the HTML:
+// the protocol stays English-only; the Spanish variant is a human explainer
+// that points at the English /mcp endpoint.
+function mcpInfoMarkdown(lang) {
   const tools = mcpTools()
     .map((t) => `- \`${t.name}\` — ${t.description}`)
     .join("\n");
+  if (lang === "es") {
+    return `# Servidor MCP — crosbynews.com
+
+Este es el punto de acceso de Model Context Protocol (MCP) de crosbynews.com.
+Usa JSON-RPC 2.0 sobre HTTP POST (transporte Streamable HTTP); esta página solo
+explica qué es.
+
+**El servidor MCP funciona solo en inglés.** Para conectarte, usa la URL en
+inglés \`${SITE}/mcp\` — **no** \`${SITE}/es/mcp\`, que es únicamente esta página
+explicativa en español.
+
+## Punto de acceso
+
+- \`${SITE}/mcp\` — transporte: Streamable HTTP (JSON-RPC 2.0 sobre POST)
+- Tarjeta de descubrimiento: ${SITE}/.well-known/mcp/server-card.json
+
+## Herramientas
+
+_Los nombres y las descripciones se muestran en inglés — el servidor responde en inglés._
+
+${tools}
+
+## Prompts y recursos
+
+- Prompt \`crosby_briefing\` — un resumen diario con datos reales (clima en vivo, alertas, titulares y eventos escolares ya incluidos).
+- Recursos — \`${SITE}/llms.txt\` (resumen del sitio) y \`${SITE}/openapi.json\` (especificación de la API), legibles dentro del protocolo.
+
+## Conectar desde Claude Code
+
+\`\`\`
+claude mcp add --transport http crosbynews ${SITE}/mcp
+\`\`\`
+
+Luego pregunta, por ejemplo, "¿cuál es el pronóstico para Crosby, TX?" y el
+agente llamará a estas herramientas. ¿Prefieres una página web? Mira el
+[pronóstico en vivo](${SITE}/es/weather), [por hora](${SITE}/es/hourly) y
+[radar](${SITE}/es/radar).
+
+---
+[crosbynews.com](${SITE}/es) · datos del Servicio Meteorológico Nacional de EE. UU.
+`;
+  }
   return `# MCP Server — crosbynews.com
 
 This is the Model Context Protocol (MCP) endpoint for crosbynews.com. It speaks
@@ -5740,6 +5789,26 @@ async function _fetch(request, env, ctx) {
       return new Response(JSON.stringify(mcpServerCard(), null, 2), {
         headers: { "content-type": "application/json; charset=utf-8", "cache-control": "public, max-age=3600", "access-control-allow-origin": "*" },
       });
+    }
+
+    // Spanish HUMAN explainer for the MCP server (GET/HEAD only). The protocol
+    // itself is English-only and lives at /mcp — this page describes it in
+    // Spanish and tells readers to connect to /mcp, not /es/mcp. It is NOT an
+    // MCP endpoint, so anything other than GET/HEAD 404s.
+    if (path === "/es/mcp") {
+      if (request.method === "GET" || request.method === "HEAD") {
+        const accept = (request.headers.get("accept") || "").toLowerCase();
+        const wantsMarkdown = accept.includes("text/markdown") || url.searchParams.get("format") === "md";
+        return new Response(wantsMarkdown ? mcpInfoMarkdown("es") : mcpInfoHtml("es"), {
+          status: 200,
+          headers: {
+            "content-type": `${wantsMarkdown ? "text/markdown" : "text/html"}; charset=utf-8`,
+            "cache-control": "public, max-age=3600",
+            vary: "Accept",
+          },
+        });
+      }
+      return new Response("Not Found", { status: 404 });
     }
 
     if (path === "/mcp") {
