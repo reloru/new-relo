@@ -3598,7 +3598,7 @@ ${OG_COMMON}
 ${hreflangTags("/news")}
 <link rel="alternate" type="application/rss+xml" title="Crosby, TX News (RSS)" href="/news.xml">
 ${JSONLD_SITE}
-<link rel="manifest" href="/manifest.json">
+${admin ? "" : `<link rel="manifest" href="/manifest.json">`}
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="alternate icon" href="/favicon.ico">
 <style>${BASE_CSS}

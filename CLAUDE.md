@@ -474,6 +474,11 @@ directory name becomes the `/command`. Current skills:
   (`NEWS_ADMIN_SCRIPT`, labels via `data-*`). No cookies or visitor data — the
   secret lives in the URL you bookmark, checked server-side; privacy model
   unchanged. Rotate by re-running `wrangler secret put ADMIN_KEY`.
+  **Admin renders omit `<link rel="manifest">`** — otherwise iOS "Add to Home
+  Screen" reads the manifest's `start_url` (`/`) and pins the *homepage* instead
+  of the `?admin=` URL (the web-app URL field is locked when a manifest is
+  present). Dropping the manifest tag on admin renders makes iOS bookmark the
+  actual `/news?admin=…` URL (a plain Safari web-clip, not a standalone PWA).
 - `/calendar` — Crosby ISD school calendar. Renders the district's public iCal
   feed (the combined "All Calendars" feed, `feedID=BB92BE3D…`, which is the union
   of every campus) as upcoming events grouped by month, plus one-tap subscribe
