@@ -544,7 +544,12 @@ directory name becomes the `/command`. Current skills:
 - **PWA/offline** — `/manifest.json` (web app manifest: installable,
   `display: standalone`, brand colors), `/icon.svg` (512px app icon —
   full-bleed navy square, `purpose: "any maskable"`, art inside the maskable
-  safe zone), and `/sw.js` (hand-written service worker, no build step). The
+  safe zone), `/apple-touch-icon.png` (+ `-precomposed`; a **180×180 PNG**
+  rasterized from `ICON_SVG`, the site's ONLY raster asset — inline base64
+  constant `APPLE_TOUCH_ICON_B64`, so the no-static-files rule still holds. iOS
+  "Add to Home Screen" needs a PNG touch icon and ignores SVG here; the admin
+  `/news?admin=` view drops the manifest so it also links this explicitly,
+  otherwise iOS invents a letter tile), and `/sw.js` (hand-written service worker, no build step). The
   SW precaches the storm-critical pages (`/`, `/alerts`, `/es`, `/es/alerts`,
   manifest, favicon) at install, then runs **network-first for navigations**
   (always fresh online; caches query-less copies as it goes) with the
