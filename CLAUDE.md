@@ -277,9 +277,10 @@ directory name becomes the `/command`. Current skills:
   and falls back to a live fetch + warm on a cold cache. The same cron also
   refreshes the `calendar` key (Crosby ISD iCal, throttled to ~6h), the
   `water` key (NWPS river/bayou gauges, every tick — levels move fast in a
-  flood), and the `tropics` key (NHC CurrentStorms.json, throttled ~1h);
-  `fetch()` cold-warms all three. (The `news` key is written out-of-band —
-  see the News pipeline.)
+  flood), the `tropics` key (NHC CurrentStorms.json, throttled ~1h), and the
+  `traffic` key (Houston TranStar RSS, every tick — incidents and high-water
+  reports move fast); `fetch()` cold-warms all four. (The `news` key is
+  written out-of-band — see the News pipeline.)
 - Styling: an inline `<style>` block in the rendered HTML — no build step,
   no static assets.
 - Chrome: `topbar(current, lang)` renders the site header with nav links, and
@@ -322,9 +323,9 @@ directory name becomes the `/command`. Current skills:
 ## Languages (English + Mexican Spanish)
 - The site is bilingual: English at the root paths and Mexican Spanish (`es-MX`)
   under an **`/es` prefix** (`/es`, `/es/weather`, `/es/hourly`, `/es/radar`,
-  `/es/alerts`, `/es/water`, `/es/tropics`, `/es/news`, `/es/calendar`,
-  `/es/emergency`, `/es/about`, `/es/developers`, `/es/privacy`, `/es/contact`,
-  `/es/sitemap`). Same fifteen content pages, same markdown negotiation. (`/es` is the Spanish hub;
+  `/es/alerts`, `/es/water`, `/es/tropics`, `/es/traffic`, `/es/news`,
+  `/es/calendar`, `/es/emergency`, `/es/about`, `/es/developers`, `/es/privacy`,
+  `/es/contact`, `/es/sitemap`). Same sixteen content pages, same markdown negotiation. (`/es` is the Spanish hub;
   `/es/weather` the Spanish forecast.)
 - **One set of render functions serves both languages** (no duplicated pages, so
   they can't drift). Each `*Html`/`*Markdown` takes a `lang` arg; the i18n block
@@ -422,8 +423,8 @@ directory name becomes the `/command`. Current skills:
   what the root served pre-restructure. Content-negotiated. The homepage/`/weather`
   `Link` header advertises the markdown alternate, sitemap, api-catalog, and
   OpenAPI service-desc (via the parameterized `linkHeader(enPath, lang)`). All
-  thirty content pages (the fifteen English routes `/`, `/weather`, `/hourly`,
-  `/radar`, `/alerts`, `/water`, `/tropics`, `/news`, `/calendar`, `/emergency`, `/about`, `/developers`,
+  thirty-two content pages (the sixteen English routes `/`, `/weather`, `/hourly`,
+  `/radar`, `/alerts`, `/water`, `/tropics`, `/traffic`, `/news`, `/calendar`, `/emergency`, `/about`, `/developers`,
   `/privacy`, `/contact`, `/sitemap` and their `/es` Spanish counterparts) emit an HTTP
   `Link: rel="canonical"` header — added centrally in the `fetch` wrapper via
   `PAGE_PATHS` — so the `?format=md` variants and the http→https pair consolidate
@@ -498,6 +499,36 @@ directory name becomes the `/command`. Current skills:
   self-hides when the basin is quiet; the hub loads tropics as its fifth
   parallel dataset. Storm names/advisories stay in NHC English. In the topbar
   as `m-only` under Weather. Markdown-negotiated.
+- `/traffic` — Crosby-corridor roads & traffic (`trafficHtml`/`trafficMarkdown`;
+  issue #92). **Cron + KV pattern** (key `traffic`, cron-owned, every tick):
+  `fetchTraffic()` reads Houston TranStar's public **RSS feeds**
+  (`traffic.houstontranstar.org/data/rss/incidents_rss.xml` +
+  `laneclosures_rss.xml`, updated ~once a minute upstream) — **Worker
+  reachability canary-verified from the deployed runtime 2026-07-16** (200 +
+  live XML; the same canary showed **www.drivetexas.org times out from Worker
+  egress IPs**, so DriveTexas is link-only). TranStar's richer JSON API
+  (speeds, flood-warning sensors) needs a **data-use agreement** (403 without
+  one) — if the owner ever obtains access, swapping upstreams is localized to
+  `fetchTraffic()`. **TxDOT's terms prohibit hotlinking/framing images, so
+  camera snapshots are NEVER embedded or proxied** — the page links TranStar's
+  own per-roadway camera pages (`by_roadway.aspx?rd=US-90` / `IH-10_East`) and
+  live map instead; only RSS facts (road, location, status, lanes) are
+  republished, with attribution (the /news model). Relevance is TEXT matching
+  (`trafficRelevant()` — RSS has no coordinates): titles starting `US-90`
+  (never `US-90 Alternate`/`US-90A`, a different road southwest), `IH-10 East`
+  gated on Crosby-stretch cross streets (`TRAFFIC_I10E_XSTREETS`), or
+  Crosby-area tokens anywhere (`TRAFFIC_AREA_TOKENS`: FM-2100, FM-1942,
+  Runneburg, Barrett Station, …). Cleared incidents are dropped; each feed
+  side is independently failure-tolerant (`null` = feed unreachable ≠ `[]` =
+  quiet roads, and `fetchTraffic()` throws only when BOTH fail so the last
+  snapshot survives). Incident types/statuses get small hand dictionaries for
+  Spanish (`TRAFFIC_TYPE_ES`, status verbs); free-form lane/schedule text
+  stays in TranStar's official English (the NWS-alert policy). High-water
+  incidents render red (`trafficIsWater`) — the storm-time payoff, pairing
+  with `/water`. Quiet roads render a green all-clear + an evergreen
+  "when water covers the road" guide. In the topbar as `m-only` under
+  Community. Markdown-negotiated. Also: `/api/traffic` (conditional GET),
+  MCP tool `get_traffic`, and a briefing line when incidents are present.
 - `/news` — local news for Crosby + nearby towns. The Worker is a pure renderer:
   it serves the WEATHER KV `news` key (read-only via `loadNews()`). That key is
   written out-of-band by `scripts/fetch-news.mjs` (see "News pipeline"), NOT by
@@ -688,7 +719,7 @@ directory name becomes the `/command`. Current skills:
   on `/developers` ("Embeddable weather badge", with the copy-paste `<img>`
   snippet), the human `/sitemap` developer list, and llms.txt `## Optional`.
 - `/sitemap.xml` — lists `/`, `/weather`, `/hourly`, `/radar`, `/alerts`,
-  `/water`, `/tropics`, `/news`, `/calendar`, `/emergency`, `/about`, `/developers`, `/privacy`, `/contact`, `/sitemap`
+  `/water`, `/tropics`, `/traffic`, `/news`, `/calendar`, `/emergency`, `/about`, `/developers`, `/privacy`, `/contact`, `/sitemap`
   in both languages
   (each English route plus its `/es` counterpart), every `<url>` carrying
   `xhtml:link` hreflang alternates (`en-US`, `es-MX`, `x-default`).
@@ -706,8 +737,8 @@ directory name becomes the `/command`. Current skills:
   plus the derived `sun`, the EPA `uv` object, and the modeled `airQuality`
   object), CORS `*`. `/api/health` — status + cache freshness.
 - Conditional GET: the polled endpoints (`/api/weather`, `/api/news`,
-  `/api/calendar`, `/api/water`, `/api/tropics`, `/alerts.xml`, `/news.xml`)
-  send weak ETags derived from
+  `/api/calendar`, `/api/water`, `/api/tropics`, `/api/traffic`,
+  `/alerts.xml`, `/news.xml`) send weak ETags derived from
   the KV freshness stamp (plus the Central calendar date where the body
   depends on it: sun times, upcoming-events cutoff) and `Last-Modified`
   where the stamp is a date; `If-None-Match` → body-less 304 (see
@@ -733,13 +764,21 @@ directory name becomes the `/command`. Current skills:
   `advisoryUrl`. An empty `storms` array is the normal quiet-basin state.
   Documented in `/openapi.json` + api-catalog; MCP tool `get_tropical_outlook`.
   English-only.
+- `/api/traffic` — the same TranStar data behind `/traffic` as public JSON
+  (CORS `*`): `incidents` (location/type/status/lanesAffected) and
+  `laneClosures` (location/schedule/lanesAffected/status) — each `null` when
+  that feed was unreachable at the last refresh vs `[]` = quiet — plus the
+  static `cameras` catalog (name/roadway/lat/lon/`pageUrl` to TranStar's own
+  camera pages, never image URLs) and `liveMapUrl`. Documented in
+  `/openapi.json` + api-catalog; MCP tool `get_traffic`. English-only.
 - `/.well-known/api-catalog` (`application/linkset+json`, RFC 9727) and
   `/openapi.json` (OpenAPI 3.1) describe the API. All read from the same KV
   cache via `loadWeather()`.
 - `/mcp` — stateless MCP server (Streamable HTTP, JSON-RPC) with tools
   `get_current_conditions`, `get_forecast` (optional `hours` 1–48, the full
   KV hourly supply), `get_alerts`, `get_tropical_outlook`, `get_crosby_news`,
-  `get_school_events`, `get_river_levels`, `get_emergency_contacts` (the
+  `get_school_events`, `get_river_levels`, `get_traffic`,
+  `get_emergency_contacts` (the
   static `EMERGENCY` directory as a tool), and `get_radar` (fetches the NWS
   KHGX still `KHGX_0.gif` server-side and returns it as inline MCP image
   content, base64 GIF, with a text fallback when the upstream is down — the
@@ -754,7 +793,8 @@ directory name becomes the `/command`. Current skills:
   `MCP_SUPPORTED_VERSIONS` (else answers with our latest, per spec — never
   parrot an unsupported version like `2026-07-28`). Prompt `crosby_briefing`
   (prompts/get composes live weather + alerts + news + school events — plus
-  river gauges above normal and active Atlantic storms, each only when
+  river gauges above normal, active Atlantic storms, and Crosby-corridor road
+  incidents, each only when
   present — server-side into a self-contained briefing prompt); resources
   `llms.txt` + `openapi.json` (readable in-protocol via resources/read).
   Discovery card at `/.well-known/mcp/server-card.json`. A GET (or HEAD) gets a human explainer
@@ -927,9 +967,9 @@ directory name becomes the `/command`. Current skills:
 - `wrangler kv key get/put/list` default to *local* (miniflare) state. To read
   or write the real production namespace, pass `--remote`. (A get without it can
   say "Value not found" even when the deployed Worker is reading the key fine.)
-- The WEATHER namespace holds five content keys: `weather`, `calendar`, `water`,
-  and `tropics` (all cron-owned — the Worker refreshes them) and `news`
-  (routine-owned — written out-of-band, the Worker only reads it). It also holds
+- The WEATHER namespace holds six content keys: `weather`, `calendar`, `water`,
+  `tropics`, and `traffic` (all cron-owned — the Worker refreshes them) and
+  `news` (routine-owned — written out-of-band, the Worker only reads it). It also holds
   the Web Push state: `push_notified` (cron-owned dedupe list — first created
   when a severe warning actually pushes, so it's absent until then; that's the
   normal quiet state, not a bug) and one entry per

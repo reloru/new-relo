@@ -801,7 +801,7 @@ function topbar(current, lang = "en") {
   <nav>
     <details class="nav-menu">
       <summary aria-label="${t("Menu", "Menú")}">&#9776;</summary>
-      <div class="nav-links">${link("/", t("Home", "Inicio"))} ${group(t("Weather", "Clima"))} ${link("/weather", t("Weather", "Clima"))} ${link("/hourly", t("Hourly", "Por hora"), "m-only")} ${link("/radar", t("Radar", "Radar"))} ${link("/alerts", t("Alerts", "Alertas"))} ${link("/water", t("Water Levels", "Niveles de agua"))} ${link("/tropics", t("Tropics", "Trópicos"), "m-only")} ${group(t("Community", "Comunidad"))} ${link("/news", t("News", "Noticias"))} ${link("/calendar", t("School Calendar", "Calendario escolar"))} ${group(t("More", "Más"))} ${link("/emergency", t("Emergency", "Emergencias"), "m-only")} ${link("/about", t("About", "Acerca de"))} ${link("/developers", t("Developers", "Desarrolladores"), "m-only")}</div>
+      <div class="nav-links">${link("/", t("Home", "Inicio"))} ${group(t("Weather", "Clima"))} ${link("/weather", t("Weather", "Clima"))} ${link("/hourly", t("Hourly", "Por hora"), "m-only")} ${link("/radar", t("Radar", "Radar"))} ${link("/alerts", t("Alerts", "Alertas"))} ${link("/water", t("Water Levels", "Niveles de agua"))} ${link("/tropics", t("Tropics", "Trópicos"), "m-only")} ${group(t("Community", "Comunidad"))} ${link("/news", t("News", "Noticias"))} ${link("/traffic", t("Traffic", "Tráfico"), "m-only")} ${link("/calendar", t("School Calendar", "Calendario escolar"))} ${group(t("More", "Más"))} ${link("/emergency", t("Emergency", "Emergencias"), "m-only")} ${link("/about", t("About", "Acerca de"))} ${link("/developers", t("Developers", "Desarrolladores"), "m-only")}</div>
     </details>
     ${toggle}
   </nav>
@@ -1736,6 +1736,7 @@ crosbynews.com is an independent weather and news site for Crosby, TX (northeast
 - [Water Levels](${SITE}/water): Live river and bayou levels with NWS flood stages for Cedar Bayou, the San Jacinto River, Luce Bayou and other waters that flood the Crosby / NE Harris County area.
 - [Tropics](${SITE}/tropics): Active Atlantic tropical storms and hurricanes from the NOAA National Hurricane Center, plus what hurricane season means for Crosby — shows an all-clear when the basin is quiet.
 - [News](${SITE}/news): Recent local headlines about Crosby, TX and nearby communities, filtered for relevance.
+- [Roads & Traffic](${SITE}/traffic): Live traffic incidents and scheduled lane closures for US-90, FM-2100, FM-1942, and the Crosby stretch of IH-10 East, from Houston TranStar, with links to the live traffic cameras.
 - [School Calendar](${SITE}/calendar): Upcoming Crosby ISD school calendar events (first day, holidays, no-school/early-release days, testing, athletics) rendered from the district's public iCal feed, plus one-tap subscribe links.
 - [Emergency Resources](${SITE}/emergency): Emergency contacts for Crosby, TX — 911 and non-emergency numbers, power outage and gas leak reporting, the CAER industrial-incident line, live flood and road conditions, evacuation-zone lookup, shelters, and disaster assistance.
 - [About](${SITE}/about): What this site is, where its data comes from, how often it updates, and how it's built.
@@ -1757,8 +1758,9 @@ Every page supports \`Accept: text/markdown\` (or \`?format=md\`) for a clean ma
 - School calendar API: \`GET ${SITE}/api/calendar\` — upcoming Crosby ISD events (JSON).
 - Water levels API: \`GET ${SITE}/api/water\` — river/bayou stage + NWS flood stages (JSON).
 - Tropics API: \`GET ${SITE}/api/tropics\` — active Atlantic tropical cyclones from the NOAA NHC (JSON; empty storms array = quiet basin).
+- Traffic API: \`GET ${SITE}/api/traffic\` — incidents and lane closures on Crosby's roads from Houston TranStar (JSON; empty arrays = quiet roads).
 - OpenAPI spec: \`${SITE}/openapi.json\`
-- MCP server (Streamable HTTP): \`${SITE}/mcp\` — tools: \`get_current_conditions\`, \`get_forecast\`, \`get_alerts\`, \`get_tropical_outlook\`, \`get_river_levels\`, \`get_crosby_news\`, \`get_school_events\`, \`get_emergency_contacts\`, \`get_radar\`
+- MCP server (Streamable HTTP): \`${SITE}/mcp\` — tools: \`get_current_conditions\`, \`get_forecast\`, \`get_alerts\`, \`get_tropical_outlook\`, \`get_river_levels\`, \`get_traffic\`, \`get_crosby_news\`, \`get_school_events\`, \`get_emergency_contacts\`, \`get_radar\`
 - MCP server card: \`${SITE}/.well-known/mcp/server-card.json\`
 
 ## Data policy
@@ -1843,6 +1845,7 @@ function sitemapXml() {
     { path: "/water", changefreq: "hourly", priority: "0.7" },
     { path: "/tropics", changefreq: "daily", priority: "0.6" },
     { path: "/news", changefreq: "daily", priority: "0.6" },
+    { path: "/traffic", changefreq: "hourly", priority: "0.6" },
     { path: "/calendar", changefreq: "daily", priority: "0.6" },
     { path: "/emergency", changefreq: "monthly", priority: "0.5" },
     { path: "/about", changefreq: "monthly", priority: "0.5" },
@@ -1891,7 +1894,7 @@ const ABOUT = {
     {
       h: "Where the data comes from",
       p: [
-        "Every forecast, conditions reading, and alert on this site comes directly from the U.S. National Weather Service (api.weather.gov) for Crosby, TX (latitude 29.9119, longitude -95.0608). NWS data is in the public domain. The UV index is the one weather number sourced elsewhere — the U.S. EPA's public UV forecast for Crosby's ZIP code (77532).",
+        "Every forecast, conditions reading, and alert on this site comes directly from the U.S. National Weather Service (api.weather.gov) for Crosby, TX (latitude 29.9119, longitude -95.0608). NWS data is in the public domain. The UV index is the one weather number sourced elsewhere — the U.S. EPA's public UV forecast for Crosby's ZIP code (77532). Road incidents and lane closures come from Houston TranStar (the region's official traffic agency, a TxDOT partnership), republished as facts with attribution from the RSS feeds TranStar publishes for public subscription.",
         "The air quality index (AQI) is different, and we label it so wherever it appears: it's modeled, not measured. There's no EPA air monitor in Crosby, so rather than borrow a distant monitor's reading and call it local, we show Open-Meteo's modeled forecast for Crosby's coordinates. Treat it as a useful estimate — genuinely handy on wildfire-smoke days — not an official measurement.",
         "We don't editorialize or adjust the numbers — the site is a clean presentation layer over the official government forecast for the Crosby area. Two values we compute ourselves: \"feels like\" temperature (the heat index or wind chill, using the National Weather Service's own published formulas applied to its temperature, humidity, and wind data — shown only when it's meaningfully different from the air temperature) and sunrise/sunset times (standard astronomical formulas; the NWS forecast API doesn't provide them).",
       ],
@@ -1951,7 +1954,7 @@ const ABOUT_ES = {
     {
       h: "De dónde provienen los datos",
       p: [
-        "Cada pronóstico, lectura de condiciones y alerta de este sitio proviene directamente del Servicio Meteorológico Nacional de EE. UU. (api.weather.gov) para Crosby, TX (latitud 29.9119, longitud -95.0608). Los datos del NWS son de dominio público. El índice UV es el único dato meteorológico de otra fuente: el pronóstico UV público de la EPA de EE. UU. para el código postal de Crosby (77532).",
+        "Cada pronóstico, lectura de condiciones y alerta de este sitio proviene directamente del Servicio Meteorológico Nacional de EE. UU. (api.weather.gov) para Crosby, TX (latitud 29.9119, longitud -95.0608). Los datos del NWS son de dominio público. El índice UV es el único dato meteorológico de otra fuente: el pronóstico UV público de la EPA de EE. UU. para el código postal de Crosby (77532). Los incidentes viales y cierres de carriles provienen de Houston TranStar (la agencia oficial de tráfico de la región, una alianza con TxDOT), republicados como hechos con atribución desde los feeds RSS que TranStar publica para suscripción pública.",
         "El índice de calidad del aire (AQI) es distinto, y lo etiquetamos así donde aparece: es modelado, no medido. No hay un monitor de aire de la EPA en Crosby, así que en lugar de tomar la lectura de un monitor lejano y llamarla local, mostramos el pronóstico modelado de Open-Meteo para las coordenadas de Crosby. Tómalo como una estimación útil — de veras práctica en días con humo de incendios — no como una medición oficial.",
         "No editorializamos ni ajustamos las cifras: el sitio es una capa de presentación limpia sobre el pronóstico oficial del gobierno para la zona de Crosby. Dos valores los calculamos nosotros mismos: la \"sensación térmica\" (el índice de calor o la sensación por viento, con las fórmulas oficiales del Servicio Meteorológico Nacional aplicadas a su temperatura, humedad y viento, y solo se muestra cuando difiere de forma notable de la temperatura del aire) y las horas de amanecer y atardecer (fórmulas astronómicas estándar; la API de pronóstico del NWS no las ofrece). Las condiciones se traducen al español con un diccionario propio; las descripciones detalladas del pronóstico y las alertas se muestran en su idioma oficial, inglés.",
       ],
@@ -2015,6 +2018,7 @@ const PRIVACY = {
         "The site displays data from several external, public sources. All of it is fetched server-side and cached — your browser never contacts these sources directly, and none of it involves sharing any user data:",
         "U.S. National Weather Service (api.weather.gov) — public-domain forecasts, conditions, and alerts for Crosby, TX; and the U.S. EPA (UV index) and NOAA (river/bayou levels, tropical outlook).",
         "Open-Meteo — a modeled air-quality index for Crosby's coordinates (labeled as modeled throughout).",
+        "Houston TranStar (houstontranstar.org) — road incidents and scheduled lane closures for the Crosby corridors, from TranStar's public RSS feeds.",
         "Google News — local news headlines aggregated from public RSS feeds by an out-of-band process and cached.",
         "Crosby ISD (crosbyisd.org) — the school district's public iCal calendar feed.",
       ],
@@ -2057,6 +2061,7 @@ const PRIVACY_ES = {
         "El sitio muestra datos de varias fuentes externas y públicas. Todo se obtiene del lado del servidor y se almacena en caché — tu navegador nunca contacta estas fuentes directamente, y ninguna implica compartir datos de usuario:",
         "Servicio Meteorológico Nacional de EE. UU. (api.weather.gov) — pronósticos, condiciones y alertas de dominio público para Crosby, TX; además de la EPA de EE. UU. (índice UV) y la NOAA (niveles de ríos/arroyos, panorama tropical).",
         "Open-Meteo — un índice de calidad del aire modelado para las coordenadas de Crosby (etiquetado como modelado en todo el sitio).",
+        "Houston TranStar (houstontranstar.org) — incidentes viales y cierres de carriles programados para los corredores de Crosby, desde los feeds RSS públicos de TranStar.",
         "Google News — titulares de noticias locales recopilados de fuentes RSS públicas mediante un proceso externo y almacenados en caché.",
         "Crosby ISD (crosbyisd.org) — el calendario público iCal del distrito escolar.",
       ],
@@ -2246,6 +2251,7 @@ const DEVELOPERS = {
         { href: "/api/weather", label: "/api/weather", note: "current conditions, hourly, 7-day forecast, alerts, plus feels-like and sun times" },
         { href: "/api/water", label: "/api/water", note: "river/bayou stage, flow, and NWS flood stages" },
         { href: "/api/tropics", label: "/api/tropics", note: "active Atlantic tropical cyclones from the NOAA NHC (empty when the basin is quiet)" },
+        { href: "/api/traffic", label: "/api/traffic", note: "incidents and lane closures on Crosby's roads, from Houston TranStar" },
         { href: "/api/news", label: "/api/news", note: "recent local Crosby-area headlines" },
         { href: "/api/calendar", label: "/api/calendar", note: "upcoming Crosby ISD school events" },
         { href: "/api/health", label: "/api/health", note: "service status and cache freshness" },
@@ -2270,7 +2276,7 @@ const DEVELOPERS = {
     {
       h: "MCP server",
       p: [
-        "A stateless Model Context Protocol server (Streamable HTTP, JSON-RPC) exposes the data as callable tools — get_current_conditions, get_forecast, get_alerts, get_tropical_outlook, get_river_levels, get_crosby_news, get_school_events, get_emergency_contacts, and get_radar (a live radar image, inline) — plus a crosby_briefing prompt and readable resources.",
+        "A stateless Model Context Protocol server (Streamable HTTP, JSON-RPC) exposes the data as callable tools — get_current_conditions, get_forecast, get_alerts, get_tropical_outlook, get_river_levels, get_traffic, get_crosby_news, get_school_events, get_emergency_contacts, and get_radar (a live radar image, inline) — plus a crosby_briefing prompt and readable resources.",
         "Connect from Claude Code: claude mcp add --transport http crosbynews https://crosbynews.com/mcp",
       ],
       links: [
@@ -2324,6 +2330,7 @@ const DEVELOPERS_ES = {
         { href: "/api/weather", label: "/api/weather", note: "condiciones actuales, por hora, pronóstico a 7 días, alertas, sensación térmica y horas de sol" },
         { href: "/api/water", label: "/api/water", note: "nivel y caudal de ríos/arroyos y etapas de inundación del NWS" },
         { href: "/api/tropics", label: "/api/tropics", note: "ciclones tropicales activos del Atlántico según el NHC de NOAA (vacío cuando la cuenca está tranquila)" },
+        { href: "/api/traffic", label: "/api/traffic", note: "incidentes y cierres de carriles en los caminos de Crosby, según Houston TranStar" },
         { href: "/api/news", label: "/api/news", note: "titulares locales recientes del área de Crosby" },
         { href: "/api/calendar", label: "/api/calendar", note: "próximos eventos escolares de Crosby ISD" },
         { href: "/api/health", label: "/api/health", note: "estado del servicio y antigüedad de la caché" },
@@ -2348,7 +2355,7 @@ const DEVELOPERS_ES = {
     {
       h: "Servidor MCP",
       p: [
-        "Un servidor del Protocolo de Contexto de Modelo sin estado (Streamable HTTP, JSON-RPC) expone los datos como herramientas invocables — get_current_conditions, get_forecast, get_alerts, get_tropical_outlook, get_river_levels, get_crosby_news, get_school_events, get_emergency_contacts y get_radar (una imagen de radar en vivo, en línea) — además de un prompt crosby_briefing y recursos legibles.",
+        "Un servidor del Protocolo de Contexto de Modelo sin estado (Streamable HTTP, JSON-RPC) expone los datos como herramientas invocables — get_current_conditions, get_forecast, get_alerts, get_tropical_outlook, get_river_levels, get_traffic, get_crosby_news, get_school_events, get_emergency_contacts y get_radar (una imagen de radar en vivo, en línea) — además de un prompt crosby_briefing y recursos legibles.",
         "Conéctate desde Claude Code: claude mcp add --transport http crosbynews https://crosbynews.com/mcp",
       ],
       links: [
@@ -3011,6 +3018,7 @@ ${topbar("/sitemap", lang)}
     <h2>${t("Community", "Comunidad")}</h2>
     <ul>
       ${lk("/news", t("News", "Noticias"), t("Local headlines about Crosby, TX and nearby communities.", "Titulares locales sobre Crosby, TX y comunidades cercanas."))}
+      ${lk("/traffic", t("Roads &amp; Traffic", "Caminos y tráfico"), t("Incidents and lane closures on US-90, FM-2100, and IH-10 East, with live cameras.", "Incidentes y cierres de carriles en US-90, FM-2100 e IH-10 East, con cámaras en vivo."))}
       ${lk("/calendar", t("School Calendar", "Calendario escolar"), t("Upcoming Crosby ISD school calendar events.", "Próximos eventos del calendario escolar de Crosby ISD."))}
       ${lk("/emergency", t("Emergency Resources", "Recursos de emergencia"), t("911 and non-emergency numbers, outages, flooding, shelters, and disaster help.", "El 911 y números que no son de emergencia, apagones, inundaciones, refugios y ayuda por desastre."))}
     </ul>
@@ -3032,6 +3040,7 @@ ${topbar("/sitemap", lang)}
       ${extLk("/api/weather", t("Weather API", "API del clima"), t("JSON: current conditions, hourly, 7-day, and alerts.", "JSON: condiciones actuales, por hora, 7 días y alertas."))}
       ${extLk("/api/news", t("News API", "API de noticias"), t("JSON: recent local headlines.", "JSON: titulares locales recientes."))}
       ${extLk("/api/calendar", t("School Calendar API", "API del calendario escolar"), t("JSON: upcoming Crosby ISD events.", "JSON: próximos eventos de Crosby ISD."))}
+      ${extLk("/api/traffic", t("Traffic API", "API de tráfico"), t("JSON: incidents and lane closures on Crosby's roads.", "JSON: incidentes y cierres de carriles en los caminos de Crosby."))}
       ${extLk("/api/health", t("Health Check", "Estado del servicio"), t("Service status and cache freshness.", "Estado del servicio y antigüedad de la caché."))}
       ${extLk("/openapi.json", "OpenAPI 3.1", t("Machine-readable API description.", "Descripción de la API legible por máquinas."))}
       ${extLk("/mcp", t("MCP Server", "Servidor MCP"), t("Model Context Protocol server (Streamable HTTP).", "Servidor del Protocolo de Contexto de Modelo (Streamable HTTP)."))}
@@ -3072,6 +3081,7 @@ function sitemapPageMarkdown(lang) {
     `## ${t("Community", "Comunidad")}`,
     "",
     lk("/news", t("News", "Noticias"), t("Local headlines.", "Titulares locales.")),
+    lk("/traffic", t("Roads & Traffic", "Caminos y tráfico"), t("Incidents, lane closures, cameras.", "Incidentes, cierres de carriles, cámaras.")),
     lk("/calendar", t("School Calendar", "Calendario escolar"), t("Crosby ISD events.", "Eventos de Crosby ISD.")),
     lk("/emergency", t("Emergency Resources", "Recursos de emergencia"), t("911, outages, flooding, shelters, disaster help.", "911, apagones, inundaciones, refugios, ayuda por desastre.")),
     "",
@@ -3087,6 +3097,7 @@ function sitemapPageMarkdown(lang) {
     extLk("/api/weather", t("Weather API", "API del clima"), "JSON"),
     extLk("/api/news", t("News API", "API de noticias"), "JSON"),
     extLk("/api/calendar", t("School Calendar API", "API del calendario escolar"), "JSON"),
+    extLk("/api/traffic", t("Traffic API", "API de tráfico"), "JSON"),
     extLk("/api/health", t("Health", "Estado"), t("Status + cache.", "Estado + caché.")),
     extLk("/openapi.json", "OpenAPI 3.1", t("API spec.", "Especificación de la API.")),
     extLk("/mcp", t("MCP Server", "Servidor MCP"), "Streamable HTTP"),
@@ -4541,6 +4552,416 @@ function tropicsMarkdown(data, lang) {
 }
 // --- end Tropical outlook ---------------------------------------------------
 
+// --- Roads & traffic (Houston TranStar RSS, cron-owned KV) ------------------
+// Live incidents and scheduled lane closures for the roads Crosby actually
+// drives — US-90 (the Crosby Freeway), FM-2100, FM-1942, and the Crosby
+// stretch of IH-10 East — from Houston TranStar's public RSS feeds
+// (traffic.houstontranstar.org/data/rss/, updated about once a minute).
+// Worker reachability was canary-verified from the deployed runtime (200 +
+// live XML) before this shipped. Cron + KV pattern (key "traffic", cron-owned,
+// refreshed every tick — incidents move fast, and high-water closures are the
+// storm-time payoff alongside /water).
+//
+// Source-terms notes (why this looks the way it does):
+// - TranStar's JSON API data feeds require a data-use agreement (they 403
+//   without one), so this uses the RSS feeds TranStar publishes for public
+//   subscription instead, republishing only the facts they carry (road,
+//   location, status, lanes) with attribution — the same model /news uses
+//   with Google News RSS.
+// - TxDOT's houstontranstar.org terms prohibit hotlinking/framing images
+//   without written consent, so camera SNAPSHOTS are never embedded or
+//   proxied — cameras are LINKS to TranStar's own pages only.
+// - DriveTexas (www.drivetexas.org) times out from Worker egress IPs
+//   (canary-verified 2026-07-16), so TxDOT statewide conditions aren't used.
+const TRAFFIC_KV_KEY = "traffic";
+
+// Corridor filter. TranStar's RSS items are text-only (no coordinates), so
+// relevance is matched on the location text, anchored at the start of the
+// title where the roadway name lives:
+// - US-90: TranStar's monitored US-90 corridor IS Crosby's highway (Hunting
+//   Bayou east to the Liberty County line), so any title starting "US-90"
+//   counts — but never "US-90 Alternate"/"US-90A", a different road 30+ miles
+//   southwest.
+// - IH-10 East: only with a cross street on the Channelview–Baytown stretch
+//   Crosby drives (Crosby-Lynchburg, Sheldon, San Jacinto River, Garth, ...).
+// - Named Crosby-area roads anywhere in the text (FM-2100, FM-1942,
+//   Runneburg, Barrett Station, ...) for street-level items.
+const TRAFFIC_I10E_XSTREETS = /crosby|lynchburg|sheldon|san jacinto river|cedar bayou|garth|sjolander|monmouth/i;
+const TRAFFIC_AREA_TOKENS = /\b(crosby|runneburg|janacek|krenek|kernohan|barrett station|huffman|fm[- ]?2100|fm[- ]?1942)\b/i;
+function trafficRelevant(text) {
+  const t = String(text || "");
+  if (/^US-?\s?90(?!\s*A(lternate)?\b)/i.test(t)) return true;
+  if (/^IH-10 East\b/i.test(t) && TRAFFIC_I10E_XSTREETS.test(t)) return true;
+  return TRAFFIC_AREA_TOKENS.test(t);
+}
+
+// Minimal RSS 2.0 item reader for TranStar's feeds (title/description/guid per
+// <item>; entity-decode only, no dependency — the parseIcs approach).
+function xmlDecode(s) {
+  return String(s)
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&apos;/g, "'")
+    .replace(/&amp;/g, "&");
+}
+function parseRssItems(xml) {
+  return String(xml)
+    .split(/<item>/i)
+    .slice(1)
+    .map((block) => {
+      const grab = (tag) => {
+        const m = block.match(new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`, "i"));
+        return m ? xmlDecode(m[1].trim()) : "";
+      };
+      return { title: grab("title"), description: grab("description"), guid: grab("guid") };
+    });
+}
+
+// Incident titles are "<roadway + cross street> - <type>"; the roadway name
+// itself can contain " - " (SH-99 Lanier/Grand Pkwy - North), so split on the
+// LAST separator. Descriptions are "Status: <s> - Lanes Affected: <l>".
+function parseTrafficIncident(item) {
+  const i = item.title.lastIndexOf(" - ");
+  const location = (i > 0 ? item.title.slice(0, i) : item.title).trim();
+  const type = (i > 0 ? item.title.slice(i + 3) : "").trim();
+  const status = (item.description.match(/Status:\s*([^-]+?)(?:\s+-\s+|$)/i)?.[1] || "").trim();
+  const lanes = (item.description.match(/Lanes Affected:\s*(.+)$/i)?.[1] || "").trim();
+  return { location, type, status, lanes };
+}
+// Lane-closure titles are the location; descriptions are
+// "<schedule> - Lanes Affected: <l> - Status: <s>".
+function parseTrafficClosure(item) {
+  const schedule = (item.description.match(/^(.*?)(?:\s+-\s+Lanes Affected:)/i)?.[1] || item.description).trim();
+  const lanes = (item.description.match(/Lanes Affected:\s*(.*?)(?:\s+-\s+Status:|$)/i)?.[1] || "").trim();
+  const status = (item.description.match(/Status:\s*(.+)$/i)?.[1] || "").trim();
+  return { location: item.title.trim(), schedule, lanes, status };
+}
+
+// Fetch both feeds. Each side is independently failure-tolerant: a failed
+// side stores null ("unavailable" — honest, distinct from [] "quiet"); throw
+// only when BOTH fail so the cron aborts-without-writing and the last
+// snapshot survives (the water pattern).
+async function fetchTraffic() {
+  const feed = async (file) => {
+    const res = await fetch(`https://traffic.houstontranstar.org/data/rss/${file}`, {
+      headers: { "User-Agent": "crosbynews.com", Accept: "application/rss+xml, text/xml" },
+    });
+    if (!res.ok) throw new Error(`TranStar ${file}: ${res.status} ${res.statusText}`);
+    return parseRssItems(await res.text());
+  };
+  let incidents = null;
+  let closures = null;
+  try {
+    incidents = (await feed("incidents_rss.xml"))
+      .filter((it) => trafficRelevant(it.title))
+      .map(parseTrafficIncident)
+      .filter((inc) => !/^cleared\b/i.test(inc.status))
+      .slice(0, 25);
+  } catch (e) {
+    console.error("TranStar incidents fetch failed:", e && e.message);
+  }
+  try {
+    closures = (await feed("laneclosures_rss.xml"))
+      .filter((it) => trafficRelevant(it.title))
+      .map(parseTrafficClosure)
+      .slice(0, 25);
+  } catch (e) {
+    console.error("TranStar lane closures fetch failed:", e && e.message);
+  }
+  if (!incidents && !closures) throw new Error("TranStar: both RSS feeds failed");
+  return { updated: new Date().toISOString(), incidents, closures };
+}
+
+// Read the cached snapshot, self-healing on a cold/malformed entry and
+// degrading to the all-null "unavailable" shape on total failure.
+async function loadTraffic(env) {
+  let data = null;
+  try {
+    data = await env.WEATHER.get(TRAFFIC_KV_KEY, "json");
+  } catch (e) {
+    console.error("KV traffic parse failed:", e && e.stack);
+  }
+  if (!data || !("incidents" in data)) {
+    try {
+      data = await fetchTraffic();
+      await env.WEATHER.put(TRAFFIC_KV_KEY, JSON.stringify(data));
+    } catch (e) {
+      console.error("traffic cold fetch failed:", e && e.stack);
+      data = { updated: null, incidents: null, closures: null };
+    }
+  }
+  return data;
+}
+
+// TranStar incident types → bilingual labels. Hand dictionary with English
+// fallback (same deterministic-translation policy as NWS text); compound
+// types arrive comma-joined ("Heavy Truck, Stall") and translate per part.
+const TRAFFIC_TYPE_ES = {
+  stall: "Vehículo averiado",
+  accident: "Accidente",
+  "heavy truck": "Camión pesado",
+  "road debris": "Escombros en la vía",
+  "high water": "Agua en la vía",
+  "vehicle fire": "Vehículo incendiado",
+  "lost load": "Carga caída",
+  construction: "Construcción",
+  "road closure": "Cierre de vía",
+  other: "Otro",
+};
+function trafficTypeLabel(type, lang) {
+  if (lang !== "es") return type;
+  return String(type)
+    .split(/,\s*/)
+    .map((part) => TRAFFIC_TYPE_ES[part.toLowerCase()] || part)
+    .join(", ");
+}
+// Status strings are "Detected/Verified/Cleared at H:MM AM" — deterministic
+// enough to localize the verb; anything else stays in TranStar's English.
+function trafficStatusLabel(status, lang) {
+  if (lang !== "es") return status;
+  const m = String(status).match(/^(Detected|Verified|Cleared)\s+at\s+(.+)$/i);
+  if (!m) return status;
+  const verb = { detected: "Detectado", verified: "Verificado", cleared: "Despejado" }[m[1].toLowerCase()];
+  return `${verb} a las ${m[2]}`;
+}
+// High-water incidents get the red treatment — they're the life-safety case.
+const trafficIsWater = (type) => /high water|flood/i.test(String(type));
+
+// The Crosby-corridor TranStar cameras (from TranStar's public camera
+// catalog; the owner's issue #92 list, kept to the corridors Crosby drives).
+// Coordinates are facts for "which camera is near me"; images are NEVER
+// embedded or proxied (TxDOT terms) — the pageUrl points at TranStar's own
+// per-roadway camera page.
+const transtarCameraPage = (roadway) =>
+  `https://www.houstontranstar.org/cctv/transtar/by_roadway.aspx?mnu=freeway&rd=${roadway.replace(/ /g, "_")}`;
+const TRAFFIC_CAMERAS = [
+  { name: "US-90 @ Hunting Bayou", roadway: "US-90", lat: 29.788556, lon: -95.240142 },
+  { name: "US-90 @ S Lake Houston Pkwy", roadway: "US-90", lat: 29.812607, lon: -95.210381 },
+  { name: "US-90 @ Miller Road Number 3", roadway: "US-90", lat: 29.83844, lon: -95.16166 },
+  { name: "US-90 @ San Jacinto River", roadway: "US-90", lat: 29.862702, lon: -95.101932 },
+  { name: "US-90 @ FM-1942", roadway: "US-90", lat: 29.879806, lon: -95.068035 },
+  { name: "US-90 @ Runneburg Rd", roadway: "US-90", lat: 29.909497, lon: -95.04845 },
+  { name: "US-90 @ Janacek Rd", roadway: "US-90", lat: 29.940959, lon: -95.025899 },
+  { name: "US-90 @ Liberty County Line", roadway: "US-90", lat: 29.972246, lon: -94.985728 },
+  { name: "IH-10 East @ Sheldon", roadway: "IH-10 East", lat: 29.778262, lon: -95.124498 },
+  { name: "IH-10 East @ San Jacinto River", roadway: "IH-10 East", lat: 29.794459, lon: -95.07399 },
+  { name: "IH-10 East @ Crosby Lynchburg", roadway: "IH-10 East", lat: 29.79459, lon: -95.07399 },
+  { name: "IH-10 East @ Garth Rd (W)", roadway: "IH-10 East", lat: 29.803457, lon: -94.990349 },
+  { name: "IH-10 East @ Garth Rd", roadway: "IH-10 East", lat: 29.804554, lon: -94.981575 },
+  { name: "IH-10 East @ Garth Rd (E)", roadway: "IH-10 East", lat: 29.805825, lon: -94.974788 },
+];
+// TranStar's live map, centered on Crosby with incidents/closures/cameras on
+// (their layers_ve.aspx puts latitude in x= — kept verbatim from their links).
+const TRANSTAR_MAP_URL =
+  "https://traffic.houstontranstar.org/layers/layers_ve.aspx?x=29.9119&y=-95.0608&z=12&inc=true&rc=true&cam=true";
+const TRANSTAR_CLOSURES_URL = "https://traffic.houstontranstar.org/roadclosures/";
+
+// JSON shape served at /api/traffic — the same TranStar data behind /traffic.
+// incidents/laneClosures are null when that feed was unreachable at the last
+// refresh (distinct from [], the normal quiet state).
+function apiTraffic(data) {
+  return {
+    area: "Crosby, TX corridors: US-90, FM-2100, FM-1942, and IH-10 East (Channelview–Baytown)",
+    source: "Houston TranStar (houstontranstar.org) public RSS feeds",
+    updated: data.updated ?? null,
+    incidents: data.incidents
+      ? data.incidents.map((i) => ({ location: i.location, type: i.type, status: i.status, lanesAffected: i.lanes || null }))
+      : null,
+    laneClosures: data.closures
+      ? data.closures.map((c) => ({ location: c.location, schedule: c.schedule, lanesAffected: c.lanes || null, status: c.status || null }))
+      : null,
+    cameras: TRAFFIC_CAMERAS.map((c) => ({ ...c, pageUrl: transtarCameraPage(c.roadway) })),
+    liveMapUrl: TRANSTAR_MAP_URL,
+    note: "Incident and closure facts republished from Houston TranStar's public RSS feeds with attribution. During floods, check river gauges at https://crosbynews.com/api/water and never drive into high water.",
+  };
+}
+
+function trafficHtml(data, lang) {
+  const incidents = data.incidents;
+  const closures = data.closures;
+  const title = T(lang, "Crosby Roads & Traffic", "Caminos y tráfico de Crosby");
+  const desc = T(
+    lang,
+    "Live traffic incidents and scheduled lane closures for the roads Crosby, TX drives — US-90, FM-2100, FM-1942, and IH-10 East — from Houston TranStar, plus links to the live traffic cameras.",
+    "Incidentes de tráfico en vivo y cierres de carriles programados para los caminos de Crosby, TX — US-90, FM-2100, FM-1942 e IH-10 East — según Houston TranStar, más enlaces a las cámaras de tráfico en vivo."
+  );
+
+  const status =
+    incidents === null
+      ? `<p class="none">${T(lang, "Incident data is temporarily unavailable — check TranStar's live map below.", "Los datos de incidentes no están disponibles temporalmente — consulta el mapa en vivo de TranStar más abajo.")}</p>`
+      : incidents.length
+        ? `<div class="status status-inc" role="status"><span class="status-icon">&#9888;</span><div><p class="status-title">${
+            incidents.length === 1
+              ? T(lang, "1 incident on Crosby-area roads", "1 incidente en los caminos del área de Crosby")
+              : T(lang, `${incidents.length} incidents on Crosby-area roads`, `${incidents.length} incidentes en los caminos del área de Crosby`)
+          }</p><p class="status-sub">${T(lang, "Details below — reported and updated by Houston TranStar about every minute.", "Detalles abajo — reportados y actualizados por Houston TranStar aproximadamente cada minuto.")}</p></div></div>`
+        : `<div class="status status-ok" role="status"><span class="status-icon">&#10004;</span><div><p class="status-title">${T(lang, "No incidents on Crosby-area roads", "Sin incidentes en los caminos del área de Crosby")}</p><p class="status-sub">${T(lang, "TranStar is reporting no monitored incidents on US-90, FM-2100, FM-1942, or the Crosby stretch of IH-10 East right now.", "TranStar no reporta incidentes en US-90, FM-2100, FM-1942 ni el tramo de Crosby de IH-10 East en este momento.")}</p></div></div>`;
+
+  const incidentCards = (incidents ?? [])
+    .map(
+      (i) => `      <article class="inc ${trafficIsWater(i.type) ? "inc-water" : ""}">
+        <div class="inc-head">
+          <h3>${esc(i.location)}</h3>
+          ${i.type ? `<span class="inc-badge">${esc(trafficTypeLabel(i.type, lang))}</span>` : ""}
+        </div>
+        <p class="inc-meta">${[i.status ? esc(trafficStatusLabel(i.status, lang)) : "", i.lanes ? `${T(lang, "Lanes affected", "Carriles afectados")}: ${esc(i.lanes)}` : ""].filter(Boolean).join(" &middot; ")}</p>
+      </article>`
+    )
+    .join("\n");
+
+  const closureRows =
+    closures === null
+      ? `<p class="none">${T(lang, "Lane-closure data is temporarily unavailable.", "Los datos de cierres de carriles no están disponibles temporalmente.")}</p>`
+      : closures.length
+        ? `<ul class="closures">${closures
+            .map(
+              (c) =>
+                `<li><strong>${esc(c.location)}</strong><br><span class="cl-meta">${esc(c.schedule)}${c.lanes ? ` &middot; ${T(lang, "Lanes affected", "Carriles afectados")}: ${esc(c.lanes)}` : ""}</span></li>`
+            )
+            .join("\n")}</ul>`
+        : `<p class="none">${T(lang, "No scheduled lane closures on Crosby-area roads right now.", "No hay cierres de carriles programados en los caminos del área de Crosby en este momento.")}</p>`;
+
+  const camList = (roadway) =>
+    TRAFFIC_CAMERAS.filter((c) => c.roadway === roadway)
+      .map((c) => c.name.replace(`${roadway} @ `, ""))
+      .join(", ");
+
+  return `<!DOCTYPE html>
+<html lang="${T(lang, "en", "es-MX")}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${esc(title)} &mdash; crosbynews.com</title>
+<meta name="description" content="${esc(desc)}">
+<meta name="theme-color" content="#0b3d61">
+<meta property="og:title" content="${esc(title)}">
+<meta property="og:description" content="${esc(desc)}">
+<meta property="og:type" content="website">
+<meta property="og:url" content="${canonicalFor("/traffic", lang)}">
+${OG_COMMON}
+<link rel="canonical" href="${canonicalFor("/traffic", lang)}">
+${hreflangTags("/traffic")}
+${JSONLD_SITE}
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="alternate icon" href="/favicon.ico">
+<style>${BASE_CSS}
+  .status { display:flex; align-items:center; gap:1rem; border-radius:16px; padding:1.2rem 1.4rem; margin-top:0.8rem; color:#fff; }
+  .status-icon { font-size:2.4rem; line-height:1; flex:none; }
+  .status-title { margin:0; font-size:1.5rem; font-weight:800; line-height:1.1; }
+  .status-sub { margin:0.35rem 0 0; font-size:0.98rem; opacity:0.95; }
+  .status-ok { background:linear-gradient(135deg,#1f8b4c,#2eb86a); }
+  .status-inc { background:linear-gradient(135deg,#b8860b,#e0a800); }
+  .incs { display:grid; gap:0.7rem; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); margin-top:1rem; }
+  .inc { background:var(--card); border-radius:12px; padding:0.85rem 1rem; box-shadow:0 1px 3px rgba(0,0,0,0.07); border-left:5px solid #e0a800; }
+  .inc-water { border-left-color:#d44230; }
+  .inc-head { display:flex; justify-content:space-between; align-items:flex-start; gap:0.5rem; }
+  .inc-head h3 { margin:0; font-size:1rem; }
+  .inc-badge { flex:none; font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.03em; padding:0.15rem 0.5rem; border-radius:999px; color:#fff; background:#b8860b; white-space:nowrap; }
+  .inc-water .inc-badge { background:#b5301f; }
+  .inc-meta { margin:0.45rem 0 0; font-size:0.85rem; color:var(--muted); }
+  .closures { list-style:none; margin:0.6rem 0 0; padding:0; }
+  .closures li { padding:0.5rem 0; border-bottom:1px solid var(--line); font-size:0.92rem; }
+  .closures li:last-child { border-bottom:none; }
+  .cl-meta { color:var(--muted); font-size:0.85rem; }
+  .none { color:var(--muted); margin-top:0.8rem; }
+  .intro { color:var(--muted); margin:0.6rem 0 0; }
+  .section-h { margin:1.6rem 0 0; font-size:1.15rem; }
+  .guide { margin-top:1.6rem; }
+  .guide h2 { font-size:1.15rem; }
+  .guide p { font-size:0.95rem; line-height:1.55; }
+  .guide .links { margin:0.5rem 0 0; padding-left:1.1rem; }
+  .guide .links li { margin:0.3rem 0; font-size:0.92rem; }
+</style>
+</head>
+<body>
+${topbar("/traffic", lang)}
+<main id="main">
+  <h1>${esc(title)}</h1>
+  <p class="intro">${T(
+    lang,
+    "Traffic incidents and scheduled lane closures for the roads Crosby drives — US-90 (the Crosby Freeway), FM-2100, FM-1942, and the Crosby stretch of IH-10 East — from Houston TranStar, the region's official traffic agency. Lane and schedule details are shown in TranStar's official English.",
+    "Incidentes de tráfico y cierres de carriles programados para los caminos que usa Crosby — US-90 (la autopista de Crosby), FM-2100, FM-1942 y el tramo de Crosby de IH-10 East — según Houston TranStar, la agencia oficial de tráfico de la región. Los detalles de carriles y horarios se muestran en el inglés oficial de TranStar."
+  )}${data.updated ? ` ${T(lang, "Updated", "Actualizado")} ${esc(fullTime(data.updated, lang))} CT.` : ""}</p>
+  ${status}
+  ${incidents?.length ? `<div class="incs">\n${incidentCards}\n  </div>` : ""}
+  <h2 class="section-h">${T(lang, "Scheduled lane closures", "Cierres de carriles programados")}</h2>
+  ${closureRows}
+  <h2 class="section-h">${T(lang, "Live traffic cameras", "Cámaras de tráfico en vivo")}</h2>
+  <p class="intro">${T(lang, "Houston TranStar's cameras cover the Crosby corridors — view them on TranStar's own site:", "Las cámaras de Houston TranStar cubren los corredores de Crosby — míralas en el propio sitio de TranStar:")}</p>
+  <ul class="closures">
+    <li><a href="${transtarCameraPage("US-90")}" target="_blank" rel="noopener">${T(lang, "US-90 cameras", "Cámaras de US-90")}</a><br><span class="cl-meta">${esc(camList("US-90"))}</span></li>
+    <li><a href="${transtarCameraPage("IH-10 East")}" target="_blank" rel="noopener">${T(lang, "IH-10 East cameras", "Cámaras de IH-10 East")}</a><br><span class="cl-meta">${esc(camList("IH-10 East"))}</span></li>
+    <li><a href="${TRANSTAR_MAP_URL}" target="_blank" rel="noopener">${T(lang, "Live traffic map centered on Crosby", "Mapa de tráfico en vivo centrado en Crosby")}</a><br><span class="cl-meta">${T(lang, "incidents, closures, and cameras on one map", "incidentes, cierres y cámaras en un solo mapa")}</span></li>
+  </ul>
+  <section class="guide" data-nosnippet>
+    <h2>${T(lang, "When water covers the road", "Cuando el agua cubre el camino")}</h2>
+    <p>${T(
+      lang,
+      "Crosby's defining road hazard is high water — US-90 at the San Jacinto River, FM-2100 near Cedar Bayou, and the low spots in between. TranStar reports high-water locations as incidents above during floods. Never drive into water on the road: most flood deaths in Harris County happen in vehicles, and two feet of moving water floats a truck. Turn around, don't drown.",
+      "El peligro vial característico de Crosby es el agua alta — US-90 en el río San Jacinto, FM-2100 cerca de Cedar Bayou y los puntos bajos intermedios. Durante inundaciones, TranStar reporta los lugares con agua alta como incidentes arriba. Nunca conduzcas hacia agua en el camino: la mayoría de las muertes por inundación en el condado de Harris ocurren en vehículos, y dos pies de agua en movimiento hacen flotar una camioneta. Da la vuelta, no te arriesgues."
+    )}</p>
+    <ul class="links">
+      <li><a href="${lang === "es" ? "/es/water" : "/water"}">${T(lang, "River & bayou levels", "Niveles de ríos y arroyos")}</a> &mdash; ${T(lang, "the gauges behind Crosby's flooding, live", "los medidores detrás de las inundaciones de Crosby, en vivo")}</li>
+      <li><a href="${lang === "es" ? "/es/alerts" : "/alerts"}">${T(lang, "Weather alerts", "Alertas del clima")}</a> &mdash; ${T(lang, "flash-flood warnings for Crosby appear here", "los avisos de inundación repentina para Crosby aparecen aquí")}</li>
+      <li><a href="${TRANSTAR_CLOSURES_URL}" target="_blank" rel="noopener">${T(lang, "TranStar incidents & road closures", "Incidentes y cierres de TranStar")}</a> &mdash; ${T(lang, "the full regional list, all roads", "la lista regional completa, todos los caminos")}</li>
+      <li><a href="https://www.drivetexas.org/" target="_blank" rel="noopener">DriveTexas</a> &mdash; ${T(lang, "TxDOT statewide highway conditions, for trips beyond Houston", "condiciones de carreteras de TxDOT en todo el estado, para viajes fuera de Houston")}</li>
+      <li><a href="${lang === "es" ? "/es/emergency" : "/emergency"}">${T(lang, "Emergency resources", "Recursos de emergencia")}</a> &mdash; ${T(lang, "flood tools, outage reporting, and numbers to save", "herramientas de inundación, reporte de apagones y números para guardar")}</li>
+    </ul>
+  </section>
+</main>
+${footer({ page: "/traffic", lang, source: T(lang, `Road and traffic data from <a href="https://www.houstontranstar.org/">Houston TranStar</a>.`, `Datos viales y de tráfico de <a href="https://www.houstontranstar.org/">Houston TranStar</a>.`) })}
+</body>
+</html>`;
+}
+
+function trafficMarkdown(data, lang) {
+  const incidents = data.incidents;
+  const closures = data.closures;
+  const out = [
+    `# ${T(lang, "Crosby Roads & Traffic", "Caminos y tráfico de Crosby")}`,
+    "",
+    `_${T(lang, "Incidents and lane closures on US-90, FM-2100, FM-1942, and the Crosby stretch of IH-10 East, from Houston TranStar.", "Incidentes y cierres de carriles en US-90, FM-2100, FM-1942 y el tramo de Crosby de IH-10 East, según Houston TranStar.")}${data.updated ? ` ${T(lang, "Updated", "Actualizado")} ${fullTime(data.updated, lang)} CT.` : ""}_`,
+    "",
+    `## ${T(lang, "Incidents", "Incidentes")}`,
+    "",
+  ];
+  if (incidents === null) {
+    out.push(T(lang, "Incident data is temporarily unavailable.", "Los datos de incidentes no están disponibles temporalmente."), "");
+  } else if (incidents.length) {
+    for (const i of incidents) {
+      out.push(`- **${i.location}**${i.type ? ` — ${trafficTypeLabel(i.type, lang)}` : ""}${i.status ? ` (${trafficStatusLabel(i.status, lang)})` : ""}${i.lanes ? `. ${T(lang, "Lanes affected", "Carriles afectados")}: ${i.lanes}` : ""}`);
+    }
+    out.push("");
+  } else {
+    out.push(T(lang, "No incidents on Crosby-area roads right now. ✓", "Sin incidentes en los caminos del área de Crosby en este momento. ✓"), "");
+  }
+  out.push(`## ${T(lang, "Scheduled lane closures", "Cierres de carriles programados")}`, "");
+  if (closures === null) {
+    out.push(T(lang, "Lane-closure data is temporarily unavailable.", "Los datos de cierres no están disponibles temporalmente."), "");
+  } else if (closures.length) {
+    for (const c of closures) {
+      out.push(`- **${c.location}** — ${c.schedule}${c.lanes ? `. ${T(lang, "Lanes affected", "Carriles afectados")}: ${c.lanes}` : ""}`);
+    }
+    out.push("");
+  } else {
+    out.push(T(lang, "No scheduled lane closures on Crosby-area roads right now.", "No hay cierres programados en los caminos del área de Crosby en este momento."), "");
+  }
+  out.push(
+    `## ${T(lang, "Live cameras", "Cámaras en vivo")}`,
+    "",
+    `- [${T(lang, "US-90 cameras", "Cámaras de US-90")}](${transtarCameraPage("US-90")})`,
+    `- [${T(lang, "IH-10 East cameras", "Cámaras de IH-10 East")}](${transtarCameraPage("IH-10 East")})`,
+    `- [${T(lang, "Live traffic map centered on Crosby", "Mapa de tráfico en vivo centrado en Crosby")}](${TRANSTAR_MAP_URL})`,
+    "",
+    "---",
+    `${T(lang, "Never drive into high water — turn around, don't drown.", "Nunca conduzcas hacia agua alta — da la vuelta, no te arriesgues.")} ${T(lang, "Data from Houston TranStar (houstontranstar.org).", "Datos de Houston TranStar (houstontranstar.org).")} · [${T(lang, "Water levels", "Niveles de agua")}](${canonicalFor("/water", lang)}) · [crosbynews.com](${canonicalFor("/", lang)})`
+  );
+  return out.join("\n");
+}
+// --- end Roads & traffic ----------------------------------------------------
+
 // Markdown rendering of the same data, served when an agent sends
 // `Accept: text/markdown` (or ?format=md).
 function renderMarkdown(data, lang) {
@@ -4786,7 +5207,7 @@ function apiCatalog() {
     status: [{ href: `${SITE}/api/health`, type: "application/json" }],
   });
   return {
-    linkset: [entry("/api/weather", "/"), entry("/api/news", "/news"), entry("/api/calendar", "/calendar"), entry("/api/water", "/water"), entry("/api/tropics", "/tropics")],
+    linkset: [entry("/api/weather", "/"), entry("/api/news", "/news"), entry("/api/calendar", "/calendar"), entry("/api/water", "/water"), entry("/api/tropics", "/tropics"), entry("/api/traffic", "/traffic")],
   };
 }
 
@@ -4909,9 +5330,9 @@ function openApiSpec() {
     openapi: "3.1.0",
     info: {
       title: "crosbynews.com API",
-      version: "1.4.0",
+      version: "1.5.0",
       description:
-        "Crosby, Texas community data: current conditions, hourly and 7-day forecast, active alerts, the EPA UV index, and a modeled air-quality index from the U.S. National Weather Service, EPA, and Open-Meteo; river/bayou flood levels; the Atlantic tropical outlook; recent local news headlines; and the Crosby ISD school calendar. Public, no authentication.",
+        "Crosby, Texas community data: current conditions, hourly and 7-day forecast, active alerts, the EPA UV index, and a modeled air-quality index from the U.S. National Weather Service, EPA, and Open-Meteo; river/bayou flood levels; the Atlantic tropical outlook; road incidents and lane closures from Houston TranStar; recent local news headlines; and the Crosby ISD school calendar. Public, no authentication.",
       contact: { url: `${SITE}/` },
       license: { name: "Public domain (NWS source data)", url: "https://www.weather.gov/disclaimer" },
     },
@@ -4979,6 +5400,20 @@ function openApiSpec() {
               content: { "application/json": { schema: { $ref: "#/components/schemas/Tropics" } } },
             },
             "502": { description: "Tropics data unavailable" },
+          },
+        },
+      },
+      "/api/traffic": {
+        get: {
+          operationId: "getTraffic",
+          summary: "Traffic incidents and lane closures on Crosby, TX area roads",
+          responses: {
+            "200": {
+              description:
+                "Incidents and scheduled lane closures on US-90, FM-2100, FM-1942, and the Crosby stretch of IH-10 East, from Houston TranStar. Empty arrays mean quiet roads; null means that feed was unreachable at the last refresh.",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/Traffic" } } },
+            },
+            "502": { description: "Traffic data unavailable" },
           },
         },
       },
@@ -5096,6 +5531,57 @@ function openApiSpec() {
           },
         },
         Storm,
+        Traffic: {
+          type: "object",
+          properties: {
+            area: { type: "string" },
+            source: { type: "string" },
+            updated: { type: ["string", "null"], format: "date-time" },
+            incidents: {
+              type: ["array", "null"],
+              description: "Live incidents on the Crosby corridors; empty = quiet, null = feed unreachable at the last refresh.",
+              items: {
+                type: "object",
+                properties: {
+                  location: { type: "string", description: 'TranStar location text, e.g. "US-90 Eastbound At RUNNEBURG RD".' },
+                  type: { type: "string", description: 'Incident type(s), e.g. "Accident", "Stall", "High Water".' },
+                  status: { type: "string", description: 'TranStar status, e.g. "Verified at 4:24 PM" (Central time).' },
+                  lanesAffected: { type: ["string", "null"] },
+                },
+              },
+            },
+            laneClosures: {
+              type: ["array", "null"],
+              description: "Scheduled lane closures on the Crosby corridors; empty = none, null = feed unreachable at the last refresh.",
+              items: {
+                type: "object",
+                properties: {
+                  location: { type: "string" },
+                  schedule: { type: "string", description: 'TranStar schedule text, e.g. "Closed nightly 9:00 PM to 5:00 AM through Friday, July 17".' },
+                  lanesAffected: { type: ["string", "null"] },
+                  status: { type: ["string", "null"] },
+                },
+              },
+            },
+            cameras: {
+              type: "array",
+              description:
+                "TranStar traffic cameras on the Crosby corridors. pageUrl links TranStar's own camera page — snapshot images are not embedded or proxied here.",
+              items: {
+                type: "object",
+                properties: {
+                  name: { type: "string" },
+                  roadway: { type: "string" },
+                  lat: { type: "number" },
+                  lon: { type: "number" },
+                  pageUrl: { type: "string", format: "uri" },
+                },
+              },
+            },
+            liveMapUrl: { type: "string", format: "uri" },
+            note: { type: "string" },
+          },
+        },
       },
     },
   };
@@ -5110,7 +5596,7 @@ const MCP_PROTOCOL_VERSION = "2025-06-18";
 // never echoed back (echoing e.g. "2026-07-28" would falsely promise the
 // stateless-core semantics of that revision).
 const MCP_SUPPORTED_VERSIONS = ["2025-03-26", "2025-06-18"];
-const MCP_SERVER_INFO = { name: "crosbynews-weather", version: "1.1.0", title: "Crosby, TX Weather" };
+const MCP_SERVER_INFO = { name: "crosbynews-weather", version: "1.2.0", title: "Crosby, TX Weather" };
 const MCP_CORS = {
   "access-control-allow-origin": "*",
   "access-control-allow-methods": "POST, OPTIONS",
@@ -5349,6 +5835,64 @@ function mcpTools() {
       annotations: MCP_READ_ONLY,
     },
     {
+      name: "get_traffic",
+      title: "Roads & traffic",
+      description:
+        "Live traffic incidents and scheduled lane closures on the roads Crosby, TX drives — US-90, FM-2100, FM-1942, and the Crosby stretch of IH-10 East — from Houston TranStar, plus links to the corridor traffic cameras. High-water road reports appear here during floods. Empty lists mean quiet roads.",
+      inputSchema: { type: "object", properties: {}, additionalProperties: false },
+      outputSchema: {
+        type: "object",
+        properties: {
+          area: { type: "string" },
+          source: { type: "string" },
+          updated: isoStamp,
+          incidents: {
+            type: ["array", "null"],
+            description: "Empty = no monitored incidents (the normal state); null = the incidents feed was unreachable at the last refresh.",
+            items: {
+              type: "object",
+              properties: {
+                location: { type: "string" },
+                type: { type: "string", description: 'e.g. "Accident", "Stall", "High Water".' },
+                status: { type: "string", description: 'e.g. "Verified at 4:24 PM" (Central time).' },
+                lanesAffected: { type: ["string", "null"] },
+              },
+            },
+          },
+          laneClosures: {
+            type: ["array", "null"],
+            description: "Scheduled closures; empty = none, null = feed unreachable at the last refresh.",
+            items: {
+              type: "object",
+              properties: {
+                location: { type: "string" },
+                schedule: { type: "string" },
+                lanesAffected: { type: ["string", "null"] },
+                status: { type: ["string", "null"] },
+              },
+            },
+          },
+          cameras: {
+            type: "array",
+            description: "Corridor cameras — pageUrl links TranStar's own camera pages (images are not embedded).",
+            items: {
+              type: "object",
+              properties: {
+                name: { type: "string" },
+                roadway: { type: "string" },
+                lat: { type: "number" },
+                lon: { type: "number" },
+                pageUrl: { type: "string" },
+              },
+            },
+          },
+          liveMapUrl: { type: "string" },
+        },
+        required: ["area", "source"],
+      },
+      annotations: MCP_READ_ONLY,
+    },
+    {
       name: "get_emergency_contacts",
       title: "Emergency contacts",
       description:
@@ -5398,7 +5942,7 @@ function mcpPrompts() {
       name: "crosby_briefing",
       title: "Crosby daily briefing",
       description:
-        "Compose a concise daily briefing for a Crosby, TX resident: current weather with feels-like, today's outlook, active alerts, sunrise/sunset, recent local headlines, and upcoming Crosby ISD events — plus river levels and Atlantic tropical systems whenever either is a live concern. The prompt arrives pre-filled with live data.",
+        "Compose a concise daily briefing for a Crosby, TX resident: current weather with feels-like, today's outlook, active alerts, sunrise/sunset, recent local headlines, and upcoming Crosby ISD events — plus river levels, road incidents, and Atlantic tropical systems whenever any is a live concern. The prompt arrives pre-filled with live data.",
       arguments: [],
     },
   ];
@@ -5410,15 +5954,17 @@ async function mcpGetPrompt(name, env) {
     e.code = -32602;
     throw e;
   }
-  // Water and tropics ride along failure-tolerant: they only ever ADD lines
-  // (above-normal gauges, active storms), so a fetch hiccup must not sink the
-  // whole briefing the way a weather failure legitimately does.
-  const [{ data }, news, cal, water, tropics] = await Promise.all([
+  // Water, tropics, and traffic ride along failure-tolerant: they only ever
+  // ADD lines (above-normal gauges, active storms, road incidents), so a fetch
+  // hiccup must not sink the whole briefing the way a weather failure
+  // legitimately does.
+  const [{ data }, news, cal, water, tropics, traffic] = await Promise.all([
     loadWeather(env),
     loadNews(env),
     loadCalendar(env),
     loadWater(env).catch(() => ({ gauges: [] })),
     loadTropics(env).catch(() => ({ storms: [] })),
+    loadTraffic(env).catch(() => ({ incidents: null, closures: null })),
   ]);
   const now = currentHourly(data);
   const lead = data.periods?.[0];
@@ -5448,6 +5994,13 @@ async function mcpGetPrompt(name, env) {
     );
   const storms = tropics.storms ?? [];
   if (storms.length) lines.push(`ACTIVE ATLANTIC TROPICAL SYSTEMS: ${storms.map((s) => tropicsStormLine(s, "en")).join("; ")}. Details: ${SITE}/tropics`);
+  const roadIncidents = traffic.incidents ?? [];
+  if (roadIncidents.length)
+    lines.push(
+      `ROAD INCIDENTS ON CROSBY-AREA ROADS: ${roadIncidents
+        .map((i) => `${i.location}${i.type ? ` (${i.type})` : ""}`)
+        .join("; ")}. Details: ${SITE}/traffic`
+    );
   const items = (news.items ?? []).slice(0, 5);
   if (items.length) {
     lines.push("", "Recent local headlines:");
@@ -5484,7 +6037,7 @@ const MCP_RESOURCES = [
     uri: `${SITE}/openapi.json`,
     name: "crosbynews-openapi",
     title: "crosbynews.com API spec",
-    description: "OpenAPI 3.1 description of the weather, news, school-calendar, and water-levels API.",
+    description: "OpenAPI 3.1 description of the weather, news, school-calendar, water-levels, tropics, and traffic API.",
     mimeType: "application/json",
   },
 ];
@@ -5501,7 +6054,7 @@ function mcpServerCard() {
     serverInfo: MCP_SERVER_INFO,
     protocolVersion: MCP_PROTOCOL_VERSION,
     description:
-      "Live Crosby, Texas data: weather from the U.S. National Weather Service (current conditions, forecast, active alerts), the Atlantic tropical outlook, river/bayou flood levels, a live radar image, recent local news headlines, the Crosby ISD school calendar, and an emergency-contacts directory.",
+      "Live Crosby, Texas data: weather from the U.S. National Weather Service (current conditions, forecast, active alerts), the Atlantic tropical outlook, river/bayou flood levels, road incidents and lane closures, a live radar image, recent local news headlines, the Crosby ISD school calendar, and an emergency-contacts directory.",
     transport: { type: "streamable-http", endpoint: `${SITE}/mcp` },
     capabilities: { tools: { listChanged: false }, prompts: { listChanged: false }, resources: { listChanged: false } },
     tools: mcpTools().map((t) => ({ name: t.name, title: t.title, description: t.description })),
@@ -5686,6 +6239,26 @@ async function mcpCallTool(name, args, env) {
           })
           .join("\n")
       : "No active tropical systems in the Atlantic basin — all clear. (Hurricane season runs June–November; Crosby's local threat is inland rain flooding, not surge.)";
+    return { content: [{ type: "text", text }], structuredContent: payload };
+  }
+  if (name === "get_traffic") {
+    const traffic = await loadTraffic(env);
+    const payload = apiTraffic(traffic);
+    const incLines =
+      payload.incidents === null
+        ? "Incident data is temporarily unavailable."
+        : payload.incidents.length
+          ? payload.incidents
+              .map((i) => `- ${i.location}${i.type ? ` — ${i.type}` : ""}${i.status ? ` (${i.status})` : ""}${i.lanesAffected ? `. Lanes affected: ${i.lanesAffected}` : ""}`)
+              .join("\n")
+          : "No monitored incidents on Crosby-area roads right now (US-90, FM-2100, FM-1942, IH-10 East).";
+    const clLine =
+      payload.laneClosures === null
+        ? "Lane-closure data is temporarily unavailable."
+        : payload.laneClosures.length
+          ? `${payload.laneClosures.length} scheduled lane closure(s) on the Crosby corridors — see structured data or ${SITE}/traffic.`
+          : "No scheduled lane closures on the Crosby corridors.";
+    const text = `${incLines}\n\n${clLine}\n\nLive cameras and map: ${SITE}/traffic (data: Houston TranStar). Never drive into high water.`;
     return { content: [{ type: "text", text }], structuredContent: payload };
   }
   if (name === "get_emergency_contacts") {
@@ -6391,6 +6964,26 @@ async function _fetch(request, env, ctx) {
       }
     }
 
+    // Crosby-area road incidents and lane closures as JSON — same cron-owned
+    // KV data as /traffic. Empty arrays are quiet roads; null means that feed
+    // was unreachable at the last refresh.
+    if (path === "/api/traffic") {
+      try {
+        const data = await loadTraffic(env);
+        return conditional(request, data.updated ?? "none", () => JSON.stringify(apiTraffic(data)), {
+          "content-type": "application/json; charset=utf-8",
+          "access-control-allow-origin": "*",
+          "cache-control": "public, max-age=300",
+          link: `<${SITE}/openapi.json>; rel="service-desc"; type="application/json"`,
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ error: "unavailable", message: err && err.message }), {
+          status: 502,
+          headers: { "content-type": "application/json; charset=utf-8", "access-control-allow-origin": "*" },
+        });
+      }
+    }
+
     // Crosby ISD school calendar as JSON — same cron-owned KV data as /calendar.
     // The `upcomingEvents` cutoff moves with time, so the seed carries the CT
     // date to stay honest across day boundaries.
@@ -6635,6 +7228,26 @@ async function _fetch(request, env, ctx) {
           headers: {
             "content-type": `${wantsMarkdown ? "text/markdown" : "text/html"}; charset=utf-8`,
             "cache-control": "public, max-age=900",
+            vary: "Accept",
+          },
+        });
+      } catch (err) {
+        return new Response(renderError(err), { status: 502, headers: { "content-type": "text/html; charset=utf-8" } });
+      }
+    }
+
+    // Roads & traffic — cron + KV like /water; incidents on the Crosby
+    // corridors from Houston TranStar, with an evergreen high-water guide.
+    if (page === "/traffic") {
+      const accept = (request.headers.get("accept") || "").toLowerCase();
+      const wantsMarkdown = accept.includes("text/markdown") || url.searchParams.get("format") === "md";
+      try {
+        const data = await loadTraffic(env);
+        const bodyText = wantsMarkdown ? trafficMarkdown(data, lang) : trafficHtml(data, lang);
+        return new Response(bodyText, {
+          headers: {
+            "content-type": `${wantsMarkdown ? "text/markdown" : "text/html"}; charset=utf-8`,
+            "cache-control": "public, max-age=300",
             vary: "Accept",
           },
         });
@@ -6915,8 +7528,8 @@ async function pushSevereAlerts(env, alerts) {
 // `?format=md` variants — and the http→https pair — consolidate onto one URL for
 // crawlers that read the HTTP layer (reinforces the in-HTML <link rel="canonical">).
 const PAGE_PATHS = new Set([
-  "/", "/weather", "/hourly", "/radar", "/alerts", "/water", "/tropics", "/news", "/calendar", "/emergency", "/about", "/developers", "/privacy", "/contact", "/sitemap",
-  "/es", "/es/weather", "/es/hourly", "/es/radar", "/es/alerts", "/es/water", "/es/tropics", "/es/news", "/es/calendar", "/es/emergency", "/es/about", "/es/developers", "/es/privacy", "/es/contact", "/es/sitemap",
+  "/", "/weather", "/hourly", "/radar", "/alerts", "/water", "/tropics", "/traffic", "/news", "/calendar", "/emergency", "/about", "/developers", "/privacy", "/contact", "/sitemap",
+  "/es", "/es/weather", "/es/hourly", "/es/radar", "/es/alerts", "/es/water", "/es/tropics", "/es/traffic", "/es/news", "/es/calendar", "/es/emergency", "/es/about", "/es/developers", "/es/privacy", "/es/contact", "/es/sitemap",
 ]);
 
 export default {
@@ -6993,6 +7606,15 @@ export default {
       }
     } catch (e) {
       console.error("Cron tropics refresh failed:", e && e.stack);
+    }
+    // Refresh Crosby-corridor traffic every tick (TranStar updates the feeds
+    // about once a minute; incidents and high-water reports move fast).
+    // fetchTraffic() throws only when BOTH feeds fail, so a total TranStar
+    // outage skips the write and the last snapshot survives.
+    try {
+      await env.WEATHER.put(TRAFFIC_KV_KEY, JSON.stringify(await fetchTraffic()));
+    } catch (e) {
+      console.error("Cron traffic refresh failed:", e && e.stack);
     }
   },
 };
