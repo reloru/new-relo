@@ -15,11 +15,11 @@ missing, wait and re-run before calling it a failure.
 
 ## 1. Routes return 200
 Each path should respond `200`:
-`/`, `/weather`, `/hourly`, `/radar`, `/alerts`, `/water`, `/tropics`, `/traffic`,
+`/`, `/weather`, `/hourly`, `/radar`, `/alerts`, `/water`, `/tropics`, `/pollen`, `/traffic`,
 `/news`, `/calendar`, `/emergency`, `/about`, `/developers`,
 `/privacy`, `/contact`, `/sitemap`, `/es` (Spanish spot-check),
 `/robots.txt`, `/sitemap.xml`, `/llms.txt`,
-`/api/weather`, `/api/health`, `/api/news`, `/api/calendar`, `/api/water`, `/api/tropics`, `/api/traffic`,
+`/api/weather`, `/api/health`, `/api/news`, `/api/calendar`, `/api/water`, `/api/tropics`, `/api/pollen`, `/api/traffic`,
 `/alerts.xml`, `/news.xml`, `/badge.svg`,
 `/manifest.json`, `/icon.svg`, `/sw.js`,
 `/.well-known/api-catalog`, `/openapi.json`,

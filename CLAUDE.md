@@ -277,9 +277,11 @@ directory name becomes the `/command`. Current skills:
   and falls back to a live fetch + warm on a cold cache. The same cron also
   refreshes the `calendar` key (Crosby ISD iCal, throttled to ~6h), the
   `water` key (NWPS river/bayou gauges, every tick — levels move fast in a
-  flood), the `tropics` key (NHC CurrentStorms.json, throttled ~1h), and the
+  flood), the `tropics` key (NHC CurrentStorms.json, throttled ~1h), the
+  `pollen` key (Houston Health Department daily count, throttled ~2h — one
+  count per weekday morning), and the
   `traffic` key (Houston TranStar RSS, every tick — incidents and high-water
-  reports move fast); `fetch()` cold-warms all four. (The `news` key is
+  reports move fast); `fetch()` cold-warms all five. (The `news` key is
   written out-of-band — see the News pipeline.)
 - Styling: an inline `<style>` block in the rendered HTML — no build step,
   no static assets.
@@ -323,9 +325,9 @@ directory name becomes the `/command`. Current skills:
 ## Languages (English + Mexican Spanish)
 - The site is bilingual: English at the root paths and Mexican Spanish (`es-MX`)
   under an **`/es` prefix** (`/es`, `/es/weather`, `/es/hourly`, `/es/radar`,
-  `/es/alerts`, `/es/water`, `/es/tropics`, `/es/traffic`, `/es/news`,
+  `/es/alerts`, `/es/water`, `/es/tropics`, `/es/pollen`, `/es/traffic`, `/es/news`,
   `/es/calendar`, `/es/emergency`, `/es/about`, `/es/developers`, `/es/privacy`,
-  `/es/contact`, `/es/sitemap`). Same sixteen content pages, same markdown negotiation. (`/es` is the Spanish hub;
+  `/es/contact`, `/es/sitemap`). Same seventeen content pages, same markdown negotiation. (`/es` is the Spanish hub;
   `/es/weather` the Spanish forecast.)
 - **One set of render functions serves both languages** (no duplicated pages, so
   they can't drift). Each `*Html`/`*Markdown` takes a `lang` arg; the i18n block
@@ -423,8 +425,8 @@ directory name becomes the `/command`. Current skills:
   what the root served pre-restructure. Content-negotiated. The homepage/`/weather`
   `Link` header advertises the markdown alternate, sitemap, api-catalog, and
   OpenAPI service-desc (via the parameterized `linkHeader(enPath, lang)`). All
-  thirty-two content pages (the sixteen English routes `/`, `/weather`, `/hourly`,
-  `/radar`, `/alerts`, `/water`, `/tropics`, `/traffic`, `/news`, `/calendar`, `/emergency`, `/about`, `/developers`,
+  thirty-four content pages (the seventeen English routes `/`, `/weather`, `/hourly`,
+  `/radar`, `/alerts`, `/water`, `/tropics`, `/pollen`, `/traffic`, `/news`, `/calendar`, `/emergency`, `/about`, `/developers`,
   `/privacy`, `/contact`, `/sitemap` and their `/es` Spanish counterparts) emit an HTTP
   `Link: rel="canonical"` header — added centrally in the `fetch` wrapper via
   `PAGE_PATHS` — so the `?format=md` variants and the http→https pair consolidate
@@ -499,6 +501,32 @@ directory name becomes the `/command`. Current skills:
   self-hides when the basin is quiet; the hub loads tropics as its fifth
   parallel dataset. Storm names/advisories stay in NHC English. In the topbar
   as `m-only` under Weather. Markdown-negotiated.
+- `/pollen` — pollen & mold count (`pollenHtml`/`pollenMarkdown`). **Cron + KV
+  pattern** (key `pollen`, cron-owned, throttled ~2h): `fetchPollen()` scrapes
+  the **Houston Health Department's daily pollen and mold count** — the site's
+  only MEASURED environmental number besides NWS itself (HHD's lab is a
+  certified National Allergy Bureau counting station; AQI is modeled, UV is a
+  forecast). No API exists: the index page
+  (`houstonhealth.org/services/pollen-mold`) lists per-date count pages
+  (`…/houston-pollen-mold-count-thursday-july-16-2026`); we pick the newest by
+  slug date and parse tree/weed/grass pollen + mold spores (NAB category +
+  grains/m³ each, categories republished verbatim — never reclassified) plus
+  the per-genus species lists (first `<ul>` after each "Major … counted"
+  heading, bounded at `</ul>`). **Worker reachability canary-verified from the
+  deployed runtime 2026-07-17** (200 + real body, index and count page).
+  `fetchPollen()` throws on failure OR an unrecognizable layout (<2 groups
+  parsed), so a transient outage or a Drupal redesign never wipes the last
+  good count; `loadPollen()` cold-warms. Counts publish **weekday mornings
+  only** — weekends serve Friday's count, labeled honestly with the count's
+  date ("Count for Friday, Jul 10"), never presented as today's. The page
+  renders four category-colored cards, a "what's in the air" species
+  breakdown, the NAB threshold table (thresholds differ per group), and an
+  evergreen Gulf Coast allergy-calendar guide. Species/genus names stay in the
+  lab's official English + Latin; categories get the `POLLEN_CAT_ES` hand
+  dictionary (the NWS-text policy). In the topbar as `m-only` under Weather.
+  Markdown-negotiated. Also: `/api/pollen` (conditional GET, ETag seeded from
+  countDate + updated), MCP tool `get_pollen`, and a briefing line only when a
+  group is Heavy or worse.
 - `/traffic` — Crosby-corridor roads & traffic (`trafficHtml`/`trafficMarkdown`;
   issue #92). **Cron + KV pattern** (key `traffic`, cron-owned, every tick):
   `fetchTraffic()` reads Houston TranStar's public **RSS feeds**
@@ -719,7 +747,7 @@ directory name becomes the `/command`. Current skills:
   on `/developers` ("Embeddable weather badge", with the copy-paste `<img>`
   snippet), the human `/sitemap` developer list, and llms.txt `## Optional`.
 - `/sitemap.xml` — lists `/`, `/weather`, `/hourly`, `/radar`, `/alerts`,
-  `/water`, `/tropics`, `/traffic`, `/news`, `/calendar`, `/emergency`, `/about`, `/developers`, `/privacy`, `/contact`, `/sitemap`
+  `/water`, `/tropics`, `/pollen`, `/traffic`, `/news`, `/calendar`, `/emergency`, `/about`, `/developers`, `/privacy`, `/contact`, `/sitemap`
   in both languages
   (each English route plus its `/es` counterpart), every `<url>` carrying
   `xhtml:link` hreflang alternates (`en-US`, `es-MX`, `x-default`).
@@ -776,7 +804,8 @@ directory name becomes the `/command`. Current skills:
   cache via `loadWeather()`.
 - `/mcp` — stateless MCP server (Streamable HTTP, JSON-RPC) with tools
   `get_current_conditions`, `get_forecast` (optional `hours` 1–48, the full
-  KV hourly supply), `get_alerts`, `get_tropical_outlook`, `get_crosby_news`,
+  KV hourly supply), `get_alerts`, `get_tropical_outlook`, `get_pollen`,
+  `get_crosby_news`,
   `get_school_events`, `get_river_levels`, `get_traffic`,
   `get_emergency_contacts` (the
   static `EMERGENCY` directory as a tool), and `get_radar` (fetches the NWS
@@ -793,8 +822,8 @@ directory name becomes the `/command`. Current skills:
   `MCP_SUPPORTED_VERSIONS` (else answers with our latest, per spec — never
   parrot an unsupported version like `2026-07-28`). Prompt `crosby_briefing`
   (prompts/get composes live weather + alerts + news + school events — plus
-  river gauges above normal, active Atlantic storms, and Crosby-corridor road
-  incidents, each only when
+  river gauges above normal, active Atlantic storms, Crosby-corridor road
+  incidents, and Heavy-or-worse pollen/mold readings, each only when
   present — server-side into a self-contained briefing prompt); resources
   `llms.txt` + `openapi.json` (readable in-protocol via resources/read).
   Discovery card at `/.well-known/mcp/server-card.json`. A GET (or HEAD) gets a human explainer
@@ -967,8 +996,8 @@ directory name becomes the `/command`. Current skills:
 - `wrangler kv key get/put/list` default to *local* (miniflare) state. To read
   or write the real production namespace, pass `--remote`. (A get without it can
   say "Value not found" even when the deployed Worker is reading the key fine.)
-- The WEATHER namespace holds six content keys: `weather`, `calendar`, `water`,
-  `tropics`, and `traffic` (all cron-owned — the Worker refreshes them) and
+- The WEATHER namespace holds seven content keys: `weather`, `calendar`, `water`,
+  `tropics`, `pollen`, and `traffic` (all cron-owned — the Worker refreshes them) and
   `news` (routine-owned — written out-of-band, the Worker only reads it). It also holds
   the Web Push state: `push_notified` (cron-owned dedupe list — first created
   when a severe warning actually pushes, so it's absent until then; that's the

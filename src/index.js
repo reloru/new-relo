@@ -801,7 +801,7 @@ function topbar(current, lang = "en") {
   <nav>
     <details class="nav-menu">
       <summary aria-label="${t("Menu", "Menú")}">&#9776;</summary>
-      <div class="nav-links">${link("/", t("Home", "Inicio"))} ${group(t("Weather", "Clima"))} ${link("/weather", t("Weather", "Clima"))} ${link("/hourly", t("Hourly", "Por hora"), "m-only")} ${link("/radar", t("Radar", "Radar"))} ${link("/alerts", t("Alerts", "Alertas"))} ${link("/water", t("Water Levels", "Niveles de agua"))} ${link("/tropics", t("Tropics", "Trópicos"), "m-only")} ${group(t("Community", "Comunidad"))} ${link("/news", t("News", "Noticias"))} ${link("/traffic", t("Traffic", "Tráfico"), "m-only")} ${link("/calendar", t("School Calendar", "Calendario escolar"))} ${group(t("More", "Más"))} ${link("/emergency", t("Emergency", "Emergencias"), "m-only")} ${link("/about", t("About", "Acerca de"))} ${link("/developers", t("Developers", "Desarrolladores"), "m-only")}</div>
+      <div class="nav-links">${link("/", t("Home", "Inicio"))} ${group(t("Weather", "Clima"))} ${link("/weather", t("Weather", "Clima"))} ${link("/hourly", t("Hourly", "Por hora"), "m-only")} ${link("/radar", t("Radar", "Radar"))} ${link("/alerts", t("Alerts", "Alertas"))} ${link("/water", t("Water Levels", "Niveles de agua"))} ${link("/tropics", t("Tropics", "Trópicos"), "m-only")} ${link("/pollen", t("Pollen", "Polen"), "m-only")} ${group(t("Community", "Comunidad"))} ${link("/news", t("News", "Noticias"))} ${link("/traffic", t("Traffic", "Tráfico"), "m-only")} ${link("/calendar", t("School Calendar", "Calendario escolar"))} ${group(t("More", "Más"))} ${link("/emergency", t("Emergency", "Emergencias"), "m-only")} ${link("/about", t("About", "Acerca de"))} ${link("/developers", t("Developers", "Desarrolladores"), "m-only")}</div>
     </details>
     ${toggle}
   </nav>
@@ -1735,6 +1735,7 @@ crosbynews.com is an independent weather and news site for Crosby, TX (northeast
 - [Alerts](${SITE}/alerts): Active NWS weather alerts for Crosby, TX plus a plain-language severe-weather guide.
 - [Water Levels](${SITE}/water): Live river and bayou levels with NWS flood stages for Cedar Bayou, the San Jacinto River, Luce Bayou and other waters that flood the Crosby / NE Harris County area.
 - [Tropics](${SITE}/tropics): Active Atlantic tropical storms and hurricanes from the NOAA National Hurricane Center, plus what hurricane season means for Crosby — shows an all-clear when the basin is quiet.
+- [Pollen & Mold](${SITE}/pollen): The Houston Health Department's measured daily pollen and mold count (tree, weed, and grass pollen plus mold spores, National Allergy Bureau scale) with the species actually counted — a real measurement, published weekday mornings, regionally valid for Crosby.
 - [News](${SITE}/news): Recent local headlines about Crosby, TX and nearby communities, filtered for relevance.
 - [Roads & Traffic](${SITE}/traffic): Live traffic incidents and scheduled lane closures for US-90, FM-2100, FM-1942, and the Crosby stretch of IH-10 East, from Houston TranStar, with links to the live traffic cameras.
 - [School Calendar](${SITE}/calendar): Upcoming Crosby ISD school calendar events (first day, holidays, no-school/early-release days, testing, athletics) rendered from the district's public iCal feed, plus one-tap subscribe links.
@@ -1759,8 +1760,9 @@ Every page supports \`Accept: text/markdown\` (or \`?format=md\`) for a clean ma
 - Water levels API: \`GET ${SITE}/api/water\` — river/bayou stage + NWS flood stages (JSON).
 - Tropics API: \`GET ${SITE}/api/tropics\` — active Atlantic tropical cyclones from the NOAA NHC (JSON; empty storms array = quiet basin).
 - Traffic API: \`GET ${SITE}/api/traffic\` — incidents and lane closures on Crosby's roads from Houston TranStar (JSON; empty arrays = quiet roads).
+- Pollen API: \`GET ${SITE}/api/pollen\` — the Houston Health Department's measured daily pollen and mold count (JSON; weekday mornings).
 - OpenAPI spec: \`${SITE}/openapi.json\`
-- MCP server (Streamable HTTP): \`${SITE}/mcp\` — tools: \`get_current_conditions\`, \`get_forecast\`, \`get_alerts\`, \`get_tropical_outlook\`, \`get_river_levels\`, \`get_traffic\`, \`get_crosby_news\`, \`get_school_events\`, \`get_emergency_contacts\`, \`get_radar\`
+- MCP server (Streamable HTTP): \`${SITE}/mcp\` — tools: \`get_current_conditions\`, \`get_forecast\`, \`get_alerts\`, \`get_tropical_outlook\`, \`get_pollen\`, \`get_river_levels\`, \`get_traffic\`, \`get_crosby_news\`, \`get_school_events\`, \`get_emergency_contacts\`, \`get_radar\`
 - MCP server card: \`${SITE}/.well-known/mcp/server-card.json\`
 
 ## Data policy
@@ -1844,6 +1846,7 @@ function sitemapXml() {
     { path: "/alerts", changefreq: "hourly", priority: "0.7" },
     { path: "/water", changefreq: "hourly", priority: "0.7" },
     { path: "/tropics", changefreq: "daily", priority: "0.6" },
+    { path: "/pollen", changefreq: "daily", priority: "0.6" },
     { path: "/news", changefreq: "daily", priority: "0.6" },
     { path: "/traffic", changefreq: "hourly", priority: "0.6" },
     { path: "/calendar", changefreq: "daily", priority: "0.6" },
@@ -2251,6 +2254,7 @@ const DEVELOPERS = {
         { href: "/api/weather", label: "/api/weather", note: "current conditions, hourly, 7-day forecast, alerts, plus feels-like and sun times" },
         { href: "/api/water", label: "/api/water", note: "river/bayou stage, flow, and NWS flood stages" },
         { href: "/api/tropics", label: "/api/tropics", note: "active Atlantic tropical cyclones from the NOAA NHC (empty when the basin is quiet)" },
+        { href: "/api/pollen", label: "/api/pollen", note: "the Houston Health Department's measured daily pollen and mold count (weekday mornings)" },
         { href: "/api/traffic", label: "/api/traffic", note: "incidents and lane closures on Crosby's roads, from Houston TranStar" },
         { href: "/api/news", label: "/api/news", note: "recent local Crosby-area headlines" },
         { href: "/api/calendar", label: "/api/calendar", note: "upcoming Crosby ISD school events" },
@@ -2276,7 +2280,7 @@ const DEVELOPERS = {
     {
       h: "MCP server",
       p: [
-        "A stateless Model Context Protocol server (Streamable HTTP, JSON-RPC) exposes the data as callable tools — get_current_conditions, get_forecast, get_alerts, get_tropical_outlook, get_river_levels, get_traffic, get_crosby_news, get_school_events, get_emergency_contacts, and get_radar (a live radar image, inline) — plus a crosby_briefing prompt and readable resources.",
+        "A stateless Model Context Protocol server (Streamable HTTP, JSON-RPC) exposes the data as callable tools — get_current_conditions, get_forecast, get_alerts, get_tropical_outlook, get_pollen, get_river_levels, get_traffic, get_crosby_news, get_school_events, get_emergency_contacts, and get_radar (a live radar image, inline) — plus a crosby_briefing prompt and readable resources.",
         "Connect from Claude Code: claude mcp add --transport http crosbynews https://crosbynews.com/mcp",
       ],
       links: [
@@ -2330,6 +2334,7 @@ const DEVELOPERS_ES = {
         { href: "/api/weather", label: "/api/weather", note: "condiciones actuales, por hora, pronóstico a 7 días, alertas, sensación térmica y horas de sol" },
         { href: "/api/water", label: "/api/water", note: "nivel y caudal de ríos/arroyos y etapas de inundación del NWS" },
         { href: "/api/tropics", label: "/api/tropics", note: "ciclones tropicales activos del Atlántico según el NHC de NOAA (vacío cuando la cuenca está tranquila)" },
+        { href: "/api/pollen", label: "/api/pollen", note: "el conteo diario medido de polen y moho del Departamento de Salud de Houston (mañanas entre semana)" },
         { href: "/api/traffic", label: "/api/traffic", note: "incidentes y cierres de carriles en los caminos de Crosby, según Houston TranStar" },
         { href: "/api/news", label: "/api/news", note: "titulares locales recientes del área de Crosby" },
         { href: "/api/calendar", label: "/api/calendar", note: "próximos eventos escolares de Crosby ISD" },
@@ -2355,7 +2360,7 @@ const DEVELOPERS_ES = {
     {
       h: "Servidor MCP",
       p: [
-        "Un servidor del Protocolo de Contexto de Modelo sin estado (Streamable HTTP, JSON-RPC) expone los datos como herramientas invocables — get_current_conditions, get_forecast, get_alerts, get_tropical_outlook, get_river_levels, get_traffic, get_crosby_news, get_school_events, get_emergency_contacts y get_radar (una imagen de radar en vivo, en línea) — además de un prompt crosby_briefing y recursos legibles.",
+        "Un servidor del Protocolo de Contexto de Modelo sin estado (Streamable HTTP, JSON-RPC) expone los datos como herramientas invocables — get_current_conditions, get_forecast, get_alerts, get_tropical_outlook, get_pollen, get_river_levels, get_traffic, get_crosby_news, get_school_events, get_emergency_contacts y get_radar (una imagen de radar en vivo, en línea) — además de un prompt crosby_briefing y recursos legibles.",
         "Conéctate desde Claude Code: claude mcp add --transport http crosbynews https://crosbynews.com/mcp",
       ],
       links: [
@@ -3011,6 +3016,7 @@ ${topbar("/sitemap", lang)}
       ${lk("/alerts", t("Alerts", "Alertas"), t("Active NWS weather alerts plus a severe-weather guide.", "Alertas meteorológicas activas del NWS más una guía de clima severo."))}
       ${lk("/water", t("Water Levels", "Niveles de agua"), t("Live river and bayou levels with NWS flood stages.", "Niveles de ríos y arroyos en vivo con las etapas de inundación del NWS."))}
       ${lk("/tropics", t("Tropics", "Trópicos"), t("Active Atlantic tropical systems from the National Hurricane Center.", "Sistemas tropicales activos del Atlántico según el Centro Nacional de Huracanes."))}
+      ${lk("/pollen", t("Pollen &amp; Mold", "Polen y moho"), t("Measured daily pollen and mold count from the Houston Health Department.", "Conteo diario medido de polen y moho del Departamento de Salud de Houston."))}
     </ul>
   </section>
 
@@ -3041,6 +3047,7 @@ ${topbar("/sitemap", lang)}
       ${extLk("/api/news", t("News API", "API de noticias"), t("JSON: recent local headlines.", "JSON: titulares locales recientes."))}
       ${extLk("/api/calendar", t("School Calendar API", "API del calendario escolar"), t("JSON: upcoming Crosby ISD events.", "JSON: próximos eventos de Crosby ISD."))}
       ${extLk("/api/traffic", t("Traffic API", "API de tráfico"), t("JSON: incidents and lane closures on Crosby's roads.", "JSON: incidentes y cierres de carriles en los caminos de Crosby."))}
+      ${extLk("/api/pollen", t("Pollen API", "API de polen"), t("JSON: the measured daily pollen and mold count.", "JSON: el conteo diario medido de polen y moho."))}
       ${extLk("/api/health", t("Health Check", "Estado del servicio"), t("Service status and cache freshness.", "Estado del servicio y antigüedad de la caché."))}
       ${extLk("/openapi.json", "OpenAPI 3.1", t("Machine-readable API description.", "Descripción de la API legible por máquinas."))}
       ${extLk("/mcp", t("MCP Server", "Servidor MCP"), t("Model Context Protocol server (Streamable HTTP).", "Servidor del Protocolo de Contexto de Modelo (Streamable HTTP)."))}
@@ -3077,6 +3084,7 @@ function sitemapPageMarkdown(lang) {
     lk("/alerts", t("Alerts", "Alertas"), t("Active weather alerts plus severe-weather guide.", "Alertas activas más guía de clima severo.")),
     lk("/water", t("Water Levels", "Niveles de agua"), t("River and bayou levels with NWS flood stages.", "Niveles de ríos y arroyos con las etapas de inundación del NWS.")),
     lk("/tropics", t("Tropics", "Trópicos"), t("Active Atlantic systems from the NHC.", "Sistemas activos del Atlántico según el NHC.")),
+    lk("/pollen", t("Pollen & Mold", "Polen y moho"), t("Measured daily count from the Houston Health Department.", "Conteo diario medido del Departamento de Salud de Houston.")),
     "",
     `## ${t("Community", "Comunidad")}`,
     "",
@@ -3098,6 +3106,7 @@ function sitemapPageMarkdown(lang) {
     extLk("/api/news", t("News API", "API de noticias"), "JSON"),
     extLk("/api/calendar", t("School Calendar API", "API del calendario escolar"), "JSON"),
     extLk("/api/traffic", t("Traffic API", "API de tráfico"), "JSON"),
+    extLk("/api/pollen", t("Pollen API", "API de polen"), "JSON"),
     extLk("/api/health", t("Health", "Estado"), t("Status + cache.", "Estado + caché.")),
     extLk("/openapi.json", "OpenAPI 3.1", t("API spec.", "Especificación de la API.")),
     extLk("/mcp", t("MCP Server", "Servidor MCP"), "Streamable HTTP"),
@@ -4962,6 +4971,371 @@ function trafficMarkdown(data, lang) {
 }
 // --- end Roads & traffic ----------------------------------------------------
 
+// --- Pollen & mold (Houston Health Department daily count, cron-owned KV) ----
+// The Houston Health Department laboratory runs a National Allergy Bureau
+// counting station (a Burkard spore trap on the lab roof) and publishes a
+// MEASURED pollen and mold count every weekday morning — tree/weed/grass
+// pollen and mold spores, each with an NAB category and a grains-per-m³
+// count, plus a per-genus breakdown. That makes this the site's only measured
+// environmental number besides NWS itself (the AQI is modeled; UV is a
+// forecast). No API exists, so fetchPollen() scrapes the count page: the
+// index page lists per-date URLs (".../houston-pollen-mold-count-thursday-
+// july-16-2026"); we pick the newest by slug date. Worker reachability to
+// www.houstonhealth.org was canary-verified from the deployed runtime
+// (200 + real body on index and count page) before this shipped.
+const POLLEN_KV_KEY = "pollen";
+const POLLEN_ORIGIN = "https://www.houstonhealth.org";
+const POLLEN_INDEX_PATH = "/services/pollen-mold";
+
+const POLLEN_MONTHS = { january: 1, february: 2, march: 3, april: 4, may: 5, june: 6, july: 7, august: 8, september: 9, october: 10, november: 11, december: 12 };
+
+// "/services/pollen-mold/houston-pollen-mold-count-thursday-july-16-2026"
+// → "2026-07-16" (null when the slug doesn't carry a parseable date).
+function pollenSlugDate(slug) {
+  const m = String(slug).match(/-([a-z]+)-(\d{1,2})-(\d{4})[^\d]*$/i);
+  if (!m) return null;
+  const mo = POLLEN_MONTHS[m[1].toLowerCase()];
+  if (!mo) return null;
+  return `${m[3]}-${String(mo).padStart(2, "0")}-${String(Number(m[2])).padStart(2, "0")}`;
+}
+
+const pollenStrip = (s) =>
+  s.replace(/<[^>]+>/g, " ").replace(/&nbsp;/gi, " ").replace(/&amp;/gi, "&").replace(/\s+/g, " ").trim();
+
+// Parse one count page. The four headline readings render as
+// "<strong>WEED POLLEN</strong><br><strong>LOW</strong><br><strong>6</strong>"
+// (tag placement varies), so we tag-strip a window after each marker and read
+// "GROUP CATEGORY NUMBER". Categories are the NAB scale (None / Low / Medium /
+// Heavy / Extremely Heavy) but multi-word values are accepted as-is — we
+// republish, never reclassify. Species lists are the first <ul> after each
+// "Major … counted" heading, bounded at </ul> so sections can't bleed.
+function parsePollenCount(html) {
+  const groups = {};
+  for (const [key, marker] of [
+    ["tree", "TREE POLLEN"],
+    ["weed", "WEED POLLEN"],
+    ["grass", "GRASS POLLEN"],
+    ["mold", "MOLD SPORES"],
+  ]) {
+    const i = html.indexOf(marker);
+    if (i === -1) continue;
+    const m = pollenStrip(html.slice(i, i + 400)).match(
+      /^(?:TREE POLLEN|WEED POLLEN|GRASS POLLEN|MOLD SPORES)\s+([A-Za-z][A-Za-z ]*?)\s+([\d,]+)/
+    );
+    if (!m) continue;
+    groups[key] = {
+      category: m[1].trim().toLowerCase().replace(/(^|\s)\S/g, (c) => c.toUpperCase()),
+      count: Number(m[2].replace(/,/g, "")),
+    };
+  }
+  const species = {};
+  for (const [key, header] of [
+    ["tree", "Major tree pollen counted"],
+    ["weed", "Major weed pollen counted"],
+    ["mold", "Major mold spores counted"],
+  ]) {
+    const h = html.indexOf(header);
+    if (h === -1) continue;
+    const ulStart = html.indexOf("<ul>", h);
+    const ulEnd = html.indexOf("</ul>", ulStart);
+    if (ulStart === -1 || ulEnd === -1 || ulStart - h > 2000) continue;
+    const found = [];
+    for (const li of html.slice(ulStart, ulEnd).matchAll(/<li>([\s\S]*?)<\/li>/g)) {
+      const m = pollenStrip(li[1]).match(/^(.+?):\s*([\d,]+)\s*$/);
+      if (!m) continue;
+      const count = Number(m[2].replace(/,/g, ""));
+      if (count > 0) found.push({ name: m[1].trim(), count });
+    }
+    found.sort((a, b) => b.count - a.count);
+    species[key] = found.slice(0, 8);
+  }
+  return { groups, species };
+}
+
+// Fetch the newest published count. Throws on any failure — including a page
+// whose layout we no longer recognize (fewer than two groups parsed) — so the
+// cron aborts-without-writing and the last good count survives (water pattern).
+async function fetchPollen() {
+  const idx = await fetch(POLLEN_ORIGIN + POLLEN_INDEX_PATH, { headers: { "User-Agent": "crosbynews.com" } });
+  if (!idx.ok) throw new Error(`HHD pollen index failed: ${idx.status} ${idx.statusText}`);
+  const idxHtml = await idx.text();
+  const candidates = [...idxHtml.matchAll(/href="(\/services\/pollen-mold\/houston-pollen-mold-count-[^"#?]+)"/g)]
+    .map((m) => ({ path: m[1], date: pollenSlugDate(m[1]) }))
+    .filter((c) => c.date);
+  if (!candidates.length) throw new Error("HHD pollen index listed no count pages");
+  const newest = candidates.reduce((a, b) => (b.date > a.date ? b : a));
+  const page = await fetch(POLLEN_ORIGIN + newest.path, { headers: { "User-Agent": "crosbynews.com" } });
+  if (!page.ok) throw new Error(`HHD pollen count page failed: ${page.status} ${page.statusText}`);
+  const { groups, species } = parsePollenCount(await page.text());
+  if (Object.keys(groups).length < 2) throw new Error("HHD pollen count page did not parse (layout change?)");
+  return {
+    updated: new Date().toISOString(),
+    countDate: newest.date,
+    url: POLLEN_ORIGIN + newest.path,
+    groups,
+    species,
+  };
+}
+
+// Read the cached count, self-healing on a cold/malformed entry and degrading
+// to an empty shape on total failure (mirrors loadTropics).
+async function loadPollen(env) {
+  let data = null;
+  try {
+    data = await env.WEATHER.get(POLLEN_KV_KEY, "json");
+  } catch (e) {
+    console.error("KV pollen parse failed:", e && e.stack);
+  }
+  if (!data || !data.groups || !data.countDate) {
+    try {
+      data = await fetchPollen();
+      await env.WEATHER.put(POLLEN_KV_KEY, JSON.stringify(data));
+    } catch (e) {
+      console.error("pollen cold fetch failed:", e && e.stack);
+      data = { updated: null, countDate: null, url: POLLEN_ORIGIN + POLLEN_INDEX_PATH, groups: {}, species: {} };
+    }
+  }
+  return data;
+}
+
+// NAB category labels → Spanish, hand dictionary with English fallback (the
+// deterministic-translation policy). Species/genus names stay in the lab's
+// official English + Latin.
+const POLLEN_CAT_ES = {
+  None: "Ninguno",
+  Low: "Bajo",
+  Medium: "Medio",
+  Heavy: "Alto",
+  "Extremely Heavy": "Extremadamente alto",
+};
+function pollenCatLabel(category, lang) {
+  if (!category) return T(lang, "No data", "Sin datos");
+  return lang === "es" ? POLLEN_CAT_ES[category] || category : category;
+}
+// Severity bucket for styling: the NAB scale, worst-first.
+function pollenCatRank(category) {
+  const c = String(category || "").toLowerCase();
+  if (c.startsWith("extremely")) return 4;
+  if (c === "heavy") return 3;
+  if (c === "medium") return 2;
+  if (c === "low") return 1;
+  if (c === "none") return 0;
+  return -1;
+}
+const POLLEN_GROUPS = [
+  ["tree", ["Tree pollen", "Polen de árboles"]],
+  ["weed", ["Weed pollen", "Polen de malezas"]],
+  ["grass", ["Grass pollen", "Polen de pastos"]],
+  ["mold", ["Mold spores", "Esporas de moho"]],
+];
+function pollenGroupLabel(key, lang) {
+  const pair = POLLEN_GROUPS.find(([k]) => k === key)?.[1];
+  return pair ? T(lang, pair[0], pair[1]) : key;
+}
+// "Thursday, Jul 16" for a plain YYYY-MM-DD count date. Anchored to noon
+// Central (18Z) so the calendar day can't shift across the UTC boundary.
+const pollenDateLabel = (countDate, lang) => capFirst(dayLabel(`${countDate}T18:00:00Z`, lang));
+
+// JSON shape served at /api/pollen — the same HHD data behind /pollen.
+function apiPollen(data) {
+  const groups = {};
+  for (const [key] of POLLEN_GROUPS) {
+    const g = data.groups?.[key];
+    groups[key] = g ? { category: g.category, count: g.count } : null;
+  }
+  return {
+    location: "Houston area (regional count, applies to Crosby, TX)",
+    source: "Houston Health Department pollen and mold count (houstonhealth.org)",
+    measured: true,
+    stationNote:
+      "Measured by the Houston Health Department laboratory, a National Allergy Bureau counting station. Counts publish weekday mornings; units are grains (spores) per cubic meter of air.",
+    updated: data.updated ?? null,
+    countDate: data.countDate ?? null,
+    officialUrl: data.url ?? POLLEN_ORIGIN + POLLEN_INDEX_PATH,
+    groups,
+    species: data.species ?? {},
+  };
+}
+
+function pollenHtml(data, lang) {
+  const title = T(lang, "Pollen &amp; Mold", "Polen y moho");
+  const titlePlain = T(lang, "Pollen & Mold", "Polen y moho");
+  const desc = T(
+    lang,
+    "Daily measured pollen and mold count for the Houston / Crosby, TX area from the Houston Health Department — tree, weed, and grass pollen and mold spores, with what's actually in the air.",
+    "Conteo diario medido de polen y moho para la zona de Houston / Crosby, TX del Departamento de Salud de Houston — polen de árboles, malezas y pastos y esporas de moho."
+  );
+  const hasCount = data.countDate && Object.keys(data.groups ?? {}).length > 0;
+  const catClass = (g) => ["c-none", "c-low", "c-med", "c-heavy", "c-extreme"][pollenCatRank(g?.category)] ?? "c-none";
+  const cards = POLLEN_GROUPS.map(([key]) => {
+    const g = data.groups?.[key];
+    return `      <article class="pgroup ${g ? catClass(g) : "c-none"}">
+        <h2>${pollenGroupLabel(key, lang)}</h2>
+        <p class="pcat">${esc(pollenCatLabel(g?.category, lang))}</p>
+        <p class="pcount">${g ? `${g.count.toLocaleString(lang === "es" ? "es-MX" : "en-US")} <span class="punit">${key === "mold" ? T(lang, "spores/m³", "esporas/m³") : T(lang, "grains/m³", "granos/m³")}</span>` : "&mdash;"}</p>
+      </article>`;
+  }).join("\n");
+  const speciesBlocks = POLLEN_GROUPS.filter(([key]) => (data.species?.[key] ?? []).length).map(
+    ([key]) => `      <div class="sp">
+        <h3>${pollenGroupLabel(key, lang)}</h3>
+        <ul>${(data.species[key] ?? [])
+          .map((s) => `<li><span>${esc(s.name)}</span><span class="sp-n">${s.count.toLocaleString(lang === "es" ? "es-MX" : "en-US")}</span></li>`)
+          .join("")}</ul>
+      </div>`
+  );
+  return `<!DOCTYPE html>
+<html lang="${T(lang, "en", "es-MX")}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${title} &mdash; Crosby, TX &mdash; crosbynews.com</title>
+<meta name="description" content="${esc(desc)}">
+<meta name="theme-color" content="#0b3d61">
+<meta property="og:title" content="${title}">
+<meta property="og:description" content="${esc(desc)}">
+<meta property="og:type" content="website">
+<meta property="og:url" content="${canonicalFor("/pollen", lang)}">
+${OG_COMMON}
+<link rel="canonical" href="${canonicalFor("/pollen", lang)}">
+${hreflangTags("/pollen")}
+${JSONLD_SITE}
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="alternate icon" href="/favicon.ico">
+<style>${BASE_CSS}
+  .stamp { color:var(--muted); margin:0.6rem 0 0; }
+  .pgrid { display:grid; gap:0.7rem; grid-template-columns:repeat(auto-fill,minmax(170px,1fr)); margin-top:1rem; }
+  .pgroup { border-radius:12px; padding:0.85rem 1rem; background:var(--card); box-shadow:0 1px 3px rgba(0,0,0,0.07); border-left:5px solid var(--pg, #9aa4af); }
+  .pgroup h2 { margin:0; font-size:0.95rem; color:var(--muted); font-weight:600; }
+  .pcat { margin:0.25rem 0 0; font-size:1.35rem; font-weight:800; line-height:1.1; }
+  .pcount { margin:0.3rem 0 0; font-size:0.95rem; color:var(--muted); }
+  .punit { font-size:0.8rem; }
+  .c-none { --pg:#9aa4af; } .c-none .pcat { color:#5b6770; }
+  .c-low { --pg:#1f8b4c; } .c-low .pcat { color:#1f8b4c; }
+  .c-med { --pg:#b58900; } .c-med .pcat { color:#9a7400; }
+  .c-heavy { --pg:#d9480f; } .c-heavy .pcat { color:#d9480f; }
+  .c-extreme { --pg:#c92a2a; } .c-extreme .pcat { color:#c92a2a; }
+  .species { display:grid; gap:0.7rem; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); margin-top:0.8rem; }
+  .sp { background:var(--card); border-radius:12px; padding:0.75rem 1rem; box-shadow:0 1px 3px rgba(0,0,0,0.07); }
+  .sp h3 { margin:0 0 0.3rem; font-size:0.95rem; }
+  .sp ul { list-style:none; margin:0; padding:0; }
+  .sp li { display:flex; justify-content:space-between; gap:0.6rem; padding:0.22rem 0; border-bottom:1px solid var(--line); font-size:0.9rem; }
+  .sp li:last-child { border-bottom:none; }
+  .sp-n { color:var(--muted); }
+  .guide { margin-top:1.6rem; }
+  .guide h2 { font-size:1.15rem; }
+  .guide h3 { font-size:1rem; margin-bottom:0.3rem; }
+  .guide p { font-size:0.95rem; line-height:1.55; }
+  .guide .links { margin:0.5rem 0 0; padding-left:1.1rem; }
+  .guide .links li { margin:0.3rem 0; font-size:0.92rem; }
+  .scale-wrap { overflow-x:auto; }
+  .scale { border-collapse:collapse; margin-top:0.5rem; font-size:0.88rem; min-width:430px; }
+  .scale th, .scale td { border:1px solid var(--line); padding:0.35rem 0.6rem; text-align:left; }
+  .scale th { background:var(--card); }
+</style>
+</head>
+<body>
+${topbar("/pollen", lang)}
+<main id="main">
+  <h1>${titlePlain}</h1>
+  <p class="intro">${T(
+    lang,
+    "A real, measured count — not a model. The Houston Health Department laboratory (a certified National Allergy Bureau counting station) samples the air continuously and publishes the count every weekday morning. It's a regional reading: pollen travels, so the Houston count is the right guidance for Crosby air.",
+    "Un conteo real y medido — no un modelo. El laboratorio del Departamento de Salud de Houston (una estación certificada del National Allergy Bureau) muestrea el aire continuamente y publica el conteo cada mañana entre semana. Es una lectura regional: el polen viaja, así que el conteo de Houston es la guía correcta para el aire de Crosby."
+  )}</p>
+  ${
+    hasCount
+      ? `<p class="stamp">${T(lang, "Count for", "Conteo del")} <strong>${pollenDateLabel(data.countDate, lang)}</strong> &middot; ${T(lang, "new counts publish weekday mornings", "los nuevos conteos se publican entre semana por la mañana")}.</p>
+  <div class="pgrid">
+${cards}
+  </div>`
+      : `<p class="stamp">${T(lang, "The count is temporarily unavailable — try again shortly, or read it directly on the", "El conteo no está disponible temporalmente — inténtalo de nuevo en un momento o consúltalo directamente en la")} <a href="${esc(POLLEN_ORIGIN + POLLEN_INDEX_PATH)}">${T(lang, "Houston Health Department page", "página del Departamento de Salud de Houston")}</a>.</p>`
+  }
+  ${
+    speciesBlocks.length
+      ? `<section class="guide">
+    <h2>${T(lang, "What's in the air", "Qué hay en el aire")}</h2>
+    <p>${T(lang, "Only types the lab actually counted today are listed (names as the lab reports them).", "Solo se listan los tipos que el laboratorio contó hoy (con los nombres tal como los reporta el laboratorio).")}</p>
+    <div class="species">
+${speciesBlocks.join("\n")}
+    </div>
+  </section>`
+      : ""
+  }
+  <section class="guide" data-nosnippet>
+    <h2>${T(lang, "How to read the categories", "Cómo leer las categorías")}</h2>
+    <p>${T(
+      lang,
+      "Categories follow the National Allergy Bureau scale — None, Low, Medium, Heavy, Extremely Heavy — and the thresholds differ by type, because it takes far fewer grass grains than mold spores to bother people:",
+      "Las categorías siguen la escala del National Allergy Bureau — Ninguno, Bajo, Medio, Alto, Extremadamente alto — y los umbrales varían según el tipo, porque se necesitan muchos menos granos de pasto que esporas de moho para causar molestias:"
+    )}</p>
+    <div class="scale-wrap"><table class="scale">
+      <tr><th></th><th>${T(lang, "Low", "Bajo")}</th><th>${T(lang, "Medium", "Medio")}</th><th>${T(lang, "Heavy", "Alto")}</th><th>${T(lang, "Extremely Heavy", "Extremadamente alto")}</th></tr>
+      <tr><td>${pollenGroupLabel("grass", lang)}</td><td>1&ndash;4</td><td>5&ndash;19</td><td>20&ndash;199</td><td>200+</td></tr>
+      <tr><td>${pollenGroupLabel("weed", lang)}</td><td>1&ndash;9</td><td>10&ndash;49</td><td>50&ndash;499</td><td>500+</td></tr>
+      <tr><td>${pollenGroupLabel("tree", lang)}</td><td>1&ndash;14</td><td>15&ndash;89</td><td>90&ndash;1,499</td><td>1,500+</td></tr>
+      <tr><td>${pollenGroupLabel("mold", lang)}</td><td>1&ndash;6,499</td><td>6,500&ndash;12,999</td><td>13,000&ndash;49,999</td><td>50,000+</td></tr>
+    </table></div>
+    <h2>${T(lang, "The allergy year around Crosby", "El año de alergias en Crosby")}</h2>
+    <p>${T(
+      lang,
+      "Tree pollen dominates mid-January through mid-April (oak, elm, pine — and cedar elm makes a second run in September–October). Grass pollen runs long here, spring through fall. Ragweed and other weeds peak in the fall. Mold spores are the year-round constant on the humid Gulf Coast — counts jump after rain and in the muggy summer, which is why a Heavy mold day in July is common.",
+      "El polen de árboles domina de mediados de enero a mediados de abril (roble, olmo, pino — y el olmo cedro repite en septiembre-octubre). El polen de pastos dura mucho aquí, de primavera a otoño. La ambrosía y otras malezas alcanzan su pico en otoño. Las esporas de moho son la constante de todo el año en la húmeda costa del Golfo — los conteos suben después de la lluvia y en el verano bochornoso, por eso un día de moho Alto en julio es común."
+    )}</p>
+    <p>${T(
+      lang,
+      "On high days: mornings are usually worst for pollen, rain knocks pollen down (but pushes mold up a day or two later), and windy dry days spread everything. If you're sensitive, check the count before yard work and keep windows closed on Heavy days.",
+      "En días altos: las mañanas suelen ser lo peor para el polen, la lluvia baja el polen (pero sube el moho uno o dos días después) y los días secos con viento lo dispersan todo. Si eres sensible, revisa el conteo antes de trabajar en el jardín y mantén las ventanas cerradas en días de nivel Alto."
+    )}</p>
+    <ul class="links">
+      <li><a href="${esc(data.url || POLLEN_ORIGIN + POLLEN_INDEX_PATH)}">${T(lang, "Houston Health Department pollen &amp; mold count", "Conteo de polen y moho del Departamento de Salud de Houston")}</a> &mdash; ${T(lang, "the official daily report this page republishes", "el reporte oficial diario que esta página republica")}</li>
+      <li><a href="https://pollen.aaaai.org/">${T(lang, "National Allergy Bureau", "National Allergy Bureau")}</a> &mdash; ${T(lang, "the certified station network and scale", "la red de estaciones certificadas y la escala")}</li>
+      <li><a href="${lang === "es" ? "/es/weather" : "/weather"}">${T(lang, "Crosby forecast", "Pronóstico de Crosby")}</a> &mdash; ${T(lang, "rain and wind change what's in the air", "la lluvia y el viento cambian lo que hay en el aire")}</li>
+    </ul>
+  </section>
+</main>
+${footer({ page: "/pollen", lang, source: T(lang, `Pollen and mold count measured by the <a href="${POLLEN_ORIGIN + POLLEN_INDEX_PATH}">Houston Health Department</a>.`, `Conteo de polen y moho medido por el <a href="${POLLEN_ORIGIN + POLLEN_INDEX_PATH}">Departamento de Salud de Houston</a>.`) })}
+</body>
+</html>`;
+}
+
+function pollenMarkdown(data, lang) {
+  const hasCount = data.countDate && Object.keys(data.groups ?? {}).length > 0;
+  const out = [
+    `# ${T(lang, "Pollen & Mold", "Polen y moho")}`,
+    "",
+    `_${T(
+      lang,
+      "Measured daily (weekday mornings) by the Houston Health Department laboratory, a certified National Allergy Bureau counting station. Regional count — valid guidance for Crosby, TX air.",
+      "Medido a diario (mañanas entre semana) por el laboratorio del Departamento de Salud de Houston, una estación certificada del National Allergy Bureau. Conteo regional — guía válida para el aire de Crosby, TX."
+    )}_`,
+    "",
+  ];
+  if (hasCount) {
+    out.push(`**${T(lang, "Count for", "Conteo del")} ${pollenDateLabel(data.countDate, lang)}**`, "");
+    for (const [key] of POLLEN_GROUPS) {
+      const g = data.groups?.[key];
+      if (!g) continue;
+      out.push(`- ${pollenGroupLabel(key, lang)}: **${pollenCatLabel(g.category, lang)}** (${g.count.toLocaleString("en-US")}/m³)`);
+    }
+    for (const [key] of POLLEN_GROUPS) {
+      const sp = data.species?.[key] ?? [];
+      if (!sp.length) continue;
+      out.push("", `## ${pollenGroupLabel(key, lang)} — ${T(lang, "counted today", "contado hoy")}`, "");
+      for (const s of sp) out.push(`- ${s.name}: ${s.count.toLocaleString("en-US")}`);
+    }
+  } else {
+    out.push(T(lang, "The count is temporarily unavailable — read it directly at the Houston Health Department:", "El conteo no está disponible temporalmente — consúltalo directamente en el Departamento de Salud de Houston:"), `<${POLLEN_ORIGIN + POLLEN_INDEX_PATH}>`);
+  }
+  out.push(
+    "",
+    "---",
+    `${T(lang, "Source: Houston Health Department pollen and mold count (measured, National Allergy Bureau scale).", "Fuente: conteo de polen y moho del Departamento de Salud de Houston (medido, escala del National Allergy Bureau).")} · ${data.url || POLLEN_ORIGIN + POLLEN_INDEX_PATH} · [crosbynews.com](${canonicalFor("/", lang)})`
+  );
+  return out.join("\n");
+}
+// --- end Pollen & mold --------------------------------------------------------
+
 // Markdown rendering of the same data, served when an agent sends
 // `Accept: text/markdown` (or ?format=md).
 function renderMarkdown(data, lang) {
@@ -5207,7 +5581,7 @@ function apiCatalog() {
     status: [{ href: `${SITE}/api/health`, type: "application/json" }],
   });
   return {
-    linkset: [entry("/api/weather", "/"), entry("/api/news", "/news"), entry("/api/calendar", "/calendar"), entry("/api/water", "/water"), entry("/api/tropics", "/tropics"), entry("/api/traffic", "/traffic")],
+    linkset: [entry("/api/weather", "/"), entry("/api/news", "/news"), entry("/api/calendar", "/calendar"), entry("/api/water", "/water"), entry("/api/tropics", "/tropics"), entry("/api/pollen", "/pollen"), entry("/api/traffic", "/traffic")],
   };
 }
 
@@ -5332,7 +5706,7 @@ function openApiSpec() {
       title: "crosbynews.com API",
       version: "1.5.0",
       description:
-        "Crosby, Texas community data: current conditions, hourly and 7-day forecast, active alerts, the EPA UV index, and a modeled air-quality index from the U.S. National Weather Service, EPA, and Open-Meteo; river/bayou flood levels; the Atlantic tropical outlook; road incidents and lane closures from Houston TranStar; recent local news headlines; and the Crosby ISD school calendar. Public, no authentication.",
+        "Crosby, Texas community data: current conditions, hourly and 7-day forecast, active alerts, the EPA UV index, and a modeled air-quality index from the U.S. National Weather Service, EPA, and Open-Meteo; river/bayou flood levels; the Atlantic tropical outlook; the Houston Health Department's measured daily pollen and mold count; road incidents and lane closures from Houston TranStar; recent local news headlines; and the Crosby ISD school calendar. Public, no authentication.",
       contact: { url: `${SITE}/` },
       license: { name: "Public domain (NWS source data)", url: "https://www.weather.gov/disclaimer" },
     },
@@ -5400,6 +5774,20 @@ function openApiSpec() {
               content: { "application/json": { schema: { $ref: "#/components/schemas/Tropics" } } },
             },
             "502": { description: "Tropics data unavailable" },
+          },
+        },
+      },
+      "/api/pollen": {
+        get: {
+          operationId: "getPollen",
+          summary: "Measured daily pollen and mold count for the Houston / Crosby, TX area",
+          responses: {
+            "200": {
+              description:
+                "The Houston Health Department's daily count (National Allergy Bureau scale): tree/weed/grass pollen and mold spores with category + grains-per-m³, plus the species counted above zero. Publishes weekday mornings; weekends carry Friday's count.",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/Pollen" } } },
+            },
+            "502": { description: "Pollen data unavailable" },
           },
         },
       },
@@ -5531,6 +5919,37 @@ function openApiSpec() {
           },
         },
         Storm,
+        Pollen: {
+          type: "object",
+          properties: {
+            location: { type: "string" },
+            source: { type: "string" },
+            measured: { type: "boolean", description: "Always true — a lab-counted air sample, not a model." },
+            stationNote: { type: "string" },
+            updated: { type: ["string", "null"], format: "date-time" },
+            countDate: { type: ["string", "null"], description: "Calendar date (Central) the count is for; weekends carry Friday's." },
+            officialUrl: { type: "string", format: "uri" },
+            groups: {
+              type: "object",
+              description: "tree / weed / grass / mold; each null when missing from the day's report.",
+              additionalProperties: {
+                type: ["object", "null"],
+                properties: {
+                  category: { type: "string", description: "NAB category: None, Low, Medium, Heavy, or Extremely Heavy." },
+                  count: { type: "integer", description: "Grains (spores) per cubic meter of air." },
+                },
+              },
+            },
+            species: {
+              type: "object",
+              description: "Per-group list of types counted above zero, as the lab names them.",
+              additionalProperties: {
+                type: "array",
+                items: { type: "object", properties: { name: { type: "string" }, count: { type: "integer" } } },
+              },
+            },
+          },
+        },
         Traffic: {
           type: "object",
           properties: {
@@ -5732,6 +6151,37 @@ function mcpTools() {
           },
         },
         required: ["basin", "storms"],
+      },
+      annotations: MCP_READ_ONLY,
+    },
+    {
+      name: "get_pollen",
+      title: "Pollen & mold count",
+      description:
+        "The Houston Health Department's measured daily pollen and mold count (National Allergy Bureau scale) — tree, weed, and grass pollen plus mold spores, with the species actually counted. A real measurement, not a model; counts publish weekday mornings and apply regionally to Crosby, TX.",
+      inputSchema: { type: "object", properties: {}, additionalProperties: false },
+      outputSchema: {
+        type: "object",
+        properties: {
+          location: { type: "string" },
+          source: { type: "string" },
+          measured: { type: "boolean" },
+          updated: isoStamp,
+          countDate: { type: ["string", "null"], description: "Calendar date (Central time) the count is for; weekends carry Friday's count." },
+          officialUrl: { type: "string" },
+          groups: {
+            type: "object",
+            description: "tree / weed / grass / mold — each null when that reading was missing from the day's report.",
+            properties: {
+              tree: { type: ["object", "null"], properties: { category: { type: "string" }, count: { type: "integer" } } },
+              weed: { type: ["object", "null"], properties: { category: { type: "string" }, count: { type: "integer" } } },
+              grass: { type: ["object", "null"], properties: { category: { type: "string" }, count: { type: "integer" } } },
+              mold: { type: ["object", "null"], properties: { category: { type: "string" }, count: { type: "integer" } } },
+            },
+          },
+          species: { type: "object", description: "Per-group list of the types counted above zero, as the lab names them." },
+        },
+        required: ["source", "groups"],
       },
       annotations: MCP_READ_ONLY,
     },
@@ -5942,7 +6392,7 @@ function mcpPrompts() {
       name: "crosby_briefing",
       title: "Crosby daily briefing",
       description:
-        "Compose a concise daily briefing for a Crosby, TX resident: current weather with feels-like, today's outlook, active alerts, sunrise/sunset, recent local headlines, and upcoming Crosby ISD events — plus river levels, road incidents, and Atlantic tropical systems whenever any is a live concern. The prompt arrives pre-filled with live data.",
+        "Compose a concise daily briefing for a Crosby, TX resident: current weather with feels-like, today's outlook, active alerts, sunrise/sunset, recent local headlines, and upcoming Crosby ISD events — plus river levels, road incidents, Atlantic tropical systems, and heavy pollen/mold whenever any is a live concern. The prompt arrives pre-filled with live data.",
       arguments: [],
     },
   ];
@@ -5958,13 +6408,14 @@ async function mcpGetPrompt(name, env) {
   // ADD lines (above-normal gauges, active storms, road incidents), so a fetch
   // hiccup must not sink the whole briefing the way a weather failure
   // legitimately does.
-  const [{ data }, news, cal, water, tropics, traffic] = await Promise.all([
+  const [{ data }, news, cal, water, tropics, traffic, pollen] = await Promise.all([
     loadWeather(env),
     loadNews(env),
     loadCalendar(env),
     loadWater(env).catch(() => ({ gauges: [] })),
     loadTropics(env).catch(() => ({ storms: [] })),
     loadTraffic(env).catch(() => ({ incidents: null, closures: null })),
+    loadPollen(env).catch(() => ({ groups: {} })),
   ]);
   const now = currentHourly(data);
   const lead = data.periods?.[0];
@@ -6000,6 +6451,15 @@ async function mcpGetPrompt(name, env) {
       `ROAD INCIDENTS ON CROSBY-AREA ROADS: ${roadIncidents
         .map((i) => `${i.location}${i.type ? ` (${i.type})` : ""}`)
         .join("; ")}. Details: ${SITE}/traffic`
+    );
+  // Like rivers/storms/roads, pollen only earns a line when it's a live
+  // concern — a Heavy-or-worse reading on the measured HHD count.
+  const heavyPollen = POLLEN_GROUPS.filter(([key]) => pollenCatRank(pollen.groups?.[key]?.category) >= 3);
+  if (heavyPollen.length && pollen.countDate)
+    lines.push(
+      `POLLEN/MOLD AT HEAVY LEVELS (measured count for ${pollenDateLabel(pollen.countDate, "en")}): ${heavyPollen
+        .map(([key]) => `${pollenGroupLabel(key, "en")} ${pollen.groups[key].category} (${pollen.groups[key].count.toLocaleString("en-US")}/m³)`)
+        .join("; ")}. Details: ${SITE}/pollen`
     );
   const items = (news.items ?? []).slice(0, 5);
   if (items.length) {
@@ -6261,6 +6721,18 @@ async function mcpCallTool(name, args, env) {
     const text = `${incLines}\n\n${clLine}\n\nLive cameras and map: ${SITE}/traffic (data: Houston TranStar). Never drive into high water.`;
     return { content: [{ type: "text", text }], structuredContent: payload };
   }
+  if (name === "get_pollen") {
+    const pollen = await loadPollen(env);
+    const payload = apiPollen(pollen);
+    const parts = POLLEN_GROUPS.filter(([key]) => payload.groups[key]).map(([key]) => {
+      const g = payload.groups[key];
+      return `${pollenGroupLabel(key, "en")}: ${g.category} (${g.count.toLocaleString("en-US")}/m³)`;
+    });
+    const text = parts.length
+      ? `${parts.join(" · ")} — measured count for ${pollenDateLabel(payload.countDate, "en")} by the Houston Health Department (National Allergy Bureau station; new counts publish weekday mornings). Details: ${SITE}/pollen`
+      : `The pollen and mold count is temporarily unavailable. Official source: ${payload.officialUrl}`;
+    return { content: [{ type: "text", text }], structuredContent: payload };
+  }
   if (name === "get_emergency_contacts") {
     const abs = (href) => (href.startsWith("/") ? `${SITE}${href}` : href);
     const payload = {
@@ -6509,6 +6981,8 @@ MCP server (Streamable HTTP, JSON-RPC):
   stages for the Crosby area (JSON); MCP tool: get_river_levels
 - GET https://crosbynews.com/api/tropics - active Atlantic tropical cyclones
   from the NOAA NHC (JSON); MCP tool: get_tropical_outlook
+- GET https://crosbynews.com/api/pollen - measured daily pollen and mold count
+  from the Houston Health Department (JSON); MCP tool: get_pollen
 - MCP-only tools: get_emergency_contacts (Crosby emergency directory) and
   get_radar (latest NWS KHGX radar still, returned as an inline image)
 
@@ -6984,6 +7458,26 @@ async function _fetch(request, env, ctx) {
       }
     }
 
+    // Houston Health Department pollen & mold count as JSON — same cron-owned
+    // KV data as /pollen. countDate is the CT calendar day the count is for
+    // (weekday mornings only; weekends serve Friday's count).
+    if (path === "/api/pollen") {
+      try {
+        const data = await loadPollen(env);
+        return conditional(request, `${data.countDate ?? "none"}|${data.updated ?? "none"}`, () => JSON.stringify(apiPollen(data)), {
+          "content-type": "application/json; charset=utf-8",
+          "access-control-allow-origin": "*",
+          "cache-control": "public, max-age=1800",
+          link: `<${SITE}/openapi.json>; rel="service-desc"; type="application/json"`,
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ error: "unavailable", message: err && err.message }), {
+          status: 502,
+          headers: { "content-type": "application/json; charset=utf-8", "access-control-allow-origin": "*" },
+        });
+      }
+    }
+
     // Crosby ISD school calendar as JSON — same cron-owned KV data as /calendar.
     // The `upcomingEvents` cutoff moves with time, so the seed carries the CT
     // date to stay honest across day boundaries.
@@ -7248,6 +7742,26 @@ async function _fetch(request, env, ctx) {
           headers: {
             "content-type": `${wantsMarkdown ? "text/markdown" : "text/html"}; charset=utf-8`,
             "cache-control": "public, max-age=300",
+            vary: "Accept",
+          },
+        });
+      } catch (err) {
+        return new Response(renderError(err), { status: 502, headers: { "content-type": "text/html; charset=utf-8" } });
+      }
+    }
+
+    // Pollen & mold — cron + KV like /tropics; the Houston Health Department's
+    // measured daily count with an evergreen allergy guide.
+    if (page === "/pollen") {
+      const accept = (request.headers.get("accept") || "").toLowerCase();
+      const wantsMarkdown = accept.includes("text/markdown") || url.searchParams.get("format") === "md";
+      try {
+        const data = await loadPollen(env);
+        const bodyText = wantsMarkdown ? pollenMarkdown(data, lang) : pollenHtml(data, lang);
+        return new Response(bodyText, {
+          headers: {
+            "content-type": `${wantsMarkdown ? "text/markdown" : "text/html"}; charset=utf-8`,
+            "cache-control": "public, max-age=1800",
             vary: "Accept",
           },
         });
@@ -7528,8 +8042,8 @@ async function pushSevereAlerts(env, alerts) {
 // `?format=md` variants — and the http→https pair — consolidate onto one URL for
 // crawlers that read the HTTP layer (reinforces the in-HTML <link rel="canonical">).
 const PAGE_PATHS = new Set([
-  "/", "/weather", "/hourly", "/radar", "/alerts", "/water", "/tropics", "/traffic", "/news", "/calendar", "/emergency", "/about", "/developers", "/privacy", "/contact", "/sitemap",
-  "/es", "/es/weather", "/es/hourly", "/es/radar", "/es/alerts", "/es/water", "/es/tropics", "/es/traffic", "/es/news", "/es/calendar", "/es/emergency", "/es/about", "/es/developers", "/es/privacy", "/es/contact", "/es/sitemap",
+  "/", "/weather", "/hourly", "/radar", "/alerts", "/water", "/tropics", "/pollen", "/traffic", "/news", "/calendar", "/emergency", "/about", "/developers", "/privacy", "/contact", "/sitemap",
+  "/es", "/es/weather", "/es/hourly", "/es/radar", "/es/alerts", "/es/water", "/es/tropics", "/es/pollen", "/es/traffic", "/es/news", "/es/calendar", "/es/emergency", "/es/about", "/es/developers", "/es/privacy", "/es/contact", "/es/sitemap",
 ]);
 
 export default {
@@ -7615,6 +8129,19 @@ export default {
       await env.WEATHER.put(TRAFFIC_KV_KEY, JSON.stringify(await fetchTraffic()));
     } catch (e) {
       console.error("Cron traffic refresh failed:", e && e.stack);
+    }
+    // Refresh the pollen & mold count at most ~every 2h — HHD publishes one
+    // count per weekday morning, so this catches a new count within a couple
+    // of hours without hammering a city Drupal site. fetchPollen() throws on
+    // failure OR an unparseable layout, so the last good count survives.
+    try {
+      const cur = await env.WEATHER.get(POLLEN_KV_KEY, "json");
+      const age = cur?.updated ? Date.now() - new Date(cur.updated).getTime() : Infinity;
+      if (!cur || !cur.groups || !cur.countDate || age > 2 * 3600 * 1000) {
+        await env.WEATHER.put(POLLEN_KV_KEY, JSON.stringify(await fetchPollen()));
+      }
+    } catch (e) {
+      console.error("Cron pollen refresh failed:", e && e.stack);
     }
   },
 };
