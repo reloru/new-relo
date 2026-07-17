@@ -1,7 +1,7 @@
 ---
 name: kv
-description: Inspect and (carefully) edit the production WEATHER KV namespace — the cache behind crosbynews.com. Always uses `--remote` so it reads real production state, not local miniflare. Knows the six keys, `weather` + `calendar` + `water` + `tropics` + `traffic` (cron-owned) and `news` (routine-owned). Use to check cache freshness or debug /news, /calendar, /water, /tropics, /traffic, and the weather pages.
-argument-hint: "[list | get <key> | put <key> <json> | delete <key>]  (key = weather | calendar | water | tropics | traffic | news)"
+description: Inspect and (carefully) edit the production WEATHER KV namespace — the cache behind crosbynews.com. Always uses `--remote` so it reads real production state, not local miniflare. Knows the seven keys, `weather` + `calendar` + `water` + `tropics` + `pollen` + `traffic` (cron-owned) and `news` (routine-owned). Use to check cache freshness or debug /news, /calendar, /water, /tropics, /pollen, /traffic, and the weather pages.
+argument-hint: "[list | get <key> | put <key> <json> | delete <key>]  (key = weather | calendar | water | tropics | pollen | traffic | news)"
 allowed-tools: Bash(npx wrangler kv key list *), Bash(npx wrangler kv key get *)
 ---
 
@@ -35,6 +35,11 @@ command below passes `--remote` — keep it.
   `{ updated, storms: [...] }` (`storms` is what `loadTropics()` checks; an
   empty array is the normal quiet-basin state, NOT an error). Written by the
   same cron throttled ~1h; cold-warms on read. Self-heals. Low risk.
+- **`pollen`** — the Houston Health Department's measured daily pollen & mold
+  count, shape `{ updated, countDate, url, groups: {tree,weed,grass,mold},
+  species }` (`loadPollen()` checks `groups` + `countDate`; `countDate` is the
+  CT calendar day the count is for — weekends carry Friday's, that's normal).
+  Written by the same cron throttled ~2h; cold-warms on read. Self-heals. Low risk.
 - **`traffic`** — Crosby-corridor road incidents + lane closures from Houston
   TranStar's public RSS feeds, shape `{ updated, incidents, closures }`
   (`loadTraffic()` checks that `incidents` is PRESENT — either side is `null`
@@ -75,6 +80,7 @@ CI=1 npx wrangler kv key get weather  --binding WEATHER --remote | python3 -m js
 CI=1 npx wrangler kv key get calendar --binding WEATHER --remote | python3 -m json.tool | head -40
 CI=1 npx wrangler kv key get water    --binding WEATHER --remote | python3 -m json.tool | head -40
 CI=1 npx wrangler kv key get tropics  --binding WEATHER --remote | python3 -m json.tool | head -40
+CI=1 npx wrangler kv key get pollen   --binding WEATHER --remote | python3 -m json.tool | head -40
 CI=1 npx wrangler kv key get traffic  --binding WEATHER --remote | python3 -m json.tool | head -40
 CI=1 npx wrangler kv key get news     --binding WEATHER --remote | python3 -m json.tool | head -40
 ```
@@ -90,11 +96,11 @@ until the routine reruns.
 npx wrangler kv key put    <key> '<json>' --binding WEATHER --remote
 npx wrangler kv key delete <key>          --binding WEATHER --remote
 ```
-- Deleting `weather`, `calendar`, `water`, `tropics`, or `traffic` is
+- Deleting `weather`, `calendar`, `water`, `tropics`, `pollen`, or `traffic` is
   recoverable (next request/cron re-warms it).
 - To repopulate `news` properly, re-run the pipeline instead of hand-writing it:
   `CLOUDFLARE_API_TOKEN=... CLOUDFLARE_ACCOUNT_ID=... node scripts/fetch-news.mjs`.
 
 ## Default (no args)
 List the keys, then report the `updated` / freshness of `weather`, `calendar`,
-`water`, `tropics`, `traffic`, and `news`.
+`water`, `tropics`, `pollen`, `traffic`, and `news`.
