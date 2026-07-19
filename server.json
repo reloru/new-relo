@@ -2,8 +2,8 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "com.crosbynews/weather",
   "title": "Crosby, TX Weather",
-  "description": "Crosby, TX weather, tropics, floods, pollen, roads, radar, news, school events & emergency info.",
-  "version": "1.3.0",
+  "description": "Crosby, TX weather, air quality, tropics, floods, pollen, roads, radar, news & school events.",
+  "version": "1.4.0",
   "repository": { "url": "https://github.com/reloru/new-relo", "source": "github" },
   "remotes": [
     { "type": "streamable-http", "url": "https://crosbynews.com/mcp" }

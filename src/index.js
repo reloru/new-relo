@@ -192,16 +192,16 @@ async function getJson(url) {
 }
 
 // Pull the daily + hourly forecast and active alerts for Crosby, TX.
-async function fetchWeather() {
+async function fetchWeather(env) {
   // 1. Resolve the point to its forecast endpoints.
   const points = await getJson(`https://api.weather.gov/points/${LAT},${LON}`);
   const { forecast: forecastUrl, forecastHourly: hourlyUrl } = points.properties;
   const place = points.properties.relativeLocation?.properties;
 
   // 2. Daily forecast, hourly forecast, active alerts, the EPA UV forecast,
-  // and the modeled air-quality index are independent. UV and AQI are each
-  // failure-tolerant (null on error) so a third-party hiccup can never block
-  // the NWS refresh.
+  // and the air-quality index (AirNow measured, Open-Meteo modeled fallback)
+  // are independent. UV and AQI are each failure-tolerant (null on error) so a
+  // third-party hiccup can never block the NWS refresh.
   const [forecast, hourly, alertsData, uv, aqi] = await Promise.all([
     getJson(forecastUrl),
     getJson(hourlyUrl),
@@ -210,8 +210,8 @@ async function fetchWeather() {
       console.error("EPA UV fetch failed:", e && e.message);
       return null;
     }),
-    fetchAqi().catch((e) => {
-      console.error("Open-Meteo AQI fetch failed:", e && e.message);
+    fetchAqi(env).catch((e) => {
+      console.error("AQI fetch failed:", e && e.message);
       return null;
     }),
   ]);
@@ -287,25 +287,111 @@ function uvCategory(v, lang = "en") {
   return T(lang, "Low", "Bajo");
 }
 
-// Air quality (US AQI) — the site's one MODELED number, and the only one from
-// a non-US-government source. There's no EPA/AirNow monitor in Crosby, so
-// rather than misattribute a distant monitor's reading, we show Open-Meteo's
-// modeled US AQI for Crosby's coordinates (its CAMS-based forecast, no API
-// key) and label it "modeled" everywhere it appears — never as a measurement.
-// Worker reachability to air-quality-api.open-meteo.com was canary-verified
-// from the deployed runtime before shipping. Folded into the `weather` KV
-// entry as `aqi:{...}`, failure-tolerant (aqi:null on any error) so it can
-// never block the NWS refresh. Unlike UV, AQI is meaningful day and night.
+// Air quality (US AQI). Two sources, in preference order:
+//   1. AirNow (EPA/AirNow official MEASURED monitors) — the current observation
+//      for the "Houston-Galveston-Brazoria" reporting area, the nearest official
+//      area, which includes Crosby. A real monitor reading, not a model. Needs
+//      the AIRNOW_API_KEY Worker secret; Worker reachability to airnowapi.org was
+//      canary-verified from the deployed runtime before shipping.
+//   2. Open-Meteo — a MODELED US AQI for Crosby's exact coordinates (CAMS-based,
+//      no key). The fallback when AirNow is unavailable, the key is unset, or the
+//      monitors report nothing (e.g. a station outage). Labeled "modeled".
+// Either way it's a REGIONAL/estimated value (no EPA monitor sits in Crosby
+// itself), so the source and its nature are labeled honestly everywhere it
+// appears — measured metro-area vs modeled local. Folded into the `weather` KV
+// entry as `aqi:{...}`, failure-tolerant (aqi:null on any error) so it can never
+// block the NWS refresh. Unlike UV, AQI is meaningful day and night.
+//
+// Canonical pollutant tokens → bilingual labels, shared by both sources.
 const AQI_POLLUTANTS = {
-  us_aqi_pm2_5: ["PM2.5", "PM2.5"],
-  us_aqi_pm10: ["PM10", "PM10"],
-  us_aqi_ozone: ["ozone", "ozono"],
-  us_aqi_nitrogen_dioxide: ["nitrogen dioxide", "dióxido de nitrógeno"],
-  us_aqi_sulphur_dioxide: ["sulfur dioxide", "dióxido de azufre"],
-  us_aqi_carbon_monoxide: ["carbon monoxide", "monóxido de carbono"],
+  pm25: ["PM2.5", "PM2.5"],
+  pm10: ["PM10", "PM10"],
+  ozone: ["ozone", "ozono"],
+  no2: ["nitrogen dioxide", "dióxido de nitrógeno"],
+  so2: ["sulfur dioxide", "dióxido de azufre"],
+  co: ["carbon monoxide", "monóxido de carbono"],
 };
-async function fetchAqi() {
-  const fields = ["us_aqi", ...Object.keys(AQI_POLLUTANTS), "pm2_5", "pm10", "ozone"].join(",");
+// Open-Meteo sub-AQI field → canonical token.
+const OPENMETEO_AQI_FIELDS = {
+  us_aqi_pm2_5: "pm25",
+  us_aqi_pm10: "pm10",
+  us_aqi_ozone: "ozone",
+  us_aqi_nitrogen_dioxide: "no2",
+  us_aqi_sulphur_dioxide: "so2",
+  us_aqi_carbon_monoxide: "co",
+};
+// AirNow parameterName → canonical token (the ziplatlong endpoint uses "OZONE";
+// the legacy one used "O3" — accept both).
+const AIRNOW_PARAM = { OZONE: "ozone", O3: "ozone", "PM2.5": "pm25", PM10: "pm10", NO2: "no2", SO2: "so2", CO: "co" };
+
+async function fetchAqi(env) {
+  if (env?.AIRNOW_API_KEY) {
+    try {
+      return await fetchAqiAirNow(env.AIRNOW_API_KEY);
+    } catch (e) {
+      console.error("AirNow AQI failed, falling back to Open-Meteo:", e && e.message);
+    }
+  }
+  return await fetchAqiOpenMeteo();
+}
+
+// AirNow current observations for the area covering Crosby, via the NowCast
+// endpoint that returns the CLOSEST reporting monitor for each pollutant (per
+// AirNow) — so we can name the real nearby TCEQ monitors instead of a vague
+// "metro" tag. Overall US AQI is the max of the pollutant NowCast sub-indices;
+// the pollutant at that max is the dominant one (EPA's definition). Only the
+// NowCast AQI per pollutant is available (not raw concentrations), so
+// `subIndices` carries them and the raw pm/ozone fields stay null on this path.
+// `sites` maps each pollutant token to the monitor site name that reported it.
+//
+// Endpoint: /aq/observation/current/ziplatlong/ — the June-2026 replacement for
+// the legacy /aq/observation/latLong/current/, which AirNow RETIRES 2026-09-30
+// (see the AirNow API Updates June 2026 notice). Same host (airnowapi.org),
+// already Worker-egress-canaried; Open-Meteo remains the fallback.
+async function fetchAqiAirNow(key) {
+  const res = await fetch(
+    `https://www.airnowapi.org/aq/observation/current/ziplatlong/?format=application/json&latitude=${LAT}&longitude=${LON}&distance=50&API_KEY=${key}`,
+    { headers: { "User-Agent": "crosbynews.com", Accept: "application/json" } }
+  );
+  if (!res.ok) throw new Error(`AirNow request failed: ${res.status}`);
+  const rows = await res.json();
+  if (!Array.isArray(rows) || rows.length === 0) throw new Error("AirNow returned no observations");
+  let usAqi = -1, dominant = null, reportingArea = null, observed = null, agency = null;
+  const subIndices = {}, sites = {};
+  for (const r of rows) {
+    const tok = AIRNOW_PARAM[r.parameterName];
+    const v = typeof r.nowcastAQI === "number" ? r.nowcastAQI : null;
+    if (tok && v != null) {
+      subIndices[tok] = v;
+      if (r.siteName) sites[tok] = r.siteName;
+      if (v > usAqi) { usAqi = v; dominant = tok; }
+    }
+    if (!reportingArea && r.reportingAreaName) reportingArea = `${r.reportingAreaName}${/,/.test(r.reportingAreaName) ? "" : ", TX"}`;
+    if (!agency && r.reportingAgency) agency = r.reportingAgency;
+    if (!observed && r.dateObserved) {
+      observed = `${String(r.dateObserved).trim()}${r.hourObserved ? ` ${r.hourObserved}` : ""} ${r.localTimeZone || "CT"}`.trim();
+    }
+  }
+  if (usAqi < 0) throw new Error("AirNow: no usable AQI value");
+  return {
+    usAqi,
+    dominant,
+    subIndices,
+    sites,
+    dominantSite: dominant ? sites[dominant] || null : null,
+    agency,
+    pm25: null, pm10: null, ozone: null, // raw concentrations unavailable from AirNow
+    source: "airnow",
+    measured: true,
+    reportingArea,
+    observed,
+    time: new Date().toISOString(),
+  };
+}
+
+// Open-Meteo modeled US AQI for Crosby's coordinates — the fallback.
+async function fetchAqiOpenMeteo() {
+  const fields = ["us_aqi", ...Object.keys(OPENMETEO_AQI_FIELDS), "pm2_5", "pm10", "ozone"].join(",");
   const res = await fetch(
     `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${LAT}&longitude=${LON}&current=${fields}&timezone=America%2FChicago`,
     { headers: { "User-Agent": "crosbynews.com", Accept: "application/json" } }
@@ -318,16 +404,25 @@ async function fetchAqi() {
   // Dominant pollutant = the component whose sub-AQI drives the overall (the
   // max component AQI; overall US AQI is the max of the components).
   let dominant = null, best = -1;
-  for (const key of Object.keys(AQI_POLLUTANTS)) {
-    const v = c[key];
-    if (typeof v === "number" && v > best) { best = v; dominant = key; }
+  const subIndices = {};
+  for (const [field, tok] of Object.entries(OPENMETEO_AQI_FIELDS)) {
+    const v = c[field];
+    if (typeof v === "number") {
+      subIndices[tok] = Math.round(v);
+      if (v > best) { best = v; dominant = tok; }
+    }
   }
   return {
     usAqi,
-    dominant, // internal key, mapped to a label at render time
+    dominant, // canonical token, mapped to a label at render time
+    subIndices,
     pm25: typeof c.pm2_5 === "number" ? c.pm2_5 : null,
     pm10: typeof c.pm10 === "number" ? c.pm10 : null,
     ozone: typeof c.ozone === "number" ? c.ozone : null,
+    source: "openmeteo",
+    measured: false,
+    reportingArea: null,
+    observed: null,
     time: c.time || null,
   };
 }
@@ -344,6 +439,71 @@ function aqiCategory(v, lang = "en") {
 function aqiDominantLabel(key, lang = "en") {
   const pair = AQI_POLLUTANTS[key];
   return pair ? T(lang, pair[0], pair[1]) : null;
+}
+// Drop AirNow's trailing monitor code ("Baytown Garth C1017" → "Baytown Garth")
+// for a human-readable site label.
+function aqiSiteShort(name) {
+  if (!name) return null;
+  return String(name).replace(/\s+C\d+[A-Za-z]?$/i, "").trim() || String(name).trim();
+}
+// Short honest source tag for inline spots (hero, `Now` meta): the measured
+// AirNow value names the dominant pollutant's monitor; the Open-Meteo fallback
+// is modeled.
+function aqiSourceTag(aqi, lang = "en") {
+  if (!aqi) return "";
+  if (!aqi.measured) return T(lang, "modeled", "modelado");
+  const site = aqiSiteShort(aqi.dominantSite);
+  return site ? T(lang, `${site} monitor`, `monitor ${site}`) : T(lang, "Houston area", "área de Houston");
+}
+// One-sentence provenance line for explainers / API notes. For the measured
+// path, name the closest reporting monitor for each pollutant.
+function aqiSourceNote(aqi, lang = "en") {
+  if (aqi?.measured) {
+    const area = aqi.reportingArea || "Houston-Galveston-Brazoria, TX";
+    const agency = aqi.agency || "TCEQ/AirNow";
+    const siteList =
+      aqi.sites && Object.keys(aqi.sites).length
+        ? Object.entries(aqi.sites)
+            .map(([tok, name]) => `${aqiDominantLabel(tok, lang)} — ${aqiSiteShort(name)}`)
+            .join("; ")
+        : "";
+    return T(
+      lang,
+      `Measured by the closest reporting ${agency} monitor for each pollutant (per AirNow) in the ${area} area — the nearest official monitors to Crosby, which has none of its own${siteList ? ` (${siteList})` : ""}. A real reading for the area, not a Crosby-pinpoint value.`,
+      `Medido por el monitor de ${agency} más cercano que reporta cada contaminante (según AirNow) en el área ${area} — los monitores oficiales más cercanos a Crosby, que no tiene ninguno propio${siteList ? ` (${siteList})` : ""}. Una lectura real del área, no un valor exacto de Crosby.`
+    );
+  }
+  return T(
+    lang,
+    "Modeled from Open-Meteo's CAMS-based forecast for Crosby's coordinates (used when the AirNow monitors aren't reporting) — a useful estimate, not an official monitor reading.",
+    "Modelado a partir del pronóstico CAMS de Open-Meteo para las coordenadas de Crosby (se usa cuando los monitores de AirNow no reportan) — una estimación útil, no una lectura oficial de un monitor."
+  );
+}
+
+// The public airQuality JSON object, shared by /api/weather and /api/air so the
+// two can't drift. Null when no reading is available.
+function aqiApiObject(aqi) {
+  if (aqi?.usAqi == null) return null;
+  return {
+    usAqi: aqi.usAqi,
+    category: aqiCategory(aqi.usAqi),
+    dominantPollutant: aqiDominantLabel(aqi.dominant),
+    dominantMonitor: aqi.measured ? aqiSiteShort(aqi.dominantSite) : null,
+    subIndices: aqi.subIndices ?? null,
+    monitors: aqi.measured ? aqi.sites ?? null : null, // per-pollutant reporting monitor site names
+    reportingAgency: aqi.measured ? aqi.agency ?? null : null,
+    pm2_5: aqi.pm25,
+    pm10: aqi.pm10,
+    ozone: aqi.ozone,
+    concentrationUnit: "µg/m³",
+    measured: !!aqi.measured,
+    modeled: !aqi.measured, // retained for back-compat with existing clients
+    reportingArea: aqi.reportingArea ?? null,
+    observed: aqi.observed ?? null,
+    source: aqi.measured
+      ? "EPA/AirNow measured monitors — closest reporting monitor per pollutant in the Houston-Galveston-Brazoria area (nearest official monitors to Crosby)"
+      : "Open-Meteo (CAMS-based model); modeled forecast used when AirNow isn't reporting",
+  };
 }
 
 function esc(value) {
@@ -673,7 +833,7 @@ function renderHero(data, lang) {
         <p class="hero-temp">${esc(now.temperature)}&deg;<span>${esc(now.temperatureUnit)}</span></p>
         <p class="hero-cond">${esc(translateConditions(now.shortForecast, lang))}</p>
         ${feels != null ? `<p class="hero-feels">${T(lang, "Feels like", "Sensación térmica de")} ${esc(feels)}&deg;</p>` : ""}
-        <p class="hero-meta">${esc(data.place)} &middot; ${T(lang, "as of", "a las")} ${esc(clockTime(now.startTime, lang))} CT${pop(now) ? ` &middot; ${pop(now)}% ${T(lang, "precip", "prob. lluvia")}` : ""}${uvNow ? ` &middot; ${T(lang, "UV", "UV")} ${esc(uvNow)} (${esc(uvCategory(uvNow, lang))})` : ""}${aqi?.usAqi != null ? ` &middot; ${T(lang, "Air", "Aire")} ${esc(aqi.usAqi)} (${esc(aqiCategory(aqi.usAqi, lang))}, ${T(lang, "modeled", "modelado")})` : ""}</p>
+        <p class="hero-meta">${esc(data.place)} &middot; ${T(lang, "as of", "a las")} ${esc(clockTime(now.startTime, lang))} CT${pop(now) ? ` &middot; ${pop(now)}% ${T(lang, "precip", "prob. lluvia")}` : ""}${uvNow ? ` &middot; ${T(lang, "UV", "UV")} ${esc(uvNow)} (${esc(uvCategory(uvNow, lang))})` : ""}${aqi?.usAqi != null ? ` &middot; ${T(lang, "Air", "Aire")} ${esc(aqi.usAqi)} (${esc(aqiCategory(aqi.usAqi, lang))}, ${esc(aqiSourceTag(aqi, lang))})` : ""}</p>
         ${sun ? `<p class="hero-meta">${T(lang, "Sunrise", "Amanecer")} ${esc(clockTime(sun.sunrise, lang))} &middot; ${T(lang, "Sunset", "Atardecer")} ${esc(clockTime(sun.sunset, lang))}</p>` : ""}
       </div>
     </section>
@@ -801,7 +961,7 @@ function topbar(current, lang = "en") {
   <nav>
     <details class="nav-menu">
       <summary aria-label="${t("Menu", "Menú")}">&#9776;</summary>
-      <div class="nav-links">${link("/", t("Home", "Inicio"))} ${group(t("Weather", "Clima"))} ${link("/weather", t("Weather", "Clima"))} ${link("/hourly", t("Hourly", "Por hora"), "m-only")} ${link("/radar", t("Radar", "Radar"))} ${link("/alerts", t("Alerts", "Alertas"))} ${link("/water", t("Water Levels", "Niveles de agua"))} ${link("/tropics", t("Tropics", "Trópicos"), "m-only")} ${link("/pollen", t("Pollen", "Polen"), "m-only")} ${group(t("Community", "Comunidad"))} ${link("/news", t("News", "Noticias"))} ${link("/traffic", t("Traffic", "Tráfico"), "m-only")} ${link("/calendar", t("School Calendar", "Calendario escolar"))} ${group(t("More", "Más"))} ${link("/emergency", t("Emergency", "Emergencias"), "m-only")} ${link("/about", t("About", "Acerca de"))} ${link("/developers", t("Developers", "Desarrolladores"), "m-only")}</div>
+      <div class="nav-links">${link("/", t("Home", "Inicio"))} ${group(t("Weather", "Clima"))} ${link("/weather", t("Weather", "Clima"))} ${link("/hourly", t("Hourly", "Por hora"), "m-only")} ${link("/radar", t("Radar", "Radar"))} ${link("/alerts", t("Alerts", "Alertas"))} ${link("/water", t("Water Levels", "Niveles de agua"))} ${link("/tropics", t("Tropics", "Trópicos"), "m-only")} ${link("/pollen", t("Pollen", "Polen"), "m-only")} ${link("/air", t("Air Quality", "Calidad del aire"), "m-only")} ${group(t("Community", "Comunidad"))} ${link("/news", t("News", "Noticias"))} ${link("/traffic", t("Traffic", "Tráfico"), "m-only")} ${link("/calendar", t("School Calendar", "Calendario escolar"))} ${group(t("More", "Más"))} ${link("/emergency", t("Emergency", "Emergencias"), "m-only")} ${link("/about", t("About", "Acerca de"))} ${link("/developers", t("Developers", "Desarrolladores"), "m-only")}</div>
     </details>
     ${toggle}
   </nav>
@@ -1324,13 +1484,16 @@ function glanceStamp(weather, lang) {
 function glanceSourceLine(weather, lang) {
   if (!weather.updated) return "";
   // ES: "Datos" + "del Servicio…" so it reads "Datos del…" (not "de el").
-  const src = T(lang, "the National Weather Service, EPA, and Open-Meteo", "del Servicio Meteorológico Nacional, la EPA y Open-Meteo");
+  // The AQI source depends on which one answered this refresh (AirNow measured
+  // vs Open-Meteo modeled), so name it accordingly.
+  const aqiSrc = weather.aqi?.measured ? T(lang, "AirNow", "AirNow") : T(lang, "Open-Meteo", "Open-Meteo");
+  const src = T(lang, `the National Weather Service, EPA, and ${aqiSrc}`, `del Servicio Meteorológico Nacional, la EPA y ${aqiSrc}`);
   return `${T(lang, "Data from", "Datos")} ${src} · ${T(lang, "updated", "actualizado")} ${clockTime(weather.updated, lang)} CT (${relTime(weather.updated, lang)})`;
 }
 
 // Short, honest explainers for the glance numbers people ask about most.
 // Native <details> — progressive disclosure with zero JS.
-function glanceExplainers(lang) {
+function glanceExplainers(lang, aqi) {
   const items = [
     [
       T(lang, "About feels-like temperature", "Acerca de la sensación térmica"),
@@ -1366,11 +1529,11 @@ function glanceExplainers(lang) {
     ],
     [
       T(lang, "About air quality", "Acerca de la calidad del aire"),
-      T(
+      `${T(
         lang,
-        "This is the air quality right now, on the U.S. AQI's standard 0–500 scale: 0–50 good, 51–100 moderate, 101–150 unhealthy for sensitive groups, 151+ unhealthy for everyone. Unlike every other number here, this one is modeled — there's no EPA air monitor in Crosby, so it comes from Open-Meteo's forecast rather than a nearby instrument, and it's a useful estimate (helpful during wildfire-smoke days) rather than an official reading.",
-        "Es la calidad del aire en este momento, en la escala estándar de 0 a 500 del Índice de Calidad del Aire de EE. UU.: 0–50 buena, 51–100 moderada, 101–150 insalubre para grupos sensibles, 151+ insalubre para todos. A diferencia de los demás datos aquí, este es modelado: no hay un monitor de aire de la EPA en Crosby, así que proviene del pronóstico de Open-Meteo y no de un instrumento cercano; es una estimación útil (sobre todo en días con humo de incendios), no una medición oficial."
-      ),
+        "This is the air quality right now, on the U.S. AQI's standard 0–500 scale: 0–50 good, 51–100 moderate, 101–150 unhealthy for sensitive groups, 151+ unhealthy for everyone.",
+        "Es la calidad del aire en este momento, en la escala estándar de 0 a 500 del Índice de Calidad del Aire de EE. UU.: 0–50 buena, 51–100 moderada, 101–150 insalubre para grupos sensibles, 151+ insalubre para todos."
+      )} ${aqiSourceNote(aqi, lang)} ${T(lang, `<a href="${lang === "es" ? "/es/air" : "/air"}">Full air quality page →</a>`, `<a href="${lang === "es" ? "/es/air" : "/air"}">Página completa de calidad del aire →</a>`)}`,
     ],
   ];
   return items.map(([q, a]) => `<details class="about"><summary>&#9432; ${q}</summary><p>${a}</p></details>`).join("");
@@ -1444,7 +1607,7 @@ function homeHtml(weather, water, news, cal, tropics, lang) {
         <p class="hub-stamp">${glanceStamp(weather, lang)}</p>
         ${glanceTodayRows ? `<ul class="peek">${glanceTodayRows}</ul>` : ""}
         ${glanceNowRows ? `<p class="glance-group">${T(lang, "Right now", "Ahora mismo")}</p><ul class="peek">${glanceNowRows}</ul>` : ""}
-        ${glanceExplainers(lang)}
+        ${glanceExplainers(lang, weather.aqi)}
         ${glanceSrc ? `<p class="glance-source">${glanceSrc}</p>` : ""}
       </section>` : ""}
       <section class="hub-card">
@@ -1736,6 +1899,7 @@ crosbynews.com is an independent weather and news site for Crosby, TX (northeast
 - [Water Levels](${SITE}/water): Live river and bayou levels with NWS flood stages for Cedar Bayou, the San Jacinto River, Luce Bayou and other waters that flood the Crosby / NE Harris County area.
 - [Tropics](${SITE}/tropics): Active Atlantic tropical storms and hurricanes from the NOAA National Hurricane Center, plus what hurricane season means for Crosby — shows an all-clear when the basin is quiet.
 - [Pollen & Mold](${SITE}/pollen): The Houston Health Department's measured daily pollen and mold count (tree, weed, and grass pollen plus mold spores, National Allergy Bureau scale) with the species actually counted — a real measurement, published weekday mornings, regionally valid for Crosby.
+- [Air Quality](${SITE}/air): Measured US Air Quality Index (AQI) for the Houston-Galveston-Brazoria reporting area that includes Crosby, from EPA/AirNow monitors, with a per-pollutant breakdown and health guidance (Open-Meteo modeled fallback when AirNow isn't reporting).
 - [News](${SITE}/news): Recent local headlines about Crosby, TX and nearby communities, filtered for relevance.
 - [Roads & Traffic](${SITE}/traffic): Live traffic incidents and scheduled lane closures for US-90, FM-2100, FM-1942, and the Crosby stretch of IH-10 East, from Houston TranStar, with links to the live traffic cameras.
 - [School Calendar](${SITE}/calendar): Upcoming Crosby ISD school calendar events (first day, holidays, no-school/early-release days, testing, athletics) rendered from the district's public iCal feed, plus one-tap subscribe links.
@@ -1754,7 +1918,8 @@ Every page is also available in Mexican Spanish (es-MX) under the /es prefix —
 
 Every page supports \`Accept: text/markdown\` (or \`?format=md\`) for a clean markdown rendering.
 
-- REST API: \`GET ${SITE}/api/weather\` — JSON with current conditions, hourly, 7-day forecast, alerts, sun times, the EPA UV index, and a modeled air-quality index (labeled as modeled, not a monitor reading). No auth.
+- REST API: \`GET ${SITE}/api/weather\` — JSON with current conditions, hourly, 7-day forecast, alerts, sun times, the EPA UV index, and a measured air-quality index from EPA/AirNow monitors (Houston metro reporting area; \`measured:true\`, with an Open-Meteo modeled fallback). No auth.
+- Air quality API: \`GET ${SITE}/api/air\` — the measured AQI + per-pollutant breakdown (JSON).
 - News API: \`GET ${SITE}/api/news\` — recent Crosby-area headlines (JSON).
 - School calendar API: \`GET ${SITE}/api/calendar\` — upcoming Crosby ISD events (JSON).
 - Water levels API: \`GET ${SITE}/api/water\` — river/bayou stage + NWS flood stages (JSON).
@@ -1762,7 +1927,7 @@ Every page supports \`Accept: text/markdown\` (or \`?format=md\`) for a clean ma
 - Traffic API: \`GET ${SITE}/api/traffic\` — incidents and lane closures on Crosby's roads from Houston TranStar (JSON; empty arrays = quiet roads).
 - Pollen API: \`GET ${SITE}/api/pollen\` — the Houston Health Department's measured daily pollen and mold count (JSON; weekday mornings).
 - OpenAPI spec: \`${SITE}/openapi.json\`
-- MCP server (Streamable HTTP): \`${SITE}/mcp\` — tools: \`get_current_conditions\`, \`get_forecast\`, \`get_alerts\`, \`get_tropical_outlook\`, \`get_pollen\`, \`get_river_levels\`, \`get_traffic\`, \`get_crosby_news\`, \`get_school_events\`, \`get_emergency_contacts\`, \`get_radar\`
+- MCP server (Streamable HTTP): \`${SITE}/mcp\` — tools: \`get_current_conditions\`, \`get_forecast\`, \`get_alerts\`, \`get_tropical_outlook\`, \`get_pollen\`, \`get_air_quality\`, \`get_river_levels\`, \`get_traffic\`, \`get_crosby_news\`, \`get_school_events\`, \`get_emergency_contacts\`, \`get_radar\`
 - MCP server card: \`${SITE}/.well-known/mcp/server-card.json\`
 
 ## Data policy
@@ -1847,6 +2012,7 @@ function sitemapXml() {
     { path: "/water", changefreq: "hourly", priority: "0.7" },
     { path: "/tropics", changefreq: "daily", priority: "0.6" },
     { path: "/pollen", changefreq: "daily", priority: "0.6" },
+    { path: "/air", changefreq: "hourly", priority: "0.6" },
     { path: "/news", changefreq: "daily", priority: "0.6" },
     { path: "/traffic", changefreq: "hourly", priority: "0.6" },
     { path: "/calendar", changefreq: "daily", priority: "0.6" },
@@ -1898,7 +2064,7 @@ const ABOUT = {
       h: "Where the data comes from",
       p: [
         "Every forecast, conditions reading, and alert on this site comes directly from the U.S. National Weather Service (api.weather.gov) for Crosby, TX (latitude 29.9119, longitude -95.0608). NWS data is in the public domain. The UV index is the one weather number sourced elsewhere — the U.S. EPA's public UV forecast for Crosby's ZIP code (77532). Road incidents and lane closures come from Houston TranStar (the region's official traffic agency, a TxDOT partnership), republished as facts with attribution from the RSS feeds TranStar publishes for public subscription.",
-        "The air quality index (AQI) is different, and we label it so wherever it appears: it's modeled, not measured. There's no EPA air monitor in Crosby, so rather than borrow a distant monitor's reading and call it local, we show Open-Meteo's modeled forecast for Crosby's coordinates. Treat it as a useful estimate — genuinely handy on wildfire-smoke days — not an official measurement.",
+        "The air quality index (AQI) comes from EPA/AirNow — the official measured monitors — for the Houston-Galveston-Brazoria reporting area, the nearest official area, which includes Crosby. There's no monitor in Crosby itself, so it's a real reading for the metro rather than a Crosby-pinpoint value, and we label it that way. When the AirNow monitors aren't reporting, we fall back to Open-Meteo's modeled forecast for Crosby's coordinates, labeled \"modeled\" so you always know which you're seeing. The full breakdown lives on the air quality page.",
         "We don't editorialize or adjust the numbers — the site is a clean presentation layer over the official government forecast for the Crosby area. Two values we compute ourselves: \"feels like\" temperature (the heat index or wind chill, using the National Weather Service's own published formulas applied to its temperature, humidity, and wind data — shown only when it's meaningfully different from the air temperature) and sunrise/sunset times (standard astronomical formulas; the NWS forecast API doesn't provide them).",
       ],
     },
@@ -1958,7 +2124,7 @@ const ABOUT_ES = {
       h: "De dónde provienen los datos",
       p: [
         "Cada pronóstico, lectura de condiciones y alerta de este sitio proviene directamente del Servicio Meteorológico Nacional de EE. UU. (api.weather.gov) para Crosby, TX (latitud 29.9119, longitud -95.0608). Los datos del NWS son de dominio público. El índice UV es el único dato meteorológico de otra fuente: el pronóstico UV público de la EPA de EE. UU. para el código postal de Crosby (77532). Los incidentes viales y cierres de carriles provienen de Houston TranStar (la agencia oficial de tráfico de la región, una alianza con TxDOT), republicados como hechos con atribución desde los feeds RSS que TranStar publica para suscripción pública.",
-        "El índice de calidad del aire (AQI) es distinto, y lo etiquetamos así donde aparece: es modelado, no medido. No hay un monitor de aire de la EPA en Crosby, así que en lugar de tomar la lectura de un monitor lejano y llamarla local, mostramos el pronóstico modelado de Open-Meteo para las coordenadas de Crosby. Tómalo como una estimación útil — de veras práctica en días con humo de incendios — no como una medición oficial.",
+        "El índice de calidad del aire (AQI) proviene de EPA/AirNow — los monitores oficiales medidos — para el área de reporte Houston-Galveston-Brazoria, el área oficial más cercana, que incluye a Crosby. No hay un monitor en Crosby mismo, así que es una lectura real del área metropolitana y no un valor exacto de Crosby, y así lo etiquetamos. Cuando los monitores de AirNow no reportan, usamos como respaldo el pronóstico modelado de Open-Meteo para las coordenadas de Crosby, etiquetado como \"modelado\" para que siempre sepas cuál estás viendo. El desglose completo está en la página de calidad del aire.",
         "No editorializamos ni ajustamos las cifras: el sitio es una capa de presentación limpia sobre el pronóstico oficial del gobierno para la zona de Crosby. Dos valores los calculamos nosotros mismos: la \"sensación térmica\" (el índice de calor o la sensación por viento, con las fórmulas oficiales del Servicio Meteorológico Nacional aplicadas a su temperatura, humedad y viento, y solo se muestra cuando difiere de forma notable de la temperatura del aire) y las horas de amanecer y atardecer (fórmulas astronómicas estándar; la API de pronóstico del NWS no las ofrece). Las condiciones se traducen al español con un diccionario propio; las descripciones detalladas del pronóstico y las alertas se muestran en su idioma oficial, inglés.",
       ],
     },
@@ -2020,7 +2186,7 @@ const PRIVACY = {
       p: [
         "The site displays data from several external, public sources. All of it is fetched server-side and cached — your browser never contacts these sources directly, and none of it involves sharing any user data:",
         "U.S. National Weather Service (api.weather.gov) — public-domain forecasts, conditions, and alerts for Crosby, TX; and the U.S. EPA (UV index) and NOAA (river/bayou levels, tropical outlook).",
-        "Open-Meteo — a modeled air-quality index for Crosby's coordinates (labeled as modeled throughout).",
+        "EPA/AirNow (airnowapi.org) — the measured air-quality index for the Houston-Galveston-Brazoria reporting area that includes Crosby; Open-Meteo provides a modeled fallback for Crosby's coordinates when AirNow isn't reporting (labeled measured vs modeled throughout).",
         "Houston TranStar (houstontranstar.org) — road incidents and scheduled lane closures for the Crosby corridors, from TranStar's public RSS feeds.",
         "Google News — local news headlines aggregated from public RSS feeds by an out-of-band process and cached.",
         "Crosby ISD (crosbyisd.org) — the school district's public iCal calendar feed.",
@@ -2063,7 +2229,7 @@ const PRIVACY_ES = {
       p: [
         "El sitio muestra datos de varias fuentes externas y públicas. Todo se obtiene del lado del servidor y se almacena en caché — tu navegador nunca contacta estas fuentes directamente, y ninguna implica compartir datos de usuario:",
         "Servicio Meteorológico Nacional de EE. UU. (api.weather.gov) — pronósticos, condiciones y alertas de dominio público para Crosby, TX; además de la EPA de EE. UU. (índice UV) y la NOAA (niveles de ríos/arroyos, panorama tropical).",
-        "Open-Meteo — un índice de calidad del aire modelado para las coordenadas de Crosby (etiquetado como modelado en todo el sitio).",
+        "EPA/AirNow (airnowapi.org) — el índice de calidad del aire medido para el área de reporte Houston-Galveston-Brazoria que incluye a Crosby; Open-Meteo aporta un respaldo modelado para las coordenadas de Crosby cuando AirNow no reporta (etiquetado como medido o modelado en todo el sitio).",
         "Houston TranStar (houstontranstar.org) — incidentes viales y cierres de carriles programados para los corredores de Crosby, desde los feeds RSS públicos de TranStar.",
         "Google News — titulares de noticias locales recopilados de fuentes RSS públicas mediante un proceso externo y almacenados en caché.",
         "Crosby ISD (crosbyisd.org) — el calendario público iCal del distrito escolar.",
@@ -2255,6 +2421,7 @@ const DEVELOPERS = {
         { href: "/api/water", label: "/api/water", note: "river/bayou stage, flow, and NWS flood stages" },
         { href: "/api/tropics", label: "/api/tropics", note: "active Atlantic tropical cyclones from the NOAA NHC (empty when the basin is quiet)" },
         { href: "/api/pollen", label: "/api/pollen", note: "the Houston Health Department's measured daily pollen and mold count (weekday mornings)" },
+        { href: "/api/air", label: "/api/air", note: "the measured US AQI (EPA/AirNow, Houston metro area) with a per-pollutant breakdown" },
         { href: "/api/traffic", label: "/api/traffic", note: "incidents and lane closures on Crosby's roads, from Houston TranStar" },
         { href: "/api/news", label: "/api/news", note: "recent local Crosby-area headlines" },
         { href: "/api/calendar", label: "/api/calendar", note: "upcoming Crosby ISD school events" },
@@ -2280,7 +2447,7 @@ const DEVELOPERS = {
     {
       h: "MCP server",
       p: [
-        "A stateless Model Context Protocol server (Streamable HTTP, JSON-RPC) exposes the data as callable tools — get_current_conditions, get_forecast, get_alerts, get_tropical_outlook, get_pollen, get_river_levels, get_traffic, get_crosby_news, get_school_events, get_emergency_contacts, and get_radar (a live radar image, inline) — plus a crosby_briefing prompt and readable resources.",
+        "A stateless Model Context Protocol server (Streamable HTTP, JSON-RPC) exposes the data as callable tools — get_current_conditions, get_forecast, get_alerts, get_tropical_outlook, get_pollen, get_air_quality, get_river_levels, get_traffic, get_crosby_news, get_school_events, get_emergency_contacts, and get_radar (a live radar image, inline) — plus a crosby_briefing prompt and readable resources.",
         "Connect from Claude Code: claude mcp add --transport http crosbynews https://crosbynews.com/mcp",
       ],
       links: [
@@ -2335,6 +2502,7 @@ const DEVELOPERS_ES = {
         { href: "/api/water", label: "/api/water", note: "nivel y caudal de ríos/arroyos y etapas de inundación del NWS" },
         { href: "/api/tropics", label: "/api/tropics", note: "ciclones tropicales activos del Atlántico según el NHC de NOAA (vacío cuando la cuenca está tranquila)" },
         { href: "/api/pollen", label: "/api/pollen", note: "el conteo diario medido de polen y moho del Departamento de Salud de Houston (mañanas entre semana)" },
+        { href: "/api/air", label: "/api/air", note: "el AQI medido de EE. UU. (EPA/AirNow, área metropolitana de Houston) con desglose por contaminante" },
         { href: "/api/traffic", label: "/api/traffic", note: "incidentes y cierres de carriles en los caminos de Crosby, según Houston TranStar" },
         { href: "/api/news", label: "/api/news", note: "titulares locales recientes del área de Crosby" },
         { href: "/api/calendar", label: "/api/calendar", note: "próximos eventos escolares de Crosby ISD" },
@@ -2360,7 +2528,7 @@ const DEVELOPERS_ES = {
     {
       h: "Servidor MCP",
       p: [
-        "Un servidor del Protocolo de Contexto de Modelo sin estado (Streamable HTTP, JSON-RPC) expone los datos como herramientas invocables — get_current_conditions, get_forecast, get_alerts, get_tropical_outlook, get_pollen, get_river_levels, get_traffic, get_crosby_news, get_school_events, get_emergency_contacts y get_radar (una imagen de radar en vivo, en línea) — además de un prompt crosby_briefing y recursos legibles.",
+        "Un servidor del Protocolo de Contexto de Modelo sin estado (Streamable HTTP, JSON-RPC) expone los datos como herramientas invocables — get_current_conditions, get_forecast, get_alerts, get_tropical_outlook, get_pollen, get_air_quality, get_river_levels, get_traffic, get_crosby_news, get_school_events, get_emergency_contacts y get_radar (una imagen de radar en vivo, en línea) — además de un prompt crosby_briefing y recursos legibles.",
         "Conéctate desde Claude Code: claude mcp add --transport http crosbynews https://crosbynews.com/mcp",
       ],
       links: [
@@ -3017,6 +3185,7 @@ ${topbar("/sitemap", lang)}
       ${lk("/water", t("Water Levels", "Niveles de agua"), t("Live river and bayou levels with NWS flood stages.", "Niveles de ríos y arroyos en vivo con las etapas de inundación del NWS."))}
       ${lk("/tropics", t("Tropics", "Trópicos"), t("Active Atlantic tropical systems from the National Hurricane Center.", "Sistemas tropicales activos del Atlántico según el Centro Nacional de Huracanes."))}
       ${lk("/pollen", t("Pollen &amp; Mold", "Polen y moho"), t("Measured daily pollen and mold count from the Houston Health Department.", "Conteo diario medido de polen y moho del Departamento de Salud de Houston."))}
+      ${lk("/air", t("Air Quality", "Calidad del aire"), t("Measured AQI for the Houston / Crosby area from EPA/AirNow, with a per-pollutant breakdown.", "AQI medido para la zona de Houston / Crosby de EPA/AirNow, con desglose por contaminante."))}
     </ul>
   </section>
 
@@ -3048,6 +3217,7 @@ ${topbar("/sitemap", lang)}
       ${extLk("/api/calendar", t("School Calendar API", "API del calendario escolar"), t("JSON: upcoming Crosby ISD events.", "JSON: próximos eventos de Crosby ISD."))}
       ${extLk("/api/traffic", t("Traffic API", "API de tráfico"), t("JSON: incidents and lane closures on Crosby's roads.", "JSON: incidentes y cierres de carriles en los caminos de Crosby."))}
       ${extLk("/api/pollen", t("Pollen API", "API de polen"), t("JSON: the measured daily pollen and mold count.", "JSON: el conteo diario medido de polen y moho."))}
+      ${extLk("/api/air", t("Air Quality API", "API de calidad del aire"), t("JSON: the measured AQI + per-pollutant breakdown.", "JSON: el AQI medido + desglose por contaminante."))}
       ${extLk("/api/health", t("Health Check", "Estado del servicio"), t("Service status and cache freshness.", "Estado del servicio y antigüedad de la caché."))}
       ${extLk("/openapi.json", "OpenAPI 3.1", t("Machine-readable API description.", "Descripción de la API legible por máquinas."))}
       ${extLk("/mcp", t("MCP Server", "Servidor MCP"), t("Model Context Protocol server (Streamable HTTP).", "Servidor del Protocolo de Contexto de Modelo (Streamable HTTP)."))}
@@ -3085,6 +3255,7 @@ function sitemapPageMarkdown(lang) {
     lk("/water", t("Water Levels", "Niveles de agua"), t("River and bayou levels with NWS flood stages.", "Niveles de ríos y arroyos con las etapas de inundación del NWS.")),
     lk("/tropics", t("Tropics", "Trópicos"), t("Active Atlantic systems from the NHC.", "Sistemas activos del Atlántico según el NHC.")),
     lk("/pollen", t("Pollen & Mold", "Polen y moho"), t("Measured daily count from the Houston Health Department.", "Conteo diario medido del Departamento de Salud de Houston.")),
+    lk("/air", t("Air Quality", "Calidad del aire"), t("Measured AQI from EPA/AirNow, per-pollutant.", "AQI medido de EPA/AirNow, por contaminante.")),
     "",
     `## ${t("Community", "Comunidad")}`,
     "",
@@ -3107,6 +3278,7 @@ function sitemapPageMarkdown(lang) {
     extLk("/api/calendar", t("School Calendar API", "API del calendario escolar"), "JSON"),
     extLk("/api/traffic", t("Traffic API", "API de tráfico"), "JSON"),
     extLk("/api/pollen", t("Pollen API", "API de polen"), "JSON"),
+    extLk("/api/air", t("Air Quality API", "API de calidad del aire"), "JSON"),
     extLk("/api/health", t("Health", "Estado"), t("Status + cache.", "Estado + caché.")),
     extLk("/openapi.json", "OpenAPI 3.1", t("API spec.", "Especificación de la API.")),
     extLk("/mcp", t("MCP Server", "Servidor MCP"), "Streamable HTTP"),
@@ -5336,6 +5508,203 @@ function pollenMarkdown(data, lang) {
 }
 // --- end Pollen & mold --------------------------------------------------------
 
+// --- Air quality page (/air) -------------------------------------------------
+// Renders the AQI already folded into the `weather` KV entry by fetchAqi()
+// (AirNow measured, Open-Meteo modeled fallback) — no new KV key or cron write.
+// The dedicated page gives the number room for a per-pollutant breakdown,
+// category health guidance, and an evergreen AQI guide, and gives it a
+// standalone URL for search ("Crosby / Houston air quality").
+const AQI_BANDS = [
+  { max: 50, cls: "a-good", en: "Good", es: "Buena" },
+  { max: 100, cls: "a-mod", en: "Moderate", es: "Moderada" },
+  { max: 150, cls: "a-usg", en: "Unhealthy for Sensitive Groups", es: "Insalubre para grupos sensibles" },
+  { max: 200, cls: "a-unh", en: "Unhealthy", es: "Insalubre" },
+  { max: 300, cls: "a-vunh", en: "Very Unhealthy", es: "Muy insalubre" },
+  { max: Infinity, cls: "a-haz", en: "Hazardous", es: "Peligroso" },
+];
+const aqiBand = (v) => AQI_BANDS.find((b) => v <= b.max) || AQI_BANDS[AQI_BANDS.length - 1];
+// Standard EPA category health guidance, condensed.
+function aqiHealth(v, lang) {
+  if (v == null) return "";
+  if (v <= 50) return T(lang, "Air quality is good — no precautions needed.", "La calidad del aire es buena — no se necesitan precauciones.");
+  if (v <= 100) return T(lang, "Acceptable for most. Unusually sensitive people may consider limiting prolonged outdoor exertion.", "Aceptable para la mayoría. Las personas inusualmente sensibles pueden considerar limitar el esfuerzo prolongado al aire libre.");
+  if (v <= 150) return T(lang, "Sensitive groups — people with heart or lung disease, older adults, children, and teens — should limit prolonged outdoor exertion.", "Los grupos sensibles — personas con enfermedades cardíacas o pulmonares, adultos mayores, niños y adolescentes — deben limitar el esfuerzo prolongado al aire libre.");
+  if (v <= 200) return T(lang, "Everyone may begin to feel effects; sensitive groups should avoid prolonged outdoor exertion, and everyone else should limit it.", "Todos pueden empezar a sentir efectos; los grupos sensibles deben evitar el esfuerzo prolongado al aire libre, y los demás deben limitarlo.");
+  if (v <= 300) return T(lang, "Health alert: everyone may experience more serious effects. Avoid outdoor exertion.", "Alerta de salud: todos pueden sufrir efectos más graves. Evita el esfuerzo al aire libre.");
+  return T(lang, "Health warning of emergency conditions: everyone should avoid all outdoor exertion.", "Advertencia de salud por condiciones de emergencia: todos deben evitar toda actividad al aire libre.");
+}
+
+function airHtml(weather, lang) {
+  const aqi = weather.aqi;
+  const has = aqi?.usAqi != null;
+  const band = has ? aqiBand(aqi.usAqi) : null;
+  const title = T(lang, "Air Quality", "Calidad del aire");
+  const desc = T(
+    lang,
+    "Current air quality (AQI) for the Houston / Crosby, TX area — measured by EPA/AirNow monitors, with a per-pollutant breakdown and what the number means for your health.",
+    "Calidad del aire (AQI) actual para la zona de Houston / Crosby, TX — medida por monitores de EPA/AirNow, con desglose por contaminante y qué significa el número para tu salud."
+  );
+  const subCards = has && aqi.subIndices
+    ? Object.entries(aqi.subIndices)
+        .sort((a, b) => b[1] - a[1])
+        .map(([tok, v]) => {
+          const b = aqiBand(v);
+          const site = aqi.sites ? aqiSiteShort(aqi.sites[tok]) : null;
+          return `      <article class="pgroup ${b.cls}">
+        <h2>${esc(aqiDominantLabel(tok, lang) || tok)}${tok === aqi.dominant ? ` <span class="dom">${T(lang, "· main", "· principal")}</span>` : ""}</h2>
+        <p class="pcat">${v}</p>
+        <p class="pcount">${esc(T(lang, b.en, b.es))}${site ? `<br><span class="psite">${esc(site)}</span>` : ""}</p>
+      </article>`;
+        })
+        .join("\n")
+    : "";
+  return `<!DOCTYPE html>
+<html lang="${T(lang, "en", "es-MX")}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${esc(title)} &mdash; Crosby, TX &mdash; crosbynews.com</title>
+<meta name="description" content="${esc(desc)}">
+<meta name="theme-color" content="#0b3d61">
+<meta property="og:title" content="${esc(title)}">
+<meta property="og:description" content="${esc(desc)}">
+<meta property="og:type" content="website">
+<meta property="og:url" content="${canonicalFor("/air", lang)}">
+${OG_COMMON}
+<link rel="canonical" href="${canonicalFor("/air", lang)}">
+${hreflangTags("/air")}
+${JSONLD_SITE}
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="alternate icon" href="/favicon.ico">
+<style>${BASE_CSS}
+  .stamp { color:var(--muted); margin:0.6rem 0 0; }
+  .aqi-hero { display:flex; align-items:center; gap:1.1rem; border-radius:16px; padding:1.2rem 1.4rem; margin-top:1rem; color:#fff; }
+  .aqi-num { font-size:3rem; font-weight:800; line-height:1; flex:none; }
+  .aqi-cat { margin:0; font-size:1.4rem; font-weight:800; line-height:1.15; }
+  .aqi-sub { margin:0.3rem 0 0; font-size:0.95rem; opacity:0.95; }
+  .a-good { background:linear-gradient(135deg,#1f8b4c,#2eb86a); --pg:#1f8b4c; }
+  .a-mod { background:linear-gradient(135deg,#b58900,#d4a716); --pg:#b58900; }
+  .a-usg { background:linear-gradient(135deg,#d9480f,#f06a2e); --pg:#d9480f; }
+  .a-unh { background:linear-gradient(135deg,#c92a2a,#e63e3e); --pg:#c92a2a; }
+  .a-vunh { background:linear-gradient(135deg,#7b2ff7,#9a55ff); --pg:#7b2ff7; }
+  .a-haz { background:linear-gradient(135deg,#7a1020,#a11a2f); --pg:#7a1020; }
+  .pgrid { display:grid; gap:0.7rem; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); margin-top:1rem; }
+  .pgroup { border-radius:12px; padding:0.8rem 1rem; background:var(--card); box-shadow:0 1px 3px rgba(0,0,0,0.07); border-left:5px solid var(--pg,#9aa4af); }
+  .pgroup h2 { margin:0; font-size:0.95rem; }
+  .dom { color:var(--muted); font-weight:600; font-size:0.8rem; }
+  .pcat { margin:0.2rem 0 0; font-size:1.7rem; font-weight:800; line-height:1; }
+  .pcount { margin:0.15rem 0 0; font-size:0.9rem; color:var(--muted); }
+  .psite { font-size:0.78rem; opacity:0.85; }
+  .health { margin-top:1rem; background:var(--card); border-radius:12px; padding:0.9rem 1.1rem; box-shadow:0 1px 3px rgba(0,0,0,0.07); }
+  .health h2 { margin:0 0 0.3rem; font-size:1.05rem; }
+  .guide { margin-top:1.6rem; }
+  .guide h2 { font-size:1.15rem; }
+  .guide p { font-size:0.95rem; line-height:1.55; }
+  .guide .links { margin:0.5rem 0 0; padding-left:1.1rem; }
+  .guide .links li { margin:0.3rem 0; font-size:0.92rem; }
+  .scale-wrap { overflow-x:auto; }
+  .scale { border-collapse:collapse; margin-top:0.5rem; font-size:0.88rem; min-width:420px; }
+  .scale th, .scale td { border:1px solid var(--line); padding:0.35rem 0.6rem; text-align:left; }
+  .scale th { background:var(--card); }
+  .sw { display:inline-block; width:0.8rem; height:0.8rem; border-radius:3px; vertical-align:middle; margin-right:0.35rem; }
+</style>
+</head>
+<body>
+${topbar("/air", lang)}
+<main id="main">
+  <h1>${esc(title)}</h1>
+  <p class="intro">${T(
+    lang,
+    "Measured air quality for the Houston metro area, which includes Crosby. The U.S. Air Quality Index (AQI) runs 0–500; the number below is the highest of the reported pollutants, which sets the overall level.",
+    "Calidad del aire medida para el área metropolitana de Houston, que incluye a Crosby. El Índice de Calidad del Aire de EE. UU. (AQI) va de 0 a 500; el número de abajo es el más alto de los contaminantes reportados, que define el nivel general."
+  )}</p>
+  ${
+    has
+      ? `<div class="aqi-hero ${band.cls}">
+    <span class="aqi-num">${aqi.usAqi}</span>
+    <div>
+      <p class="aqi-cat">${esc(T(lang, band.en, band.es))}</p>
+      <p class="aqi-sub">${aqi.dominant ? `${T(lang, "Main pollutant", "Contaminante principal")}: ${esc(aqiDominantLabel(aqi.dominant, lang))} &middot; ` : ""}${esc(aqiSourceTag(aqi, lang))}${aqi.observed ? ` &middot; ${esc(aqi.observed)}` : ""}</p>
+    </div>
+  </div>
+  <p class="stamp">${aqiSourceNote(aqi, lang)}</p>
+  ${subCards ? `<div class="pgrid">\n${subCards}\n  </div>` : ""}
+  <section class="health">
+    <h2>${T(lang, "What this means", "Qué significa")}</h2>
+    <p>${aqiHealth(aqi.usAqi, lang)}</p>
+  </section>`
+      : `<p class="stamp">${T(lang, "The air quality reading is temporarily unavailable — try again shortly.", "La lectura de calidad del aire no está disponible temporalmente — inténtalo de nuevo en un momento.")}</p>`
+  }
+  <section class="guide" data-nosnippet>
+    <h2>${T(lang, "How to read the AQI", "Cómo leer el AQI")}</h2>
+    <div class="scale-wrap"><table class="scale">
+      <tr><th>${T(lang, "AQI", "AQI")}</th><th>${T(lang, "Level", "Nivel")}</th><th>${T(lang, "What to do", "Qué hacer")}</th></tr>
+      <tr><td><span class="sw" style="background:#1f8b4c"></span>0&ndash;50</td><td>${T(lang, "Good", "Buena")}</td><td>${T(lang, "Air is clean — enjoy outdoor activity.", "Aire limpio — disfruta actividades al aire libre.")}</td></tr>
+      <tr><td><span class="sw" style="background:#b58900"></span>51&ndash;100</td><td>${T(lang, "Moderate", "Moderada")}</td><td>${T(lang, "Unusually sensitive people: ease up on hard outdoor exertion.", "Personas muy sensibles: bajen el ritmo del esfuerzo intenso al aire libre.")}</td></tr>
+      <tr><td><span class="sw" style="background:#d9480f"></span>101&ndash;150</td><td>${T(lang, "Sensitive groups", "Grupos sensibles")}</td><td>${T(lang, "Heart/lung conditions, kids, older adults: limit prolonged exertion.", "Condiciones cardíacas/pulmonares, niños, adultos mayores: limiten el esfuerzo prolongado.")}</td></tr>
+      <tr><td><span class="sw" style="background:#c92a2a"></span>151&ndash;200</td><td>${T(lang, "Unhealthy", "Insalubre")}</td><td>${T(lang, "Everyone limits prolonged exertion; sensitive groups avoid it.", "Todos limitan el esfuerzo prolongado; los grupos sensibles lo evitan.")}</td></tr>
+      <tr><td><span class="sw" style="background:#7b2ff7"></span>201&ndash;300</td><td>${T(lang, "Very Unhealthy", "Muy insalubre")}</td><td>${T(lang, "Avoid outdoor exertion.", "Evita el esfuerzo al aire libre.")}</td></tr>
+      <tr><td><span class="sw" style="background:#7a1020"></span>301+</td><td>${T(lang, "Hazardous", "Peligroso")}</td><td>${T(lang, "Stay indoors; avoid all outdoor exertion.", "Quédate adentro; evita toda actividad al aire libre.")}</td></tr>
+    </table></div>
+    <h2>${T(lang, "Air quality on the Gulf Coast", "La calidad del aire en la costa del Golfo")}</h2>
+    <p>${T(
+      lang,
+      "Ground-level ozone is the Houston area's signature summer pollutant — it forms on hot, sunny, stagnant afternoons when sunlight cooks emissions from traffic and the ship-channel industry, so ozone AQI usually peaks mid-afternoon and eases overnight. Fine particles (PM2.5) matter year-round and spike with wildfire smoke, Saharan dust in summer, and still winter mornings. When TCEQ calls an Ozone Action Day, sensitive groups should plan outdoor activity for the morning.",
+      "El ozono a nivel del suelo es el contaminante veraniego característico del área de Houston — se forma en las tardes calurosas, soleadas y sin viento cuando la luz solar cocina las emisiones del tráfico y la industria del canal, así que el AQI de ozono suele alcanzar su pico a media tarde y baja de noche. Las partículas finas (PM2.5) importan todo el año y suben con el humo de incendios, el polvo del Sahara en verano y las mañanas frías y quietas. Cuando la TCEQ declara un Día de Acción por Ozono, los grupos sensibles deben planear la actividad al aire libre para la mañana."
+    )}</p>
+    <ul class="links">
+      <li><a href="https://www.airnow.gov/?city=Houston&state=TX&country=USA">${T(lang, "AirNow (EPA)", "AirNow (EPA)")}</a> &mdash; ${T(lang, "the official measured source this page reads", "la fuente oficial medida que lee esta página")}</li>
+      <li><a href="https://www.tceq.texas.gov/airquality/monops">${T(lang, "TCEQ air monitoring", "Monitoreo del aire de la TCEQ")}</a> &mdash; ${T(lang, "the Texas agency that runs the monitors", "la agencia de Texas que opera los monitores")}</li>
+      <li><a href="${lang === "es" ? "/es/pollen" : "/pollen"}">${T(lang, "Pollen &amp; mold", "Polen y moho")}</a> &mdash; ${T(lang, "the other thing in the air, measured daily", "lo otro que hay en el aire, medido a diario")}</li>
+      <li><a href="${lang === "es" ? "/es/weather" : "/weather"}">${T(lang, "Crosby forecast", "Pronóstico de Crosby")}</a> &mdash; ${T(lang, "wind and heat drive ozone days", "el viento y el calor impulsan los días de ozono")}</li>
+    </ul>
+  </section>
+</main>
+${footer({ page: "/air", lang, source: aqi?.measured ? T(lang, `Air quality measured by <a href="https://www.airnow.gov/">EPA/AirNow</a>.`, `Calidad del aire medida por <a href="https://www.airnow.gov/">EPA/AirNow</a>.`) : T(lang, `Modeled air quality from <a href="https://open-meteo.com/">Open-Meteo</a> (AirNow fallback).`, `Calidad del aire modelada por <a href="https://open-meteo.com/">Open-Meteo</a> (respaldo de AirNow).`), data: weather })}
+</body>
+</html>`;
+}
+
+function airMarkdown(weather, lang) {
+  const aqi = weather.aqi;
+  const out = [`# ${T(lang, "Air Quality", "Calidad del aire")}`, ""];
+  if (aqi?.usAqi != null) {
+    const band = aqiBand(aqi.usAqi);
+    out.push(
+      `**${T(lang, "US AQI", "AQI de EE. UU.")}: ${aqi.usAqi} — ${T(lang, band.en, band.es)}**${aqi.dominant ? ` (${T(lang, "main pollutant", "contaminante principal")}: ${aqiDominantLabel(aqi.dominant, lang)})` : ""}`,
+      "",
+      `_${aqiSourceNote(aqi, lang)}${aqi.observed ? ` ${T(lang, "Observed", "Observado")} ${aqi.observed}.` : ""}_`,
+      ""
+    );
+    if (aqi.subIndices && Object.keys(aqi.subIndices).length) {
+      out.push(`## ${T(lang, "By pollutant", "Por contaminante")}`, "");
+      for (const [tok, v] of Object.entries(aqi.subIndices).sort((a, b) => b[1] - a[1])) {
+        const site = aqi.sites ? aqiSiteShort(aqi.sites[tok]) : null;
+        out.push(`- ${aqiDominantLabel(tok, lang) || tok}: ${v} (${T(lang, aqiBand(v).en, aqiBand(v).es)})${site ? ` — ${site}` : ""}`);
+      }
+      out.push("");
+    }
+    out.push(`## ${T(lang, "What this means", "Qué significa")}`, "", aqiHealth(aqi.usAqi, lang), "");
+  } else {
+    out.push(T(lang, "The air quality reading is temporarily unavailable.", "La lectura de calidad del aire no está disponible temporalmente."), "");
+  }
+  out.push(
+    "---",
+    `${aqi?.measured ? T(lang, "Source: EPA/AirNow measured monitors (Houston metro reporting area).", "Fuente: monitores medidos de EPA/AirNow (área de reporte del área metropolitana de Houston).") : T(lang, "Source: Open-Meteo modeled forecast (AirNow fallback).", "Fuente: pronóstico modelado de Open-Meteo (respaldo de AirNow).")} · [${T(lang, "Pollen", "Polen")}](${canonicalFor("/pollen", lang)}) · [crosbynews.com](${canonicalFor("/", lang)})`
+  );
+  return out.join("\n");
+}
+// JSON shape served at /api/air — the same AQI data behind /air (and /api/weather).
+function apiAir(data) {
+  return {
+    location: "Houston metro area (Houston-Galveston-Brazoria reporting area, which includes Crosby, TX)",
+    updated: data.updated ?? null,
+    airQuality: aqiApiObject(data.aqi),
+  };
+}
+// --- end Air quality ----------------------------------------------------------
+
 // Markdown rendering of the same data, served when an agent sends
 // `Accept: text/markdown` (or ?format=md).
 function renderMarkdown(data, lang) {
@@ -5434,7 +5803,7 @@ async function loadWeather(env) {
     console.error("KV weather parse failed:", e && e.stack);
   }
   if (!data || !Array.isArray(data.hourly)) {
-    data = await fetchWeather();
+    data = await fetchWeather(env);
     try {
       await env.WEATHER.put(KV_KEY, JSON.stringify(data));
       cache = "miss-warmed";
@@ -5468,22 +5837,12 @@ function apiWeather(data) {
         ? { current: cur, currentCategory: uvCategory(cur), peakToday: peak, peakCategory: uvCategory(peak), source: "U.S. EPA (Envirofacts UV, ZIP 77532)" }
         : null;
     })(),
-    // Air quality is MODELED (no monitor in Crosby), so it's a separate object
-    // with an explicit `modeled: true` flag and a source note — never presented
-    // as an official measurement. Null when the upstream fetch failed.
-    airQuality: data.aqi?.usAqi != null
-      ? {
-          usAqi: data.aqi.usAqi,
-          category: aqiCategory(data.aqi.usAqi),
-          dominantPollutant: aqiDominantLabel(data.aqi.dominant),
-          pm2_5: data.aqi.pm25,
-          pm10: data.aqi.pm10,
-          ozone: data.aqi.ozone,
-          concentrationUnit: "µg/m³",
-          modeled: true,
-          source: "Open-Meteo (CAMS-based model); modeled forecast, not an official monitor reading",
-        }
-      : null,
+    // Air quality: MEASURED (EPA/AirNow monitors, `measured: true`) for the
+    // Houston-Galveston-Brazoria reporting area that includes Crosby, or MODELED
+    // (Open-Meteo, `measured: false`) as the fallback when AirNow isn't
+    // reporting. Either way it's regional/estimated (no monitor in Crosby
+    // itself), never a Crosby-pinpoint official reading. Null when both failed.
+    airQuality: aqiApiObject(data.aqi),
     current: currentHourly(data) ? withFeels(currentHourly(data)) : null,
     hourly: (data.hourly ?? []).slice(0, 12).map(withFeels),
     forecast: data.periods ?? [],
@@ -5581,7 +5940,7 @@ function apiCatalog() {
     status: [{ href: `${SITE}/api/health`, type: "application/json" }],
   });
   return {
-    linkset: [entry("/api/weather", "/"), entry("/api/news", "/news"), entry("/api/calendar", "/calendar"), entry("/api/water", "/water"), entry("/api/tropics", "/tropics"), entry("/api/pollen", "/pollen"), entry("/api/traffic", "/traffic")],
+    linkset: [entry("/api/weather", "/"), entry("/api/news", "/news"), entry("/api/calendar", "/calendar"), entry("/api/water", "/water"), entry("/api/tropics", "/tropics"), entry("/api/pollen", "/pollen"), entry("/api/air", "/air"), entry("/api/traffic", "/traffic")],
   };
 }
 
@@ -5706,7 +6065,7 @@ function openApiSpec() {
       title: "crosbynews.com API",
       version: "1.5.0",
       description:
-        "Crosby, Texas community data: current conditions, hourly and 7-day forecast, active alerts, the EPA UV index, and a modeled air-quality index from the U.S. National Weather Service, EPA, and Open-Meteo; river/bayou flood levels; the Atlantic tropical outlook; the Houston Health Department's measured daily pollen and mold count; road incidents and lane closures from Houston TranStar; recent local news headlines; and the Crosby ISD school calendar. Public, no authentication.",
+        "Crosby, Texas community data: current conditions, hourly and 7-day forecast, active alerts, the EPA UV index, and a measured air-quality index (EPA/AirNow monitors, with an Open-Meteo modeled fallback) from the U.S. National Weather Service, EPA/AirNow, and Open-Meteo; river/bayou flood levels; the Atlantic tropical outlook; the Houston Health Department's measured daily pollen and mold count; road incidents and lane closures from Houston TranStar; recent local news headlines; and the Crosby ISD school calendar. Public, no authentication.",
       contact: { url: `${SITE}/` },
       license: { name: "Public domain (NWS source data)", url: "https://www.weather.gov/disclaimer" },
     },
@@ -5791,6 +6150,20 @@ function openApiSpec() {
           },
         },
       },
+      "/api/air": {
+        get: {
+          operationId: "getAir",
+          summary: "Measured US Air Quality Index for the Houston / Crosby, TX area",
+          responses: {
+            "200": {
+              description:
+                "Current US AQI for the Houston-Galveston-Brazoria reporting area (which includes Crosby). Measured by EPA/AirNow monitors when available (measured:true), with an Open-Meteo modeled fallback (measured:false).",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/Air" } } },
+            },
+            "502": { description: "Air quality data unavailable" },
+          },
+        },
+      },
       "/api/traffic": {
         get: {
           operationId: "getTraffic",
@@ -5856,16 +6229,24 @@ function openApiSpec() {
             },
             airQuality: {
               type: ["object", "null"],
-              description: "US Air Quality Index — MODELED (Open-Meteo, CAMS-based), not an official monitor reading, since no EPA monitor sits in Crosby. `modeled: true` is always set. null when the fetch failed.",
+              description:
+                "US Air Quality Index. `measured: true` = EPA/AirNow official monitors for the Houston-Galveston-Brazoria reporting area (the nearest official area, which includes Crosby — there's no monitor in Crosby itself). `measured: false` = Open-Meteo modeled forecast for Crosby's coordinates, the fallback when AirNow isn't reporting. `modeled` is the inverse of `measured` (kept for back-compat). null when both failed.",
               properties: {
-                usAqi: { type: "integer", description: "US AQI, 0–500 scale." },
+                usAqi: { type: "integer", description: "US AQI, 0–500 scale (the max of the pollutant sub-indices)." },
                 category: { type: "string", description: "Good / Moderate / Unhealthy for Sensitive Groups / Unhealthy / Very Unhealthy / Hazardous." },
                 dominantPollutant: { type: ["string", "null"], description: "The pollutant driving the overall AQI." },
-                pm2_5: { type: ["number", "null"], description: "PM2.5 concentration in concentrationUnit." },
+                dominantMonitor: { type: ["string", "null"], description: "Monitor site reporting the dominant pollutant (measured path)." },
+                monitors: { type: ["object", "null"], description: "Per-pollutant reporting monitor site names (measured path)." },
+                reportingAgency: { type: ["string", "null"], description: "Agency operating the monitors (e.g. TCEQ)." },
+                subIndices: { type: ["object", "null"], description: "Per-pollutant AQI (ozone/pm25/pm10/…). Present for both sources." },
+                pm2_5: { type: ["number", "null"], description: "PM2.5 concentration in concentrationUnit (modeled source only; null when measured)." },
                 pm10: { type: ["number", "null"] },
                 ozone: { type: ["number", "null"] },
                 concentrationUnit: { type: "string" },
-                modeled: { type: "boolean" },
+                measured: { type: "boolean" },
+                modeled: { type: "boolean", description: "Inverse of measured; retained for back-compat." },
+                reportingArea: { type: ["string", "null"], description: "AirNow reporting area (measured source only)." },
+                observed: { type: ["string", "null"], description: "Local observation time (measured source only)." },
                 source: { type: "string" },
               },
             },
@@ -5946,6 +6327,35 @@ function openApiSpec() {
               additionalProperties: {
                 type: "array",
                 items: { type: "object", properties: { name: { type: "string" }, count: { type: "integer" } } },
+              },
+            },
+          },
+        },
+        Air: {
+          type: "object",
+          properties: {
+            location: { type: "string" },
+            updated: { type: ["string", "null"], format: "date-time" },
+            airQuality: {
+              type: ["object", "null"],
+              description: "measured:true = EPA/AirNow monitors (Houston metro reporting area incl. Crosby); measured:false = Open-Meteo modeled fallback. Null when both failed.",
+              properties: {
+                usAqi: { type: "integer" },
+                category: { type: "string" },
+                dominantPollutant: { type: ["string", "null"] },
+                dominantMonitor: { type: ["string", "null"] },
+                monitors: { type: ["object", "null"] },
+                reportingAgency: { type: ["string", "null"] },
+                subIndices: { type: ["object", "null"], description: "Per-pollutant AQI (ozone/pm25/pm10/…)." },
+                pm2_5: { type: ["number", "null"] },
+                pm10: { type: ["number", "null"] },
+                ozone: { type: ["number", "null"] },
+                concentrationUnit: { type: "string" },
+                measured: { type: "boolean" },
+                modeled: { type: "boolean" },
+                reportingArea: { type: ["string", "null"] },
+                observed: { type: ["string", "null"] },
+                source: { type: "string" },
               },
             },
           },
@@ -6054,7 +6464,7 @@ function mcpTools() {
       name: "get_current_conditions",
       title: "Current conditions",
       description:
-        "Current weather for Crosby, TX: temperature, feels-like, sky, precip chance, humidity, dew point, UV index, modeled air quality, and sunrise/sunset.",
+        "Current weather for Crosby, TX: temperature, feels-like, sky, precip chance, humidity, dew point, UV index, measured air quality (EPA/AirNow, Houston metro area), and sunrise/sunset.",
       inputSchema: { type: "object", properties: {}, additionalProperties: false },
       outputSchema: {
         type: "object",
@@ -6069,8 +6479,8 @@ function mcpTools() {
           },
           airQuality: {
             type: ["object", "null"],
-            description: "US AQI — MODELED (Open-Meteo), not a monitor reading; always labeled modeled:true.",
-            properties: { usAqi: { type: "integer" }, category: { type: "string" }, dominantPollutant: { type: ["string", "null"] }, modeled: { type: "boolean" } },
+            description: "US AQI. measured:true = EPA/AirNow monitors (Houston metro reporting area incl. Crosby); measured:false = Open-Meteo modeled fallback. Regional, not Crosby-pinpoint either way.",
+            properties: { usAqi: { type: "integer" }, category: { type: "string" }, dominantPollutant: { type: ["string", "null"] }, measured: { type: "boolean" }, reportingArea: { type: ["string", "null"] } },
           },
           current: { ...nwsPeriod, description: nwsPeriod.description + " Adds dewpointF and humidityPercent." },
         },
@@ -6182,6 +6592,38 @@ function mcpTools() {
           species: { type: "object", description: "Per-group list of the types counted above zero, as the lab names them." },
         },
         required: ["source", "groups"],
+      },
+      annotations: MCP_READ_ONLY,
+    },
+    {
+      name: "get_air_quality",
+      title: "Air quality (AQI)",
+      description:
+        "Current U.S. Air Quality Index for the Houston metro area (the Houston-Galveston-Brazoria reporting area, which includes Crosby, TX). Measured by EPA/AirNow monitors when available (measured:true), with an Open-Meteo modeled fallback (measured:false). Regional, not a Crosby-pinpoint reading.",
+      inputSchema: { type: "object", properties: {}, additionalProperties: false },
+      outputSchema: {
+        type: "object",
+        properties: {
+          location: { type: "string" },
+          updated: isoStamp,
+          airQuality: {
+            type: ["object", "null"],
+            properties: {
+              usAqi: { type: "integer" },
+              category: { type: "string" },
+              dominantPollutant: { type: ["string", "null"] },
+              dominantMonitor: { type: ["string", "null"], description: "Site name of the monitor reporting the dominant pollutant (measured path)." },
+              subIndices: { type: ["object", "null"], description: "Per-pollutant AQI (ozone/pm25/pm10/…)." },
+              monitors: { type: ["object", "null"], description: "Per-pollutant reporting monitor site names (measured path)." },
+              reportingAgency: { type: ["string", "null"] },
+              measured: { type: "boolean" },
+              reportingArea: { type: ["string", "null"] },
+              observed: { type: ["string", "null"] },
+              source: { type: "string" },
+            },
+          },
+        },
+        required: ["location", "airQuality"],
       },
       annotations: MCP_READ_ONLY,
     },
@@ -6425,7 +6867,7 @@ async function mcpGetPrompt(name, env) {
   if (now) lines.push(`Now: ${now.temperature}°${now.temperatureUnit}, ${now.shortForecast}${feels != null ? `, feels like ${feels}°` : ""}${pop(now) ? `, ${pop(now)}% precip` : ""}.`);
   const uvNow = uvCurrent(data), uvPk = uvPeakToday(data);
   if (uvNow || uvPk) lines.push(`UV index: ${uvNow ? `${uvNow} (${uvCategory(uvNow)}) now` : ""}${uvNow && uvPk ? ", " : ""}${uvPk ? `${uvPk} peak today` : ""}.`);
-  if (data.aqi?.usAqi != null) lines.push(`Air quality (modeled, not a monitor reading): US AQI ${data.aqi.usAqi} (${aqiCategory(data.aqi.usAqi)}).`);
+  if (data.aqi?.usAqi != null) lines.push(`Air quality (${data.aqi.measured ? `measured, EPA/AirNow ${data.aqi.reportingArea || "Houston metro"} area` : "modeled, Open-Meteo fallback"}): US AQI ${data.aqi.usAqi} (${aqiCategory(data.aqi.usAqi)})${data.aqi.dominant ? `, dominant ${aqiDominantLabel(data.aqi.dominant)}` : ""}.`);
   if (lead) lines.push(`${lead.name}: ${lead.detailedForecast}`);
   if (sun) lines.push(`Sunrise ${clockTime(sun.sunrise)}, sunset ${clockTime(sun.sunset)} CT.`);
   const alerts = data.alerts ?? [];
@@ -6733,6 +7175,15 @@ async function mcpCallTool(name, args, env) {
       : `The pollen and mold count is temporarily unavailable. Official source: ${payload.officialUrl}`;
     return { content: [{ type: "text", text }], structuredContent: payload };
   }
+  if (name === "get_air_quality") {
+    const { data } = await loadWeather(env);
+    const payload = apiAir(data);
+    const a = payload.airQuality;
+    const text = a
+      ? `US AQI ${a.usAqi} (${a.category})${a.dominantPollutant ? `, ${a.dominantPollutant}-driven` : ""} near Crosby, TX — ${a.measured ? `measured by the closest ${a.reportingAgency || "TCEQ/AirNow"} monitors${a.dominantMonitor ? ` (${a.dominantPollutant} from ${a.dominantMonitor})` : ""} in the ${a.reportingArea || "Houston-Galveston-Brazoria"} area` : "modeled (Open-Meteo fallback)"}. ${aqiHealth(a.usAqi, "en")} Details: ${SITE}/air`
+      : `The air quality reading is temporarily unavailable. See ${SITE}/air`;
+    return { content: [{ type: "text", text }], structuredContent: payload };
+  }
   if (name === "get_emergency_contacts") {
     const abs = (href) => (href.startsWith("/") ? `${SITE}${href}` : href);
     const payload = {
@@ -6828,7 +7279,7 @@ async function mcpCallTool(name, args, env) {
       ? `Crosby, TX: ${now.temperature}°${now.temperatureUnit}, ${now.shortForecast}` +
         `${feels != null ? `, feels like ${feels}°` : ""}${pop(now) ? `, ${pop(now)}% precip` : ""} (as of ${clockTime(now.startTime)} CT).` +
         `${uvNow ? ` UV index ${uvNow} (${uvCategory(uvNow)}).` : ""}` +
-        `${aqi?.usAqi != null ? ` Air quality (modeled) US AQI ${aqi.usAqi} (${aqiCategory(aqi.usAqi)}).` : ""}` +
+        `${aqi?.usAqi != null ? ` Air quality (${aqi.measured ? `measured, ${aqi.reportingArea || "Houston metro"} area` : "modeled"}) US AQI ${aqi.usAqi} (${aqiCategory(aqi.usAqi)}).` : ""}` +
         `${sun ? ` Sunrise ${clockTime(sun.sunrise)}, sunset ${clockTime(sun.sunset)} CT.` : ""}`
       : "Current conditions are unavailable.";
     return {
@@ -6838,7 +7289,7 @@ async function mcpCallTool(name, args, env) {
         updated: data.updated,
         sun: sun ? { sunrise: new Date(sun.sunrise).toISOString(), sunset: new Date(sun.sunset).toISOString() } : null,
         uv: uvNow != null ? { current: uvNow, currentCategory: uvCategory(uvNow), peakToday: uvPeakToday(data) } : null,
-        airQuality: aqi?.usAqi != null ? { usAqi: aqi.usAqi, category: aqiCategory(aqi.usAqi), dominantPollutant: aqiDominantLabel(aqi.dominant), modeled: true, source: "Open-Meteo (modeled, not a monitor reading)" } : null,
+        airQuality: aqi?.usAqi != null ? { usAqi: aqi.usAqi, category: aqiCategory(aqi.usAqi), dominantPollutant: aqiDominantLabel(aqi.dominant), measured: !!aqi.measured, reportingArea: aqi.reportingArea ?? null, source: aqi.measured ? "EPA/AirNow measured (Houston metro reporting area)" : "Open-Meteo (modeled fallback)" } : null,
         current: now
           ? {
               ...now,
@@ -6983,6 +7434,8 @@ MCP server (Streamable HTTP, JSON-RPC):
   from the NOAA NHC (JSON); MCP tool: get_tropical_outlook
 - GET https://crosbynews.com/api/pollen - measured daily pollen and mold count
   from the Houston Health Department (JSON); MCP tool: get_pollen
+- GET https://crosbynews.com/api/air - measured US AQI for the Houston metro
+  area incl. Crosby (EPA/AirNow, JSON); MCP tool: get_air_quality
 - MCP-only tools: get_emergency_contacts (Crosby emergency directory) and
   get_radar (latest NWS KHGX radar still, returned as an inline image)
 
@@ -7478,6 +7931,25 @@ async function _fetch(request, env, ctx) {
       }
     }
 
+    // Air quality as JSON — the measured AQI from the weather cache (AirNow /
+    // Open-Meteo fallback). ETag keys on the weather refresh stamp.
+    if (path === "/api/air") {
+      try {
+        const { data } = await loadWeather(env);
+        return conditional(request, `${data.updated ?? "none"}|${data.aqi?.measured ? "m" : "o"}`, () => JSON.stringify(apiAir(data)), {
+          "content-type": "application/json; charset=utf-8",
+          "access-control-allow-origin": "*",
+          "cache-control": "public, max-age=600",
+          link: `<${SITE}/openapi.json>; rel="service-desc"; type="application/json"`,
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ error: "unavailable", message: err && err.message }), {
+          status: 502,
+          headers: { "content-type": "application/json; charset=utf-8", "access-control-allow-origin": "*" },
+        });
+      }
+    }
+
     // Crosby ISD school calendar as JSON — same cron-owned KV data as /calendar.
     // The `upcomingEvents` cutoff moves with time, so the seed carries the CT
     // date to stay honest across day boundaries.
@@ -7770,6 +8242,26 @@ async function _fetch(request, env, ctx) {
       }
     }
 
+    // Air quality — renders the AQI folded into the weather cache (AirNow
+    // measured / Open-Meteo modeled fallback); no separate KV key.
+    if (page === "/air") {
+      const accept = (request.headers.get("accept") || "").toLowerCase();
+      const wantsMarkdown = accept.includes("text/markdown") || url.searchParams.get("format") === "md";
+      try {
+        const { data } = await loadWeather(env);
+        const bodyText = wantsMarkdown ? airMarkdown(data, lang) : airHtml(data, lang);
+        return new Response(bodyText, {
+          headers: {
+            "content-type": `${wantsMarkdown ? "text/markdown" : "text/html"}; charset=utf-8`,
+            "cache-control": "public, max-age=600",
+            vary: "Accept",
+          },
+        });
+      } catch (err) {
+        return new Response(renderError(err), { status: 502, headers: { "content-type": "text/html; charset=utf-8" } });
+      }
+    }
+
     if (page === "/calendar") {
       const accept = (request.headers.get("accept") || "").toLowerCase();
       const wantsMarkdown = accept.includes("text/markdown") || url.searchParams.get("format") === "md";
@@ -8042,8 +8534,8 @@ async function pushSevereAlerts(env, alerts) {
 // `?format=md` variants — and the http→https pair — consolidate onto one URL for
 // crawlers that read the HTTP layer (reinforces the in-HTML <link rel="canonical">).
 const PAGE_PATHS = new Set([
-  "/", "/weather", "/hourly", "/radar", "/alerts", "/water", "/tropics", "/pollen", "/traffic", "/news", "/calendar", "/emergency", "/about", "/developers", "/privacy", "/contact", "/sitemap",
-  "/es", "/es/weather", "/es/hourly", "/es/radar", "/es/alerts", "/es/water", "/es/tropics", "/es/pollen", "/es/traffic", "/es/news", "/es/calendar", "/es/emergency", "/es/about", "/es/developers", "/es/privacy", "/es/contact", "/es/sitemap",
+  "/", "/weather", "/hourly", "/radar", "/alerts", "/water", "/tropics", "/pollen", "/air", "/traffic", "/news", "/calendar", "/emergency", "/about", "/developers", "/privacy", "/contact", "/sitemap",
+  "/es", "/es/weather", "/es/hourly", "/es/radar", "/es/alerts", "/es/water", "/es/tropics", "/es/pollen", "/es/air", "/es/traffic", "/es/news", "/es/calendar", "/es/emergency", "/es/about", "/es/developers", "/es/privacy", "/es/contact", "/es/sitemap",
 ]);
 
 export default {
@@ -8076,7 +8568,7 @@ export default {
     // KV "news" key out-of-band by scripts/fetch-news.mjs (a Claude routine),
     // because Google News blocks Worker IPs. The Worker only renders that key.
     try {
-      const data = await fetchWeather();
+      const data = await fetchWeather(env);
       await env.WEATHER.put(KV_KEY, JSON.stringify(data));
       // After a fresh forecast, wake push subscribers for any NEW severe
       // warning. Independent of the writes below; a push failure is logged and

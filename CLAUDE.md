@@ -222,27 +222,48 @@ directory name becomes the `/command`. Current skills:
   `weather` cache entry has no `uv`** — the freshness check keys on `hourly`,
   so UV stays absent (and gracefully hidden) only until the next cron write
   (≤15 min) or a cold-cache warm.
-- Air quality (AQI): the site's one **modeled** number and its only non-US-gov
-  source. No EPA/AirNow monitor sits in Crosby, so rather than misattribute a
-  distant monitor, `fetchAqi()` pulls Open-Meteo's modeled US AQI (CAMS-based,
-  no API key) for Crosby's coordinates — Worker reachability canary-verified
-  from the deployed runtime first. Folded into the `weather` KV entry as
-  `aqi:{usAqi,dominant,pm25,pm10,ozone,time}`, a fifth parallel call in
-  `fetchWeather()`, failure-tolerant (`aqi:null` on any error). **Labeled
-  "modeled" everywhere it appears** — the hero/`Now` meta ("Air 47 (Good,
-  modeled)"), the homepage "Today at a Glance" **"About air quality"
-  explainer** (which states it's modeled; the glance ROW itself is a bare
-  "Air quality N (Category)" with no inline "modeled" tag — the tag was dropped
-  from the row so it stops wrapping the narrow desktop column, the explainer
-  carries the disclosure),
-  `/api/weather` (`airQuality:{…, modeled:true, source}`) and MCP
-  `get_current_conditions`/briefing — never presented as a measurement.
-  Categories are the EPA 0–500 bands via `aqiCategory()`; the dominant
-  pollutant comes from Open-Meteo's per-pollutant sub-AQIs. Meaningful day and
-  night (unlike UV), so it's not gated. The honest "modeled, not a monitor
-  reading" disclosure lives on `/about`. (AirNow — the official monitor
-  source — was skipped: it needs a managed API key; if one is added later,
-  swapping the upstream is localized to `fetchAqi()`.)
+- Air quality (AQI): now **measured** with a modeled fallback. `fetchAqi(env)`
+  tries **EPA/AirNow first** — the official measured monitors — via
+  `/aq/observation/current/ziplatlong/` (`airnowapi.org`, `AIRNOW_API_KEY` Worker
+  secret; host Worker-reachability canary-verified from the deployed runtime).
+  That endpoint returns the **closest reporting monitor for each pollutant**
+  (per AirNow's own NowCast lookup), so we NAME the real nearby TCEQ monitors
+  (e.g. ozone from "Baytown Garth", PM2.5 from "Baytown C148" — ~8–15 mi; there's
+  no monitor in Crosby itself, so it's still an area reading, not a Crosby-pinpoint
+  value, and it's labeled that way). **Why per-pollutant, not one "nearest
+  monitor":** a single station rarely measures every pollutant — e.g. Channelview
+  C15 (~8 mi) reports ozone ONLY, so pinning to it would hide an elevated PM2.5
+  at a Baytown monitor and understate risk. Overall US AQI = max of the pollutant
+  NowCast sub-indices (`nowcastAQI`); dominant = the one at that max. When AirNow
+  is unreachable, the key is unset, or the monitors report nothing, `fetchAqi`
+  **falls back to Open-Meteo's modeled** US AQI for Crosby's exact coordinates
+  (CAMS-based, no key), labeled "modeled". Folded into the `weather` KV entry as
+  `aqi:{usAqi,dominant,subIndices,sites,dominantSite,agency,pm25,pm10,ozone,
+  measured,source,reportingArea,observed,time}` (`sites` maps each pollutant token
+  → monitor site name; raw pm/ozone concentrations are Open-Meteo-only, null on
+  the AirNow path), a parallel call in `fetchWeather(env)` (env is threaded
+  `loadWeather`→`fetchWeather`→`fetchAqi` for the key), failure-tolerant
+  (`aqi:null` on total failure). **Labeled honestly by source everywhere** via
+  `aqiSourceTag()` (short: the dominant pollutant's monitor, e.g. "Baytown Garth
+  monitor", or "modeled") and `aqiSourceNote()` (the sentence, lists the
+  per-pollutant monitors): the hero/`Now` meta ("Air 84 (Moderate, Baytown Garth
+  monitor)"), the homepage "Today at a Glance" **"About air quality" explainer**
+  (reflects measured-vs-modeled, links `/air`; the glance ROW is still a bare
+  "Air quality N (Category)"), the glance data-source footnote (names AirNow vs
+  Open-Meteo), `/api/weather` (`airQuality:{…, measured, modeled(=!measured,
+  back-compat), dominantMonitor, monitors, reportingAgency, reportingArea,
+  observed, subIndices, source}` via the shared `aqiApiObject()`), `/api/air`,
+  the **`/air` page** (below, per-pollutant cards show each monitor's site), and
+  MCP `get_current_conditions`/`get_air_quality`/briefing. Categories are the EPA
+  0–500 bands via `aqiCategory()`. Meaningful day and night (unlike UV), so it's
+  not gated. The measured-vs-modeled disclosure lives on `/about`. **AirNow
+  endpoint retirement (handled):** the legacy `/aq/observation/latLong/current/`
+  we first shipped on **retires 2026-09-30** (AirNow API Updates, June 2026); we
+  already migrated to the June-2026 replacement `/aq/observation/current/
+  ziplatlong/`. Open-Meteo stays the fallback, so any future AirNow change
+  degrades gracefully and the swap is localized to `fetchAqiAirNow()`. (TCEQ runs
+  the underlying monitors and may offer a keyless feed — a future no-key
+  alternative.)
 - Derived data: "feels like" temperature (`feelsLikeF`/`feelsLikeRawF` in
   `src/index.js`) is the one number on the site NOT taken verbatim from NWS —
   it's the heat index or wind chill, computed in-Worker from NWS's own
@@ -325,9 +346,9 @@ directory name becomes the `/command`. Current skills:
 ## Languages (English + Mexican Spanish)
 - The site is bilingual: English at the root paths and Mexican Spanish (`es-MX`)
   under an **`/es` prefix** (`/es`, `/es/weather`, `/es/hourly`, `/es/radar`,
-  `/es/alerts`, `/es/water`, `/es/tropics`, `/es/pollen`, `/es/traffic`, `/es/news`,
+  `/es/alerts`, `/es/water`, `/es/tropics`, `/es/pollen`, `/es/air`, `/es/traffic`, `/es/news`,
   `/es/calendar`, `/es/emergency`, `/es/about`, `/es/developers`, `/es/privacy`,
-  `/es/contact`, `/es/sitemap`). Same seventeen content pages, same markdown negotiation. (`/es` is the Spanish hub;
+  `/es/contact`, `/es/sitemap`). Same eighteen content pages, same markdown negotiation. (`/es` is the Spanish hub;
   `/es/weather` the Spanish forecast.)
 - **One set of render functions serves both languages** (no duplicated pages, so
   they can't drift). Each `*Html`/`*Markdown` takes a `lang` arg; the i18n block
@@ -425,8 +446,8 @@ directory name becomes the `/command`. Current skills:
   what the root served pre-restructure. Content-negotiated. The homepage/`/weather`
   `Link` header advertises the markdown alternate, sitemap, api-catalog, and
   OpenAPI service-desc (via the parameterized `linkHeader(enPath, lang)`). All
-  thirty-four content pages (the seventeen English routes `/`, `/weather`, `/hourly`,
-  `/radar`, `/alerts`, `/water`, `/tropics`, `/pollen`, `/traffic`, `/news`, `/calendar`, `/emergency`, `/about`, `/developers`,
+  thirty-six content pages (the eighteen English routes `/`, `/weather`, `/hourly`,
+  `/radar`, `/alerts`, `/water`, `/tropics`, `/pollen`, `/air`, `/traffic`, `/news`, `/calendar`, `/emergency`, `/about`, `/developers`,
   `/privacy`, `/contact`, `/sitemap` and their `/es` Spanish counterparts) emit an HTTP
   `Link: rel="canonical"` header — added centrally in the `fetch` wrapper via
   `PAGE_PATHS` — so the `?format=md` variants and the http→https pair consolidate
@@ -475,8 +496,14 @@ directory name becomes the `/command`. Current skills:
   (undefined threshold) / `-999` (no forecast) are sentinels, filtered by
   `waterNum()`. Per-gauge try/catch; `fetchWater()` throws only if EVERY gauge
   fails, so a total NWPS outage aborts-without-writing and the last snapshot
-  survives. No API key needed (NWPS is public; a USGS key exists in reserve if
-  we later want USGS's higher-frequency observed data). `loadWater()` cold-warms
+  survives. No API key needed (NWPS is public). **USGS reserve keys are now set
+  as Worker secrets** — `USGS_API_KEY` + `USGS_ACCOUNT_ID` (owner's
+  `api.waterdata.usgs.gov` account) — but **no code uses them yet**; they're
+  staged for a future move to USGS's newer keyed API or a fishing-conditions page
+  (USGS publishes real-time water temp / dissolved O₂ / turbidity / pH at some
+  nearby sites — East Fork San Jacinto nr New Caney and the Lake Houston stations
+  carry the full water-quality suite; the current flood gauges mostly don't). The
+  legacy `waterservices.usgs.gov` service used for that is keyless. `loadWater()` cold-warms
   like `loadCalendar()`. Emits a 911/turn-around-don't-drown safety note and
   links each gauge's official NWPS page. Markdown-negotiated. Nav label
   "Water Levels" / "Niveles de agua".
@@ -503,10 +530,10 @@ directory name becomes the `/command`. Current skills:
   as `m-only` under Weather. Markdown-negotiated.
 - `/pollen` — pollen & mold count (`pollenHtml`/`pollenMarkdown`). **Cron + KV
   pattern** (key `pollen`, cron-owned, throttled ~2h): `fetchPollen()` scrapes
-  the **Houston Health Department's daily pollen and mold count** — the site's
-  only MEASURED environmental number besides NWS itself (HHD's lab is a
-  certified National Allergy Bureau counting station; AQI is modeled, UV is a
-  forecast). No API exists: the index page
+  the **Houston Health Department's daily pollen and mold count** — a directly
+  MEASURED, Crosby-area-relevant number (HHD's lab is a certified National
+  Allergy Bureau counting station; the AQI is now measured too but is a metro
+  reporting-area reading, and UV is a forecast). No API exists: the index page
   (`houstonhealth.org/services/pollen-mold`) lists per-date count pages
   (`…/houston-pollen-mold-count-thursday-july-16-2026`); we pick the newest by
   slug date and parse tree/weed/grass pollen + mold spores (NAB category +
@@ -527,6 +554,22 @@ directory name becomes the `/command`. Current skills:
   Markdown-negotiated. Also: `/api/pollen` (conditional GET, ETag seeded from
   countDate + updated), MCP tool `get_pollen`, and a briefing line only when a
   group is Heavy or worse.
+- `/air` — air quality (`airHtml`/`airMarkdown`). **Not its own KV key or cron
+  write** — it renders the AQI already folded into the `weather` cache by
+  `fetchAqi()` (AirNow measured / Open-Meteo modeled fallback; see the Air
+  quality note in Conventions above), so `loadWeather()` feeds it. The dedicated
+  page gives the number a standalone URL for search ("Crosby / Houston air
+  quality") and room for a per-pollutant breakdown: a big AQI hero colored by the
+  EPA band (`AQI_BANDS`), per-pollutant sub-index cards (O₃/PM2.5/PM10 from
+  `aqi.subIndices`, dominant flagged), category health guidance (`aqiHealth()`),
+  an EPA-band "how to read the AQI" table, and an evergreen Gulf-Coast ozone/
+  PM2.5 guide (ozone peaks hot stagnant afternoons; TCEQ Ozone Action Days).
+  Honest source labeling throughout (`aqiSourceTag`/`aqiSourceNote`): measured
+  metro-area vs modeled. Bilingual (health/guide text via `T()`; pollutant names
+  via `aqiDominantLabel`), markdown-negotiated. In the topbar as `m-only` under
+  Weather. Also: `/api/air` (conditional GET on the weather stamp + source flag;
+  shares `aqiApiObject()` with `/api/weather` so they can't drift) and MCP tool
+  `get_air_quality`. Pairs with `/pollen` (both "what's in the air").
 - `/traffic` — Crosby-corridor roads & traffic (`trafficHtml`/`trafficMarkdown`;
   issue #92). **Cron + KV pattern** (key `traffic`, cron-owned, every tick):
   `fetchTraffic()` reads Houston TranStar's public **RSS feeds**
@@ -747,7 +790,7 @@ directory name becomes the `/command`. Current skills:
   on `/developers` ("Embeddable weather badge", with the copy-paste `<img>`
   snippet), the human `/sitemap` developer list, and llms.txt `## Optional`.
 - `/sitemap.xml` — lists `/`, `/weather`, `/hourly`, `/radar`, `/alerts`,
-  `/water`, `/tropics`, `/pollen`, `/traffic`, `/news`, `/calendar`, `/emergency`, `/about`, `/developers`, `/privacy`, `/contact`, `/sitemap`
+  `/water`, `/tropics`, `/pollen`, `/air`, `/traffic`, `/news`, `/calendar`, `/emergency`, `/about`, `/developers`, `/privacy`, `/contact`, `/sitemap`
   in both languages
   (each English route plus its `/es` counterpart), every `<url>` carrying
   `xhtml:link` hreflang alternates (`en-US`, `es-MX`, `x-default`).
@@ -762,10 +805,12 @@ directory name becomes the `/command`. Current skills:
   fixed `Expires` when enabled — it was found on and disabled during the
   2026-07-02 audit; keep it OFF so the Worker's self-refreshing version serves.
 - `/api/weather` — public JSON (location, current, hourly, forecast, alerts,
-  plus the derived `sun`, the EPA `uv` object, and the modeled `airQuality`
-  object), CORS `*`. `/api/health` — status + cache freshness.
+  plus the derived `sun`, the EPA `uv` object, and the `airQuality`
+  object (measured AirNow / modeled Open-Meteo fallback)), CORS `*`.
+  `/api/air` — the same `airQuality` object standalone (CORS `*`), via
+  `apiAir()`/`aqiApiObject()`. `/api/health` — status + cache freshness.
 - Conditional GET: the polled endpoints (`/api/weather`, `/api/news`,
-  `/api/calendar`, `/api/water`, `/api/tropics`, `/api/traffic`,
+  `/api/calendar`, `/api/water`, `/api/tropics`, `/api/pollen`, `/api/air`, `/api/traffic`,
   `/alerts.xml`, `/news.xml`) send weak ETags derived from
   the KV freshness stamp (plus the Central calendar date where the body
   depends on it: sun times, upcoming-events cutoff) and `Last-Modified`
@@ -805,7 +850,7 @@ directory name becomes the `/command`. Current skills:
 - `/mcp` — stateless MCP server (Streamable HTTP, JSON-RPC) with tools
   `get_current_conditions`, `get_forecast` (optional `hours` 1–48, the full
   KV hourly supply), `get_alerts`, `get_tropical_outlook`, `get_pollen`,
-  `get_crosby_news`,
+  `get_air_quality`, `get_crosby_news`,
   `get_school_events`, `get_river_levels`, `get_traffic`,
   `get_emergency_contacts` (the
   static `EMERGENCY` directory as a tool), and `get_radar` (fetches the NWS
