@@ -180,10 +180,25 @@ directory name becomes the `/command`. Current skills:
   - target: `concat("https://crosbynews.com", http.request.uri.path)`, 301,
     preserve query string.
   - `https://crosbynews.com` matches neither clause → serves 200, no loop.
-  "Always Use HTTPS" is intentionally OFF: the rule already upgrades http, and
-  having both caused a 2-hop chain for http://www (→https, then →apex). This
-  lives in the zone/dashboard, not wrangler.jsonc or fetch(). It matches
+  The `(not ssl)` clause is load-bearing: it upgrades http directly, so even
+  http://www reaches the apex in ONE hop (verified 2026-07-20:
+  `http://www.crosbynews.com/` → single 301 → `https://crosbynews.com/`).
+  Lives in the zone/dashboard, not wrangler.jsonc or fetch(); it matches
   `<link rel="canonical">` and the sitemap `<loc>`.
+- "Always Use HTTPS" (SSL/TLS → Edge Certificates) is currently **ON** (verified
+  via the zone API 2026-07-20; last changed 2026-07-03). It's redundant with the
+  Redirect rule but harmless: Cloudflare runs Single Redirects BEFORE "Always Use
+  HTTPS", so the rule's `not ssl` clause always wins — no double redirect (the
+  http://www hop above lands straight on the apex, not on https://www first).
+  History, kept on purpose: this note used to say the setting was intentionally
+  OFF because "having both caused a 2-hop chain for http://www." That was true of
+  an EARLIER rule that lacked the `(not ssl)` clause (Always Use HTTPS did
+  http→https, then the rule did www→apex = 2 hops). The current rule (in place
+  since ~2026-06-07) upgrades http itself, so that chain can't recur while
+  `(not ssl)` stays in the expression. What flipped the setting back ON on
+  2026-07-03 is unknown. Net: ON or OFF are both fine as long as the rule keeps
+  `(not ssl)`; ON is the documented state and a safety net if the rule ever loses
+  that clause.
 - HSTS is enabled at the Cloudflare **zone edge** (SSL/TLS → Edge Certificates →
   HSTS: `max-age=63072000; includeSubDomains`, no preload) so the header lands on
   edge-generated responses too — notably the `www` → apex 301, which the Worker

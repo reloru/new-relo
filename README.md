@@ -23,6 +23,14 @@ with no framework and no runtime dependencies.
   gauges for the waters around Crosby (NOAA/NWS NWPS).
 - **[Tropics](https://crosbynews.com/tropics)** — the Atlantic tropical outlook
   from the National Hurricane Center.
+- **[Air Quality](https://crosbynews.com/air)** — the measured U.S. Air Quality
+  Index for the Houston-Galveston-Brazoria area (which includes Crosby) from
+  EPA/AirNow monitors, with a per-pollutant breakdown and health guidance.
+- **[Pollen & Mold](https://crosbynews.com/pollen)** — the Houston Health
+  Department's measured daily tree, weed, grass, and mold count for the Crosby
+  area, published weekday mornings.
+- **[Traffic](https://crosbynews.com/traffic)** — road incidents and lane
+  closures on the Crosby-area corridors, from Houston TranStar.
 - **[News](https://crosbynews.com/news)** — local headlines for Crosby and
   nearby communities.
 - **[School Calendar](https://crosbynews.com/calendar)** — Crosby ISD calendar
@@ -45,13 +53,17 @@ Every page is content-negotiated — send `Accept: text/markdown` (or add
   current conditions, hourly, 7-day forecast, and alerts. Plus
   [`/api/news`](https://crosbynews.com/api/news),
   [`/api/calendar`](https://crosbynews.com/api/calendar),
-  [`/api/water`](https://crosbynews.com/api/water), and
-  [`/api/tropics`](https://crosbynews.com/api/tropics). Public, no auth.
+  [`/api/water`](https://crosbynews.com/api/water),
+  [`/api/tropics`](https://crosbynews.com/api/tropics),
+  [`/api/air`](https://crosbynews.com/api/air),
+  [`/api/pollen`](https://crosbynews.com/api/pollen), and
+  [`/api/traffic`](https://crosbynews.com/api/traffic). Public, no auth.
 - **OpenAPI 3.1** — [`/openapi.json`](https://crosbynews.com/openapi.json)
 - **MCP server** (Streamable HTTP) — `https://crosbynews.com/mcp`, with tools
   `get_current_conditions`, `get_forecast`, `get_alerts`, `get_tropical_outlook`,
-  `get_crosby_news`, `get_school_events`, `get_river_levels`,
-  `get_emergency_contacts`, and `get_radar` (a live radar image, inline).
+  `get_air_quality`, `get_pollen`, `get_river_levels`, `get_traffic`,
+  `get_crosby_news`, `get_school_events`, `get_emergency_contacts`, and
+  `get_radar` (a live radar image, inline).
   Discovery card at
   [`/.well-known/mcp/server-card.json`](https://crosbynews.com/.well-known/mcp/server-card.json).
 - **[llms.txt](https://crosbynews.com/llms.txt)** — plain-language site summary
@@ -71,7 +83,9 @@ claude mcp add --transport http crosbynews https://crosbynews.com/mcp
 - A 15-minute cron refreshes the cached NWS forecast and alerts (and, on a
   slower cadence, the school calendar, river gauges, and tropical outlook).
 - Data: U.S. National Weather Service (public domain), NOAA NWPS and NHC,
-  EPA (UV), Open-Meteo (modeled air quality), Crosby ISD, and Google News.
+  EPA (UV), EPA/AirNow (measured air quality, Open-Meteo modeled fallback),
+  the Houston Health Department (pollen & mold), Houston TranStar (traffic),
+  Crosby ISD, and Google News.
 
 ## Develop
 

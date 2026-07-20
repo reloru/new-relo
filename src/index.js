@@ -2187,6 +2187,7 @@ const PRIVACY = {
         "The site displays data from several external, public sources. All of it is fetched server-side and cached — your browser never contacts these sources directly, and none of it involves sharing any user data:",
         "U.S. National Weather Service (api.weather.gov) — public-domain forecasts, conditions, and alerts for Crosby, TX; and the U.S. EPA (UV index) and NOAA (river/bayou levels, tropical outlook).",
         "EPA/AirNow (airnowapi.org) — the measured air-quality index for the Houston-Galveston-Brazoria reporting area that includes Crosby; Open-Meteo provides a modeled fallback for Crosby's coordinates when AirNow isn't reporting (labeled measured vs modeled throughout).",
+        "Houston Health Department (houstonhealth.org) — the measured daily pollen and mold count (tree, weed, and grass pollen and mold spores, on the National Allergy Bureau scale) for the Houston area, which applies regionally to Crosby; published weekday mornings.",
         "Houston TranStar (houstontranstar.org) — road incidents and scheduled lane closures for the Crosby corridors, from TranStar's public RSS feeds.",
         "Google News — local news headlines aggregated from public RSS feeds by an out-of-band process and cached.",
         "Crosby ISD (crosbyisd.org) — the school district's public iCal calendar feed.",
@@ -5654,10 +5655,10 @@ ${topbar("/air", lang)}
       "El ozono a nivel del suelo es el contaminante veraniego característico del área de Houston — se forma en las tardes calurosas, soleadas y sin viento cuando la luz solar cocina las emisiones del tráfico y la industria del canal, así que el AQI de ozono suele alcanzar su pico a media tarde y baja de noche. Las partículas finas (PM2.5) importan todo el año y suben con el humo de incendios, el polvo del Sahara en verano y las mañanas frías y quietas. Cuando la TCEQ declara un Día de Acción por Ozono, los grupos sensibles deben planear la actividad al aire libre para la mañana."
     )}</p>
     <ul class="links">
-      <li><a href="https://www.airnow.gov/?city=Houston&state=TX&country=USA">${T(lang, "AirNow (EPA)", "AirNow (EPA)")}</a> &mdash; ${T(lang, "the official measured source this page reads", "la fuente oficial medida que lee esta página")}</li>
+      <li><a href="https://www.airnow.gov/?city=Houston&state=TX&country=USA">${T(lang, "AirNow (EPA)", "AirNow (EPA)")}</a> &mdash; ${T(lang, "the EPA's official measured air-quality data — the source behind this page", "los datos oficiales de calidad del aire medidos por la EPA — la fuente detrás de esta página")}</li>
       <li><a href="https://www.tceq.texas.gov/airquality/monops">${T(lang, "TCEQ air monitoring", "Monitoreo del aire de la TCEQ")}</a> &mdash; ${T(lang, "the Texas agency that runs the monitors", "la agencia de Texas que opera los monitores")}</li>
-      <li><a href="${lang === "es" ? "/es/pollen" : "/pollen"}">${T(lang, "Pollen &amp; mold", "Polen y moho")}</a> &mdash; ${T(lang, "the other thing in the air, measured daily", "lo otro que hay en el aire, medido a diario")}</li>
-      <li><a href="${lang === "es" ? "/es/weather" : "/weather"}">${T(lang, "Crosby forecast", "Pronóstico de Crosby")}</a> &mdash; ${T(lang, "wind and heat drive ozone days", "el viento y el calor impulsan los días de ozono")}</li>
+      <li><a href="${lang === "es" ? "/es/pollen" : "/pollen"}">${T(lang, "Pollen &amp; mold", "Polen y moho")}</a> &mdash; ${T(lang, "the daily measured pollen and mold count for the Crosby area", "el conteo diario medido de polen y moho para la zona de Crosby")}</li>
+      <li><a href="${lang === "es" ? "/es/weather" : "/weather"}">${T(lang, "Crosby forecast", "Pronóstico de Crosby")}</a> &mdash; ${T(lang, "how heat and stagnant air drive ozone days", "cómo el calor y el aire estancado provocan los días de ozono")}</li>
     </ul>
   </section>
 </main>
@@ -6956,7 +6957,7 @@ function mcpServerCard() {
     serverInfo: MCP_SERVER_INFO,
     protocolVersion: MCP_PROTOCOL_VERSION,
     description:
-      "Live Crosby, Texas data: weather from the U.S. National Weather Service (current conditions, forecast, active alerts), the Atlantic tropical outlook, river/bayou flood levels, road incidents and lane closures, a live radar image, recent local news headlines, the Crosby ISD school calendar, and an emergency-contacts directory.",
+      "Live Crosby, Texas data: weather from the U.S. National Weather Service (current conditions, forecast, active alerts), a measured air-quality index (EPA/AirNow, with an Open-Meteo modeled fallback), the Houston Health Department's daily pollen and mold count, the Atlantic tropical outlook, river/bayou flood levels, road incidents and lane closures, a live radar image, recent local news headlines, the Crosby ISD school calendar, and an emergency-contacts directory.",
     transport: { type: "streamable-http", endpoint: `${SITE}/mcp` },
     capabilities: { tools: { listChanged: false }, prompts: { listChanged: false }, resources: { listChanged: false } },
     tools: mcpTools().map((t) => ({ name: t.name, title: t.title, description: t.description })),
@@ -7349,7 +7350,7 @@ async function mcpHandle(msg, env) {
         capabilities: { tools: { listChanged: false }, prompts: { listChanged: false }, resources: { listChanged: false } },
         serverInfo: MCP_SERVER_INFO,
         instructions:
-          "Live Crosby, Texas data: weather from the U.S. National Weather Service, the Atlantic tropical outlook, river/bayou flood levels, a radar image, local news headlines, the Crosby ISD school calendar, and an emergency-contacts directory.",
+          "Live Crosby, Texas data: weather from the U.S. National Weather Service, a measured air-quality index (EPA/AirNow), the daily pollen and mold count, the Atlantic tropical outlook, river/bayou flood levels, road incidents and lane closures, a radar image, local news headlines, the Crosby ISD school calendar, and an emergency-contacts directory.",
       });
     case "ping":
       return rpcResult(id, {});
