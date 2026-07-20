@@ -279,6 +279,21 @@ directory name becomes the `/command`. Current skills:
   degrades gracefully and the swap is localized to `fetchAqiAirNow()`. (TCEQ runs
   the underlying monitors and may offer a keyless feed — a future no-key
   alternative.)
+- **Nearest dedicated ozone monitor (cross-reference):** because the headline
+  names the CLOSEST reporting monitor per pollutant, a locally elevated reading at
+  a slightly-farther monitor could hide behind it. `fetchNearbyOzone(env)` pulls
+  **Channelview C15** ozone (AQS `482010026`, ~8.5 mi; Baytown Garth ~7.7 mi is
+  marginally closer and usually drives the headline ozone) from AirNow's
+  **observations-by-monitoring-site** endpoint (`/aq/data/`, hourly, bounding box
+  — an ACTIVE service, NOT one of the by-zip/lat-long endpoints retiring fall
+  2026; reuses `AIRNOW_API_KEY` + the canaried `airnowapi.org` egress). It's a 6th
+  failure-tolerant parallel fetch in `fetchWeather(env)`, attached as
+  `aqi.nearby:{site,distanceMi,aqi,agency,observedIso}` only when both it and the
+  headline AQI resolve (any error or reporting gap → dropped, card hidden). Shown
+  on `/air` as a "Nearby ozone monitor" card (timestamp + a native `<details>`
+  "i" expander — no JS, CSP-safe), in the `/air` markdown, and as
+  `airQuality.nearbyMonitor` on `/api/air` + `/api/weather` + MCP
+  `get_air_quality`. Ozone only — PM is already covered by the headline monitors.
 - Derived data: "feels like" temperature (`feelsLikeF`/`feelsLikeRawF` in
   `src/index.js`) is the one number on the site NOT taken verbatim from NWS —
   it's the heat index or wind chill, computed in-Worker from NWS's own

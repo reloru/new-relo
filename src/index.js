@@ -202,7 +202,7 @@ async function fetchWeather(env) {
   // and the air-quality index (AirNow measured, Open-Meteo modeled fallback)
   // are independent. UV and AQI are each failure-tolerant (null on error) so a
   // third-party hiccup can never block the NWS refresh.
-  const [forecast, hourly, alertsData, uv, aqi] = await Promise.all([
+  const [forecast, hourly, alertsData, uv, aqi, nearbyOzone] = await Promise.all([
     getJson(forecastUrl),
     getJson(hourlyUrl),
     getJson(`https://api.weather.gov/alerts/active?point=${LAT},${LON}`),
@@ -214,7 +214,15 @@ async function fetchWeather(env) {
       console.error("AQI fetch failed:", e && e.message);
       return null;
     }),
+    fetchNearbyOzone(env).catch((e) => {
+      console.error("Nearby ozone monitor fetch failed:", e && e.message);
+      return null;
+    }),
   ]);
+  // Cross-reference monitor rides along with the AQI object (both are air
+  // quality, and the /air card + /api/air read it there). Kept even when the
+  // headline falls back to modeled — a real nearby monitor reading is useful.
+  if (aqi && nearbyOzone) aqi.nearby = nearbyOzone;
 
   return {
     updated: new Date().toISOString(),
@@ -426,6 +434,50 @@ async function fetchAqiOpenMeteo() {
     time: c.time || null,
   };
 }
+
+// --- Nearest dedicated ozone monitor (cross-reference) -----------------------
+// The headline AQI names the CLOSEST reporting monitor per pollutant, so a
+// locally elevated reading at a slightly-farther monitor could hide behind it.
+// Channelview C15 is the nearest dedicated ozone monitor to Crosby (~8.5 mi;
+// Baytown Garth, ~7.7 mi, is marginally closer and usually drives the headline
+// ozone), so we surface it as a cross-check. Source: AirNow "observations by
+// monitoring site" (/aq/data/ — hourly, bounding box; an ACTIVE service, NOT one
+// of the by-zip/lat-long endpoints AirNow retires in fall 2026). Ozone only (PM
+// is already covered by the headline monitors). Failure-tolerant: any error or a
+// gap in reporting → null, and the /air card just doesn't render. Reuses the
+// AIRNOW_API_KEY Worker secret and the already-canaried airnowapi.org egress.
+const NEARBY_OZONE = { aqs: "482010026", site: "Channelview C15", distanceMi: 8.5 };
+async function fetchNearbyOzone(env) {
+  if (!env?.AIRNOW_API_KEY) return null;
+  const end = new Date();
+  const start = new Date(end.getTime() - 3 * 3600 * 1000);
+  const hourUTC = (d) => d.toISOString().slice(0, 13); // YYYY-MM-DDTHH (UTC)
+  const res = await fetch(
+    `https://www.airnowapi.org/aq/data/?startDate=${hourUTC(start)}&endDate=${hourUTC(end)}` +
+      `&parameters=OZONE&BBOX=-95.25,29.68,-94.95,29.90&dataType=A&format=application/json` +
+      `&verbose=1&monitorType=2&API_KEY=${env.AIRNOW_API_KEY}`,
+    { headers: { "User-Agent": "crosbynews.com", Accept: "application/json" } }
+  );
+  if (!res.ok) throw new Error(`AirNow site data failed: ${res.status}`);
+  const rows = await res.json();
+  if (!Array.isArray(rows)) throw new Error("AirNow site data: unexpected shape");
+  const mine = rows.filter(
+    (r) => String(r.FullAQSCode) === NEARBY_OZONE.aqs || r.SiteName === NEARBY_OZONE.site
+  );
+  if (!mine.length) return null; // Channelview not in this window — hide the card
+  const latest = mine.reduce((a, b) => ((b.UTC || "") > (a.UTC || "") ? b : a));
+  const aqi = typeof latest.AQI === "number" && latest.AQI >= 0 ? latest.AQI : null;
+  if (aqi == null) return null;
+  const utc = latest.UTC || "";
+  return {
+    site: NEARBY_OZONE.site,
+    distanceMi: NEARBY_OZONE.distanceMi,
+    aqi,
+    agency: latest.AgencyName || "TCEQ",
+    // AirNow's UTC field is "YYYY-MM-DDTHH:MM" (no zone) — normalize to a real ISO.
+    observedIso: /T\d{2}:\d{2}$/.test(utc) ? `${utc}:00Z` : utc ? `${utc}Z` : null,
+  };
+}
 // EPA US AQI categories (the official 0–500 bands).
 function aqiCategory(v, lang = "en") {
   if (v == null) return null;
@@ -503,6 +555,18 @@ function aqiApiObject(aqi) {
     source: aqi.measured
       ? "EPA/AirNow measured monitors — closest reporting monitor per pollutant in the Houston-Galveston-Brazoria area (nearest official monitors to Crosby)"
       : "Open-Meteo (CAMS-based model); modeled forecast used when AirNow isn't reporting",
+    nearbyMonitor: aqi.nearby
+      ? {
+          site: aqi.nearby.site,
+          pollutant: "ozone",
+          usAqi: aqi.nearby.aqi,
+          category: aqiCategory(aqi.nearby.aqi),
+          distanceMiles: aqi.nearby.distanceMi,
+          observed: aqi.nearby.observedIso,
+          reportingAgency: aqi.nearby.agency ?? null,
+          note: "Nearest dedicated ozone monitor. A cross-reference so a locally elevated ozone reading isn't hidden by the closest-per-pollutant headline; hourly, EPA/AirNow.",
+        }
+      : null,
   };
 }
 
@@ -5535,6 +5599,30 @@ function aqiHealth(v, lang) {
   return T(lang, "Health warning of emergency conditions: everyone should avoid all outdoor exertion.", "Advertencia de salud por condiciones de emergencia: todos deben evitar toda actividad al aire libre.");
 }
 
+// A small cross-reference card for the nearest dedicated ozone monitor, with a
+// timestamp and a native <details> "i" expander (no JS — CSP-safe). Rendered on
+// /air only when a reading is present.
+function nearbyOzoneCard(n, lang) {
+  if (!n || n.aqi == null) return "";
+  const band = aqiBand(n.aqi);
+  const when = n.observedIso
+    ? fmt(n.observedIso, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" }, lang)
+    : null;
+  const info = T(
+    lang,
+    `${n.site} is the nearest dedicated ozone monitor to Crosby (about ${n.distanceMi} mi). It measures ozone only — the headline number above already uses the closest reporting monitor for each pollutant. It's shown here as a cross-check, so a locally elevated ozone reading near the ship channel can't slip past. Hourly, measured by TCEQ via EPA/AirNow.`,
+    `${n.site} es el monitor de ozono dedicado más cercano a Crosby (unas ${n.distanceMi} mi). Solo mide ozono — el número principal de arriba ya usa el monitor más cercano que reporta cada contaminante. Se muestra aquí como verificación, para que una lectura de ozono localmente elevada cerca del canal no pase desapercibida. Cada hora, medido por la TCEQ vía EPA/AirNow.`
+  );
+  return `<section class="nearby" data-nosnippet>
+    <h2 class="nearby-head">${T(lang, "Nearby ozone monitor", "Monitor de ozono cercano")}<details class="infox"><summary title="${esc(T(lang, "About this monitor", "Acerca de este monitor"))}">i</summary><p>${esc(info)}</p></details></h2>
+    <article class="pgroup ${band.cls} nearby-card">
+      <h3>${esc(n.site)} <span class="dom">${T(lang, "· ozone", "· ozono")}</span></h3>
+      <p class="pcat">${n.aqi}</p>
+      <p class="pcount">${esc(T(lang, band.en, band.es))}${when ? `<br><span class="psite">${T(lang, "Updated", "Actualizado")} ${esc(when)}</span>` : ""}</p>
+    </article>
+  </section>`;
+}
+
 function airHtml(weather, lang) {
   const aqi = weather.aqi;
   const has = aqi?.usAqi != null;
@@ -5609,6 +5697,15 @@ ${JSONLD_SITE}
   .scale th, .scale td { border:1px solid var(--line); padding:0.35rem 0.6rem; text-align:left; }
   .scale th { background:var(--card); }
   .sw { display:inline-block; width:0.8rem; height:0.8rem; border-radius:3px; vertical-align:middle; margin-right:0.35rem; }
+  .nearby { margin-top:1.2rem; }
+  .nearby-head { display:flex; align-items:center; gap:0.45rem; font-size:1.05rem; font-weight:800; margin:0 0 0.5rem; }
+  .nearby-card { max-width:230px; }
+  .nearby-card h3 { margin:0; font-size:0.95rem; }
+  .infox { font-weight:400; }
+  .infox > summary { list-style:none; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; width:1.15rem; height:1.15rem; border:1px solid var(--muted); border-radius:50%; font-size:0.72rem; font-style:italic; font-weight:700; line-height:1; color:var(--muted); }
+  .infox > summary::-webkit-details-marker { display:none; }
+  .infox[open] > summary { color:inherit; border-color:currentColor; }
+  .infox > p { margin:0.5rem 0 0; font-size:0.85rem; font-weight:400; color:var(--muted); line-height:1.5; max-width:56ch; }
 </style>
 </head>
 <body>
@@ -5631,6 +5728,7 @@ ${topbar("/air", lang)}
   </div>
   <p class="stamp">${aqiSourceNote(aqi, lang)}</p>
   ${subCards ? `<div class="pgrid">\n${subCards}\n  </div>` : ""}
+  ${nearbyOzoneCard(aqi.nearby, lang)}
   <section class="health">
     <h2>${T(lang, "What this means", "Qué significa")}</h2>
     <p>${aqiHealth(aqi.usAqi, lang)}</p>
@@ -5685,6 +5783,17 @@ function airMarkdown(weather, lang) {
         out.push(`- ${aqiDominantLabel(tok, lang) || tok}: ${v} (${T(lang, aqiBand(v).en, aqiBand(v).es)})${site ? ` — ${site}` : ""}`);
       }
       out.push("");
+    }
+    if (aqi.nearby && aqi.nearby.aqi != null) {
+      const nb = aqi.nearby;
+      const nbWhen = nb.observedIso ? fmt(nb.observedIso, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" }, lang) : null;
+      out.push(
+        `## ${T(lang, "Nearby ozone monitor", "Monitor de ozono cercano")}`,
+        "",
+        `- ${nb.site} (${T(lang, "ozone", "ozono")}): ${nb.aqi} (${T(lang, aqiBand(nb.aqi).en, aqiBand(nb.aqi).es)})${nbWhen ? ` — ${T(lang, "updated", "actualizado")} ${nbWhen}` : ""}`,
+        `  ${T(lang, `Nearest dedicated ozone monitor (~${nb.distanceMi} mi); a cross-check so a locally elevated reading isn't hidden by the closest-per-pollutant headline.`, `El monitor de ozono dedicado más cercano (~${nb.distanceMi} mi); una verificación para que una lectura localmente elevada no quede oculta por el titular del monitor más cercano por contaminante.`)}`,
+        ""
+      );
     }
     out.push(`## ${T(lang, "What this means", "Qué significa")}`, "", aqiHealth(aqi.usAqi, lang), "");
   } else {
