@@ -526,17 +526,33 @@ directory name becomes the `/command`. Current skills:
   (undefined threshold) / `-999` (no forecast) are sentinels, filtered by
   `waterNum()`. Per-gauge try/catch; `fetchWater()` throws only if EVERY gauge
   fails, so a total NWPS outage aborts-without-writing and the last snapshot
-  survives. No API key needed (NWPS is public). **USGS reserve keys are now set
-  as Worker secrets** — `USGS_API_KEY` + `USGS_ACCOUNT_ID` (owner's
-  `api.waterdata.usgs.gov` account) — but **no code uses them yet**; they're
-  staged for a future move to USGS's newer keyed API or a fishing-conditions page
-  (USGS publishes real-time water temp / dissolved O₂ / turbidity / pH at some
-  nearby sites — East Fork San Jacinto nr New Caney and the Lake Houston stations
-  carry the full water-quality suite; the current flood gauges mostly don't). The
-  legacy `waterservices.usgs.gov` service used for that is keyless. `loadWater()` cold-warms
+  survives. No API key needed (NWPS is public). **USGS reserve keys are set as
+  Worker secrets** — `USGS_API_KEY` + `USGS_ACCOUNT_ID` (owner's
+  `api.waterdata.usgs.gov` account) — but **still unused**: the fishing page
+  (below) reads the KEYLESS legacy `waterservices.usgs.gov` service instead, so
+  the keyed secrets stay reserved for any future move to USGS's newer keyed API.
+  `loadWater()` cold-warms
   like `loadCalendar()`. Emits a 911/turn-around-don't-drown safety note and
   links each gauge's official NWPS page. Markdown-negotiated. Nav label
   "Water Levels" / "Niveles de agua".
+- `/fishing` — live fishing-water conditions from USGS real-time monitoring
+  (`fishingHtml`/`fishingMarkdown`/`apiFishing`, MCP `get_fishing`, `/api/fishing`).
+  **Cron + KV pattern** (key `fishing`, cron-owned, every tick). `fetchFishing()`
+  makes ONE `waterservices.usgs.gov/nwis/iv/` call (KEYLESS legacy service) for all
+  `FISHING_SITES`, reading temperature (`00010`→°F), dissolved oxygen (`00300`),
+  pH (`00400`), turbidity (`63680`), and stage (`00065`); throws if nothing usable
+  so the cron aborts-without-writing (water pattern). **Location selection is
+  fishing-first, not data-first:** only waters people actually fish, each matched
+  to the nearest USGS station — Lake Houston (three in-lake stations incl. FM 1960),
+  the San Jacinto forks, and the Trinity at Liberty carry the full water-quality
+  suite; Cedar Bayou, Luce Bayou, and the San Jacinto below the lake are fished but
+  only have a stage gauge (shown as "water level only"). Industrial sites that are
+  actually CLOSER (Lynchburg Reservoir, the SJRA canal) are deliberately excluded —
+  "nearest data" ≠ "a place people fish". Dissolved oxygen drives the per-station
+  badge (>6 healthy / 4-6 moderate / <4 low); honest labeling (nearby station, not
+  the exact hole; conditions, not a guaranteed bite) plus a TPWD-license and
+  water-safety note linking `/water`. `loadFishing()` cold-warms like `loadWater()`.
+  Nav label "Fishing" / "Pesca" (m-only).
 - `/tropics` — Atlantic tropical outlook (`tropicsHtml`/`tropicsMarkdown`).
   **Cron + KV pattern** (key `tropics`, cron-owned, throttled ~hourly):
   `fetchTropics()` reads NOAA NHC's `CurrentStorms.json`, filtered to the
