@@ -21,6 +21,9 @@ with no framework and no runtime dependencies.
   life-threatening warnings.
 - **[Water Levels](https://crosbynews.com/water)** — live river/bayou flood
   gauges for the waters around Crosby (NOAA/NWS NWPS).
+- **[Fishing](https://crosbynews.com/fishing)** — live USGS water conditions
+  (temperature, dissolved oxygen, pH, clarity) for the waters people fish near
+  Crosby: Lake Houston, the San Jacinto forks, the Trinity River, and nearby bayous.
 - **[Tropics](https://crosbynews.com/tropics)** — the Atlantic tropical outlook
   from the National Hurricane Center.
 - **[Air Quality](https://crosbynews.com/air)** — the measured U.S. Air Quality
@@ -56,12 +59,13 @@ Every page is content-negotiated — send `Accept: text/markdown` (or add
   [`/api/water`](https://crosbynews.com/api/water),
   [`/api/tropics`](https://crosbynews.com/api/tropics),
   [`/api/air`](https://crosbynews.com/api/air),
-  [`/api/pollen`](https://crosbynews.com/api/pollen), and
-  [`/api/traffic`](https://crosbynews.com/api/traffic). Public, no auth.
+  [`/api/pollen`](https://crosbynews.com/api/pollen),
+  [`/api/traffic`](https://crosbynews.com/api/traffic), and
+  [`/api/fishing`](https://crosbynews.com/api/fishing). Public, no auth.
 - **OpenAPI 3.1** — [`/openapi.json`](https://crosbynews.com/openapi.json)
 - **MCP server** (Streamable HTTP) — `https://crosbynews.com/mcp`, with tools
   `get_current_conditions`, `get_forecast`, `get_alerts`, `get_tropical_outlook`,
-  `get_air_quality`, `get_pollen`, `get_river_levels`, `get_traffic`,
+  `get_air_quality`, `get_pollen`, `get_river_levels`, `get_fishing`, `get_traffic`,
   `get_crosby_news`, `get_school_events`, `get_emergency_contacts`, and
   `get_radar` (a live radar image, inline).
   Discovery card at
@@ -84,8 +88,9 @@ claude mcp add --transport http crosbynews https://crosbynews.com/mcp
   slower cadence, the school calendar, river gauges, and tropical outlook).
 - Data: U.S. National Weather Service (public domain), NOAA NWPS and NHC,
   EPA (UV), EPA/AirNow (measured air quality, Open-Meteo modeled fallback),
-  the Houston Health Department (pollen & mold), Houston TranStar (traffic),
-  Crosby ISD, and Google News.
+  the Houston Health Department (pollen & mold), the U.S. Geological Survey
+  (fishing-water conditions), Houston TranStar (traffic), Crosby ISD, and
+  Google News.
 
 ## Develop
 
