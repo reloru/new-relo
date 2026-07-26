@@ -125,18 +125,27 @@ directory name becomes the `/command`. Current skills:
   pre-authorized, put/delete are not.
 
 ## Deploy
-- Deploy with `npx wrangler deploy`. Never run `wrangler login` — auth comes
-  from CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID, already set in the cloud
-  environment.
+- Deploy with `npx wrangler deploy`. Never run `wrangler login`.
+- **Prefer `CLOUDFLARE_ZONE_API_TOKEN` over `CLOUDFLARE_API_TOKEN` for anything
+  scoped to this Worker/domain** — deploy, KV, and any future D1/R2/Queues
+  bindings. It's the default, not a last resort: there's no known downside to
+  using it here, and it carries wider permissions. Pair it with
+  `CLOUDFLARE_ACCOUNT_ID` — **not a zone id** — wrangler has no
+  `CLOUDFLARE_ZONE_ID` concept at all (confirmed against Cloudflare's own
+  env-var docs) and doesn't need one; verified 2026-07-26 with a real
+  `CLOUDFLARE_API_TOKEN=$CLOUDFLARE_ZONE_API_TOKEN npx wrangler deployments
+  list`, authenticated successfully using `CLOUDFLARE_ACCOUNT_ID` unchanged.
+  Reach for the plain `CLOUDFLARE_API_TOKEN` (account-scoped) only for
+  something genuinely account-level rather than specific to this Worker — it
+  still has some Workers/R2/D1 access, just narrower than the zone token.
+  Both are already set in the cloud environment.
 - This repo is the source of truth. Cloud sessions deploy from committed code,
   so commit before expecting a deploy to reflect a change.
 - If a deploy fails with an auth/permission error right after you add a new
-  binding (D1, Queues, Vectorize, etc.), it's almost always the API token
-  missing that permission — widen it in the Cloudflare dashboard, not a code
-  bug. If you can't widen it (or the deploy still isn't authorized), retry with
-  `CLOUDFLARE_ZONE_API_TOKEN`'s value in place of `CLOUDFLARE_API_TOKEN` — it's
-  the token with wider permissions, already set in the cloud environment
-  (`CLOUDFLARE_ACCOUNT_ID` stays the same either way).
+  binding (D1, Queues, Vectorize, etc.) even with `CLOUDFLARE_ZONE_API_TOKEN`,
+  it's a genuinely missing permission on that token — widening it requires the
+  Cloudflare dashboard, which a session can't do itself, so say so rather than
+  retrying blind.
 
 ## CI / GitHub Actions
 - `.github/workflows/deploy.yml` runs three jobs on every push/PR to `main`:
