@@ -8,8 +8,10 @@ allowed-tools: Bash(node --check *), Bash(git status *), Bash(git branch *), Bas
 # Deploy the Worker
 
 Ship `src/index.js` to the `crosbynews` Worker and confirm the live site is
-healthy. Auth comes from `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` in the
-environment — **never run `wrangler login`** (it clobbers the token auth).
+healthy. Auth comes from `CLOUDFLARE_ZONE_API_TOKEN` (preferred — see
+CLAUDE.md's Deploy section) or `CLOUDFLARE_API_TOKEN`, paired with
+`CLOUDFLARE_ACCOUNT_ID` either way (never a zone id — wrangler has no such
+concept) — **never run `wrangler login`** (it clobbers the token auth).
 
 If `$ARGUMENTS` contains `--dry-run`, run step 1, then the dry-run in step 3, and
 stop — nothing is uploaded and nothing goes live.
@@ -56,12 +58,9 @@ a failure — propagation isn't instant.
 
 ## Troubleshooting
 - **Auth/permission error right after adding a new binding** (D1, Queues,
-  Vectorize, KV, …): almost always the API token missing that permission —
-  widen it in the Cloudflare dashboard, not a code bug. If you can't widen it
-  (or the deploy still isn't authorized), retry with `CLOUDFLARE_ZONE_API_TOKEN`'s
-  value in place of `CLOUDFLARE_API_TOKEN` — it's the token with wider
-  permissions, already set in the cloud environment (`CLOUDFLARE_ACCOUNT_ID`
-  stays the same either way).
+  Vectorize, KV, …) even with `CLOUDFLARE_ZONE_API_TOKEN`: a genuinely missing
+  permission on that token. Widening it needs the Cloudflare dashboard, which
+  a session can't do itself — say so rather than retrying blind.
 - **"Missing entry-point" / can't parse `wrangler.jsonc`**: that's wrangler 3.x.
   Locally the pinned `wrangler@^4` devDependency avoids it; in CI it's the
   `wranglerVersion: "4"` setting.
