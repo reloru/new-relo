@@ -47,6 +47,28 @@ as a coding agent. A human reading for site behavior can skip this section.
   describes (KV keys, routes, deploy steps), grep the skills directory too,
   not just this file. (`.github/pull_request_template.md` carries a checklist
   reminder for this + the CLAUDE.md-currency rule.)
+- **`gh` CLI and project-dependency installs live in two different
+  mechanisms, on purpose.** The cloud environment's **setup script**
+  (configured in the environment UI, not committed to this repo) installs
+  `gh`, a pinned global `wrangler` matching the `package.json` devDependency,
+  and `mcp-publisher` (`go install`, see the MCP Registry section) — CLI
+  tools the environment needs but that aren't tied to this repo's state. It
+  only reruns when the setup script itself changes, the environment's allowed
+  network hosts change, or on its own ~7-day cache expiry; resuming a session
+  never reruns it. Project dependencies (`npm ci`) instead live in a repo
+  **`SessionStart` hook** (`.claude/settings.json` → `scripts/install_pkgs.sh`),
+  which reruns on every session including resumed ones — required so
+  `node_modules` never lags a setup-script cache that's days stale relative
+  to whatever's actually committed to `package.json` right now. Don't move
+  `npm ci`/`npm install` into the setup script field even though its own
+  placeholder text (shown when the field is empty) suggests `npm install`
+  there — that's a generic example, not repo-specific guidance.
+- **`gh` auth**: this environment sets both `GH_TOKEN` and `GITHUB_TOKEN` to
+  real personal access tokens (not the `proxy-injected` sentinel the GitHub
+  proxy can substitute automatically), so `gh` authenticates via `GH_TOKEN`
+  with no `gh auth login` step. The built-in `mcp__github__*` tools stay the
+  primary way to work issues/PRs; reach for `gh` only for what they don't
+  cover (`gh release`, `gh workflow run`, …).
 ## Claude Code PR workflow (merge autonomy)
 Owner policy (set 2026-07-14): a Claude Code session owns its PR end-to-end
 and does not wait for human approval at any step.
@@ -110,7 +132,11 @@ directory name becomes the `/command`. Current skills:
   so commit before expecting a deploy to reflect a change.
 - If a deploy fails with an auth/permission error right after you add a new
   binding (D1, Queues, Vectorize, etc.), it's almost always the API token
-  missing that permission — widen it in the Cloudflare dashboard, not a code bug.
+  missing that permission — widen it in the Cloudflare dashboard, not a code
+  bug. If you can't widen it (or the deploy still isn't authorized), retry with
+  `CLOUDFLARE_ZONE_API_TOKEN`'s value in place of `CLOUDFLARE_API_TOKEN` — it's
+  the token with wider permissions, already set in the cloud environment
+  (`CLOUDFLARE_ACCOUNT_ID` stays the same either way).
 
 ## CI / GitHub Actions
 - `.github/workflows/deploy.yml` runs three jobs on every push/PR to `main`:
@@ -1017,7 +1043,7 @@ directory name becomes the `/command`. Current skills:
   widen the token, or set `CLOUDFLARE_ZONE_ID=09de1864babbf541c26590b0fe42f25f`
   and a DNS:Edit-only token suffices. (Both `CLOUDFLARE_ZONE_ID` and the token
   are already set in the cloud environment; if the default token is ever short
-  a scope, the env also carries `CLOUDFLARE_ZONE_API_KEY` with wider zone
+  a scope, the env also carries `CLOUDFLARE_ZONE_API_TOKEN` with wider zone
   permissions.) Note the account-owned token can't call
   `/user/tokens/verify` (returns "Invalid API Token") even when it's valid for
   zone/DNS calls — sanity-check it with a resource call, not `verify`.
@@ -1036,12 +1062,21 @@ directory name becomes the `/command`. Current skills:
   (added via the Cloudflare DNS API alongside the SPF/DKIM/DMARC/DNS-AID
   records). **Leave that TXT record in place** — re-publishing/updating the
   listing re-checks it.
-- **The `mcp-publisher` CLI**: the GitHub release binary download is blocked by
-  the agent egress proxy (403), but `go install
-  github.com/modelcontextprotocol/registry/cmd/publisher@latest` works (the Go
-  module proxy is allowlisted; needs Go ≥1.26, which `GOTOOLCHAIN=auto`
-  auto-fetches, and `GOSUMDB` left at its default since `sum.golang.org` is
-  reachable). The built binary is named `publisher`.
+- **The `mcp-publisher` CLI**: install with `go install
+  github.com/modelcontextprotocol/registry/cmd/publisher@latest` (needs Go
+  ≥1.26, which `GOTOOLCHAIN=auto` auto-fetches, and `GOSUMDB` left at its
+  default since `sum.golang.org` is reachable). The built binary is named
+  `publisher`. **Don't fetch the GitHub release binary instead** — it 403s,
+  and not from a generic network block: cloud sessions route GitHub traffic
+  through a dedicated GitHub proxy that scopes GitHub API + release-asset
+  requests to repositories attached to the session, regardless of the
+  environment's network access level, and `modelcontextprotocol/registry` (the
+  release's source repo) isn't one of the repos attached here. `go install`
+  sidesteps this entirely since it's served from the Go module proxy, never a
+  GitHub release asset. Since this listing gets updated regularly, `go install
+  ...@latest` for `publisher` lives in the cloud environment's **setup
+  script** (see Agent operating notes) so the binary is already on disk at the
+  start of every session instead of being reinstalled on demand.
 - **To update the listing** (new tools, a metadata change): bump `version` in
   `server.json`, then re-auth + publish. Because the publish keypair is
   ephemeral, the flow is: `openssl genpkey -algorithm Ed25519 -out key.pem` →

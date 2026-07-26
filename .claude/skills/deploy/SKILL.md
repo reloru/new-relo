@@ -57,7 +57,11 @@ a failure — propagation isn't instant.
 ## Troubleshooting
 - **Auth/permission error right after adding a new binding** (D1, Queues,
   Vectorize, KV, …): almost always the API token missing that permission —
-  widen it in the Cloudflare dashboard, not a code bug.
+  widen it in the Cloudflare dashboard, not a code bug. If you can't widen it
+  (or the deploy still isn't authorized), retry with `CLOUDFLARE_ZONE_API_TOKEN`'s
+  value in place of `CLOUDFLARE_API_TOKEN` — it's the token with wider
+  permissions, already set in the cloud environment (`CLOUDFLARE_ACCOUNT_ID`
+  stays the same either way).
 - **"Missing entry-point" / can't parse `wrangler.jsonc`**: that's wrangler 3.x.
   Locally the pinned `wrangler@^4` devDependency avoids it; in CI it's the
   `wranglerVersion: "4"` setting.
