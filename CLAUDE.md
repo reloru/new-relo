@@ -1117,7 +1117,11 @@ directory name becomes the `/command`. Current skills:
   server.) **Bumping `server.json` does NOT publish** — the listing only moves
   when someone runs the re-auth + publish flow below, so a bumped-but-
   unpublished version is the normal state between publishes. The 2026-07-26
-  audit found the registry still serving 1.3.0 while the repo said 1.4.0.
+  audit found the registry still serving 1.3.0 while the repo said 1.4.0;
+  **1.5.0 was published that day** and is now `isLatest`. Note 1.4.0 never
+  reached the registry at all — an unpublished bump is simply skipped, not
+  backfilled, so the published version history has a gap (1.3.0 → 1.5.0).
+  That's expected, not a failed publish.
 - **The agent skill drifts the same way.** `CROSBY_WEATHER_SKILL` in
   `src/index.js` (served at `/.well-known/agent-skills/crosby-weather/SKILL.md`)
   enumerates the endpoints and MCP tools by hand, so a new tool has to be added
@@ -1150,7 +1154,23 @@ directory name becomes the `/command`. Current skills:
   derive the pubkey (`openssl pkey -in key.pem -pubout -outform DER | tail -c
   32 | base64`) → overwrite the `crosbynews.com` MCP TXT record's content with
   the new `v=MCPv1; k=ed25519; p=…` → `publisher login dns --domain
-  crosbynews.com --private-key <hex>` → `publisher publish`.
+  crosbynews.com --private-key <hex>` → `publisher publish`. Practical notes
+  from the 2026-07-26 run:
+  - **`xxd` is NOT installed in this environment**, so the usual `... | xxd -p`
+    for the private-key hex fails with "command not found". Use
+    `openssl pkey -in key.pem -outform DER | tail -c 32 | od -An -tx1 | tr -d ' \n'`
+    instead (must be exactly 64 hex chars).
+  - **PATCH the existing MCP TXT record by id — never bulk-write the apex.** The
+    apex carries five TXT records (MCP, SPF, google-site-verification,
+    apple-domain, openai-domain-verification); the MCP one is id
+    `8f0e53d79ee64be84df930d7e46a874b`. `PATCH
+    /zones/{zone}/dns_records/{id}` with just `{"content": "v=MCPv1; …"}`
+    leaves the other four untouched — re-verify all five afterward.
+  - Wait for the new key to appear in public DNS (`curl -H 'accept:
+    application/dns-json' 'https://cloudflare-dns.com/dns-query?name=crosbynews.com&type=TXT'`)
+    before `publisher login dns`, which checks the record live.
+  - Keep `key.pem` OUT of the repo (use a scratch dir). It's single-use: the
+    next publish rotates the TXT record to a fresh pubkey anyway.
 - **PulseMCP needs no separate submission** — it ingests the official registry
   automatically, so the listing propagates to `pulsemcp.com` on its next sync
   (~daily). (A manual `pulsemcp.com/submit` would only create a duplicate.)
