@@ -52,6 +52,19 @@ the `location:` header:
 
 `https://crosbynews.com/` itself must NOT redirect (expect `200`).
 
+**Parsing gotcha in this environment:** `curl -sI` here returns an extra
+`HTTP/1.1 200 Connection Established` CONNECT line before the real response
+(the session's outbound HTTPS proxy inserts it), so naively taking the first
+`HTTP/...` line reads that CONNECT line's `200`, not the actual status — a
+real `301` can misread as `200`. Skip it explicitly:
+`grep "^HTTP" | grep -v "Connection Established" | head -1`. Also strip the
+header value's trailing `\r` before an exact string comparison (`| tr -d
+'\r'`) — curl includes it raw, so `[ "$location" = "..." ]` silently fails
+even when the printed values look identical. Simplest fix: prefer
+`curl -s -o /dev/null -w "%{http_code}"` (as in check 1) over parsing `-sI`
+output when you only need the status code — it isn't affected by the CONNECT
+line at all.
+
 ## 4. Markdown content-negotiation
 `/` should return markdown (not HTML) when asked two ways:
 - `curl -s "$BASE/?format=md" | head`
