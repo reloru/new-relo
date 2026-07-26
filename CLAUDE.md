@@ -48,11 +48,15 @@ as a coding agent. A human reading for site behavior can skip this section.
   not just this file. (`.github/pull_request_template.md` carries a checklist
   reminder for this + the CLAUDE.md-currency rule.)
 - **`gh` CLI and project-dependency installs live in two different
-  mechanisms, on purpose.** The cloud environment's **setup script**
-  (configured in the environment UI, not committed to this repo) installs
+  mechanisms, on purpose.** The cloud environment's **setup script** installs
   `gh`, a pinned global `wrangler` matching the `package.json` devDependency,
   and `mcp-publisher` (`go install`, see the MCP Registry section) — CLI
-  tools the environment needs but that aren't tied to this repo's state. It
+  tools the environment needs but that aren't tied to this repo's state. The
+  copy that RUNS is configured in the environment UI (a session cannot write
+  environment settings), but a **reference copy is committed at
+  `scripts/setup-environment.sh`** so it's reviewable and recoverable —
+  editing that file does NOT deploy it; paste it into the UI or the two
+  diverge. It
   only reruns when the setup script itself changes, the environment's allowed
   network hosts change, or on its own ~7-day cache expiry; resuming a session
   never reruns it. Project dependencies (`npm ci`) instead live in a repo
@@ -63,6 +67,21 @@ as a coding agent. A human reading for site behavior can skip this section.
   `npm ci`/`npm install` into the setup script field even though its own
   placeholder text (shown when the field is empty) suggests `npm install`
   there — that's a generic example, not repo-specific guidance.
+- **Two things the setup script gets wrong if written naively** (both found by
+  auditing the script against what the container actually had, 2026-07-26):
+  (1) **`go install` puts `publisher` somewhere not on PATH.** `GOBIN` is
+  unset and `GOPATH` is `/root/go`, so the binary lands in `/root/go/bin`,
+  which this image does NOT have on PATH — the install succeeds and `which
+  publisher` still finds nothing. `GOBIN=/usr/local/bin go install …` fixes
+  it. **If a session finds `publisher` missing from PATH, the environment was
+  built by the older script** — fall back to `~/go/bin/publisher` rather than
+  assuming the install failed. (2) **`(cmd || true) &` + a bare `wait` makes
+  every failure invisible**: the script exits 0 with no output even when an
+  install fails, and because it only reruns on edit/cache-expiry that silence
+  persists for days. Keep it non-fatal, but log per-job success/failure and
+  assert each tool resolves on PATH at the end — "installed" is not
+  "runnable". Also prefer `apt-get` over `apt` in scripts (`apt` warns its CLI
+  is unstable) and set `DEBIAN_FRONTEND=noninteractive`.
 - **`gh` auth**: this environment sets both `GH_TOKEN` and `GITHUB_TOKEN` to
   real personal access tokens (not the `proxy-injected` sentinel the GitHub
   proxy can substitute automatically), so `gh` authenticates via `GH_TOKEN`
@@ -1147,7 +1166,11 @@ directory name becomes the `/command`. Current skills:
   GitHub release asset. Since this listing gets updated regularly, `go install
   ...@latest` for `publisher` lives in the cloud environment's **setup
   script** (see Agent operating notes) so the binary is already on disk at the
-  start of every session instead of being reinstalled on demand.
+  start of every session instead of being reinstalled on demand. **Check
+  `command -v publisher` before assuming it's callable by name** — the
+  setup script only puts it on PATH if it sets `GOBIN` (the PATH gotcha in
+  Agent operating notes); environments built by the older script have it at
+  `~/go/bin/publisher`, off PATH.
 - **To update the listing** (new tools, a metadata change): bump `version` in
   `server.json`, then re-auth + publish. Because the publish keypair is
   ephemeral, the flow is: `openssl genpkey -algorithm Ed25519 -out key.pem` →
