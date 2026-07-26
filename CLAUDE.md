@@ -230,6 +230,16 @@ directory name becomes the `/command`. Current skills:
 
 ## Domain
 - Live on crosbynews.com (apex + www) and the *.workers.dev URL.
+- **Preview URLs are OFF** (`*-crosbynews.reloru.workers.dev`, the per-version
+  wildcard subdomain) — disabled 2026-07-26 via `POST
+  /accounts/{account_id}/workers/scripts/crosbynews/subdomain` with
+  `{"enabled": true, "previews_enabled": false}` (`GET` on the same path
+  reads current state). It served no purpose: this repo's deploy path is
+  always a plain `wrangler deploy` straight to production, never `wrangler
+  versions upload` or gradual rollouts, so nothing was ever actually behind
+  that wildcard — it was just an open, unused surface. The **production**
+  `enabled` flag stays `true` (that's the intentional `*.workers.dev` URL
+  above); only `previews_enabled` was flipped.
 - Attachment (verified via API, added out-of-band — dashboard/API, not wrangler):
   apex `crosbynews.com` is a **Custom Domain**; `www.crosbynews.com/*` is a
   **Workers Route**. Both bind to the `crosbynews` worker.
