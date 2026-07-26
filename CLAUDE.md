@@ -68,7 +68,26 @@ as a coding agent. A human reading for site behavior can skip this section.
   proxy can substitute automatically), so `gh` authenticates via `GH_TOKEN`
   with no `gh auth login` step. The built-in `mcp__github__*` tools stay the
   primary way to work issues/PRs; reach for `gh` only for what they don't
-  cover (`gh release`, `gh workflow run`, …).
+  cover (`gh release`, `gh workflow run`, …). **Two gotchas verified
+  2026-07-26, installing `gh` ad hoc in a session:** (1) `gh auth status`
+  falsely reports the token as invalid — same false-negative pattern as the
+  Cloudflare token-verify quirk in the DNS-AID section below; sanity-check
+  auth with a real REST
+  call instead (`gh api user`, `gh api repos/{owner}/{repo}`), which worked
+  fine on the same token `gh auth status` rejected. (2) GraphQL-backed `gh`
+  commands (`gh repo view`, and likely others that don't take `--json`
+  against a REST equivalent) 403 through the GitHub proxy with an explicit
+  message that GraphQL is restricted to "a pinned set of PR-review
+  operations" — use `gh api repos/{owner}/{repo}/...` (REST) instead of the
+  higher-level `gh` subcommands for general reads.
+- **Parsing GitHub API JSON (`curl`/`gh api`) — don't `grep` across fields.**
+  GitHub returns pretty-printed JSON with each field on its own line, so a
+  `grep` pattern expecting two fields on the same line (e.g. checking a
+  check-run's `"name"` and `"status"` together) silently never matches — no
+  error, just a poll loop that spins forever without ever detecting
+  completion (burned ~7 minutes doing exactly this once). Use `jq` or
+  `python3 -c "import json..."` to parse structured API responses instead of
+  `grep`, especially in any `until`/poll loop.
 ## Claude Code PR workflow (merge autonomy)
 Owner policy (set 2026-07-14): a Claude Code session owns its PR end-to-end
 and does not wait for human approval at any step.
