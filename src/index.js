@@ -6370,7 +6370,7 @@ function apiCatalog() {
     status: [{ href: `${SITE}/api/health`, type: "application/json" }],
   });
   return {
-    linkset: [entry("/api/weather", "/"), entry("/api/news", "/news"), entry("/api/calendar", "/calendar"), entry("/api/water", "/water"), entry("/api/tropics", "/tropics"), entry("/api/pollen", "/pollen"), entry("/api/air", "/air"), entry("/api/traffic", "/traffic")],
+    linkset: [entry("/api/weather", "/"), entry("/api/news", "/news"), entry("/api/calendar", "/calendar"), entry("/api/water", "/water"), entry("/api/fishing", "/fishing"), entry("/api/tropics", "/tropics"), entry("/api/pollen", "/pollen"), entry("/api/air", "/air"), entry("/api/traffic", "/traffic")],
   };
 }
 
@@ -6883,7 +6883,10 @@ const MCP_PROTOCOL_VERSION = "2025-06-18";
 // never echoed back (echoing e.g. "2026-07-28" would falsely promise the
 // stateless-core semantics of that revision).
 const MCP_SUPPORTED_VERSIONS = ["2025-03-26", "2025-06-18"];
-const MCP_SERVER_INFO = { name: "crosbynews-weather", version: "1.2.0", title: "Crosby, TX Weather" };
+// Version moves in lockstep with `server.json`'s registry version on any
+// tool-set change — they drifted apart (1.2.0 vs 1.4.0) when `get_air_quality`
+// and `get_fishing` shipped without a bump, so both now carry the same number.
+const MCP_SERVER_INFO = { name: "crosbynews-weather", version: "1.5.0", title: "Crosby, TX Weather" };
 const MCP_CORS = {
   "access-control-allow-origin": "*",
   "access-control-allow-methods": "POST, OPTIONS",
@@ -7452,7 +7455,7 @@ function mcpServerCard() {
     serverInfo: MCP_SERVER_INFO,
     protocolVersion: MCP_PROTOCOL_VERSION,
     description:
-      "Live Crosby, Texas data: weather from the U.S. National Weather Service (current conditions, forecast, active alerts), a measured air-quality index (EPA/AirNow, with an Open-Meteo modeled fallback), the Houston Health Department's daily pollen and mold count, the Atlantic tropical outlook, river/bayou flood levels, road incidents and lane closures, a live radar image, recent local news headlines, the Crosby ISD school calendar, and an emergency-contacts directory.",
+      "Live Crosby, Texas data: weather from the U.S. National Weather Service (current conditions, forecast, active alerts), a measured air-quality index (EPA/AirNow, with an Open-Meteo modeled fallback), the Houston Health Department's daily pollen and mold count, the Atlantic tropical outlook, river/bayou flood levels, USGS water conditions for nearby fishing waters, road incidents and lane closures, a live radar image, recent local news headlines, the Crosby ISD school calendar, and an emergency-contacts directory.",
     transport: { type: "streamable-http", endpoint: `${SITE}/mcp` },
     capabilities: { tools: { listChanged: false }, prompts: { listChanged: false }, resources: { listChanged: false } },
     tools: mcpTools().map((t) => ({ name: t.name, title: t.title, description: t.description })),
@@ -7863,7 +7866,7 @@ async function mcpHandle(msg, env) {
         capabilities: { tools: { listChanged: false }, prompts: { listChanged: false }, resources: { listChanged: false } },
         serverInfo: MCP_SERVER_INFO,
         instructions:
-          "Live Crosby, Texas data: weather from the U.S. National Weather Service, a measured air-quality index (EPA/AirNow), the daily pollen and mold count, the Atlantic tropical outlook, river/bayou flood levels, road incidents and lane closures, a radar image, local news headlines, the Crosby ISD school calendar, and an emergency-contacts directory.",
+          "Live Crosby, Texas data: weather from the U.S. National Weather Service, a measured air-quality index (EPA/AirNow), the daily pollen and mold count, the Atlantic tropical outlook, river/bayou flood levels, USGS water conditions for nearby fishing waters, road incidents and lane closures, a radar image, local news headlines, the Crosby ISD school calendar, and an emergency-contacts directory.",
       });
     case "ping":
       return rpcResult(id, {});
@@ -7950,6 +7953,11 @@ MCP server (Streamable HTTP, JSON-RPC):
   from the Houston Health Department (JSON); MCP tool: get_pollen
 - GET https://crosbynews.com/api/air - measured US AQI for the Houston metro
   area incl. Crosby (EPA/AirNow, JSON); MCP tool: get_air_quality
+- GET https://crosbynews.com/api/traffic - Crosby-corridor road incidents and
+  lane closures from Houston TranStar (JSON); MCP tool: get_traffic
+- GET https://crosbynews.com/api/fishing - water conditions (temperature,
+  dissolved oxygen, pH, clarity) for the waters people fish near Crosby, from
+  USGS real-time monitoring (JSON); MCP tool: get_fishing
 - MCP-only tools: get_emergency_contacts (Crosby emergency directory) and
   get_radar (latest NWS KHGX radar still, returned as an inline image)
 
@@ -9086,7 +9094,7 @@ async function pushSevereAlerts(env, alerts) {
 // `?format=md` variants — and the http→https pair — consolidate onto one URL for
 // crawlers that read the HTTP layer (reinforces the in-HTML <link rel="canonical">).
 const PAGE_PATHS = new Set([
-  "/", "/weather", "/hourly", "/radar", "/alerts", "/water", "/tropics", "/pollen", "/air", "/traffic", "/news", "/calendar", "/emergency", "/about", "/developers", "/privacy", "/contact", "/sitemap",
+  "/", "/weather", "/hourly", "/radar", "/alerts", "/water", "/fishing", "/tropics", "/pollen", "/air", "/traffic", "/news", "/calendar", "/emergency", "/about", "/developers", "/privacy", "/contact", "/sitemap",
   "/es", "/es/weather", "/es/hourly", "/es/radar", "/es/alerts", "/es/water", "/es/fishing", "/es/tropics", "/es/pollen", "/es/air", "/es/traffic", "/es/news", "/es/calendar", "/es/emergency", "/es/about", "/es/developers", "/es/privacy", "/es/contact", "/es/sitemap",
 ]);
 
