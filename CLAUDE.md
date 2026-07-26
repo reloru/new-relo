@@ -213,8 +213,12 @@ directory name becomes the `/command`. Current skills:
 - `wranglerVersion: "4"` is required in the wrangler-action config. Without it, the action
   installs wrangler 3.x, which can't parse `wrangler.jsonc` and fails with "Missing entry-point".
   The deploy action installs the latest 4.x; the build-check job and local dev use the repo's
-  pinned `wrangler` devDependency (`^4.107.0`, via `npm ci`) so the dry-run, local `wrangler dev`,
-  and prod runtime stay aligned.
+  pinned `wrangler` devDependency (see `package.json`, via `npm ci`) so the dry-run, local
+  `wrangler dev`, and prod runtime stay aligned. **The version lives in three places** —
+  `package.json`'s devDependency, the global pin in `scripts/setup-environment.sh`, and
+  whatever the deploy action resolves — so a bump has to touch the first two together. The
+  number is deliberately NOT repeated in this file: PR #109 bumped `^4.107.0` → `^4.114.0`
+  and left the prose here stale for exactly that reason.
 - **Compatibility date gotcha:** `wrangler.jsonc`'s `compatibility_date` (currently
   `2026-07-01`) must be ≤ the bundled `workerd`'s ceiling. Production always runs the newest
   `workerd`, so any past date is fine there — but a *local* `wrangler dev` on an older pinned
