@@ -88,6 +88,16 @@ as a coding agent. A human reading for site behavior can skip this section.
   completion (burned ~7 minutes doing exactly this once). Use `jq` or
   `python3 -c "import json..."` to parse structured API responses instead of
   `grep`, especially in any `until`/poll loop.
+- **`curl -sI` through this environment's HTTPS proxy prepends an extra
+  status line.** A CONNECT-tunneled HTTPS request surfaces as `HTTP/1.1 200
+  Connection Established` before the real response's `HTTP/2 ...` line, so
+  code that grabs the first `HTTP/...` line reads the CONNECT line's `200`,
+  not the actual status (a real `301` can misread as `200` — see the
+  `/verify-site` skill, which hit this and now documents the fix inline).
+  Skip lines containing "Connection Established", and strip curl's trailing
+  `\r` on header values before any exact string comparison. Simplest fix:
+  prefer `curl -s -o /dev/null -w "%{http_code}"` for a bare status code — it
+  sidesteps the CONNECT line entirely.
 ## Claude Code PR workflow (merge autonomy)
 Owner policy (set 2026-07-14): a Claude Code session owns its PR end-to-end
 and does not wait for human approval at any step.
