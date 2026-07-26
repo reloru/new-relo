@@ -402,11 +402,12 @@ directory name becomes the `/command`. Current skills:
   and falls back to a live fetch + warm on a cold cache. The same cron also
   refreshes the `calendar` key (Crosby ISD iCal, throttled to ~6h), the
   `water` key (NWPS river/bayou gauges, every tick — levels move fast in a
-  flood), the `tropics` key (NHC CurrentStorms.json, throttled ~1h), the
+  flood), the `fishing` key (USGS real-time water conditions, every tick), the
+  `tropics` key (NHC CurrentStorms.json, throttled ~1h), the
   `pollen` key (Houston Health Department daily count, throttled ~2h — one
   count per weekday morning), and the
   `traffic` key (Houston TranStar RSS, every tick — incidents and high-water
-  reports move fast); `fetch()` cold-warms all five. (The `news` key is
+  reports move fast); `fetch()` cold-warms all six. (The `news` key is
   written out-of-band — see the News pipeline.)
 - Styling: an inline `<style>` block in the rendered HTML — no build step,
   no static assets.
@@ -450,9 +451,9 @@ directory name becomes the `/command`. Current skills:
 ## Languages (English + Mexican Spanish)
 - The site is bilingual: English at the root paths and Mexican Spanish (`es-MX`)
   under an **`/es` prefix** (`/es`, `/es/weather`, `/es/hourly`, `/es/radar`,
-  `/es/alerts`, `/es/water`, `/es/tropics`, `/es/pollen`, `/es/air`, `/es/traffic`, `/es/news`,
+  `/es/alerts`, `/es/water`, `/es/fishing`, `/es/tropics`, `/es/pollen`, `/es/air`, `/es/traffic`, `/es/news`,
   `/es/calendar`, `/es/emergency`, `/es/about`, `/es/developers`, `/es/privacy`,
-  `/es/contact`, `/es/sitemap`). Same eighteen content pages, same markdown negotiation. (`/es` is the Spanish hub;
+  `/es/contact`, `/es/sitemap`). Same nineteen content pages, same markdown negotiation. (`/es` is the Spanish hub;
   `/es/weather` the Spanish forecast.)
 - **One set of render functions serves both languages** (no duplicated pages, so
   they can't drift). Each `*Html`/`*Markdown` takes a `lang` arg; the i18n block
@@ -550,8 +551,8 @@ directory name becomes the `/command`. Current skills:
   what the root served pre-restructure. Content-negotiated. The homepage/`/weather`
   `Link` header advertises the markdown alternate, sitemap, api-catalog, and
   OpenAPI service-desc (via the parameterized `linkHeader(enPath, lang)`). All
-  thirty-six content pages (the eighteen English routes `/`, `/weather`, `/hourly`,
-  `/radar`, `/alerts`, `/water`, `/tropics`, `/pollen`, `/air`, `/traffic`, `/news`, `/calendar`, `/emergency`, `/about`, `/developers`,
+  thirty-eight content pages (the nineteen English routes `/`, `/weather`, `/hourly`,
+  `/radar`, `/alerts`, `/water`, `/fishing`, `/tropics`, `/pollen`, `/air`, `/traffic`, `/news`, `/calendar`, `/emergency`, `/about`, `/developers`,
   `/privacy`, `/contact`, `/sitemap` and their `/es` Spanish counterparts) emit an HTTP
   `Link: rel="canonical"` header — added centrally in the `fetch` wrapper via
   `PAGE_PATHS` — so the `?format=md` variants and the http→https pair consolidate
@@ -626,7 +627,8 @@ directory name becomes the `/command`. Current skills:
   badge (>6 healthy / 4-6 moderate / <4 low); honest labeling (nearby station, not
   the exact hole; conditions, not a guaranteed bite) plus a TPWD-license and
   water-safety note linking `/water`. `loadFishing()` cold-warms like `loadWater()`.
-  Nav label "Fishing" / "Pesca" (m-only).
+  Nav label "Fishing" / "Pesca" (m-only). Also: `/api/fishing` (conditional GET),
+  documented in `/openapi.json` + the api-catalog, and MCP tool `get_fishing`.
 - `/tropics` — Atlantic tropical outlook (`tropicsHtml`/`tropicsMarkdown`).
   **Cron + KV pattern** (key `tropics`, cron-owned, throttled ~hourly):
   `fetchTropics()` reads NOAA NHC's `CurrentStorms.json`, filtered to the
@@ -910,7 +912,7 @@ directory name becomes the `/command`. Current skills:
   on `/developers` ("Embeddable weather badge", with the copy-paste `<img>`
   snippet), the human `/sitemap` developer list, and llms.txt `## Optional`.
 - `/sitemap.xml` — lists `/`, `/weather`, `/hourly`, `/radar`, `/alerts`,
-  `/water`, `/tropics`, `/pollen`, `/air`, `/traffic`, `/news`, `/calendar`, `/emergency`, `/about`, `/developers`, `/privacy`, `/contact`, `/sitemap`
+  `/water`, `/fishing`, `/tropics`, `/pollen`, `/air`, `/traffic`, `/news`, `/calendar`, `/emergency`, `/about`, `/developers`, `/privacy`, `/contact`, `/sitemap`
   in both languages
   (each English route plus its `/es` counterpart), every `<url>` carrying
   `xhtml:link` hreflang alternates (`en-US`, `es-MX`, `x-default`).
@@ -930,7 +932,7 @@ directory name becomes the `/command`. Current skills:
   `/api/air` — the same `airQuality` object standalone (CORS `*`), via
   `apiAir()`/`aqiApiObject()`. `/api/health` — status + cache freshness.
 - Conditional GET: the polled endpoints (`/api/weather`, `/api/news`,
-  `/api/calendar`, `/api/water`, `/api/tropics`, `/api/pollen`, `/api/air`, `/api/traffic`,
+  `/api/calendar`, `/api/water`, `/api/fishing`, `/api/tropics`, `/api/pollen`, `/api/air`, `/api/traffic`,
   `/alerts.xml`, `/news.xml`) send weak ETags derived from
   the KV freshness stamp (plus the Central calendar date where the body
   depends on it: sun times, upcoming-events cutoff) and `Last-Modified`
@@ -1105,6 +1107,23 @@ directory name becomes the `/command`. Current skills:
   "streamable-http", url: "https://crosbynews.com/mcp" }]`. `server.json` at the
   repo root is the source of truth (validated with `mcp-publisher validate`).
   Verify: `curl "https://registry.modelcontextprotocol.io/v0.1/servers?search=com.crosbynews/weather"`.
+- **Three version numbers had drifted apart; two of them now move together.**
+  `server.json`'s `version` (the registry listing) and `MCP_SERVER_INFO.version`
+  in `src/index.js` (the `serverInfo` every `initialize` echoes) must be bumped
+  **in the same PR** whenever the tool set changes — they had reached 1.4.0 vs
+  1.2.0 because `get_air_quality` (#102) and `get_fishing` (#105) shipped
+  without a bump. Both are 1.5.0 as of the 2026-07-26 audit. (`/openapi.json`'s
+  `info.version` is a separate track: it describes the REST API, not the MCP
+  server.) **Bumping `server.json` does NOT publish** — the listing only moves
+  when someone runs the re-auth + publish flow below, so a bumped-but-
+  unpublished version is the normal state between publishes. The 2026-07-26
+  audit found the registry still serving 1.3.0 while the repo said 1.4.0.
+- **The agent skill drifts the same way.** `CROSBY_WEATHER_SKILL` in
+  `src/index.js` (served at `/.well-known/agent-skills/crosby-weather/SKILL.md`)
+  enumerates the endpoints and MCP tools by hand, so a new tool has to be added
+  there too — `get_traffic` (#99) and `get_fishing` (#105) were both missing
+  from it until the audit. Same for the two prose descriptions that list the
+  data sources (`mcpServerCard()`'s `description` and the MCP `instructions`).
 - **Namespace auth = DNS.** The `com.crosbynews` namespace is proven by a TXT
   record on the apex `crosbynews.com`: `v=MCPv1; k=ed25519; p=<base64 pubkey>`
   (added via the Cloudflare DNS API alongside the SPF/DKIM/DMARC/DNS-AID
@@ -1170,8 +1189,8 @@ directory name becomes the `/command`. Current skills:
 - `wrangler kv key get/put/list` default to *local* (miniflare) state. To read
   or write the real production namespace, pass `--remote`. (A get without it can
   say "Value not found" even when the deployed Worker is reading the key fine.)
-- The WEATHER namespace holds seven content keys: `weather`, `calendar`, `water`,
-  `tropics`, `pollen`, and `traffic` (all cron-owned — the Worker refreshes them) and
+- The WEATHER namespace holds eight content keys: `weather`, `calendar`, `water`,
+  `fishing`, `tropics`, `pollen`, and `traffic` (all cron-owned — the Worker refreshes them) and
   `news` (routine-owned — written out-of-band, the Worker only reads it). It also holds
   the Web Push state: `push_notified` (cron-owned dedupe list — first created
   when a severe warning actually pushes, so it's absent until then; that's the
