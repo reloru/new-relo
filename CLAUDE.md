@@ -47,39 +47,18 @@ as a coding agent. A human reading for site behavior can skip this section.
   describes (KV keys, routes, deploy steps), grep the skills directory too,
   not just this file. (`.github/pull_request_template.md` carries a checklist
   reminder for this + the CLAUDE.md-currency rule.)
-- **There is no `SessionStart` hook and no committed setup script. Both were
-  removed 2026-07-27, deliberately — don't re-add them.** They automated two
-  things nothing actually depended on, and each carried a trap that cost more
-  than the automation saved.
-  - **The hook** (`.claude/settings.json` → `scripts/install_pkgs.sh`) ran
-    `npm ci || npm install` on every session *including resumes*. CI never
-    needed it — `.github/workflows/deploy.yml` runs its own `setup-node` +
-    `npm ci` — so it only served interactive sessions, at ~4-9s each. The
-    `|| npm install` fallback was the real hazard: when `npm ci` fails
-    (lockfile drift, registry hiccup), `npm install` **rewrites
-    `package-lock.json` and leaves the tree dirty at session start**, so a
-    later `git add -A` silently sweeps an unrelated lockfile change into the
-    commit. **Now: run `npm ci` yourself** when a session needs
-    `node_modules` (dry-run build, or `wrangler dev` for the SW test).
-  - **`scripts/setup-environment.sh`** was only ever a *reference copy* — the
-    copy that RUNS is configured in the environment UI, which a session cannot
-    write. Editing the file deployed nothing, yet it sat in `scripts/` where
-    everything else genuinely executes; PR #114 "fixed a PATH bug" in a file
-    that cannot run. **Deleting it does not stop the environment's setup
-    script** — if that UI field is still populated it keeps installing `gh`, a
-    global `wrangler`, and `publisher` on each environment build. Only
-    clearing the field stops it.
-  - **If that field is cleared**, future containers lose `gh`, global
-    `wrangler`, and `publisher`. None are load-bearing: `mcp__github__*`
-    covers GitHub, `npx wrangler` covers deploys, and `publisher` is needed
-    only to push a new MCP registry version. Two facts worth keeping from the
-    old script, since they cost a session to find: `go install
-    github.com/modelcontextprotocol/registry/cmd/publisher@latest` needs
-    **`GOBIN=/usr/local/bin`** or the binary lands in `/root/go/bin`, which is
-    NOT on PATH (install succeeds, `which publisher` finds nothing); and in
-    any background-install script, `(cmd || true) &` plus a bare `wait` makes
-    every failure invisible — log per-job status and assert each tool resolves
-    on PATH, because "installed" is not "runnable".
+- **No `SessionStart` hook, no committed setup script — removed 2026-07-27.
+  Don't re-add either.** Run `npm ci` yourself when you need `node_modules`;
+  CI runs its own. The old hook's `npm ci || npm install` left a dirty
+  `package-lock.json` on any `npm ci` failure, which `git add -A` then swept
+  into unrelated commits. The old `scripts/setup-environment.sh` was a
+  reference copy that couldn't run (the real one is an environment-UI field a
+  session can't write), so edits to it did nothing. That field may still be
+  populated — clearing it is a UI action, and it's what installs `gh`, global
+  `wrangler`, and `publisher`. None are load-bearing: use `mcp__github__*`,
+  `npx wrangler`, and for a registry publish install `publisher` on demand
+  with **`GOBIN=/usr/local/bin`** (without it the binary lands off PATH and
+  the install silently "succeeds").
 - **`gh` auth**: this environment sets both `GH_TOKEN` and `GITHUB_TOKEN` to
   real personal access tokens (not the `proxy-injected` sentinel the GitHub
   proxy can substitute automatically), so `gh` authenticates via `GH_TOKEN`
@@ -215,37 +194,19 @@ directory name becomes the `/command`. Current skills:
   prod runtime stay aligned. **`package.json` is the only place the number lives** — it is
   deliberately NOT repeated in this file, because PR #109 bumped `^4.107.0` → `^4.114.0`
   and left the prose here stale for exactly that reason.
-- **Compatibility date gotcha — the constraint is ONE-directional.**
-  `wrangler.jsonc`'s `compatibility_date` (currently `2026-07-01`) must be ≤ the bundled
-  `workerd`'s ceiling. Production always runs the newest `workerd`, so any past date is
-  fine there. Read the two directions separately:
-  - **Bumping `wrangler` RAISES the ceiling, so it can never violate the constraint.**
-    A wrangler-only bump needs no `wrangler dev` boot check. This file used to say "bump
-    both together and re-run `wrangler dev`", which read as though a wrangler bump required
-    the check — it doesn't, and that sentence cost a session chasing a non-problem. #109
-    bumped wrangler without booting dev and did no harm (confirmed after the fact: 4.114.0
-    boots fine against `2026-07-01`).
-  - **RAISING `compatibility_date` is the risky move** — that's what can exceed an older
-    pinned wrangler's runtime and fail with "The Workers runtime failed to start". CI never
-    runs `wrangler dev`, so it cannot catch this; a local `npx wrangler dev` is the only
-    check that does. Run it when you change the DATE, not when you change the version.
-- **Verification gate is `node --check` + `npx wrangler deploy --dry-run`.** Dry-run parses
-  `wrangler.jsonc`, resolves bindings, and bundles — no auth, exits 0, ~10s. It does not
-  execute your code, but the answer to that is `/verify-site` against the live deploy after
-  CI ships it, not a local boot. **Don't add `wrangler dev` to routine verification:** it's
-  a server, so it never exits 0, and whatever kills it (the 120s command timeout → 124, a
-  SIGTERM → 143) reads as a failure even though it served fine. Judge it by whether it
-  answers HTTP, never by exit status. The one place it genuinely belongs is
-  `scripts/test-sw-offline.mjs`, which needs a killable server and already does this right
-  (polls `/api/health`, ignores exit codes).
-- **`wrangler <cmd> | head -N` HANGS.** wrangler doesn't exit on EPIPE, so a short `head`
-  closes the pipe and wedges the process until the command timeout kills it — burning the
-  full 120s and printing nothing useful. The proxy banner (warning + 2 blank lines) means
-  even `--version | head -2` truncates inside the banner and hangs. Verified 2026-07-27:
-  `wrangler --version | head -2` → hang/124; `| head -20` and no-pipe → `4.114.0`, exit 0.
-  Redirect to a file and read it, or use `tail`, or drain the pipe. (`/kv`'s
-  `... | python3 -m json.tool | head -40` survives only because `json.tool` buffers the whole
-  document before writing, so `head` never truncates mid-stream — luck, not design.)
+- **Compatibility date — the constraint is one-directional.** `compatibility_date`
+  (currently `2026-07-01`) must be ≤ the bundled `workerd`'s ceiling. Bumping `wrangler`
+  RAISES that ceiling, so a version bump can never violate it and needs no boot check.
+  Only RAISING the date is risky ("The Workers runtime failed to start"), and CI never runs
+  `wrangler dev`, so that's the one change worth a local `npx wrangler dev`.
+- **Verification gate: `node --check` + `npx wrangler deploy --dry-run`.** Runtime coverage
+  comes from `/verify-site` against the live deploy, not a local boot. Don't add
+  `wrangler dev` to routine checks — it's a server, so it never exits 0 (timeout → 124,
+  SIGTERM → 143) and reads as failed after serving fine. Judge it by HTTP, not exit status.
+  `scripts/test-sw-offline.mjs` is the one legitimate user and already does this right.
+- **`wrangler <cmd> | head -N` hangs** — wrangler doesn't exit on EPIPE, so a short `head`
+  wedges it until the command timeout. `--version | head -2` hangs; `| head -20` is fine.
+  Redirect to a file, or use `tail`.
 - `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"` is set on the deploy step (GitHub is migrating
   Actions to Node 24; this opts in early to suppress deprecation failures).
 - The workflow installs **Node 22** via `actions/setup-node@v4` for the job steps (the
