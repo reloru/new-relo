@@ -47,41 +47,39 @@ as a coding agent. A human reading for site behavior can skip this section.
   describes (KV keys, routes, deploy steps), grep the skills directory too,
   not just this file. (`.github/pull_request_template.md` carries a checklist
   reminder for this + the CLAUDE.md-currency rule.)
-- **`gh` CLI and project-dependency installs live in two different
-  mechanisms, on purpose.** The cloud environment's **setup script** installs
-  `gh`, a pinned global `wrangler` matching the `package.json` devDependency,
-  and `mcp-publisher` (`go install`, see the MCP Registry section) — CLI
-  tools the environment needs but that aren't tied to this repo's state. The
-  copy that RUNS is configured in the environment UI (a session cannot write
-  environment settings), but a **reference copy is committed at
-  `scripts/setup-environment.sh`** so it's reviewable and recoverable —
-  editing that file does NOT deploy it; paste it into the UI or the two
-  diverge. It
-  only reruns when the setup script itself changes, the environment's allowed
-  network hosts change, or on its own ~7-day cache expiry; resuming a session
-  never reruns it. Project dependencies (`npm ci`) instead live in a repo
-  **`SessionStart` hook** (`.claude/settings.json` → `scripts/install_pkgs.sh`),
-  which reruns on every session including resumed ones — required so
-  `node_modules` never lags a setup-script cache that's days stale relative
-  to whatever's actually committed to `package.json` right now. Don't move
-  `npm ci`/`npm install` into the setup script field even though its own
-  placeholder text (shown when the field is empty) suggests `npm install`
-  there — that's a generic example, not repo-specific guidance.
-- **Two things the setup script gets wrong if written naively** (both found by
-  auditing the script against what the container actually had, 2026-07-26):
-  (1) **`go install` puts `publisher` somewhere not on PATH.** `GOBIN` is
-  unset and `GOPATH` is `/root/go`, so the binary lands in `/root/go/bin`,
-  which this image does NOT have on PATH — the install succeeds and `which
-  publisher` still finds nothing. `GOBIN=/usr/local/bin go install …` fixes
-  it. **If a session finds `publisher` missing from PATH, the environment was
-  built by the older script** — fall back to `~/go/bin/publisher` rather than
-  assuming the install failed. (2) **`(cmd || true) &` + a bare `wait` makes
-  every failure invisible**: the script exits 0 with no output even when an
-  install fails, and because it only reruns on edit/cache-expiry that silence
-  persists for days. Keep it non-fatal, but log per-job success/failure and
-  assert each tool resolves on PATH at the end — "installed" is not
-  "runnable". Also prefer `apt-get` over `apt` in scripts (`apt` warns its CLI
-  is unstable) and set `DEBIAN_FRONTEND=noninteractive`.
+- **There is no `SessionStart` hook and no committed setup script. Both were
+  removed 2026-07-27, deliberately — don't re-add them.** They automated two
+  things nothing actually depended on, and each carried a trap that cost more
+  than the automation saved.
+  - **The hook** (`.claude/settings.json` → `scripts/install_pkgs.sh`) ran
+    `npm ci || npm install` on every session *including resumes*. CI never
+    needed it — `.github/workflows/deploy.yml` runs its own `setup-node` +
+    `npm ci` — so it only served interactive sessions, at ~4-9s each. The
+    `|| npm install` fallback was the real hazard: when `npm ci` fails
+    (lockfile drift, registry hiccup), `npm install` **rewrites
+    `package-lock.json` and leaves the tree dirty at session start**, so a
+    later `git add -A` silently sweeps an unrelated lockfile change into the
+    commit. **Now: run `npm ci` yourself** when a session needs
+    `node_modules` (dry-run build, or `wrangler dev` for the SW test).
+  - **`scripts/setup-environment.sh`** was only ever a *reference copy* — the
+    copy that RUNS is configured in the environment UI, which a session cannot
+    write. Editing the file deployed nothing, yet it sat in `scripts/` where
+    everything else genuinely executes; PR #114 "fixed a PATH bug" in a file
+    that cannot run. **Deleting it does not stop the environment's setup
+    script** — if that UI field is still populated it keeps installing `gh`, a
+    global `wrangler`, and `publisher` on each environment build. Only
+    clearing the field stops it.
+  - **If that field is cleared**, future containers lose `gh`, global
+    `wrangler`, and `publisher`. None are load-bearing: `mcp__github__*`
+    covers GitHub, `npx wrangler` covers deploys, and `publisher` is needed
+    only to push a new MCP registry version. Two facts worth keeping from the
+    old script, since they cost a session to find: `go install
+    github.com/modelcontextprotocol/registry/cmd/publisher@latest` needs
+    **`GOBIN=/usr/local/bin`** or the binary lands in `/root/go/bin`, which is
+    NOT on PATH (install succeeds, `which publisher` finds nothing); and in
+    any background-install script, `(cmd || true) &` plus a bare `wait` makes
+    every failure invisible — log per-job status and assert each tool resolves
+    on PATH, because "installed" is not "runnable".
 - **`gh` auth**: this environment sets both `GH_TOKEN` and `GITHUB_TOKEN` to
   real personal access tokens (not the `proxy-injected` sentinel the GitHub
   proxy can substitute automatically), so `gh` authenticates via `GH_TOKEN`
@@ -213,18 +211,41 @@ directory name becomes the `/command`. Current skills:
 - `wranglerVersion: "4"` is required in the wrangler-action config. Without it, the action
   installs wrangler 3.x, which can't parse `wrangler.jsonc` and fails with "Missing entry-point".
   The deploy action installs the latest 4.x; the build-check job and local dev use the repo's
-  pinned `wrangler` devDependency (see `package.json`, via `npm ci`) so the dry-run, local
-  `wrangler dev`, and prod runtime stay aligned. **The version lives in three places** —
-  `package.json`'s devDependency, the global pin in `scripts/setup-environment.sh`, and
-  whatever the deploy action resolves — so a bump has to touch the first two together. The
-  number is deliberately NOT repeated in this file: PR #109 bumped `^4.107.0` → `^4.114.0`
+  pinned `wrangler` devDependency (see `package.json`, via `npm ci`) so the dry-run and the
+  prod runtime stay aligned. **`package.json` is the only place the number lives** — it is
+  deliberately NOT repeated in this file, because PR #109 bumped `^4.107.0` → `^4.114.0`
   and left the prose here stale for exactly that reason.
-- **Compatibility date gotcha:** `wrangler.jsonc`'s `compatibility_date` (currently
-  `2026-07-01`) must be ≤ the bundled `workerd`'s ceiling. Production always runs the newest
-  `workerd`, so any past date is fine there — but a *local* `wrangler dev` on an older pinned
-  wrangler fails with "The Workers runtime failed to start" if the date is newer than its
-  runtime. So bump the `wrangler` devDependency and the compat date together, and re-run
-  `wrangler dev` to confirm the runtime still boots.
+- **Compatibility date gotcha — the constraint is ONE-directional.**
+  `wrangler.jsonc`'s `compatibility_date` (currently `2026-07-01`) must be ≤ the bundled
+  `workerd`'s ceiling. Production always runs the newest `workerd`, so any past date is
+  fine there. Read the two directions separately:
+  - **Bumping `wrangler` RAISES the ceiling, so it can never violate the constraint.**
+    A wrangler-only bump needs no `wrangler dev` boot check. This file used to say "bump
+    both together and re-run `wrangler dev`", which read as though a wrangler bump required
+    the check — it doesn't, and that sentence cost a session chasing a non-problem. #109
+    bumped wrangler without booting dev and did no harm (confirmed after the fact: 4.114.0
+    boots fine against `2026-07-01`).
+  - **RAISING `compatibility_date` is the risky move** — that's what can exceed an older
+    pinned wrangler's runtime and fail with "The Workers runtime failed to start". CI never
+    runs `wrangler dev`, so it cannot catch this; a local `npx wrangler dev` is the only
+    check that does. Run it when you change the DATE, not when you change the version.
+- **Verification gate is `node --check` + `npx wrangler deploy --dry-run`.** Dry-run parses
+  `wrangler.jsonc`, resolves bindings, and bundles — no auth, exits 0, ~10s. It does not
+  execute your code, but the answer to that is `/verify-site` against the live deploy after
+  CI ships it, not a local boot. **Don't add `wrangler dev` to routine verification:** it's
+  a server, so it never exits 0, and whatever kills it (the 120s command timeout → 124, a
+  SIGTERM → 143) reads as a failure even though it served fine. Judge it by whether it
+  answers HTTP, never by exit status. The one place it genuinely belongs is
+  `scripts/test-sw-offline.mjs`, which needs a killable server and already does this right
+  (polls `/api/health`, ignores exit codes).
+- **`wrangler <cmd> | head -N` HANGS.** wrangler doesn't exit on EPIPE, so a short `head`
+  closes the pipe and wedges the process until the command timeout kills it — burning the
+  full 120s and printing nothing useful. The proxy banner (warning + 2 blank lines) means
+  even `--version | head -2` truncates inside the banner and hangs. Verified 2026-07-27:
+  `wrangler --version | head -2` → hang/124; `| head -20` and no-pipe → `4.114.0`, exit 0.
+  Redirect to a file and read it, or use `tail`, or drain the pipe. (`/kv`'s
+  `... | python3 -m json.tool | head -40` survives only because `json.tool` buffers the whole
+  document before writing, so `head` never truncates mid-stream — luck, not design.)
 - `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"` is set on the deploy step (GitHub is migrating
   Actions to Node 24; this opts in early to suppress deprecation failures).
 - The workflow installs **Node 22** via `actions/setup-node@v4` for the job steps (the
@@ -1167,14 +1188,14 @@ directory name becomes the `/command`. Current skills:
   environment's network access level, and `modelcontextprotocol/registry` (the
   release's source repo) isn't one of the repos attached here. `go install`
   sidesteps this entirely since it's served from the Go module proxy, never a
-  GitHub release asset. Since this listing gets updated regularly, `go install
-  ...@latest` for `publisher` lives in the cloud environment's **setup
-  script** (see Agent operating notes) so the binary is already on disk at the
-  start of every session instead of being reinstalled on demand. **Check
-  `command -v publisher` before assuming it's callable by name** — the
-  setup script only puts it on PATH if it sets `GOBIN` (the PATH gotcha in
-  Agent operating notes); environments built by the older script have it at
-  `~/go/bin/publisher`, off PATH.
+  GitHub release asset. **Check `command -v publisher` first** — whether it's
+  already on disk depends on whether the environment UI still has a setup
+  script configured (see Agent operating notes; the committed copy was removed
+  2026-07-27). If it's missing, install it on demand with
+  `GOBIN=/usr/local/bin go install
+  github.com/modelcontextprotocol/registry/cmd/publisher@latest` — **the
+  `GOBIN` is required**, or the binary lands in `/root/go/bin`, which is not
+  on PATH, and the install "succeeds" while `which publisher` finds nothing.
 - **To update the listing** (new tools, a metadata change): bump `version` in
   `server.json`, then re-auth + publish. Because the publish keypair is
   ephemeral, the flow is: `openssl genpkey -algorithm Ed25519 -out key.pem` →
