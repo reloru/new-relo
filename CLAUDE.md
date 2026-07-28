@@ -60,7 +60,10 @@ as a coding agent. A human reading for site behavior can skip this section.
 - **For an HTTP status, use `curl -s -o /dev/null -w "%{http_code}"`.** With
   `curl -sI` the proxy's CONNECT tunnel prepends `HTTP/1.1 200 Connection
   Established`, so the first `HTTP/...` line is not the response's and a `301`
-  reads as `200`.
+  reads as `200`. `-sI` is still fine when you want the headers themselves —
+  print *every* `^HTTP` line plus `location:` and read them, e.g.
+  `curl -sI "$url" | grep -iE "^HTTP/|^location:"`. It's `head -1` / `grep -m1`
+  that does the damage, not `-sI`.
 ## Claude Code PR workflow (merge autonomy)
 Owner policy (set 2026-07-14): a Claude Code session owns its PR end-to-end
 and does not wait for human approval at any step.
