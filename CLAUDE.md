@@ -47,15 +47,6 @@ as a coding agent. A human reading for site behavior can skip this section.
   describes (KV keys, routes, deploy steps), grep the skills directory too,
   not just this file. (`.github/pull_request_template.md` carries a checklist
   reminder for this + the CLAUDE.md-currency rule.)
-- **Run `npm ci` yourself** when a session needs `node_modules`. There is no
-  session hook and CI installs its own. Don't add one: an
-  `npm ci || npm install` fallback rewrites `package-lock.json` on failure and
-  leaves the tree dirty for the next `git add -A`.
-- **`gh`, a global `wrangler`, and `publisher` are not installed** — the
-  environment has no setup script (verify with `command -v`, don't assume).
-  Nothing in the repo needs them: use `mcp__github__*` for GitHub, `npx
-  wrangler` for Worker commands, and install `publisher` on demand (MCP
-  Registry section).
 - **Parse GitHub API JSON with `jq` or `python3`, never `grep`** — fields sit on
   separate lines, so a pattern spanning two of them silently never matches and a
   poll loop spins forever.
