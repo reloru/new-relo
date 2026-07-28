@@ -51,8 +51,11 @@ print a one-line "Cloudflare agent skills are available" banner — cosmetic;
 Wait a few seconds, then confirm the live site — run the `/verify-site` checks,
 or at minimum re-fetch the homepage and any route you touched:
 ```bash
-curl -sI https://crosbynews.com/ | head
+curl -s -o /dev/null -w "%{http_code}\n" https://crosbynews.com/
 ```
+Use `-o /dev/null -w`, not `curl -sI`: the proxy prepends an `HTTP/1.1 200
+Connection Established` CONNECT line, so the first `HTTP/...` line isn't the
+response's and a `301` misreads as `200` (see `/verify-site`).
 If a change looks missing right after deploy, wait and re-check before calling it
 a failure — propagation isn't instant.
 

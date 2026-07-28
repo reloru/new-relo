@@ -51,14 +51,11 @@ as a coding agent. A human reading for site behavior can skip this section.
   session hook and CI installs its own. Don't add one: an
   `npm ci || npm install` fallback rewrites `package-lock.json` on failure and
   leaves the tree dirty for the next `git add -A`.
-- **`gh`, a global `wrangler`, and `publisher` come from a setup-script field
-  in the environment UI**, which a session can neither read nor write. Nothing
-  in the repo depends on them — use `mcp__github__*`, `npx wrangler`, and
-  install `publisher` on demand (MCP Registry section).
-- **`gh`**, when present: `GH_TOKEN` is a real PAT, so no `gh auth login`.
-  `gh auth status` false-negatives on a valid token — check with `gh api user`.
-  GraphQL-backed subcommands (`gh repo view`) 403 through the proxy; use
-  `gh api repos/{owner}/{repo}/...` (REST).
+- **`gh`, a global `wrangler`, and `publisher` are not installed** — the
+  environment has no setup script (verify with `command -v`, don't assume).
+  Nothing in the repo needs them: use `mcp__github__*` for GitHub, `npx
+  wrangler` for Worker commands, and install `publisher` on demand (MCP
+  Registry section).
 - **Parse GitHub API JSON with `jq` or `python3`, never `grep`** — fields sit on
   separate lines, so a pattern spanning two of them silently never matches and a
   poll loop spins forever.
@@ -1066,10 +1063,13 @@ directory name becomes the `/command`. Current skills:
   `server.json` does NOT publish; the listing only moves when someone runs the
   publish flow below, so a bumped-but-unpublished version is normal, and an
   unpublished version is skipped rather than backfilled.
-- **Four hand-maintained places list the tools — update them with any new tool:**
-  `CROSBY_WEATHER_SKILL` (served at
+- **Six hand-maintained places name the tools — update every one when adding a
+  tool.** `mcpTools()` is the only generated list; the rest are prose that goes
+  stale silently: `CROSBY_WEATHER_SKILL` (served at
   `/.well-known/agent-skills/crosby-weather/SKILL.md`), `mcpServerCard()`'s
-  `description`, the MCP `instructions`, and `llmsTxt()`.
+  `description`, the MCP `initialize` `instructions`, `llmsTxt()`, and the
+  `MCP server` section of **both** `DEVELOPERS` and `DEVELOPERS_ES`
+  (the `/developers` page). `README.md` lists them too.
 - **Namespace auth = DNS.** The `com.crosbynews` namespace is proven by a TXT
   record on the apex `crosbynews.com`: `v=MCPv1; k=ed25519; p=<base64 pubkey>`
   (added via the Cloudflare DNS API alongside the SPF/DKIM/DMARC/DNS-AID
