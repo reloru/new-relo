@@ -52,6 +52,14 @@ the `location:` header:
 
 `https://crosbynews.com/` itself must NOT redirect (expect `200`).
 
+**`http://www` false-fails from a session.** Plain-HTTP requests to
+`www.crosbynews.com` intermittently return a `503` with no `cf-ray`/`server:
+cloudflare` header — that's the sandbox's outbound proxy failing to relay, not
+the site (measured 2026-07-28: ~6 of 8 attempts, while `http://` apex was 12/12
+and `https://www` 6/6 clean, and a GET that does get through returns
+Cloudflare's real `301` page). Don't report it as a redirect regression. Re-run,
+confirm the same path over `https://www`, or check from outside the sandbox.
+
 **Parsing gotcha in this environment:** `curl -sI` here returns an extra
 `HTTP/1.1 200 Connection Established` CONNECT line before the real response
 (the session's outbound HTTPS proxy inserts it), so naively taking the first

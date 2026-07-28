@@ -47,76 +47,23 @@ as a coding agent. A human reading for site behavior can skip this section.
   describes (KV keys, routes, deploy steps), grep the skills directory too,
   not just this file. (`.github/pull_request_template.md` carries a checklist
   reminder for this + the CLAUDE.md-currency rule.)
-- **`gh` CLI and project-dependency installs live in two different
-  mechanisms, on purpose.** The cloud environment's **setup script** installs
-  `gh`, a pinned global `wrangler` matching the `package.json` devDependency,
-  and `mcp-publisher` (`go install`, see the MCP Registry section) — CLI
-  tools the environment needs but that aren't tied to this repo's state. The
-  copy that RUNS is configured in the environment UI (a session cannot write
-  environment settings), but a **reference copy is committed at
-  `scripts/setup-environment.sh`** so it's reviewable and recoverable —
-  editing that file does NOT deploy it; paste it into the UI or the two
-  diverge. It
-  only reruns when the setup script itself changes, the environment's allowed
-  network hosts change, or on its own ~7-day cache expiry; resuming a session
-  never reruns it. Project dependencies (`npm ci`) instead live in a repo
-  **`SessionStart` hook** (`.claude/settings.json` → `scripts/install_pkgs.sh`),
-  which reruns on every session including resumed ones — required so
-  `node_modules` never lags a setup-script cache that's days stale relative
-  to whatever's actually committed to `package.json` right now. Don't move
-  `npm ci`/`npm install` into the setup script field even though its own
-  placeholder text (shown when the field is empty) suggests `npm install`
-  there — that's a generic example, not repo-specific guidance.
-- **Two things the setup script gets wrong if written naively** (both found by
-  auditing the script against what the container actually had, 2026-07-26):
-  (1) **`go install` puts `publisher` somewhere not on PATH.** `GOBIN` is
-  unset and `GOPATH` is `/root/go`, so the binary lands in `/root/go/bin`,
-  which this image does NOT have on PATH — the install succeeds and `which
-  publisher` still finds nothing. `GOBIN=/usr/local/bin go install …` fixes
-  it. **If a session finds `publisher` missing from PATH, the environment was
-  built by the older script** — fall back to `~/go/bin/publisher` rather than
-  assuming the install failed. (2) **`(cmd || true) &` + a bare `wait` makes
-  every failure invisible**: the script exits 0 with no output even when an
-  install fails, and because it only reruns on edit/cache-expiry that silence
-  persists for days. Keep it non-fatal, but log per-job success/failure and
-  assert each tool resolves on PATH at the end — "installed" is not
-  "runnable". Also prefer `apt-get` over `apt` in scripts (`apt` warns its CLI
-  is unstable) and set `DEBIAN_FRONTEND=noninteractive`.
-- **`gh` auth**: this environment sets both `GH_TOKEN` and `GITHUB_TOKEN` to
-  real personal access tokens (not the `proxy-injected` sentinel the GitHub
-  proxy can substitute automatically), so `gh` authenticates via `GH_TOKEN`
-  with no `gh auth login` step. The built-in `mcp__github__*` tools stay the
-  primary way to work issues/PRs; reach for `gh` only for what they don't
-  cover (`gh release`, `gh workflow run`, …). **Two gotchas verified
-  2026-07-26, installing `gh` ad hoc in a session:** (1) `gh auth status`
-  falsely reports the token as invalid — same false-negative pattern as the
-  Cloudflare token-verify quirk in the DNS-AID section below; sanity-check
-  auth with a real REST
-  call instead (`gh api user`, `gh api repos/{owner}/{repo}`), which worked
-  fine on the same token `gh auth status` rejected. (2) GraphQL-backed `gh`
-  commands (`gh repo view`, and likely others that don't take `--json`
-  against a REST equivalent) 403 through the GitHub proxy with an explicit
-  message that GraphQL is restricted to "a pinned set of PR-review
-  operations" — use `gh api repos/{owner}/{repo}/...` (REST) instead of the
-  higher-level `gh` subcommands for general reads.
-- **Parsing GitHub API JSON (`curl`/`gh api`) — don't `grep` across fields.**
-  GitHub returns pretty-printed JSON with each field on its own line, so a
-  `grep` pattern expecting two fields on the same line (e.g. checking a
-  check-run's `"name"` and `"status"` together) silently never matches — no
-  error, just a poll loop that spins forever without ever detecting
-  completion (burned ~7 minutes doing exactly this once). Use `jq` or
-  `python3 -c "import json..."` to parse structured API responses instead of
-  `grep`, especially in any `until`/poll loop.
-- **`curl -sI` through this environment's HTTPS proxy prepends an extra
-  status line.** A CONNECT-tunneled HTTPS request surfaces as `HTTP/1.1 200
-  Connection Established` before the real response's `HTTP/2 ...` line, so
-  code that grabs the first `HTTP/...` line reads the CONNECT line's `200`,
-  not the actual status (a real `301` can misread as `200` — see the
-  `/verify-site` skill, which hit this and now documents the fix inline).
-  Skip lines containing "Connection Established", and strip curl's trailing
-  `\r` on header values before any exact string comparison. Simplest fix:
-  prefer `curl -s -o /dev/null -w "%{http_code}"` for a bare status code — it
-  sidesteps the CONNECT line entirely.
+- **Reach for `gh` when `mcp__github__*` doesn't cover it** — account settings,
+  repo settings, Actions/workflows. It isn't installed by default:
+  `apt-get install -y gh` (Ubuntu repos, 2.45.x). Auth needs no setup —
+  `GH_TOKEN`/`GITHUB_TOKEN` are real PATs already in the environment, so
+  **never `gh auth login`**. `gh auth status` false-negatives on a valid token;
+  check with `gh api user`. GraphQL-backed subcommands (`gh repo view`) 403
+  through the proxy — use REST: `gh api repos/{owner}/{repo}/...`.
+- **Parse GitHub API JSON with `jq` or `python3`, never `grep`** — fields sit on
+  separate lines, so a pattern spanning two of them silently never matches and a
+  poll loop spins forever.
+- **For an HTTP status, use `curl -s -o /dev/null -w "%{http_code}"`.** With
+  `curl -sI` the proxy's CONNECT tunnel prepends `HTTP/1.1 200 Connection
+  Established`, so the first `HTTP/...` line is not the response's and a `301`
+  reads as `200`. `-sI` is still fine when you want the headers themselves —
+  print *every* `^HTTP` line plus `location:` and read them, e.g.
+  `curl -sI "$url" | grep -iE "^HTTP/|^location:"`. It's `head -1` / `grep -m1`
+  that does the damage, not `-sI`.
 ## Claude Code PR workflow (merge autonomy)
 Owner policy (set 2026-07-14): a Claude Code session owns its PR end-to-end
 and does not wait for human approval at any step.
@@ -174,19 +121,12 @@ directory name becomes the `/command`. Current skills:
 
 ## Deploy
 - Deploy with `npx wrangler deploy`. Never run `wrangler login`.
-- **Prefer `CLOUDFLARE_ZONE_API_TOKEN` over `CLOUDFLARE_API_TOKEN` for anything
-  scoped to this Worker/domain** — deploy, KV, and any future D1/R2/Queues
-  bindings. It's the default, not a last resort: there's no known downside to
-  using it here, and it carries wider permissions. Pair it with
-  `CLOUDFLARE_ACCOUNT_ID` — **not a zone id** — wrangler has no
-  `CLOUDFLARE_ZONE_ID` concept at all (confirmed against Cloudflare's own
-  env-var docs) and doesn't need one; verified 2026-07-26 with a real
-  `CLOUDFLARE_API_TOKEN=$CLOUDFLARE_ZONE_API_TOKEN npx wrangler deployments
-  list`, authenticated successfully using `CLOUDFLARE_ACCOUNT_ID` unchanged.
-  Reach for the plain `CLOUDFLARE_API_TOKEN` (account-scoped) only for
-  something genuinely account-level rather than specific to this Worker — it
-  still has some Workers/R2/D1 access, just narrower than the zone token.
-  Both are already set in the cloud environment.
+- **Use `CLOUDFLARE_ZONE_API_TOKEN` for anything scoped to this Worker/domain** —
+  deploy, KV, and any future D1/R2/Queues bindings. Pair it with
+  `CLOUDFLARE_ACCOUNT_ID`, **not a zone id**: wrangler has no
+  `CLOUDFLARE_ZONE_ID` concept. Reach for the plain `CLOUDFLARE_API_TOKEN`
+  (account-scoped, narrower) only for genuinely account-level work. Both are
+  set in the cloud environment.
 - This repo is the source of truth. Cloud sessions deploy from committed code,
   so commit before expecting a deploy to reflect a change.
 - If a deploy fails with an auth/permission error right after you add a new
@@ -213,14 +153,22 @@ directory name becomes the `/command`. Current skills:
 - `wranglerVersion: "4"` is required in the wrangler-action config. Without it, the action
   installs wrangler 3.x, which can't parse `wrangler.jsonc` and fails with "Missing entry-point".
   The deploy action installs the latest 4.x; the build-check job and local dev use the repo's
-  pinned `wrangler` devDependency (`^4.107.0`, via `npm ci`) so the dry-run, local `wrangler dev`,
-  and prod runtime stay aligned.
-- **Compatibility date gotcha:** `wrangler.jsonc`'s `compatibility_date` (currently
-  `2026-07-01`) must be ≤ the bundled `workerd`'s ceiling. Production always runs the newest
-  `workerd`, so any past date is fine there — but a *local* `wrangler dev` on an older pinned
-  wrangler fails with "The Workers runtime failed to start" if the date is newer than its
-  runtime. So bump the `wrangler` devDependency and the compat date together, and re-run
-  `wrangler dev` to confirm the runtime still boots.
+  pinned `wrangler` devDependency (see `package.json`, via `npm ci`) so the dry-run and the
+  prod runtime stay aligned. **`package.json` is the only place the version number lives —
+  don't repeat it here.**
+- **Compatibility date — the constraint is one-directional.** `compatibility_date`
+  (currently `2026-07-01`) must be ≤ the bundled `workerd`'s ceiling. Bumping `wrangler`
+  RAISES that ceiling, so a version bump can never violate it and needs no boot check.
+  Only RAISING the date is risky ("The Workers runtime failed to start"), and CI never runs
+  `wrangler dev`, so that's the one change worth a local `npx wrangler dev`.
+- **Verification gate: `node --check` + `npx wrangler deploy --dry-run`.** Runtime coverage
+  comes from `/verify-site` against the live deploy, not a local boot. Don't add
+  `wrangler dev` to routine checks — it's a server, so it never exits 0 (timeout → 124,
+  SIGTERM → 143) and reads as failed after serving fine. Judge it by HTTP, not exit status.
+  `scripts/test-sw-offline.mjs` is the one legitimate user and already does this right.
+- **`wrangler <cmd> | head -N` hangs** — wrangler doesn't exit on EPIPE, so a short `head`
+  wedges it until the command timeout. `--version | head -2` hangs; `| head -20` is fine.
+  Redirect to a file, or use `tail`.
 - `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"` is set on the deploy step (GitHub is migrating
   Actions to Node 24; this opts in early to suppress deprecation failures).
 - The workflow installs **Node 22** via `actions/setup-node@v4` for the job steps (the
@@ -249,16 +197,9 @@ directory name becomes the `/command`. Current skills:
 
 ## Domain
 - Live on crosbynews.com (apex + www) and the *.workers.dev URL.
-- **Preview URLs are OFF** (`*-crosbynews.reloru.workers.dev`, the per-version
-  wildcard subdomain) — disabled 2026-07-26 via `POST
-  /accounts/{account_id}/workers/scripts/crosbynews/subdomain` with
-  `{"enabled": true, "previews_enabled": false}` (`GET` on the same path
-  reads current state). It served no purpose: this repo's deploy path is
-  always a plain `wrangler deploy` straight to production, never `wrangler
-  versions upload` or gradual rollouts, so nothing was ever actually behind
-  that wildcard — it was just an open, unused surface. The **production**
-  `enabled` flag stays `true` (that's the intentional `*.workers.dev` URL
-  above); only `previews_enabled` was flipped.
+- **Preview URLs are OFF on purpose** — only `previews_enabled` is false;
+  production `enabled` stays `true` for the `*.workers.dev` URL above. Both at
+  `/accounts/{account_id}/workers/scripts/crosbynews/subdomain`.
 - Attachment (verified via API, added out-of-band — dashboard/API, not wrangler):
   apex `crosbynews.com` is a **Custom Domain**; `www.crosbynews.com/*` is a
   **Workers Route**. Both bind to the `crosbynews` worker.
@@ -273,25 +214,14 @@ directory name becomes the `/command`. Current skills:
   - target: `concat("https://crosbynews.com", http.request.uri.path)`, 301,
     preserve query string.
   - `https://crosbynews.com` matches neither clause → serves 200, no loop.
-  The `(not ssl)` clause is load-bearing: it upgrades http directly, so even
-  http://www reaches the apex in ONE hop (verified 2026-07-20:
-  `http://www.crosbynews.com/` → single 301 → `https://crosbynews.com/`).
-  Lives in the zone/dashboard, not wrangler.jsonc or fetch(); it matches
+  **The `(not ssl)` clause is load-bearing** — it upgrades http directly, so even
+  http://www reaches the apex in ONE hop. Don't remove it. Lives in the
+  zone/dashboard, not wrangler.jsonc or fetch(); it matches
   `<link rel="canonical">` and the sitemap `<loc>`.
-- "Always Use HTTPS" (SSL/TLS → Edge Certificates) is currently **ON** (verified
-  via the zone API 2026-07-20; last changed 2026-07-03). It's redundant with the
-  Redirect rule but harmless: Cloudflare runs Single Redirects BEFORE "Always Use
-  HTTPS", so the rule's `not ssl` clause always wins — no double redirect (the
-  http://www hop above lands straight on the apex, not on https://www first).
-  History, kept on purpose: this note used to say the setting was intentionally
-  OFF because "having both caused a 2-hop chain for http://www." That was true of
-  an EARLIER rule that lacked the `(not ssl)` clause (Always Use HTTPS did
-  http→https, then the rule did www→apex = 2 hops). The current rule (in place
-  since ~2026-06-07) upgrades http itself, so that chain can't recur while
-  `(not ssl)` stays in the expression. What flipped the setting back ON on
-  2026-07-03 is unknown. Net: ON or OFF are both fine as long as the rule keeps
-  `(not ssl)`; ON is the documented state and a safety net if the rule ever loses
-  that clause.
+- "Always Use HTTPS" (SSL/TLS → Edge Certificates) is **ON**. Redundant with the
+  Redirect rule but harmless: Cloudflare runs Single Redirects first, so the
+  rule's `(not ssl)` clause always wins and there's no double hop. Either state
+  is fine as long as that clause stays; ON is a safety net if it ever doesn't.
 - HSTS is enabled at the Cloudflare **zone edge** (SSL/TLS → Edge Certificates →
   HSTS: `max-age=63072000; includeSubDomains`, no preload) so the header lands on
   edge-generated responses too — notably the `www` → apex 301, which the Worker
@@ -1126,59 +1056,36 @@ directory name becomes the `/command`. Current skills:
   "streamable-http", url: "https://crosbynews.com/mcp" }]`. `server.json` at the
   repo root is the source of truth (validated with `mcp-publisher validate`).
   Verify: `curl "https://registry.modelcontextprotocol.io/v0.1/servers?search=com.crosbynews/weather"`.
-- **Three version numbers had drifted apart; two of them now move together.**
-  `server.json`'s `version` (the registry listing) and `MCP_SERVER_INFO.version`
-  in `src/index.js` (the `serverInfo` every `initialize` echoes) must be bumped
-  **in the same PR** whenever the tool set changes — they had reached 1.4.0 vs
-  1.2.0 because `get_air_quality` (#102) and `get_fishing` (#105) shipped
-  without a bump. Both are 1.5.0 as of the 2026-07-26 audit. (`/openapi.json`'s
-  `info.version` is a separate track: it describes the REST API, not the MCP
-  server.) **Bumping `server.json` does NOT publish** — the listing only moves
-  when someone runs the re-auth + publish flow below, so a bumped-but-
-  unpublished version is the normal state between publishes. The 2026-07-26
-  audit found the registry still serving 1.3.0 while the repo said 1.4.0;
-  **1.5.0 was published that day** and is now `isLatest`. Note 1.4.0 never
-  reached the registry at all — an unpublished bump is simply skipped, not
-  backfilled, so the published version history has a gap (1.3.0 → 1.5.0).
-  That's expected, not a failed publish.
-- **The agent skill drifts the same way.** `CROSBY_WEATHER_SKILL` in
-  `src/index.js` (served at `/.well-known/agent-skills/crosby-weather/SKILL.md`)
-  enumerates the endpoints and MCP tools by hand, so a new tool has to be added
-  there too — `get_traffic` (#99) and `get_fishing` (#105) were both missing
-  from it until the audit. Same for the two prose descriptions that list the
-  data sources (`mcpServerCard()`'s `description` and the MCP `instructions`).
+- **Bump `server.json`'s `version` and `MCP_SERVER_INFO.version` (`src/index.js`)
+  in the same PR** whenever the tool set changes. (`/openapi.json`'s
+  `info.version` is a separate track — it describes the REST API.) Bumping
+  `server.json` does NOT publish; the listing only moves when someone runs the
+  publish flow below, so a bumped-but-unpublished version is normal, and an
+  unpublished version is skipped rather than backfilled.
+- **Six hand-maintained places name the tools — update every one when adding a
+  tool.** `mcpTools()` is the only generated list; the rest are prose that goes
+  stale silently: `CROSBY_WEATHER_SKILL` (served at
+  `/.well-known/agent-skills/crosby-weather/SKILL.md`), `mcpServerCard()`'s
+  `description`, the MCP `initialize` `instructions`, `llmsTxt()`, and the
+  `MCP server` section of **both** `DEVELOPERS` and `DEVELOPERS_ES`
+  (the `/developers` page). `README.md` lists them too.
 - **Namespace auth = DNS.** The `com.crosbynews` namespace is proven by a TXT
   record on the apex `crosbynews.com`: `v=MCPv1; k=ed25519; p=<base64 pubkey>`
   (added via the Cloudflare DNS API alongside the SPF/DKIM/DMARC/DNS-AID
   records). **Leave that TXT record in place** — re-publishing/updating the
   listing re-checks it.
-- **The `mcp-publisher` CLI**: install with `go install
-  github.com/modelcontextprotocol/registry/cmd/publisher@latest` (needs Go
-  ≥1.26, which `GOTOOLCHAIN=auto` auto-fetches, and `GOSUMDB` left at its
-  default since `sum.golang.org` is reachable). The built binary is named
-  `publisher`. **Don't fetch the GitHub release binary instead** — it 403s,
-  and not from a generic network block: cloud sessions route GitHub traffic
-  through a dedicated GitHub proxy that scopes GitHub API + release-asset
-  requests to repositories attached to the session, regardless of the
-  environment's network access level, and `modelcontextprotocol/registry` (the
-  release's source repo) isn't one of the repos attached here. `go install`
-  sidesteps this entirely since it's served from the Go module proxy, never a
-  GitHub release asset. Since this listing gets updated regularly, `go install
-  ...@latest` for `publisher` lives in the cloud environment's **setup
-  script** (see Agent operating notes) so the binary is already on disk at the
-  start of every session instead of being reinstalled on demand. **Check
-  `command -v publisher` before assuming it's callable by name** — the
-  setup script only puts it on PATH if it sets `GOBIN` (the PATH gotcha in
-  Agent operating notes); environments built by the older script have it at
-  `~/go/bin/publisher`, off PATH.
+- **The `publisher` CLI**: `command -v publisher` first, then if missing
+  `GOBIN=/usr/local/bin go install
+  github.com/modelcontextprotocol/registry/cmd/publisher@latest`. **`GOBIN` is
+  required** — without it the binary lands in `/root/go/bin`, which is not on
+  PATH, and the install "succeeds" while `which publisher` finds nothing.
 - **To update the listing** (new tools, a metadata change): bump `version` in
   `server.json`, then re-auth + publish. Because the publish keypair is
   ephemeral, the flow is: `openssl genpkey -algorithm Ed25519 -out key.pem` →
   derive the pubkey (`openssl pkey -in key.pem -pubout -outform DER | tail -c
   32 | base64`) → overwrite the `crosbynews.com` MCP TXT record's content with
   the new `v=MCPv1; k=ed25519; p=…` → `publisher login dns --domain
-  crosbynews.com --private-key <hex>` → `publisher publish`. Practical notes
-  from the 2026-07-26 run:
+  crosbynews.com --private-key <hex>` → `publisher publish`. Notes:
   - **`xxd` is NOT installed in this environment**, so the usual `... | xxd -p`
     for the private-key hex fails with "command not found". Use
     `openssl pkey -in key.pem -outform DER | tail -c 32 | od -An -tx1 | tr -d ' \n'`

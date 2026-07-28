@@ -7439,7 +7439,7 @@ const MCP_RESOURCES = [
     uri: `${SITE}/openapi.json`,
     name: "crosbynews-openapi",
     title: "crosbynews.com API spec",
-    description: "OpenAPI 3.1 description of the weather, news, school-calendar, water-levels, tropics, and traffic API.",
+    description: "OpenAPI 3.1 description of the weather, air-quality, pollen, news, school-calendar, water-levels, fishing, tropics, and traffic API.",
     mimeType: "application/json",
   },
 ];
