@@ -197,11 +197,9 @@ directory name becomes the `/command`. Current skills:
 
 ## Domain
 - Live on crosbynews.com (apex + www) and the *.workers.dev URL.
-- **Preview URLs are OFF** (`*-crosbynews.reloru.workers.dev`, the per-version
-  wildcard) — nothing is ever behind it, since the deploy path is always a plain
-  `wrangler deploy` to production. Production `enabled` stays `true` (the
-  intentional `*.workers.dev` URL above); only `previews_enabled` is false.
-  Read/set at `/accounts/{account_id}/workers/scripts/crosbynews/subdomain`.
+- **Preview URLs are OFF on purpose** — only `previews_enabled` is false;
+  production `enabled` stays `true` for the `*.workers.dev` URL above. Both at
+  `/accounts/{account_id}/workers/scripts/crosbynews/subdomain`.
 - Attachment (verified via API, added out-of-band — dashboard/API, not wrangler):
   apex `crosbynews.com` is a **Custom Domain**; `www.crosbynews.com/*` is a
   **Workers Route**. Both bind to the `crosbynews` worker.
