@@ -1078,10 +1078,6 @@ directory name becomes the `/command`. Current skills:
   github.com/modelcontextprotocol/registry/cmd/publisher@latest`. **`GOBIN` is
   required** — without it the binary lands in `/root/go/bin`, which is not on
   PATH, and the install "succeeds" while `which publisher` finds nothing.
-  Don't fetch the GitHub release binary: it 403s, because cloud sessions scope
-  GitHub release-asset requests to repos attached to the session, and
-  `modelcontextprotocol/registry` isn't one. `go install` is served from the Go
-  module proxy and sidesteps that.
 - **To update the listing** (new tools, a metadata change): bump `version` in
   `server.json`, then re-auth + publish. Because the publish keypair is
   ephemeral, the flow is: `openssl genpkey -algorithm Ed25519 -out key.pem` →
