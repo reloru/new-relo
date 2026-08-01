@@ -69,7 +69,7 @@ A throw outside that `Promise.all` renders `renderError` with a 502.
 
 ## CSP
 
-Inlines `HOME_SCRIPT` in a `<script>` block — 15-minute auto-refresh, service
+Inlines `HOME_SCRIPT` (`src/assets/client-scripts.js`) in a `<script>` block — 15-minute auto-refresh, service
 worker registration, and WebMCP tool registration (`get_crosby_forecast`,
 `get_crosby_alerts` via `navigator.modelContext`, backed by `/api/weather`).
 

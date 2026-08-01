@@ -244,7 +244,17 @@ directory name becomes the `/command`. Current skills:
 ## Conventions
 - Plain Workers, ES modules (`export default { fetch, scheduled }`). No
   framework and no runtime dependencies — standard `fetch` + Workers KV only.
-- Layout: `src/index.js` is the single entry point; `wrangler.jsonc` is config.
+- Layout: `src/index.js` is the entry point Wrangler resolves via `wrangler.jsonc`'s
+  `main`; supporting modules live alongside it under `src/`. **`src/assets/`
+  holds the inline client-side assets** (`icons.js`, `sw-script.js`,
+  `base-css.js`, `client-scripts.js`) — template literals whose escape sequences
+  belong to the *shipped* string, not to the source file. Move or edit their
+  content, never their framing: reformatting silently ships broken client JS
+  that `node --check` cannot see, because to the Worker it is all just a string.
+  When touching them, verify the bytes, not the syntax — the CSP header
+  publishes the SHA-256 of `HOME_SCRIPT`, `PUSH_CLIENT_SCRIPT` and
+  `NEWS_ADMIN_SCRIPT`, and `/sw.js` is `SW_SCRIPT` verbatim, so a before/after
+  digest comparison against the live site is a complete check.
 - Security headers: the `fetch` wrapper stamps every response with HSTS,
   `X-Frame-Options: SAMEORIGIN`, CSP (homepage inline script allow-listed by
   hash — see `contentSecurityPolicy()`), `Cross-Origin-Opener-Policy`,

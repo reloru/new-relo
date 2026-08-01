@@ -5,7 +5,7 @@ is at its flakiest exactly when the site matters most.
 
 | | |
 |---|---|
-| **Source** | the `SW_SCRIPT` constant, served **byte-for-byte** |
+| **Source** | the `SW_SCRIPT` constant (`src/assets/sw-script.js`), served **byte-for-byte** |
 | **Content-type** | `text/javascript; charset=utf-8` |
 | **Cache** | `no-cache` — so a deploy is picked up on the next visit rather than after a stale-cache window |
 | **Registered from** | `HOME_SCRIPT`, so the registration's CSP hash recomputes automatically |

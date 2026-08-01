@@ -86,7 +86,7 @@ Markdown output never gets the admin view: `adminOn` requires `!wantsMarkdown`.
 
 ## CSP
 
-Inlines `NEWS_ADMIN_SCRIPT`, but **only when the admin view is active**. It is
+Inlines `NEWS_ADMIN_SCRIPT` (`src/assets/client-scripts.js`), but **only when the admin view is active**. It is
 hash-allow-listed by `contentSecurityPolicy()` unconditionally, because the CSP
 header is computed once per isolate and shared across all responses. The script's
 bytes are language-agnostic (labels come from `data-*` attributes), so one hash

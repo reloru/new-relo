@@ -4,7 +4,7 @@ The web app manifest. Makes the site installable and names the PWA.
 
 | | |
 |---|---|
-| **Source** | the `MANIFEST` object, `JSON.stringify(…, null, 2)` |
+| **Source** | the `MANIFEST` object (`src/assets/icons.js`), `JSON.stringify(…, null, 2)` |
 | **Content-type** | `application/manifest+json; charset=utf-8` |
 | **Cache** | `public, max-age=3600` |
 
