@@ -197,8 +197,14 @@ export const trafficIsWater = (type) => /high water|flood/i.test(String(type));
 // Coordinates are facts for "which camera is near me"; images are NEVER
 // embedded or proxied (TxDOT terms) — the pageUrl points at TranStar's own
 // per-roadway camera page.
+//
+// The host is `traffic.`, NOT `www.` — TranStar moved the camera pages and
+// `www.houstontranstar.org/cctv/...` now 404s (its /cctv/ serves a PDF), which
+// silently broke every camera link on this page and every `cameras[].pageUrl`
+// in /api/traffic. The other TranStar URLs below are on `traffic.` too; only
+// the plain attribution link in the footer still points at `www.`.
 export const transtarCameraPage = (roadway) =>
-  `https://www.houstontranstar.org/cctv/transtar/by_roadway.aspx?mnu=freeway&rd=${roadway.replace(/ /g, "_")}`;
+  `https://traffic.houstontranstar.org/cctv/transtar/by_roadway.aspx?mnu=freeway&rd=${roadway.replace(/ /g, "_")}`;
 export const TRAFFIC_CAMERAS = [
   { name: "US-90 @ Hunting Bayou", roadway: "US-90", lat: 29.788556, lon: -95.240142 },
   { name: "US-90 @ S Lake Houston Pkwy", roadway: "US-90", lat: 29.812607, lon: -95.210381 },
