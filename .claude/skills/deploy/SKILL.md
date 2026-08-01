@@ -24,9 +24,15 @@ pass while an imported module was unparseable.
 ```bash
 find src -name '*.js' -print0 | xargs -0 -n1 node --check
 ```
-`node --check` catches syntax errors but NOT a missing or renamed export, which
-is the failure a multi-file source tree invites. The dry-run in step 3 is what
-catches that — treat it as a merge gate, not an optional extra.
+Then the cross-module reference check (also pure node, no install):
+```bash
+node scripts/check-module-refs.mjs
+```
+`node --check` catches syntax errors but NOT a missing or renamed export — the
+dry-run in step 3 catches that, so treat it as a merge gate, not an optional
+extra. And NEITHER catches a module using another module's export without
+importing it, because esbuild treats an unresolved identifier as a global. That
+is what `check-module-refs.mjs` is for; run all three.
 
 ## 2. Pre-flight — know what you're shipping
 `npx wrangler deploy` uploads the **current working tree**, not git. Deploying
