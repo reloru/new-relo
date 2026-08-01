@@ -7,7 +7,7 @@ Shared contract: `docs/endpoints/api/README.md`.
 
 | | |
 |---|---|
-| **Builder** | `apiPollen(data)` |
+| **Builder** | `apiPollen(data)` (`src/features/pollen.js`) |
 | **Loader** | `loadPollen(env)` → `pollen` KV |
 | **Cache** | `public, max-age=1800` |
 | **ETag seed** | `` `${data.countDate}|${data.updated}` `` |

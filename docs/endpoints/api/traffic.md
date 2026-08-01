@@ -6,7 +6,7 @@ Shared contract: `docs/endpoints/api/README.md`.
 
 | | |
 |---|---|
-| **Builder** | `apiTraffic(data)` |
+| **Builder** | `apiTraffic(data)` (`src/features/traffic.js`) |
 | **Loader** | `loadTraffic(env)` → `traffic` KV |
 | **Cache** | `public, max-age=300` |
 | **ETag seed** | `data.updated` |

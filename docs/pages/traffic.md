@@ -4,7 +4,7 @@ Incidents and lane closures on the Crosby-area corridors, from Houston TranStar.
 
 | | |
 |---|---|
-| **Handlers** | `trafficHtml(data, lang)` / `trafficMarkdown(data, lang)` — `src/index.js` |
+| **Handlers** | `trafficHtml(data, lang)` / `trafficMarkdown(data, lang)` — `src/features/traffic.js` |
 | **Route** | `_fetch` → `page === "/traffic"` |
 | **Spanish** | `/es/traffic` |
 | **Cache** | `public, max-age=300` |
