@@ -6,7 +6,7 @@ Shared contract: `docs/endpoints/api/README.md`.
 
 | | |
 |---|---|
-| **Builder** | `apiFishing(data)` |
+| **Builder** | `apiFishing(data)` (`src/features/fishing.js`) |
 | **Loader** | `loadFishing(env)` → `fishing` KV |
 | **Cache** | `public, max-age=300` |
 | **ETag seed** | `data.updated` |

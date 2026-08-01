@@ -4,7 +4,7 @@ Live USGS water conditions for the waters people actually fish near Crosby.
 
 | | |
 |---|---|
-| **Handlers** | `fishingHtml(data, lang)` / `fishingMarkdown(data, lang)` — `src/index.js` |
+| **Handlers** | `fishingHtml(data, lang)` / `fishingMarkdown(data, lang)` — `src/features/fishing.js` |
 | **Route** | `_fetch` → `page === "/fishing"` |
 | **Spanish** | `/es/fishing` |
 | **Cache** | `public, max-age=300` |
