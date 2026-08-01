@@ -15,7 +15,7 @@ No query parameters are read by any of them.
 
 ## Conditional GET
 
-All nine go through `conditional(request, seed, make, headers)`:
+All nine go through `conditional(request, seed, make, headers)` (`src/lib/http.js`):
 
 - **ETag** — weak, `W/"<seed>"`, with any `"` stripped from the seed.
 - **Last-Modified** — set only when the seed parses as a date. Informational;
