@@ -22,6 +22,11 @@ jobs:
           node-version: '22'
       - name: Check JS syntax
         run: find src -name '*.js' -print0 | xargs -0 -n1 node --check
+      # `node --check` doesn't follow imports and esbuild treats an unresolved
+      # identifier as a global, so neither gate sees a module using another
+      # module's export without importing it. This does. Pure node, no install.
+      - name: Check cross-module references
+        run: node scripts/check-module-refs.mjs
 
   # Build gate: parse wrangler.jsonc and bundle the Worker without uploading.
   # Catches config/bundling errors and the compat-date/wrangler-pin coupling

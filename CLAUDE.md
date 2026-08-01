@@ -155,9 +155,19 @@ directory name becomes the `/command`. Current skills:
     see. No auth needed (`--dry-run` uploads nothing). NOT a required check (adding it to branch
     protection needs the admin API), but **the deploy job `needs` it**, so a broken build blocks
     the prod deploy even though a PR could technically still be merged with it red.
-    **Treat a green dry-run as a hard merge gate anyway.** It is the only check that resolves
-    imports, so it is the only one that catches a missing or renamed export across files —
-    exactly the failure a multi-file `src/` invites, and one `node --check` cannot see.
+    **Treat a green dry-run as a hard merge gate anyway.** It resolves imports, so it catches
+    a missing or renamed export across files — a failure `node --check` cannot see.
+    **But it does NOT catch a module using another module's export without importing it**:
+    esbuild treats an unresolved identifier as a *global* and emits no error. That gap is
+    covered by the third step below.
+  - **Check cross-module references** (`node scripts/check-module-refs.mjs`) — runs inside the
+    required `Syntax check` job (pure node, no install). Flags any module referencing a name
+    exported elsewhere under `src/` without importing or declaring it. Added after a real
+    escape during the decomposition: `src/lib/format.js` used `TZ` without importing it and
+    BOTH gates went green. It wouldn't even have crashed — `fmt()` wraps its body in
+    try/catch and returns `""`, so every timestamp, day heading and "Updated" stamp on the
+    site would have silently rendered empty. A swallowed `ReferenceError` is worse than a
+    loud one.
   - **Deploy** (`cloudflare/wrangler-action@v3`) — runs on push to `main` only, after BOTH checks
     pass (`needs: [check, build]`). Has a `concurrency: { group: deploy-production,
     cancel-in-progress: false }` guard so two quick squash-merges deploy in order instead of
