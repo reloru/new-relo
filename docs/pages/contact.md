@@ -4,17 +4,17 @@ General and security contact addresses.
 
 | | |
 |---|---|
-| **Handlers** | `contactHtml(lang)` / `contactMarkdown(lang)` — `src/index.js` |
+| **Handlers** | `contactHtml(lang)` / `contactMarkdown(lang)` — `src/pages/contact.js` |
 | **Content** | `CONTACT` / `CONTACT_ES` objects |
 | **Route** | `_fetch` → `page === "/contact"` |
 | **Spanish** | `/es/contact` |
 | **Cache** | `public, max-age=3600` |
 | **Negotiation** | `Accept: text/markdown` or `?format=md`; `Vary: Accept` |
 
-> **Note for the decomposition:** like `PRIVACY`, the `CONTACT` and `CONTACT_ES`
-> content objects live inside the `// --- About page ---` banner region of
-> `src/index.js`, well above the render functions that use them. See
-> `docs/audit/2026-07-30-state.md`, section (a).
+The content objects and the renderers now live together in `src/pages/contact.js`.
+They were split across the old file — the objects filed inside the About-page
+region, hundreds of lines from the renderers reading them — which the
+decomposition reunited.
 
 ## Content blocks
 
