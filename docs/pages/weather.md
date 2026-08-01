@@ -59,7 +59,7 @@ On throw: `renderError`, 502.
 
 ## CSP
 
-Inlines `HOME_SCRIPT`, hash-allow-listed by `contentSecurityPolicy()`. One of
+Inlines `HOME_SCRIPT` (`src/assets/client-scripts.js`), hash-allow-listed by `contentSecurityPolicy()`. One of
 only two pages that carry it (the other is `/`).
 
 ## Locale

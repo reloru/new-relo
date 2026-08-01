@@ -68,7 +68,7 @@ Weather Statement correctly did not push.
 
 ## CSP
 
-Inlines `PUSH_CLIENT_SCRIPT`, hash-allow-listed by `contentSecurityPolicy()`.
+Inlines `PUSH_CLIENT_SCRIPT` (`src/assets/client-scripts.js`), hash-allow-listed by `contentSecurityPolicy()`.
 The script's bytes are **language-agnostic** — every user-facing string is read
 from `data-*` attributes on `#push-optin` — so one hash serves both languages.
 This is the only page that carries it.

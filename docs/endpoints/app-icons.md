@@ -3,6 +3,8 @@
 Five paths, three constants, one visual identity: a sun behind a cloud on brand
 navy.
 
+All three constants live in `src/assets/icons.js`.
+
 | Path(s) | Source | Content-type | Cache |
 |---|---|---|---|
 | `/favicon.ico`, `/favicon.svg` | `FAVICON_SVG` | `image/svg+xml; charset=utf-8` | `public, max-age=604800, immutable` |
