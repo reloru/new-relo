@@ -5,18 +5,17 @@ sources, analytics, and push notifications.
 
 | | |
 |---|---|
-| **Handlers** | `privacyHtml(lang)` / `privacyMarkdown(lang)` — `src/index.js` |
+| **Handlers** | `privacyHtml(lang)` / `privacyMarkdown(lang)` — `src/pages/privacy.js` |
 | **Content** | `PRIVACY` / `PRIVACY_ES` objects |
 | **Route** | `_fetch` → `page === "/privacy"` |
 | **Spanish** | `/es/privacy` |
 | **Cache** | `public, max-age=3600` |
 | **Negotiation** | `Accept: text/markdown` or `?format=md`; `Vary: Accept` |
 
-> **Note for the decomposition:** the `PRIVACY` and `PRIVACY_ES` content objects
-> currently live inside the `// --- About page ---` banner region of
-> `src/index.js`, several hundred lines above the render functions they feed.
-> A banner-to-banner cut would split this page across two modules. See
-> `docs/audit/2026-07-30-state.md`, section (a).
+The content objects and the renderers now live together in `src/pages/privacy.js`.
+They were split across the old file — the objects filed inside the About-page
+region, hundreds of lines from the renderers reading them — which the
+decomposition reunited.
 
 ## Content blocks
 
