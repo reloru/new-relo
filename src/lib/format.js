@@ -58,3 +58,10 @@ export function relTime(iso, lang) {
   const d = Math.round(hr / 24);
   return T(lang, `${d} day${d === 1 ? "" : "s"} ago`, `hace ${d} día${d === 1 ? "" : "s"}`);
 }
+
+// RFC 822 date for the RSS feeds. Falls back to now on an unparseable stamp,
+// so a feed never emits an invalid <pubDate>.
+export const rssDate = (x) => {
+  const d = new Date(x ?? Date.now());
+  return (isNaN(d.getTime()) ? new Date() : d).toUTCString();
+};

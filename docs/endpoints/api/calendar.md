@@ -6,7 +6,7 @@ Shared contract: `docs/endpoints/api/README.md`.
 
 | | |
 |---|---|
-| **Builder** | `apiCalendar(data)` |
+| **Builder** | `apiCalendar(data)` (`src/features/calendar.js`) |
 | **Loader** | `loadCalendar(env)` → `calendar` KV |
 | **Cache** | `public, max-age=1800` |
 | **ETag seed** | `data.updated` |
