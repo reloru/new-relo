@@ -40,7 +40,7 @@ Two Safari behaviors are baked into the click handler and must not be
    A slicker closed-form pad expression shipped broken once: `atob` threw on
    every subscribe attempt, in every browser.
 
-Only life-threatening **warnings** push (`SEVERE_PUSH_EVENTS`: Tornado, Flash
+Only life-threatening **warnings** push (`SEVERE_PUSH_EVENTS` in `src/push.js`: Tornado, Flash
 Flood, Hurricane, Hurricane Force Wind, Extreme Wind, Tropical Storm) — never
 watches or advisories, to avoid alert fatigue. Verified live: an active Special
 Weather Statement correctly did not push.

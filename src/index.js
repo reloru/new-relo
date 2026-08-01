@@ -52,6 +52,7 @@ import { MCP_CORS, mcpHandle, mcpJson, rpcError, mcpServerCard, mcpInfoHtml, mcp
 import { apiCatalog, openApiSpec } from "./api/openapi.js";
 import { llmsTxt, robotsTxt, sitemapXml, CROSBY_WEATHER_SKILL, contentSecurityPolicy, agentSkillsIndex } from "./discovery.js";
 import { alertsRss } from "./features/alerts.js";
+import { pushSevereAlerts, pushEndpointAllowed, pushKeyFor } from "./push.js";
 
 
 
@@ -990,134 +991,6 @@ async function _fetch(request, env, ctx) {
     }
 }
 
-// --- Severe-alert Web Push ---------------------------------------------------
-// Opt-in browser push for life-threatening warnings only. Design: the Worker
-// sends an EMPTY VAPID-authenticated wake-up (no encrypted payload — sidesteps
-// the ECDH/HKDF/AES-GCM payload encryption entirely); the service worker
-// composes the notification locally from /api/weather. We store only an
-// anonymous push endpoint + its keys (no personal data), one KV entry per
-// subscription under the `push:` prefix, and prune dead ones on 404/410.
-const PUSH_PREFIX = "push:";
-const PUSH_NOTIFIED_KEY = "push_notified"; // alert IDs already pushed (dedupe)
-// Warnings that earn a push — warnings only, never watches/advisories. Kept in
-// sync with PUSH_EVENTS in SW_SCRIPT.
-const SEVERE_PUSH_EVENTS = new Set([
-  "Tornado Warning",
-  "Flash Flood Warning",
-  "Hurricane Warning",
-  "Hurricane Force Wind Warning",
-  "Extreme Wind Warning",
-  "Tropical Storm Warning",
-]);
-// SSRF guard: the cron POSTs to whatever endpoint a subscription stored, so we
-// only ever accept real browser push-service hosts. Without this, a crafted
-// subscribe body could turn our cron into an SSRF vector.
-const PUSH_HOST_ALLOW = [
-  /\.googleapis\.com$/, // FCM (Chrome/Edge/Android)
-  /\.push\.apple\.com$/, // Safari/iOS
-  /\.notify\.windows\.com$/, // legacy Edge/Windows
-  /\.push\.services\.mozilla\.com$/, // Firefox
-];
-function pushEndpointAllowed(endpoint) {
-  try {
-    const u = new URL(endpoint);
-    return u.protocol === "https:" && PUSH_HOST_ALLOW.some((re) => re.test(u.hostname));
-  } catch {
-    return false;
-  }
-}
-
-const b64urlToBytes = (s) => {
-  s = String(s).replace(/-/g, "+").replace(/_/g, "/");
-  while (s.length % 4) s += "=";
-  const bin = atob(s);
-  const out = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-  return out;
-};
-const bytesToB64url = (bytes) => {
-  let bin = "";
-  for (const b of new Uint8Array(bytes)) bin += String.fromCharCode(b);
-  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-};
-const b64urlJson = (obj) => bytesToB64url(new TextEncoder().encode(JSON.stringify(obj)));
-
-// Build a VAPID Authorization header for a given push endpoint. Signs a short
-// ES256 JWT (WebCrypto ECDSA P-256 already yields the raw r||s form JWS wants,
-// so no DER unwrapping) with the private JWK secret. Returns null if the
-// VAPID secrets aren't configured, so the whole feature no-ops safely.
-async function vapidAuth(endpoint, env) {
-  if (!env.VAPID_PRIVATE_KEY || !env.VAPID_PUBLIC_KEY) return null;
-  const { origin } = new URL(endpoint);
-  const jwk = JSON.parse(env.VAPID_PRIVATE_KEY);
-  const key = await crypto.subtle.importKey("jwk", jwk, { name: "ECDSA", namedCurve: "P-256" }, false, ["sign"]);
-  const header = b64urlJson({ typ: "JWT", alg: "ES256" });
-  const payload = b64urlJson({ aud: origin, exp: Math.floor(Date.now() / 1000) + 12 * 3600, sub: "mailto:security@crosbynews.com" });
-  const unsigned = `${header}.${payload}`;
-  const sig = await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, key, new TextEncoder().encode(unsigned));
-  const jwt = `${unsigned}.${bytesToB64url(sig)}`;
-  return { Authorization: `vapid t=${jwt}, k=${env.VAPID_PUBLIC_KEY}` };
-}
-
-// Send one empty wake-up. 201/202 = accepted; 404/410 = subscription gone
-// (caller prunes). Returns the HTTP status (or 0 on network error).
-async function sendPush(subscription, env) {
-  const headers = await vapidAuth(subscription.endpoint, env);
-  if (!headers) return 0;
-  try {
-    const res = await fetch(subscription.endpoint, {
-      method: "POST",
-      headers: { ...headers, TTL: "3600", "Content-Length": "0", Urgency: "high" },
-    });
-    return res.status;
-  } catch (e) {
-    console.error("push send failed:", e && e.message);
-    return 0;
-  }
-}
-
-// A stable KV key for a subscription (hash of its endpoint), so re-subscribing
-// the same browser overwrites rather than duplicates.
-async function pushKeyFor(endpoint) {
-  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(endpoint));
-  return PUSH_PREFIX + [...new Uint8Array(buf)].slice(0, 16).map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-
-// Cron hook: if any NEW severe warning is active (not already notified), wake
-// every subscriber once, then remember the alert IDs so ongoing warnings don't
-// re-notify every 15 minutes. Prunes dead subscriptions and stale notified IDs.
-async function pushSevereAlerts(env, alerts) {
-  if (!env.VAPID_PRIVATE_KEY) return; // feature not configured
-  const severe = (alerts ?? []).filter((a) => SEVERE_PUSH_EVENTS.has(a.event));
-  const activeIds = severe.map((a) => a.id).filter(Boolean);
-  let notified = [];
-  try {
-    notified = (await env.WEATHER.get(PUSH_NOTIFIED_KEY, "json")) || [];
-  } catch {}
-  const fresh = activeIds.filter((id) => !notified.includes(id));
-  // Always reconcile the notified set to only-currently-active IDs (so an alert
-  // that clears and later reissues under a new ID can notify again).
-  const nextNotified = activeIds.slice();
-  if (JSON.stringify(nextNotified.sort()) !== JSON.stringify([...notified].sort())) {
-    await env.WEATHER.put(PUSH_NOTIFIED_KEY, JSON.stringify(nextNotified));
-  }
-  if (!fresh.length) return; // nothing new to announce
-
-  const list = await env.WEATHER.list({ prefix: PUSH_PREFIX });
-  for (const k of list.keys) {
-    let sub = null;
-    try {
-      sub = await env.WEATHER.get(k.name, "json");
-    } catch {}
-    if (!sub || !sub.endpoint) {
-      await env.WEATHER.delete(k.name);
-      continue;
-    }
-    const status = await sendPush(sub, env);
-    if (status === 404 || status === 410) await env.WEATHER.delete(k.name); // gone — prune
-  }
-}
-// --- end Severe-alert Web Push -----------------------------------------------
 
 // The content pages, each its own canonical URL. Their responses get an HTTP
 // `Link: rel="canonical"` header in the wrapper below, so the content-negotiated
