@@ -269,7 +269,13 @@ directory name becomes the `/command`. Current skills:
 - Plain Workers, ES modules (`export default { fetch, scheduled }`). No
   framework and no runtime dependencies — standard `fetch` + Workers KV only.
 - Layout: `src/index.js` is the entry point Wrangler resolves via `wrangler.jsonc`'s
-  `main`; supporting modules live alongside it under `src/`. **`src/assets/`
+  `main`. It is deliberately thin (~50 lines): the two Worker handlers plus the
+  response wrapper. **The route table is `src/router.js`** and **the cron is
+  `src/cron.js`**; everything else lives in `src/features/` (one vertical slice
+  per data source: fetch + loader + renderers + API shape together),
+  `src/pages/` (the static pages), `src/lib/` (format, derived math, http),
+  `src/mcp/`, `src/api/`, plus `config.js`, `i18n.js`, `chrome.js`, `seo.js`,
+  `discovery.js`, `push.js`. **`src/assets/`
   holds the inline client-side assets** (`icons.js`, `sw-script.js`,
   `base-css.js`, `client-scripts.js`) — template literals whose escape sequences
   belong to the *shipped* string, not to the source file. Move or edit their
