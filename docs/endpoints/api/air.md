@@ -7,7 +7,7 @@ Shared contract: `docs/endpoints/api/README.md`.
 
 | | |
 |---|---|
-| **Builder** | `apiAir(data)` → `aqiApiObject(data.aqi)` |
+| **Builder** | `apiAir(data)` → `aqiApiObject(data.aqi)` (`src/features/air.js`) |
 | **Loader** | `loadWeather(env)` — **no KV key of its own**; the AQI is folded into the `weather` cache by `fetchAqi()` |
 | **Cache** | `public, max-age=600` |
 | **ETag seed** | `` `${data.updated}|${data.aqi?.measured ? "m" : "o"}` `` |

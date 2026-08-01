@@ -5,7 +5,7 @@ per-pollutant breakdown and health guidance.
 
 | | |
 |---|---|
-| **Handlers** | `airHtml(weather, lang)` / `airMarkdown(weather, lang)` — `src/index.js` |
+| **Handlers** | `airHtml(weather, lang)` / `airMarkdown(weather, lang)` — `src/features/air.js` |
 | **Route** | `_fetch` → `page === "/air"` |
 | **Spanish** | `/es/air` |
 | **Cache** | `public, max-age=600` |
