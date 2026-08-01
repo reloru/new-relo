@@ -4,7 +4,7 @@ Embeds the NWS KHGX (Houston-Galveston) radar loop, which covers Crosby.
 
 | | |
 |---|---|
-| **Handlers** | `radarHtml(lang, data)` / `radarMarkdown(lang)` — `src/index.js` |
+| **Handlers** | `radarHtml(lang, data)` / `radarMarkdown(lang)` — `src/features/radar.js` |
 | **Route** | `_fetch` → `page === "/radar"` |
 | **Spanish** | `/es/radar` |
 | **Cache** | `public, max-age=3600` |
