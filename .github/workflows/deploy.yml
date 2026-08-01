@@ -27,6 +27,11 @@ jobs:
       # module's export without importing it. This does. Pure node, no install.
       - name: Check cross-module references
         run: node scripts/check-module-refs.mjs
+      # The static check above cannot see a name used inside a template nested
+      # within a `${...}` substitution — that blind spot shipped /es/hourly as a
+      # 502. This runs every renderer in BOTH languages, which is ground truth.
+      - name: Check renderers (both languages)
+        run: node scripts/check-renders.mjs
 
   # Build gate: parse wrangler.jsonc and bundle the Worker without uploading.
   # Catches config/bundling errors and the compat-date/wrangler-pin coupling

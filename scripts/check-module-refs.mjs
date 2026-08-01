@@ -28,6 +28,15 @@
 // call position) the original TZ bug still slipped through, since TZ is used as
 // a value, not called.
 //
+// KNOWN BLIND SPOT — do not rely on this check alone. The scanner does not
+// descend into a template literal nested inside a `${...}` substitution, so a
+// reference like
+//
+//   ${lang === "es" ? `<p>${ES_NWS_NOTE}</p>` : ""}
+//
+// is invisible to it. That exact line shipped /es/hourly as a 502 with this
+// check green. scripts/check-renders.mjs covers the gap by running the code.
+//
 // Run: node scripts/check-module-refs.mjs
 
 import { readdir, readFile } from "node:fs/promises";

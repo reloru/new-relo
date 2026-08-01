@@ -7,7 +7,7 @@ import { esc } from "../lib/format.js";
 import { BASE_CSS } from "../assets/base-css.js";
 import { topbar, footer } from "../chrome.js";
 import { JSONLD_SITE, OG_COMMON } from "../seo.js";
-import { translateConditions, translateWind, translateDir } from "../i18n.js";
+import { translateConditions, translateWind, translateDir, ES_NWS_NOTE } from "../i18n.js";
 import { fmt, fullTime, clockTime, hourLabel, dayLabel, capFirst, iconUrl } from "../lib/format.js";
 import { pop, feelsLikeRawF, sunTimesForCtDate } from "../lib/derived.js";
 

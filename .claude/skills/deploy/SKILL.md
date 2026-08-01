@@ -24,9 +24,11 @@ pass while an imported module was unparseable.
 ```bash
 find src -name '*.js' -print0 | xargs -0 -n1 node --check
 ```
-Then the cross-module reference check (also pure node, no install):
+Then the cross-module reference check and the renderer sweep (both pure node,
+no install):
 ```bash
 node scripts/check-module-refs.mjs
+node scripts/check-renders.mjs
 ```
 `node --check` catches syntax errors but NOT a missing or renamed export — the
 dry-run in step 3 catches that, so treat it as a merge gate, not an optional
