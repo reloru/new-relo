@@ -7,6 +7,13 @@
   ~10–40s) — check the headers/routes you touched.
 - **Keep this file current:** when you change a route, a behavior, or an
   invariant that lives outside the Worker, update CLAUDE.md in the same PR.
+- **A PR that changes a page's handler, content, data source, canonical URL,
+  sitemap presence, meta, or CSP expectations MUST update that page's
+  `docs/pages/<page>.md` in the same PR.** The same rule applies to non-page
+  routes and `docs/endpoints/`. Those files record **current expected state**,
+  not history — overwrite them, don't append. Dated write-ups go in
+  `docs/audit/` or `docs/investigations/` instead, and are never edited in
+  place. `docs/README.md` explains the split.
 
 ## Agent operating notes (process, not site mechanics)
 Not about the Worker's behavior — about working this repo session-to-session
@@ -116,8 +123,8 @@ directory name becomes the `/command`. Current skills:
   ships the working tree, not git).
 - `/kv` — inspect/edit the production `WEATHER` KV namespace, always with
   `--remote` (the KV gotcha below). Knows `weather` + `calendar` + `water` +
-  `tropics` (cron-owned) vs `news` (routine-owned); read commands are
-  pre-authorized, put/delete are not.
+  `fishing` + `tropics` + `pollen` + `traffic` (cron-owned) vs `news`
+  (routine-owned); read commands are pre-authorized, put/delete are not.
 
 ## Deploy
 - Deploy with `npx wrangler deploy`. Never run `wrangler login`.
@@ -402,576 +409,52 @@ directory name becomes the `/command`. Current skills:
   `og:image` — that would need a committed binary, which the "no static assets"
   rule forbids; cards still render title + description + site name.
 
-## Languages (English + Mexican Spanish)
-- The site is bilingual: English at the root paths and Mexican Spanish (`es-MX`)
-  under an **`/es` prefix** (`/es`, `/es/weather`, `/es/hourly`, `/es/radar`,
-  `/es/alerts`, `/es/water`, `/es/fishing`, `/es/tropics`, `/es/pollen`, `/es/air`, `/es/traffic`, `/es/news`,
-  `/es/calendar`, `/es/emergency`, `/es/about`, `/es/developers`, `/es/privacy`,
-  `/es/contact`, `/es/sitemap`). Same nineteen content pages, same markdown negotiation. (`/es` is the Spanish hub;
-  `/es/weather` the Spanish forecast.)
-- **One set of render functions serves both languages** (no duplicated pages, so
-  they can't drift). Each `*Html`/`*Markdown` takes a `lang` arg; the i18n block
-  near the top of `src/index.js` holds the machinery: `T(lang,en,es)` for inline
-  UI strings (English literals stay in place), parallel content objects for prose
-  (`ABOUT_ES`, `ALERT_GUIDE_ES`), and locale-aware date helpers (`fmt`/`fullTime`/…
-  take an optional `lang`, defaulting to English so every existing call site is
-  unchanged).
-- **Live NWS text is handled deterministically — never machine-translated.**
-  Short conditions (`shortForecast`) go through the hand-written `ES_SHORT`
-  dictionary (compound "X then Y" values are split on " then " and each segment
-  looked up; unmapped phrases fall back to English). Period names (`ES_PERIOD`/
-  `ES_WEEKDAY`), wind ("to"→"a", `ES_DIR` W→O), and AM/PM/weekday formatting are
-  localized too. The free-form `detailedForecast` paragraphs and **all alert
-  text stay in NWS's official English** (a short on-page note, `ES_NWS_NOTE`,
-  says so). Rationale: NWS exposes no Spanish forecast/alert API, and its
-  experimental auto-translation was paused in 2025 — English is the only
-  authoritative source, and mistranslating a warning is unsafe.
-- Routing: `_fetch` maps an `/es` request to its English path + `lang="es"`
-  (`page = path.slice(3)`), then the shared content-page handlers render either
-  language. Non-page routes (API, assets, `.well-known`) are English-only
-  and never carry an `/es` prefix; the JSON API and the MCP **protocol/API** are
-  intentionally English-only too. **Exception: `/es/mcp`** is a Spanish HUMAN
-  explainer (GET/HEAD only) — the protocol still lives only at `/mcp`, and the
-  Spanish page tells readers to connect to `/mcp`, not `/es/mcp` (a POST to
-  `/es/mcp` 404s; it is not an endpoint).
-- SEO wiring: every page emits reciprocal `hreflang` link tags (`en-US`,
-  `es-MX`, `x-default`→English) via `hreflangTags()`; `<html lang>`, `<title>`,
-  description, OG, and `<link rel=canonical>` are all per-language
-  (`canonicalFor()`); the sitemap lists both languages with `xhtml:link`
-  alternates; and the topbar carries a no-redirect language toggle. `/` pairs
-  with `/es` (not `/es/`).
+## Pages & routes — where the per-page state lives
 
-## Routes (agent-readiness)
-- `/` — the **homepage hub** (`homeHtml`/`homeMarkdown`): the "front page of
-  Crosby," designed as a scannable local dashboard. Weather-forward hero
-  (temp + condition, "Feels like", wind spelled out via `dirWord()`, rain
-  chance, NWS's own `detailedForecast` prose as the summary line, and the
-  cache's `Updated` stamp — NOT a clock time). **Alerts use progressive
-  disclosure** (`hubAlertsBanner()`): no banner when quiet; 1–3 alerts → a
-  compact red banner (count, condensed types, primary alert's one-line summary
-  via `alertSummaryLine()`, severity-ranked) linking to `/alerts`; 4+ → count +
-  highest-severity type only. Full alert products render ONLY on `/alerts` and
-  `/weather` — never dump whole NWS statements on the hub (user-reported: one
-  SWS ate 80% of the mobile page). Cards: **Today at a Glance**
-  (`todayGlance()` returns `{today, now}` — two groups the way weather apps do
-  it: the day's outlook (High, Low, Feels like, Rain chance, UV index, Wind,
-  Gusts) rendered first, then a "Right now" sub-heading over the current-hour
-  readings (Humidity, Dew point, Air quality) — all from cached data). **Labels
-  are bare metric names** (no "Peak"/"now" qualifiers): the time basis lives in
-  the "Right now" group heading and in each metric's `<details>` explainer,
-  which now LEADS with what/when ("This is the highest feels-like expected for
-  the rest of today…", "This is the humidity right now…") — the weather-app
-  convention (weather.com/AccuWeather/NWS all use bare labels + a current-vs-
-  forecast split). Rationale for this over-per-row-qualifiers came from user
-  feedback 2026-07-10 (couldn't tell highs from averages / calendar-day vs
-  rolling-24h vs their phone app); the investigation is at
-  `docs/2026-07-10-today-at-a-glance-investigation.md`. Mechanics preserved:
-  aggregate rows are max/range over the REMAINING hours of the CT calendar day
-  (past hours excluded even when the NWS product still carries them), and in the
-  evening — when NWS drops today's daytime period — the High row relabels to
-  "High tomorrow" (a correctness label, kept). `glanceStamp()` is now just the
-  date ("Friday, Jul 10"); freshness moved to a tiny **data-source footnote**
-  under the explainers (`glanceSourceLine()`: "Data from the National Weather
-  Service, EPA, and Open-Meteo · updated H:MM CT (N min ago)", `relTime()` for
-  the relative part). The homepage hero also carries a "Currently in Crosby,
-  Texas" eyebrow (`.hub-eyebrow`) above the temp.
-  Then: Weather peek, an **Alerts
-  status card** (count or "None" — no-alerts is news), Water (badge +
-  `Updated` stamp; detail line only when not normal), News, Calendar. It loads
-  all four datasets in parallel (`Promise.all`, each `.catch`-degrading to an
-  empty shape) so one slow/failed source can't blank or serially block the
-  page. Content-negotiated (`?format=md` / `Accept: text/markdown`). The full
-  forecast moved to `/weather` during the 2026 nav/homepage restructure (root
-  used to serve the forecast). The Bing `msvalidate.01` verification meta lives
-  on the hub (the root Bing has on file). **Bing Webmaster URL submission**: the
-  site is verified in Bing Webmaster Tools and the cloud env carries
-  `BING_WEBMASTER_API_KEY`, so a session can push URLs for (re)indexing via the
-  JSON API — `POST https://ssl.bing.com/webmaster/api.svc/json/SubmitUrlbatch?apikey=$BING_WEBMASTER_API_KEY`
-  with body `{siteUrl, urlList}`; check remaining quota with
-  `GetUrlSubmissionQuota` (daily 100 / monthly 1900). All 30 content-page URLs
-  (both languages) plus `/mcp` and `/es/mcp` were submitted on 2026-07-14.
-  (Google indexing is not API-driven here — Search Console is DNS-verified; see
-  the MCP Registry section.)
-- **Current-conditions invariant:** never render `hourly[0]` as "now" — NWS's
-  `forecastHourly` first period is the product's generation hour and can lag
-  the wall clock by 1h+ even with a fresh cache (user screenshots: hero said
-  5:00 PM at 6:19 PM). `currentHourly(data)` picks the period covering
-  `Date.now()`; it feeds the hub + `/weather` heroes, both markdowns,
-  `/api/weather` `current`, and MCP `get_current_conditions`/the briefing
-  prompt. Freshness labels show `data.updated` (when WE refreshed), not period
-  start times.
-- `/weather` — the full forecast (`renderHtml`/`renderMarkdown`): current
-  conditions hero, 12-hour strip, 7-day forecast. Canonical `/weather`; this is
-  what the root served pre-restructure. Content-negotiated. The homepage/`/weather`
-  `Link` header advertises the markdown alternate, sitemap, api-catalog, and
-  OpenAPI service-desc (via the parameterized `linkHeader(enPath, lang)`). All
-  thirty-eight content pages (the nineteen English routes `/`, `/weather`, `/hourly`,
-  `/radar`, `/alerts`, `/water`, `/fishing`, `/tropics`, `/pollen`, `/air`, `/traffic`, `/news`, `/calendar`, `/emergency`, `/about`, `/developers`,
-  `/privacy`, `/contact`, `/sitemap` and their `/es` Spanish counterparts) emit an HTTP
-  `Link: rel="canonical"` header — added centrally in the `fetch` wrapper via
-  `PAGE_PATHS` — so the `?format=md` variants and the http→https pair consolidate
-  onto one URL. Back-links from the sub-pages say "← Back to the forecast" and
-  point at `/weather`; the nav's "Home" points at `/`, "Weather" at `/weather`.
-  (See the Languages section for the `/es` bilingual setup.)
-- `/hourly` — full multi-day hourly forecast table, grouped by day. Reuses the
-  cached NWS hourly data. `fetchWeather()` keeps 48 hourly periods; the homepage
-  strip, the homepage markdown, and `/api/weather` each `.slice(0, 12)` so only
-  `/hourly` shows the full 48. Same markdown negotiation.
-- `/radar` — embeds the NWS KHGX (Houston-Galveston) radar loop, which covers
-  Crosby. The GIF is proxied via `/radar-image` (locked to fixed upstreams,
-  short edge TTL) so it's crawlable and edge-cached; `?still=1` serves the
-  latest single frame (`KHGX_0.gif`) instead of the loop, linked from the page
-  for users who prefer a non-animated image. Same markdown negotiation.
-- `/about` — static "what this site is" page (source, cadence, privacy,
-  contact, disclaimer — human-facing). Same markdown negotiation. Content lives once in the
-  `ABOUT` object; `aboutHtml()`/`aboutMarkdown()` render it so the two can't
-  drift. Shared chrome (`BASE_CSS`, `topbar()` nav) is reused by all pages. The
-  API/MCP/agent detail lives on `/developers` (moved off `/about` in the 2026
-  restructure so `/about` stays human-facing); `/about` carries one pointer
-  section to it.
-- `/developers` — the developer/agent surface, gathered on one page (`DEVELOPERS`/
-  `DEVELOPERS_ES` content objects, same `{h,p,links}` shape as `ABOUT`;
-  `developersHtml()`/`developersMarkdown()` render): the public JSON API, specs
-  &amp; discovery (OpenAPI, api-catalog), Markdown-for-every-page, the MCP server,
-  agent skills, and the RSS feeds, plus terms/attribution. Emits `JSONLD_DATASET`
-  (see SEO section) — this is where the `Dataset` node now lives. Both languages
-  list the same English-only endpoints; only the prose and the self-referential
-  markdown link localize. Same markdown negotiation. In the topbar only as an
-  `m-only` link under "More" (hidden on the flat desktop bar); linked from the
-  footer, `/about`, `/sitemap`, and llms.txt.
-- `/alerts` — active NWS alerts for Crosby plus an evergreen severe-weather
-  guide (`ALERT_GUIDE`) so the page stays substantial when nothing is active
-  (avoids thin content). Markdown-negotiated.
-- `/water` — live river/bayou levels for the waters that flood Crosby / NE
-  Harris County (Cedar Bayou nr Crosby, San Jacinto R nr Sheldon + at Lake
-  Houston, Luce Bayou nr Huffman, Goose Creek, E Fork San Jacinto — the
-  `WATER_GAUGES` list of NWPS location IDs). Uses the **cron + KV pattern**
-  (key `water`, cron-owned, refreshed every tick): `fetchWater()` pulls each
-  gauge from NOAA/NWS NWPS (`api.water.noaa.gov/nwps/v1/gauges/{lid}`), which
-  gives observed stage + flow + the flood-category THRESHOLDS all keyed to the
-  same gauge datum (so reading and thresholds are directly comparable — never
-  mixed). NWPS's own `floodCategory` drives the colored badge (Normal → Action
-  → Minor → Moderate → Major); we never invent a classification. `-9999`
-  (undefined threshold) / `-999` (no forecast) are sentinels, filtered by
-  `waterNum()`. Per-gauge try/catch; `fetchWater()` throws only if EVERY gauge
-  fails, so a total NWPS outage aborts-without-writing and the last snapshot
-  survives. No API key needed (NWPS is public). **USGS reserve keys are set as
-  Worker secrets** — `USGS_API_KEY` + `USGS_ACCOUNT_ID` (owner's
-  `api.waterdata.usgs.gov` account) — but **still unused**: the fishing page
-  (below) reads the KEYLESS legacy `waterservices.usgs.gov` service instead, so
-  the keyed secrets stay reserved for any future move to USGS's newer keyed API.
-  `loadWater()` cold-warms
-  like `loadCalendar()`. Emits a 911/turn-around-don't-drown safety note and
-  links each gauge's official NWPS page. Markdown-negotiated. Nav label
-  "Water Levels" / "Niveles de agua".
-- `/fishing` — live fishing-water conditions from USGS real-time monitoring
-  (`fishingHtml`/`fishingMarkdown`/`apiFishing`, MCP `get_fishing`, `/api/fishing`).
-  **Cron + KV pattern** (key `fishing`, cron-owned, every tick). `fetchFishing()`
-  makes ONE `waterservices.usgs.gov/nwis/iv/` call (KEYLESS legacy service) for all
-  `FISHING_SITES`, reading temperature (`00010`→°F), dissolved oxygen (`00300`),
-  pH (`00400`), turbidity (`63680`), and stage (`00065`); throws if nothing usable
-  so the cron aborts-without-writing (water pattern). **Location selection is
-  fishing-first, not data-first:** only waters people actually fish, each matched
-  to the nearest USGS station — Lake Houston (three in-lake stations incl. FM 1960),
-  the San Jacinto forks, and the Trinity at Liberty carry the full water-quality
-  suite; Cedar Bayou, Luce Bayou, and the San Jacinto below the lake are fished but
-  only have a stage gauge (shown as "water level only"). Industrial sites that are
-  actually CLOSER (Lynchburg Reservoir, the SJRA canal) are deliberately excluded —
-  "nearest data" ≠ "a place people fish". Dissolved oxygen drives the per-station
-  badge (>6 healthy / 4-6 moderate / <4 low); honest labeling (nearby station, not
-  the exact hole; conditions, not a guaranteed bite) plus a TPWD-license and
-  water-safety note linking `/water`. `loadFishing()` cold-warms like `loadWater()`.
-  Nav label "Fishing" / "Pesca" (m-only). Also: `/api/fishing` (conditional GET),
-  documented in `/openapi.json` + the api-catalog, and MCP tool `get_fishing`.
-- `/tropics` — Atlantic tropical outlook (`tropicsHtml`/`tropicsMarkdown`).
-  **Cron + KV pattern** (key `tropics`, cron-owned, throttled ~hourly):
-  `fetchTropics()` reads NOAA NHC's `CurrentStorms.json`, filtered to the
-  Atlantic basin (storm ids `al…` — Pacific storms don't threaten Crosby) and
-  throws on failure so a transient NHC outage never wipes the last snapshot;
-  `loadTropics()` cold-warms, degrading to an empty shape. **Worker
-  reachability to www.nhc.noaa.gov was canary-verified from the deployed
-  Worker runtime** (temporary debug route, 200 + real body, then removed)
-  before committing to the upstream. Quiet basin (most of the year) renders a
-  green all-clear panel + an evergreen "hurricane season and Crosby" guide
-  (inland rain flooding is the local threat, not surge; watch-vs-warning;
-  links to NHC, `/alerts`, `/water`, `/emergency`) so the page never goes
-  thin; active storms render violet cards (classification + name via the
-  `NHC_CLASS` hand dictionary, winds in mph — NHC's `intensity` is in KNOTS,
-  converted `kt × 1.15078` rounded to 5 like NHC's own advisories — pressure,
-  position, movement compass direction only since `movementSpeed`'s unit
-  isn't clearly documented, and the official advisory link). The **homepage
-  strip** (`hubTropicsBanner`, violet, calmer than the red alerts banner)
-  self-hides when the basin is quiet; the hub loads tropics as its fifth
-  parallel dataset. Storm names/advisories stay in NHC English. In the topbar
-  as `m-only` under Weather. Markdown-negotiated.
-- `/pollen` — pollen & mold count (`pollenHtml`/`pollenMarkdown`). **Cron + KV
-  pattern** (key `pollen`, cron-owned, throttled ~2h): `fetchPollen()` scrapes
-  the **Houston Health Department's daily pollen and mold count** — a directly
-  MEASURED, Crosby-area-relevant number (HHD's lab is a certified National
-  Allergy Bureau counting station; the AQI is now measured too but is a metro
-  reporting-area reading, and UV is a forecast). No API exists: the index page
-  (`houstonhealth.org/services/pollen-mold`) lists per-date count pages
-  (`…/houston-pollen-mold-count-thursday-july-16-2026`); we pick the newest by
-  slug date and parse tree/weed/grass pollen + mold spores (NAB category +
-  grains/m³ each, categories republished verbatim — never reclassified) plus
-  the per-genus species lists (first `<ul>` after each "Major … counted"
-  heading, bounded at `</ul>`). **Worker reachability canary-verified from the
-  deployed runtime 2026-07-17** (200 + real body, index and count page).
-  `fetchPollen()` throws on failure OR an unrecognizable layout (<2 groups
-  parsed), so a transient outage or a Drupal redesign never wipes the last
-  good count; `loadPollen()` cold-warms. Counts publish **weekday mornings
-  only** — weekends serve Friday's count, labeled honestly with the count's
-  date ("Count for Friday, Jul 10"), never presented as today's. The page
-  renders four category-colored cards, a "what's in the air" species
-  breakdown, the NAB threshold table (thresholds differ per group), and an
-  evergreen Gulf Coast allergy-calendar guide. Species/genus names stay in the
-  lab's official English + Latin; categories get the `POLLEN_CAT_ES` hand
-  dictionary (the NWS-text policy). In the topbar as `m-only` under Weather.
-  Markdown-negotiated. Also: `/api/pollen` (conditional GET, ETag seeded from
-  countDate + updated), MCP tool `get_pollen`, and a briefing line only when a
-  group is Heavy or worse.
-- `/air` — air quality (`airHtml`/`airMarkdown`). **Not its own KV key or cron
-  write** — it renders the AQI already folded into the `weather` cache by
-  `fetchAqi()` (AirNow measured / Open-Meteo modeled fallback; see the Air
-  quality note in Conventions above), so `loadWeather()` feeds it. The dedicated
-  page gives the number a standalone URL for search ("Crosby / Houston air
-  quality") and room for a per-pollutant breakdown: a big AQI hero colored by the
-  EPA band (`AQI_BANDS`), per-pollutant sub-index cards (O₃/PM2.5/PM10 from
-  `aqi.subIndices`, dominant flagged), category health guidance (`aqiHealth()`),
-  an EPA-band "how to read the AQI" table, and an evergreen Gulf-Coast ozone/
-  PM2.5 guide (ozone peaks hot stagnant afternoons; TCEQ Ozone Action Days).
-  Honest source labeling throughout (`aqiSourceTag`/`aqiSourceNote`): measured
-  metro-area vs modeled. Bilingual (health/guide text via `T()`; pollutant names
-  via `aqiDominantLabel`), markdown-negotiated. In the topbar as `m-only` under
-  Weather. Also: `/api/air` (conditional GET on the weather stamp + source flag;
-  shares `aqiApiObject()` with `/api/weather` so they can't drift) and MCP tool
-  `get_air_quality`. Pairs with `/pollen` (both "what's in the air").
-- `/traffic` — Crosby-corridor roads & traffic (`trafficHtml`/`trafficMarkdown`;
-  issue #92). **Cron + KV pattern** (key `traffic`, cron-owned, every tick):
-  `fetchTraffic()` reads Houston TranStar's public **RSS feeds**
-  (`traffic.houstontranstar.org/data/rss/incidents_rss.xml` +
-  `laneclosures_rss.xml`, updated ~once a minute upstream) — **Worker
-  reachability canary-verified from the deployed runtime 2026-07-16** (200 +
-  live XML; the same canary showed **www.drivetexas.org times out from Worker
-  egress IPs**, so DriveTexas is link-only). TranStar's richer JSON API
-  (speeds, flood-warning sensors) needs a **data-use agreement** (403 without
-  one) — if the owner ever obtains access, swapping upstreams is localized to
-  `fetchTraffic()`. **TxDOT's terms prohibit hotlinking/framing images, so
-  camera snapshots are NEVER embedded or proxied** — the page links TranStar's
-  own per-roadway camera pages (`by_roadway.aspx?rd=US-90` / `IH-10_East`) and
-  live map instead; only RSS facts (road, location, status, lanes) are
-  republished, with attribution (the /news model). Relevance is TEXT matching
-  (`trafficRelevant()` — RSS has no coordinates): titles starting `US-90`
-  (never `US-90 Alternate`/`US-90A`, a different road southwest), `IH-10 East`
-  gated on Crosby-stretch cross streets (`TRAFFIC_I10E_XSTREETS`), or
-  Crosby-area tokens anywhere (`TRAFFIC_AREA_TOKENS`: FM-2100, FM-1942,
-  Runneburg, Barrett Station, …). Cleared incidents are dropped; each feed
-  side is independently failure-tolerant (`null` = feed unreachable ≠ `[]` =
-  quiet roads, and `fetchTraffic()` throws only when BOTH fail so the last
-  snapshot survives). Incident types/statuses get small hand dictionaries for
-  Spanish (`TRAFFIC_TYPE_ES`, status verbs); free-form lane/schedule text
-  stays in TranStar's official English (the NWS-alert policy). High-water
-  incidents render red (`trafficIsWater`) — the storm-time payoff, pairing
-  with `/water`. Quiet roads render a green all-clear + an evergreen
-  "when water covers the road" guide. In the topbar as `m-only` under
-  Community. Markdown-negotiated. Also: `/api/traffic` (conditional GET),
-  MCP tool `get_traffic`, and a briefing line when incidents are present.
-- `/news` — local news for Crosby + nearby towns. The Worker is a pure renderer:
-  it serves the WEATHER KV `news` key (read-only via `loadNews()`). That key is
-  written out-of-band by `scripts/fetch-news.mjs` (see "News pipeline"), NOT by
-  the Worker — Google News blocks Cloudflare Worker IPs. Markdown-negotiated.
-  **Admin nuke** (owner-only editorial control, no accounts/public voting):
-  visiting `/news?admin=<ADMIN_KEY>` renders every article with 🗑 Hide /
-  ↩ Restore buttons (and dims already-hidden ones); the button POSTs the
-  article link + the secret to `POST /api/news/delete` (or `/api/news/restore`),
-  which the Worker checks against the `ADMIN_KEY` **Worker secret** (constant-
-  time, via `isAdmin()`) and records in the worker-owned **`news_blocklist`** KV
-  key (`{link: blockedAtMs}`, auto-pruned past 60 days). `loadNews()` filters
-  against that key so a hidden article vanishes **instantly** on the next render
-  everywhere it appears (/news, the homepage card, `/api/news`, `/news.xml`);
-  `loadNews(env, {includeBlocked:true})` is the admin variant that keeps blocked
-  items (annotated `.blocked`). The news routine also reads `news_blocklist`
-  (`loadBlocklist()`) and drops those links, so a nuked article **stays gone**
-  even though Google's RSS keeps returning it. The whole feature no-ops if
-  `ADMIN_KEY` is unset (endpoints 503, buttons never render); admin responses
-  are `private, no-store` and English/Spanish share one CSP-hashed script
-  (`NEWS_ADMIN_SCRIPT`, labels via `data-*`). No cookies or visitor data — the
-  secret lives in the URL you bookmark, checked server-side; privacy model
-  unchanged. Rotate by re-running `wrangler secret put ADMIN_KEY`.
-  **Admin renders omit `<link rel="manifest">`** — otherwise iOS "Add to Home
-  Screen" reads the manifest's `start_url` (`/`) and pins the *homepage* instead
-  of the `?admin=` URL (the web-app URL field is locked when a manifest is
-  present). Dropping the manifest tag on admin renders makes iOS bookmark the
-  actual `/news?admin=…` URL (a plain Safari web-clip, not a standalone PWA).
-- `/calendar` — Crosby ISD school calendar. Renders the district's public iCal
-  feed (the combined "All Calendars" feed, `feedID=BB92BE3D…`, which is the union
-  of every campus) as upcoming events grouped by month, plus one-tap subscribe
-  links (`webcal://`, Google Calendar, `.ics`) for the whole district, the
-  District academic calendar (`calendar_350.ics`), and each campus. Unlike news,
-  the Worker CAN reach crosbyisd.org, so this uses the **cron + KV pattern**: the
-  cron refreshes the `calendar` KV key (cron-owned, throttled to ~6h since it
-  changes rarely), and `loadCalendar()` self-heals on a cold cache. A tiny
-  hand-rolled `parseIcs()` (no dependency; the feed has no RRULE) reads it.
-  Emits honest `Event` JSON-LD (a real schema.org type, unlike the forecast);
-  every Event carries a `location` (the feed's venue, else Crosby ISD / Crosby,
-  TX) since Google requires that field — without it the Rich Results Test flags
-  every event "A value for the location field is required."
-  Event titles stay in the district's official English (small `ES_EVENT` dict +
-  English fallback, same policy as NWS text). Markdown-negotiated. The label in
-  the nav is "School Calendar" / "Calendario escolar".
-- `/emergency` — bilingual emergency-resources directory for Crosby / NE Harris
-  County: 911 + non-emergency numbers (HCSO, Poison Control, 988, 211, plus a
-  "Houston 311 doesn't cover unincorporated Crosby" note), official alert
-  channels (ReadyHarris, NWS HGX), flood tools (county FWS, the FEMT
-  address-level floodplain lookup, HCFCD, FloodSmart/NFIP 30-day-wait basics,
-  our `/water`), roads (TranStar, DriveTexas), CenterPoint outage/gas-leak
-  reporting, the East Harris County **CAER industrial-incident line**
-  (281-476-2237 / ehcma.org — Crosby has plants of its own), shelters/recovery
-  (Red Cross, DisasterAssistance.gov), and hurricane prep (H-GAC Zip-Zone
-  evacuation maps; Crosby is outside the surge zones). Pure static content,
-  zero data loading — content in `EMERGENCY`/`EMERGENCY_ES` objects;
-  `emergencyHtml()`/`emergencyMarkdown()` render. Every external link + phone
-  number was curl-verified before shipping (`texaspoison.com` is a parked
-  domain now — poison numbers point at poison.org; ready.gov /
-  disasterassistance.gov / ehcma.org WAF-block datacenter curl but are
-  canonical). Phone numbers are `tel:` links. JSON-LD: `WebPage`.
-  Markdown-negotiated. In the topbar as an `m-only` link under "More" (kept off
-  the flat desktop bar to avoid re-wrapping it); linked prominently from
-  `/alerts` (the intro row under the status panel, both languages + markdown)
-  and from the shared footer ("Emergency" / "Emergencias"), `/sitemap`, and
-  llms.txt.
-- `/privacy` — full privacy policy page. No cookies, no trackers, no personal
-  data — details on logging, third-party data sources, and analytics. Content
-  lives in `PRIVACY`/`PRIVACY_ES` objects; `privacyHtml()`/`privacyMarkdown()`
-  render. JSON-LD: `WebPage`. Markdown-negotiated. Not in the topbar; linked from
-  `/about` and the shared footer.
-- `/contact` — contact page with general (contact@) and security (security@)
-  email addresses. Content in `CONTACT`/`CONTACT_ES` objects;
-  `contactHtml()`/`contactMarkdown()` render. JSON-LD: `ContactPage`.
-  Markdown-negotiated. Not in the topbar; linked from `/about` and the shared
-  footer.
-- `/sitemap` — human-readable sitemap listing every page and endpoint, grouped by
-  category (Weather & Forecast, Community, About & Policies, Developers &
-  Agents). `sitemapPageHtml()`/`sitemapPageMarkdown()` render. Static, no data
-  loading. Markdown-negotiated. Not in the topbar; linked from the shared footer.
-  Distinct from `/sitemap.xml` (the machine-readable XML sitemap for crawlers).
-- `/robots.txt` — RFC 9309 rules, explicit AI-crawler allows, and a `Sitemap:`
-  reference. Open by default (public NWS data). (No `Content-Signal` line — it
-  confused some crawlers when present, so it's intentionally omitted.)
-- `/alerts.xml` and `/news.xml` — RSS 2.0 feeds rendered from the same KV
-  data as the pages (the no-accounts notification channel). Alerts feed:
-  guid = the NWS alert URN, empty channel when all clear, `ttl` 15;
-  news feed: guid = the article link, `<category>` community|incident,
-  `ttl` 60. Advertised via `<link rel="alternate" type="application/rss+xml">`
-  on `/alerts` + `/news` (both languages), llms.txt `## Optional`, and the
-  `/sitemap` page. English-only like the API; no `/es` variants.
-- **PWA/offline** — `/manifest.json` (web app manifest: installable,
-  `display: standalone`, brand colors), `/icon.svg` (512px app icon —
-  full-bleed navy square, `purpose: "any maskable"`, art inside the maskable
-  safe zone), `/apple-touch-icon.png` (+ `-precomposed`; a **180×180 PNG**
-  rasterized from `ICON_SVG`, the site's ONLY raster asset — inline base64
-  constant `APPLE_TOUCH_ICON_B64`, so the no-static-files rule still holds. iOS
-  "Add to Home Screen" needs a PNG touch icon and ignores SVG here; the admin
-  `/news?admin=` view drops the manifest so it also links this explicitly,
-  otherwise iOS invents a letter tile), and `/sw.js` (hand-written service worker, no build step). The
-  SW precaches the storm-critical pages (`/`, `/alerts`, `/es`, `/es/alerts`,
-  manifest, favicon) at install, then runs **network-first for navigations**
-  (always fresh online; caches query-less copies as it goes) with the
-  last-good copy — or the language hub — as the offline fallback, so the site
-  still answers during storm-time connectivity drops. All three are Worker
-  routes (constants `MANIFEST`/`ICON_SVG`/`SW_SCRIPT` near the favicon), per
-  the no-static-assets rule. `/sw.js` is served `no-cache` so deploys take
-  effect next visit; **bump the `CACHE` version inside SW_SCRIPT when
-  changing SW behavior** (activate sweeps old caches). Registration lives in
-  `HOME_SCRIPT` (so its CSP hash recomputes automatically); every page's
-  `<head>` carries `<link rel="manifest">`. CSP note: worker-src isn't set,
-  so SW loading falls back to `script-src 'self'`, which passes.
-  **Vary gotcha (caught in testing):** the content pages send `Vary: Accept`
-  and the Cache API respects Vary — a navigation's Accept header never equals
-  the precache fetch's `*/*`, so every SW `caches.match` MUST pass
-  `{ ignoreVary: true }` or offline matches all miss and collapse to the hub.
-  Offline behavior is verified by the committed **`scripts/test-sw-offline.mjs`**
-  (`NODE_PATH=/opt/node22/lib/node_modules node scripts/test-sw-offline.mjs`):
-  it boots `wrangler dev`, registers + precaches, then **KILLs the server** and
-  re-navigates against a persistent profile, asserting cached pages serve
-  themselves and uncached paths fall back to the language hub. It has to kill
-  the server because Playwright's `setOffline` does NOT apply to SW-initiated
-  fetches — run this script after any SW change instead of re-deriving the
-  procedure. This is the service-worker foundation the severe-alert
-  Web Push feature (below) builds on; **the SW now also carries the `push` +
-  `notificationclick` handlers** (hence `CACHE` = `crosby-v2`).
-- **Severe-alert Web Push** — opt-in browser push for life-threatening
-  **warnings only** (`SEVERE_PUSH_EVENTS`: Tornado / Flash Flood / Hurricane /
-  Hurricane Force Wind / Extreme Wind / Tropical Storm Warning — warnings, never
-  watches/advisories, to avoid alert fatigue). **Design: empty VAPID wake-up +
-  local composition** — the cron sends a *payload-less* VAPID-authed POST (no
-  ECDH/HKDF/AES-GCM payload encryption at all); the SW `push` handler then
-  fetches `/api/weather` and composes the notification itself from the live
-  alerts (`userVisibleOnly` is satisfied even in the expired-by-now race via a
-  generic fallback). `notificationclick` focuses/opens `/alerts`. **Keys:** a
-  P-256 VAPID keypair — `VAPID_PRIVATE_KEY` (private JWK JSON) + `VAPID_PUBLIC_KEY`
-  (base64url raw point) are **Worker secrets** (set via `wrangler secret put`;
-  also in gitignored `.dev.vars` for local dev). `vapidAuth()` signs a short
-  ES256 JWT (WebCrypto ECDSA already yields the raw r‖s JWS form — no DER
-  unwrap). To **rotate**, generate a new pair and `wrangler secret put` both;
-  existing subscriptions keep working only if the public key is unchanged, so a
-  rotation invalidates them (subscribers re-opt-in). The whole feature no-ops
-  cleanly if the secrets are absent (endpoints 503 / UI hides). **Storage:** one
-  KV entry per subscription under the `push:` prefix (key = hash of the
-  endpoint, so re-subscribing overwrites), value = `{endpoint, keys, added}`;
-  plus a `push_notified` key holding the alert IDs already pushed (dedupe, so an
-  ongoing warning doesn't re-notify every 15 min — reconciled each tick to
-  only-currently-active IDs so a reissued warning under a new ID can notify
-  again). **SSRF guard:** the cron POSTs to whatever endpoint was stored, so
-  `/api/push/subscribe` allowlists real push hosts only (`*.googleapis.com`,
-  `*.push.apple.com`, `*.notify.windows.com`, `*.push.services.mozilla.com`) —
-  never an arbitrary URL. Dead subs are pruned on 404/410. **Endpoints:**
-  `GET /api/push/vapid-key` (public key, or null → UI hides), `POST
-  /api/push/subscribe`, `POST /api/push/unsubscribe`. **Opt-in UI** lives on
-  `/alerts` (`PUSH_CLIENT_SCRIPT`, its own CSP hash; language-agnostic bytes —
-  all strings via `data-*` on `#push-optin`, so one hash serves both langs);
-  progressive-enhancement, stays hidden without push support or a VAPID key —
-  EXCEPT iPhone Safari tabs, where it shows an add-to-Home-Screen hint
-  (`data-ios`) instead: **iOS exposes Web Push only to Home-Screen web apps**,
-  so a plain-tab visitor would otherwise never learn the feature exists.
-  Two Safari gotchas baked into the click handler (found in the real-device
-  soft launch): `Notification.requestPermission()` must be the FIRST await in
-  the tap handler (Safari only honors it during the tap's transient
-  activation), and base64url→bytes padding uses the plain while-loop — a
-  slicker closed-form pad expression shipped broken once (atob threw on every
-  subscribe attempt, in every browser).
-  Privacy policy has a "Push notifications" section (both languages): only an
-  anonymous subscription is stored, no message content is sent through it,
-  deletable anytime. **Verifiable in-sandbox:** VAPID JWT sign/verify round-trip,
-  subscribe/unsubscribe, SSRF rejection, the dedup/reconcile state machine, and
-  prune-on-404 (sending an empty wake-up to a bogus FCM token → 404 → pruned).
-  **NOT verifiable in-sandbox:** a real notification landing on a device (needs
-  a real browser push subscription) — that's a manual real-device check.
-  **Real-device check PASSED 2026-07-06** (iPhone, Home-Screen web app):
-  subscribe → KV entry → manual empty VAPID wake-up → APNs `201` →
-  notification displayed (generic fallback branch, correct since no severe
-  warning was active) → tap → `notificationclick` opened `/alerts`. Also
-  live-confirmed the severity gate: an active Special Weather Statement did
-  NOT push (not in `SEVERE_PUSH_EVENTS`) — only the manual wake-up did.
-- `/badge.svg` — hotlinkable live-weather badge (SVG, 300×80, brand-styled
-  with the favicon sun-and-cloud): current temp + condition (truncated to
-  fit), gated feels-like, and a status flag ("✓ NO ALERTS" green / "⚠ N
-  ALERTS" red). Rendered by `badgeSvg(data)` from the same KV cache
-  (`loadWeather`); CORS `*`, `cache-control: max-age=300, s-maxage=900`
-  (≈ the cron cadence) so hotlinks cost almost nothing. On total data
-  failure it serves a neutral "unavailable" badge (no alert claim) with a
-  60s cache instead of a broken image. Text rows use tspan flow, so
-  variable-width values never collide. English-only; an asset, not a page
-  (no PAGE_PATHS/sitemap.xml entry, mirroring `/radar-image`). Documented
-  on `/developers` ("Embeddable weather badge", with the copy-paste `<img>`
-  snippet), the human `/sitemap` developer list, and llms.txt `## Optional`.
-- `/sitemap.xml` — lists `/`, `/weather`, `/hourly`, `/radar`, `/alerts`,
-  `/water`, `/fishing`, `/tropics`, `/pollen`, `/air`, `/traffic`, `/news`, `/calendar`, `/emergency`, `/about`, `/developers`, `/privacy`, `/contact`, `/sitemap`
-  in both languages
-  (each English route plus its `/es` counterpart), every `<url>` carrying
-  `xhtml:link` hreflang alternates (`en-US`, `es-MX`, `x-default`).
-- `/llms.txt` — plain-language site summary for LLMs (llmstxt.org). Served as
-  `text/markdown` (the body is markdown, same as the site's `?format=md` views),
-  and carries the spec's `## Optional` section (skippable discovery links:
-  sitemap, api-catalog, security.txt).
-- `/.well-known/security.txt` — RFC 9116 security contact
-  (`security@crosbynews.com`). `Expires` is computed ~1 year out at request time,
-  so the file can't go stale. **Gotcha:** Cloudflare's zone-managed security.txt
-  (dashboard, Security Center) silently overrides this route at the edge with a
-  fixed `Expires` when enabled — it was found on and disabled during the
-  2026-07-02 audit; keep it OFF so the Worker's self-refreshing version serves.
-- `/api/weather` — public JSON (location, current, hourly, forecast, alerts,
-  plus the derived `sun`, the EPA `uv` object, and the `airQuality`
-  object (measured AirNow / modeled Open-Meteo fallback)), CORS `*`.
-  `/api/air` — the same `airQuality` object standalone (CORS `*`), via
-  `apiAir()`/`aqiApiObject()`. `/api/health` — status + cache freshness.
-- Conditional GET: the polled endpoints (`/api/weather`, `/api/news`,
-  `/api/calendar`, `/api/water`, `/api/fishing`, `/api/tropics`, `/api/pollen`, `/api/air`, `/api/traffic`,
-  `/alerts.xml`, `/news.xml`) send weak ETags derived from
-  the KV freshness stamp (plus the Central calendar date where the body
-  depends on it: sun times, upcoming-events cutoff) and `Last-Modified`
-  where the stamp is a date; `If-None-Match` → body-less 304 (see
-  `conditional()` in `src/index.js`), so feed readers and dashboards poll
-  nearly free.
-- `/api/news` and `/api/calendar` — the same KV data behind `/news` and
-  `/calendar` as public JSON (CORS `*`): news items (title/link/source/
-  published ISO/`category` community|incident, folding the internal crime
-  flag) and upcoming Crosby ISD events (soonest first, capped 60; floating
-  Central wall-clock — timed events as zone-less ISO local time, all-day as
-  plain dates, same convention as the Event JSON-LD). Both documented in
-  `/openapi.json` + the api-catalog, and exposed as MCP tools
-  `get_crosby_news` / `get_school_events`. English-only like the rest of the
-  API.
-- `/api/water` — the same NWPS data behind `/water` as public JSON (CORS `*`):
-  per-gauge id/name/usgsId, observed stage (ft) + flow (cfs), `category`, NWS
-  `thresholds`, and the official NWPS `officialUrl`. Documented in
-  `/openapi.json` + api-catalog; MCP tool `get_river_levels`. English-only.
-- `/api/tropics` — the same NHC data behind `/tropics` as public JSON (CORS
-  `*`): per-storm id/name/classification (+ human `classificationLabel`),
-  `windMph` (converted from NHC knots, rounded to 5), `intensityKt`,
-  `pressureMb`, position, `movementDirection` (compass only), and the official
-  `advisoryUrl`. An empty `storms` array is the normal quiet-basin state.
-  Documented in `/openapi.json` + api-catalog; MCP tool `get_tropical_outlook`.
-  English-only.
-- `/api/traffic` — the same TranStar data behind `/traffic` as public JSON
-  (CORS `*`): `incidents` (location/type/status/lanesAffected) and
-  `laneClosures` (location/schedule/lanesAffected/status) — each `null` when
-  that feed was unreachable at the last refresh vs `[]` = quiet — plus the
-  static `cameras` catalog (name/roadway/lat/lon/`pageUrl` to TranStar's own
-  camera pages, never image URLs) and `liveMapUrl`. Documented in
-  `/openapi.json` + api-catalog; MCP tool `get_traffic`. English-only.
-- `/.well-known/api-catalog` (`application/linkset+json`, RFC 9727) and
-  `/openapi.json` (OpenAPI 3.1) describe the API. All read from the same KV
-  cache via `loadWeather()`.
-- `/mcp` — stateless MCP server (Streamable HTTP, JSON-RPC) with tools
-  `get_current_conditions`, `get_forecast` (optional `hours` 1–48, the full
-  KV hourly supply), `get_alerts`, `get_tropical_outlook`, `get_pollen`,
-  `get_air_quality`, `get_crosby_news`,
-  `get_school_events`, `get_river_levels`, `get_traffic`,
-  `get_emergency_contacts` (the
-  static `EMERGENCY` directory as a tool), and `get_radar` (fetches the NWS
-  KHGX still `KHGX_0.gif` server-side and returns it as inline MCP image
-  content, base64 GIF, with a text fallback when the upstream is down — the
-  one tool whose result is an image, so it has no `structuredContent`/
-  `outputSchema`). Every tool carries `annotations` (`readOnlyHint: true`,
-  `openWorldHint: false` — the shared `MCP_READ_ONLY` const) so clients can
-  skip per-call confirmation, and every data tool declares an `outputSchema`
-  (shallow + permissive: NWS/NHC objects pass through with more fields than
-  enumerated; full docs live in `/openapi.json`). `get_current_conditions`
-  adds normalized `dewpointF`/`humidityPercent` alongside the raw NWS fields.
-  `initialize` only echoes a requested protocolVersion from
-  `MCP_SUPPORTED_VERSIONS` (else answers with our latest, per spec — never
-  parrot an unsupported version like `2026-07-28`). Prompt `crosby_briefing`
-  (prompts/get composes live weather + alerts + news + school events — plus
-  river gauges above normal, active Atlantic storms, Crosby-corridor road
-  incidents, and Heavy-or-worse pollen/mold readings, each only when
-  present — server-side into a self-contained briefing prompt); resources
-  `llms.txt` + `openapi.json` (readable in-protocol via resources/read).
-  Discovery card at `/.well-known/mcp/server-card.json`. A GET (or HEAD) gets a human explainer
-  page (`mcpInfoHtml()` — **indexable**: the old `noindex` meta was removed
-  2026-07-13 so Google's AI Overviews/AI Mode can cite `/mcp` as a supporting
-  link, since a page must be indexed to be AI-citable), markdown-negotiated like the content pages
-  (`Accept: text/markdown` / `?format=md` → `mcpInfoMarkdown()`, so the footer's
-  "View as Markdown" link works) — except a GET asking for the SSE stream
-  (`Accept: text/event-stream`, checked first), which 405s since we don't offer
-  that stream (Streamable HTTP spec). POST does the protocol. Both explainer
-  renderers take a `lang` arg: **`/es/mcp`** is a Spanish HUMAN explainer
-  (GET/HEAD only; `mcpInfoHtml("es")`/`mcpInfoMarkdown("es")`) that describes the
-  server in Spanish, links its en/es pair via `hreflangTags("/mcp")` +
-  per-language `canonical`, and repeatedly tells readers to connect to the
-  English `/mcp` (not `/es/mcp`). The protocol is unchanged — a POST to `/es/mcp`
-  404s (it's a page, not an endpoint).
-- `/icons/...` — proxies NWS weather icons from `api.weather.gov/icons/`
-  through our origin (locked to that prefix, not an open proxy). NWS's
-  robots.txt disallows all crawling, so hotlinked icons are uncrawlable;
-  proxying makes them indexable and edge-cacheable. The HTML rewrites icon
-  URLs to this path via `iconUrl()`.
-- `/.well-known/agent-skills/index.json` (agentskills.io v0.2.0) lists the real
-  `crosby-weather` SKILL.md (served alongside it). The index `digest` is a
-  runtime SHA-256 of the file, so the two can't drift. The homepage also
-  registers WebMCP tools (`get_crosby_forecast`, `get_crosby_alerts`) via
-  `navigator.modelContext`, backed by `/api/weather`.
-- Any other path 404s. Canonical origin is the `SITE` constant in `src/index.js`.
+Per-page and per-endpoint state — content blocks and the data feeding each,
+canonical URL, sitemap presence, meta and CSP expectations, locale handling —
+lives in `docs/pages/` (one file per content page) and `docs/endpoints/` (one
+file per non-page route). Start there rather than here; this file keeps only the
+invariants that cut across pages.
+
+- **`/es` is not a second page set.** `lang` is a parameter threaded through the
+  render functions, and `_fetch` strips the prefix before dispatch
+  (`page = path.slice(3)`, with `/es` and `/es/` both normalizing to `/`), so one
+  set of handlers serves both languages and they cannot drift. Non-page routes
+  (API, MCP protocol, assets, `.well-known`) are English-only and never carry the
+  prefix. The one exception is `/es/mcp`, a Spanish HUMAN explainer page —
+  GET/HEAD only, a POST there 404s; the protocol lives only at `/mcp`.
+- **Live third-party text is never machine-translated.** Short NWS conditions,
+  period names, wind and directions go through hand-written dictionaries
+  (`ES_SHORT`, `ES_PERIOD`, `ES_WEEKDAY`, `ES_DIR`); the same pattern covers
+  pollen categories, traffic types, NHC classifications, and Crosby ISD event
+  titles, each with an English fallback. **Free-form NWS `detailedForecast`
+  prose and ALL alert text stay in official English** (`ES_NWS_NOTE` says so on
+  the page). NWS exposes no Spanish forecast/alert API and paused its
+  experimental auto-translation in 2025; mistranslating a warning is unsafe.
+- **Never render `hourly[0]` as "now".** NWS's `forecastHourly` first period is
+  the product's generation hour and can lag the wall clock by 1h+ even with a
+  fresh cache (user screenshots: the hero said 5:00 PM at 6:19 PM).
+  `currentHourly(data)` picks the period covering `Date.now()` and feeds both
+  heroes, both markdowns, `/api/weather` `current`, and the MCP tools. Freshness
+  labels show `data.updated` — when WE refreshed — never a period start time.
+- **Every content page is markdown-negotiated**: `Accept: text/markdown` or
+  `?format=md`, with `Vary: Accept`. HTML and Markdown render from one content
+  object per page so they can't drift.
+- **The cron + KV pattern** backs every live-data page: the cron writes a KV key,
+  `load*()` cold-warms on a missing or stale-shaped entry, and the fetcher throws
+  rather than writing a partial snapshot — so an upstream outage keeps the last
+  good data instead of wiping it. Key ownership and cadence are in `/kv`'s SKILL.md
+  and in each page's file.
+- **Canonical `Link` headers** are added centrally in the `fetch` wrapper from
+  `PAGE_PATHS` (the 19 English content paths + their `/es` counterparts, 38
+  total), so `?format=md` variants consolidate onto one URL. `/mcp` and `/es/mcp`
+  are deliberately outside that set.
+- **Adding a page** means touching, in the same PR: the handler, `PAGE_PATHS`,
+  `sitemapXml()`, `llmsTxt()`, `topbar()`, the `/sitemap` page, and a new
+  `docs/pages/<page>.md`. Adding a public endpoint: the handler,
+  `openApiSpec()`, `apiCatalog()`, `llmsTxt()`, `README.md`, `/developers`, and
+  `docs/endpoints/…`.
 
 ## News pipeline (runs OUTSIDE the Worker)
 - Google News RSS is the only source with real Crosby coverage, but it hard-

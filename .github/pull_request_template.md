@@ -15,6 +15,7 @@ is a reminder, not a gate (CI enforces the required checks).
 regression, Playwright, live curl after deploy, etc. State what you actually ran. -->
 
 ## Pre-merge checklist
+- [ ] `docs/pages/<page>.md` updated if this changes a page's handler, content, data source, canonical URL, sitemap presence, meta, or CSP — same for `docs/endpoints/` on non-page routes
 - [ ] `CLAUDE.md` updated if a route, behavior, or out-of-Worker invariant changed
 - [ ] `.claude/skills/` greped for anything this change makes stale (KV keys, routes, deploy steps)
 - [ ] Verified against the live site (or local `wrangler dev`) — not just syntax

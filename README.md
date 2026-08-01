@@ -43,6 +43,10 @@ with no framework and no runtime dependencies.
 - **[About](https://crosbynews.com/about)** — what the site is and where the
   data comes from; **[Developers](https://crosbynews.com/developers)** — the
   API/agent surface on one page.
+- **[Privacy](https://crosbynews.com/privacy)** — no cookies, no trackers, no
+  personal data; **[Contact](https://crosbynews.com/contact)** — general and
+  security addresses; **[Sitemap](https://crosbynews.com/sitemap)** — every page
+  and endpoint.
 
 Every page is also available in **Mexican Spanish (es-MX)** under an `/es`
 prefix — e.g. [`/es`](https://crosbynews.com/es), `/es/hourly`, `/es/alerts`.
@@ -60,8 +64,10 @@ Every page is content-negotiated — send `Accept: text/markdown` (or add
   [`/api/tropics`](https://crosbynews.com/api/tropics),
   [`/api/air`](https://crosbynews.com/api/air),
   [`/api/pollen`](https://crosbynews.com/api/pollen),
-  [`/api/traffic`](https://crosbynews.com/api/traffic), and
-  [`/api/fishing`](https://crosbynews.com/api/fishing). Public, no auth.
+  [`/api/traffic`](https://crosbynews.com/api/traffic),
+  [`/api/fishing`](https://crosbynews.com/api/fishing), and
+  [`/api/health`](https://crosbynews.com/api/health) (status + cache freshness).
+  Public, no auth.
 - **OpenAPI 3.1** — [`/openapi.json`](https://crosbynews.com/openapi.json)
 - **MCP server** (Streamable HTTP) — `https://crosbynews.com/mcp`, with tools
   `get_current_conditions`, `get_forecast`, `get_alerts`, `get_tropical_outlook`,
