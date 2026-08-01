@@ -6,7 +6,7 @@ nav restructure.
 
 | | |
 |---|---|
-| **Handlers** | `homeHtml(weather, water, news, cal, tropics, lang)` / `homeMarkdown(…)` — `src/index.js` |
+| **Handlers** | `homeHtml(weather, water, news, cal, tropics, lang)` / `homeMarkdown(…)` — `src/features/home.js` |
 | **Route** | `_fetch` fallthrough after every other `page` check; anything else 404s |
 | **Spanish** | `/es` (not `/es/`) — same handlers, `lang="es"` |
 | **Cache** | `public, max-age=300` |
@@ -49,7 +49,10 @@ page: `loadWeather` → `{hourly:[], periods:[], alerts:[], updated:null}`,
 `loadWater` → `{gauges:[]}`, `loadNews` → `{items:[]}`, `loadCalendar` →
 `{events:[]}`, `loadTropics` → `{storms:[]}`.
 
-A throw outside that `Promise.all` renders `renderError` with a 502.
+A throw outside that `Promise.all` renders `renderError` with a 502. Because
+each of the five loaders degrades individually, a throw that reaches here is
+not attributable to any one upstream, so the page says "a data source" rather
+than naming one.
 
 ## Canonical & sitemap
 
