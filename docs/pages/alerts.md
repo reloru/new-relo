@@ -6,7 +6,7 @@ bare "no alerts" page is thin content).
 
 | | |
 |---|---|
-| **Handlers** | `alertsHtml(data, lang)` / `alertsMarkdown(data, lang)` — `src/index.js` |
+| **Handlers** | `alertsHtml(data, lang)` / `alertsMarkdown(data, lang)` — `src/features/alerts.js` |
 | **Route** | `_fetch` → `page === "/alerts"` |
 | **Spanish** | `/es/alerts` |
 | **Cache** | `public, max-age=300` |

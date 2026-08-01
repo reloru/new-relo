@@ -5,7 +5,7 @@ data — no extra upstream call.
 
 | | |
 |---|---|
-| **Handlers** | `hourlyHtml(data, lang)` / `hourlyMarkdown(data, lang)` — `src/index.js` |
+| **Handlers** | `hourlyHtml(data, lang)` / `hourlyMarkdown(data, lang)` — `src/features/hourly.js` |
 | **Route** | `_fetch` → `page === "/hourly"` |
 | **Spanish** | `/es/hourly` |
 | **Cache** | `public, max-age=300` |
