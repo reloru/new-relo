@@ -10,7 +10,7 @@ import { esc } from "../lib/format.js";
 import { BASE_CSS } from "../assets/base-css.js";
 import { topbar, footer } from "../chrome.js";
 import { JSONLD_SITE, OG_COMMON } from "../seo.js";
-import { fullTime, nl2br } from "../lib/format.js";
+import { fullTime, nl2br, rssDate } from "../lib/format.js";
 import { PUSH_CLIENT_SCRIPT } from "../assets/client-scripts.js";
 
 // Stable URL for active NWS alerts in Crosby. When nothing is active (the usual
@@ -188,4 +188,33 @@ export function alertsMarkdown(data, lang) {
   }
   out.push("---", `${T(lang, "Official source: NWS Houston/Galveston. In an emergency, call 911.", "Fuente oficial: NWS Houston/Galveston. En una emergencia, llama al 911.")} · [${T(lang, "Emergency resources", "Recursos de emergencia")}](${canonicalFor("/emergency", lang)}) · [crosbynews.com](${canonicalFor("/", lang)})`);
   return out.join("\n");
+}
+
+// /alerts.xml — the no-accounts, no-tracking notification channel. An empty
+// channel is the normal all-clear state, not an error.
+export function alertsRss(data) {
+  const items = (data.alerts ?? [])
+    .map(
+      (a) => `
+  <item>
+    <title>${esc(a.event || "Weather alert")}</title>
+    <link>${SITE}/alerts</link>
+    <guid isPermaLink="false">${esc(a.id || `${a.event} ${a.sent || a.effective || ""}`)}</guid>
+    <pubDate>${rssDate(a.sent || a.effective || data.updated)}</pubDate>
+    <description>${esc([a.headline, a.description, a.instruction ? `What to do: ${a.instruction}` : ""].filter(Boolean).join("\n\n"))}</description>
+  </item>`
+    )
+    .join("");
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+<channel>
+  <title>Crosby, TX Weather Alerts — crosbynews.com</title>
+  <link>${SITE}/alerts</link>
+  <description>Active National Weather Service alerts for Crosby, Texas. The feed is empty when no alerts are active — items appear only when NWS issues one. Not a substitute for official warning channels.</description>
+  <language>en-us</language>
+  <ttl>15</ttl>
+  <lastBuildDate>${rssDate(data.updated)}</lastBuildDate>${items}
+</channel>
+</rss>
+`;
 }

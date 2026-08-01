@@ -4,7 +4,7 @@ RFC 9309 crawl rules.
 
 | | |
 |---|---|
-| **Builder** | `robotsTxt()` |
+| **Builder** | `robotsTxt()` (`src/discovery.js`) |
 | **Content-type** | `text/plain; charset=utf-8` |
 | **Cache** | `public, max-age=3600` |
 

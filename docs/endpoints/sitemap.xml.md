@@ -5,7 +5,7 @@ human-readable page — see `docs/pages/sitemap.md`.
 
 | | |
 |---|---|
-| **Builder** | `sitemapXml()` |
+| **Builder** | `sitemapXml()` (`src/discovery.js`) |
 | **Content-type** | `application/xml; charset=utf-8` |
 | **Cache** | `public, max-age=3600` |
 

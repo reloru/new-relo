@@ -4,7 +4,7 @@ OpenAPI 3.1 description of the public REST API.
 
 | | |
 |---|---|
-| **Builder** | `openApiSpec()` — the largest single function in the Worker |
+| **Builder** | `openApiSpec()` (`src/api/openapi.js`) — the largest single function in the Worker |
 | **Content-type** | `application/json; charset=utf-8` |
 | **Cache** | `public, max-age=3600` |
 | **CORS** | `*` |

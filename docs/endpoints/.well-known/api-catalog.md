@@ -4,7 +4,7 @@ RFC 9727 linkset — a machine-readable index of the public API.
 
 | | |
 |---|---|
-| **Builder** | `apiCatalog()` |
+| **Builder** | `apiCatalog()` (`src/api/openapi.js`) |
 | **Content-type** | `application/linkset+json; charset=utf-8` |
 | **Cache** | `public, max-age=3600` |
 | **CORS** | `*` |
