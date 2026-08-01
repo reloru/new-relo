@@ -114,9 +114,12 @@ and does not wait for human approval at any step.
 ## Repo skills (.claude/)
 Committed Claude Code skills live under `.claude/skills/<name>/SKILL.md` — the
 directory name becomes the `/command`. Current skills:
-- `/verify-site` — curl health-check of the live deploy (routes → 200, security
-  headers, one-hop canonicalization, markdown negotiation, unknown-path 404).
-  Encodes the "verify with curl after deploy" rule above. Read-only.
+- `/verify-site` — curl health-check of the live deploy: **all 20 content pages in
+  BOTH languages** return 200 and are substantive, plus security headers, one-hop
+  canonicalization, markdown negotiation, unknown-path 404. Encodes the "verify
+  with curl after deploy" rule above. Read-only. **The both-languages sweep is
+  the point** — roughly half the render branches never execute under `lang="en"`,
+  and an English-only pass let `/es/hourly` sit 502 in production for two deploys.
 - `/deploy` — syntax-check every file under `src/`, surface branch/working-tree state,
   `npx wrangler deploy`, then verify the live site. Encodes the Deploy rules
   below (never `wrangler login`; the binding-permission gotcha; manual deploy

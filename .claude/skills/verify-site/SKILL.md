@@ -1,6 +1,6 @@
 ---
 name: verify-site
-description: Health-check the live crosbynews.com deploy with curl — key routes return 200, security headers present, canonical redirects are one hop, markdown negotiation works, unknown paths 404. Run after a deploy.
+description: Health-check the live crosbynews.com deploy with curl — every content page in BOTH languages returns 200 and is substantive, security headers present, canonical redirects are one hop, markdown negotiation works, unknown paths 404. Run after a deploy.
 argument-hint: "[base-url]  (optional, defaults to https://crosbynews.com)"
 allowed-tools: Bash(curl *)
 ---
@@ -13,22 +13,48 @@ report a compact PASS/FAIL table. For anything that FAILs, quote the actual
 status/header so it's actionable. Deploys land in ~10–40s, so if a change is
 missing, wait and re-run before calling it a failure.
 
-## 1. Routes return 200
-Each path should respond `200`:
-`/`, `/weather`, `/hourly`, `/radar`, `/alerts`, `/water`, `/fishing`, `/tropics`, `/pollen`, `/air`, `/traffic`,
-`/news`, `/calendar`, `/emergency`, `/about`, `/developers`,
-`/privacy`, `/contact`, `/sitemap`, `/es` (Spanish spot-check),
-`/robots.txt`, `/sitemap.xml`, `/llms.txt`,
-`/api/weather`, `/api/health`, `/api/news`, `/api/calendar`, `/api/water`, `/api/fishing`, `/api/tropics`, `/api/pollen`, `/api/air`, `/api/traffic`,
+## 1. Routes return 200 — **both languages, every page**
+
+**Sweep all 20 content pages in BOTH languages. Not a spot-check.** Roughly half
+the site's render branches never execute under `lang="en"`, so an English-only
+pass proves nothing about `/es`. This is not hypothetical: `/es/hourly` served a
+502 in production across two deploys because `features/hourly.js` referenced
+`ES_NWS_NOTE`, which only the Spanish branch reaches, and the checklist here said
+"`/es` (Spanish spot-check)" — so `/es` was green while `/es/hourly` was down.
+
+English pages: `/`, `/weather`, `/hourly`, `/radar`, `/alerts`, `/water`,
+`/fishing`, `/tropics`, `/pollen`, `/air`, `/traffic`, `/news`, `/calendar`,
+`/emergency`, `/about`, `/developers`, `/privacy`, `/contact`, `/sitemap`, `/mcp`.
+
+Spanish: the same 20 under `/es` — `/es`, `/es/weather`, … `/es/sitemap`,
+`/es/mcp`. (`/es` is the hub, not `/es/`.)
+
+Non-page routes: `/robots.txt`, `/sitemap.xml`, `/llms.txt`,
+`/api/weather`, `/api/health`, `/api/news`, `/api/calendar`, `/api/water`,
+`/api/fishing`, `/api/tropics`, `/api/pollen`, `/api/air`, `/api/traffic`,
 `/alerts.xml`, `/news.xml`, `/badge.svg`,
-`/manifest.json`, `/icon.svg`, `/sw.js`,
-`/.well-known/api-catalog`, `/openapi.json`,
-`/.well-known/security.txt`,
-`/.well-known/mcp/server-card.json`,
-`/.well-known/agent-skills/index.json`.
+`/manifest.json`, `/icon.svg`, `/sw.js`, `/favicon.svg`, `/favicon.ico`,
+`/apple-touch-icon.png`, `/radar-image`,
+`/.well-known/api-catalog`, `/openapi.json`, `/.well-known/security.txt`,
+`/.well-known/mcp/server-card.json`, `/.well-known/agent-skills/index.json`,
+`/.well-known/agent-skills/crosby-weather/SKILL.md`.
+
+`/mcp` matters more than its position suggests — it is the published MCP Registry
+listing, the most externally depended-on route on the site. `SKILL.md` matters
+because `/.well-known/agent-skills/index.json` publishes its SHA-256; a
+regression there breaks a documented digest silently.
 
 ```bash
-curl -s -o /dev/null -w "%{http_code}  %{url_effective}\n" "$BASE/<path>"
+for p in / /weather /hourly … /es /es/weather /es/hourly … ; do
+  printf "%s  %s\n" "$(curl -s -o /dev/null -w '%{http_code}' "$BASE$p")" "$p"
+done | grep -v '^200' || echo "all 200"
+```
+
+**Also assert each page is substantive, not just 200.** A page that renders but
+lost its data reads as healthy on status alone:
+
+```bash
+curl -s "$BASE$p" | wc -c    # content pages are >2KB; a bare error page is far smaller
 ```
 
 ## 2. Security + negotiation headers on `/`
