@@ -5,7 +5,7 @@ season actually means for Crosby.
 
 | | |
 |---|---|
-| **Handlers** | `tropicsHtml(data, lang)` / `tropicsMarkdown(data, lang)` — `src/index.js` |
+| **Handlers** | `tropicsHtml(data, lang)` / `tropicsMarkdown(data, lang)` — `src/features/tropics.js` |
 | **Route** | `_fetch` → `page === "/tropics"` |
 | **Spanish** | `/es/tropics` |
 | **Cache** | `public, max-age=900` |

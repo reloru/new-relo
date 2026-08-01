@@ -6,7 +6,7 @@ Shared contract: `docs/endpoints/api/README.md`.
 
 | | |
 |---|---|
-| **Builder** | `apiWater(data)` |
+| **Builder** | `apiWater(data)` (`src/features/water.js`) |
 | **Loader** | `loadWater(env)` → `water` KV |
 | **Cache** | `public, max-age=300` |
 | **ETag seed** | `data.updated` |

@@ -6,7 +6,7 @@ Shared contract: `docs/endpoints/api/README.md`.
 
 | | |
 |---|---|
-| **Builder** | `apiTropics(data)` |
+| **Builder** | `apiTropics(data)` (`src/features/tropics.js`) |
 | **Loader** | `loadTropics(env)` → `tropics` KV |
 | **Cache** | `public, max-age=900` |
 | **ETag seed** | `data.updated` |
