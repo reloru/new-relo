@@ -5,7 +5,7 @@ here** — it only reads the `news` KV key, which is written out-of-band.
 
 | | |
 |---|---|
-| **Handlers** | `newsHtml(data, lang, admin)` / `newsMarkdown(data, lang)` — `src/index.js` |
+| **Handlers** | `newsHtml(data, lang, admin)` / `newsMarkdown(data, lang)` — `src/features/news.js` |
 | **Route** | `_fetch` → `page === "/news"` |
 | **Spanish** | `/es/news` |
 | **Cache** | `public, max-age=900` — or `private, no-store` in the admin view |
@@ -35,7 +35,10 @@ If the routine stops, items age out at 45 days and the page shows an honest "no
 recent news" — it never errors. A run that hits total upstream failure aborts
 without writing, so a transient block cannot wipe the last good snapshot.
 
-On throw: `renderError`, 502.
+A corrupt `news` value degrades to an empty list (rendering the honest "no
+recent news") rather than throwing — `loadNews()` guards the read, because the
+key is routine-written and the Worker has no fetch path to self-heal with.
+Any other throw: `renderError`, 502.
 
 ## Admin nuke
 

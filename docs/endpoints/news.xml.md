@@ -4,7 +4,7 @@ Curated Crosby-area headlines as an RSS 2.0 feed.
 
 | | |
 |---|---|
-| **Builder** | `newsRss(data)` |
+| **Builder** | `newsRss(data)` (`src/features/news.js`) |
 | **Loader** | `loadNews(env)` → `news` KV, blocklist-filtered |
 | **Content-type** | `application/rss+xml; charset=utf-8` |
 | **Cache** | `public, max-age=900` |
@@ -27,10 +27,10 @@ in sync.
 
 A throw returns **502** with the plain-text body `Feed temporarily unavailable`.
 
-Note that `loadNews()` does not guard the `news` KV read against a corrupt value
-the way `loadWeather()` does, so a malformed key 502s this feed rather than
-serving an empty one. Recorded as finding 2 in
-`docs/audit/2026-07-30-state.md`.
+`loadNews()` guards the `news` KV read against a corrupt value, so a malformed
+key degrades to an empty feed rather than 502ing it. That matters more here than
+for the cron-owned keys: `news` is written out-of-band, so the Worker has no
+fetch path to self-heal with.
 
 ## Advertised by
 

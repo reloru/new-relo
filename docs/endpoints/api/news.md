@@ -6,7 +6,7 @@ Shared contract: `docs/endpoints/api/README.md`.
 
 | | |
 |---|---|
-| **Builder** | `apiNews(data)` |
+| **Builder** | `apiNews(data)` (`src/features/news.js`) |
 | **Loader** | `loadNews(env)` → `news` KV |
 | **Cache** | `public, max-age=900` |
 | **ETag seed** | `data.updated` |
