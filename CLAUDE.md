@@ -168,6 +168,17 @@ directory name becomes the `/command`. Current skills:
     try/catch and returns `""`, so every timestamp, day heading and "Updated" stamp on the
     site would have silently rendered empty. A swallowed `ReferenceError` is worse than a
     loud one.
+    **It has a known blind spot**: it does not descend into a template literal nested inside
+    a `${...}` substitution, so `${lang === "es" ? \`<p>${ES_NWS_NOTE}</p>\` : ""}` is
+    invisible to it. That exact line shipped `/es/hourly` as a **502 in production** with all
+    three gates green.
+  - **Check renderers (both languages)** (`node scripts/check-renders.mjs`) — also in the
+    required job. Imports every module and calls every `*Html`/`*Markdown`/`api*`/`jsonld*`
+    export with stub data **in both `en` and `es`**, failing on `ReferenceError`. Running the
+    code is the only ground truth; every static approximation of "is this name in scope" has
+    so far found a new way to be wrong. **The two-language sweep is the point** — roughly half
+    the site's render branches never execute under `lang="en"`, which is why `/hourly` was fine
+    while `/es/hourly` was down.
   - **Deploy** (`cloudflare/wrangler-action@v3`) — runs on push to `main` only, after BOTH checks
     pass (`needs: [check, build]`). Has a `concurrency: { group: deploy-production,
     cancel-in-progress: false }` guard so two quick squash-merges deploy in order instead of
