@@ -1,14 +1,14 @@
 ---
 name: deploy
-description: Deploy the crosbynews Worker to Cloudflare and verify it's live. Syntax-checks src/index.js, surfaces branch/working-tree state, runs `npx wrangler deploy`, then curls the live site. Use when asked to deploy, ship, or push the Worker live.
+description: Deploy the crosbynews Worker to Cloudflare and verify it's live. Syntax-checks every file under src/, surfaces branch/working-tree state, runs `npx wrangler deploy`, then curls the live site. Use when asked to deploy, ship, or push the Worker live.
 argument-hint: "(no args; pass --dry-run to build without uploading)"
 allowed-tools: Bash(node --check *), Bash(git status *), Bash(git branch *), Bash(npx wrangler deploy *), Bash(curl *)
 ---
 
 # Deploy the Worker
 
-Ship `src/index.js` to the `crosbynews` Worker and confirm the live site is
-healthy. Auth comes from `CLOUDFLARE_ZONE_API_TOKEN` (preferred — see
+Ship the Worker source under `src/` to the `crosbynews` Worker and confirm the
+live site is healthy. Auth comes from `CLOUDFLARE_ZONE_API_TOKEN` (preferred — see
 CLAUDE.md's Deploy section) or `CLOUDFLARE_API_TOKEN`, paired with
 `CLOUDFLARE_ACCOUNT_ID` either way (never a zone id — wrangler has no such
 concept) — **never run `wrangler login`** (it clobbers the token auth).
@@ -17,10 +17,16 @@ If `$ARGUMENTS` contains `--dry-run`, run step 1, then the dry-run in step 3, an
 stop — nothing is uploaded and nothing goes live.
 
 ## 1. Pre-flight — syntax gate
-Mirror CI's gate before shipping. If this fails, STOP — do not deploy.
+Mirror CI's gate before shipping. If this fails, STOP — do not deploy. It covers
+every file under `src/`, not just the entry point: `node --check` validates one
+file at a time and doesn't follow imports, so checking only `src/index.js` would
+pass while an imported module was unparseable.
 ```bash
-node --check src/index.js
+find src -name '*.js' -print0 | xargs -0 -n1 node --check
 ```
+`node --check` catches syntax errors but NOT a missing or renamed export, which
+is the failure a multi-file source tree invites. The dry-run in step 3 is what
+catches that — treat it as a merge gate, not an optional extra.
 
 ## 2. Pre-flight — know what you're shipping
 `npx wrangler deploy` uploads the **current working tree**, not git. Deploying

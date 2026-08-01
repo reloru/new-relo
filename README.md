@@ -82,7 +82,9 @@ claude mcp add --transport http crosbynews https://crosbynews.com/mcp
 ## Stack
 
 - **Cloudflare Workers** (ES modules) + **Workers KV** for the cached forecast.
-- No build step and no dependencies — `src/index.js` is the entire app and
+- No framework and no runtime dependencies — the Worker imports nothing. The
+  source under `src/` is bundled by Wrangler (esbuild) at deploy time, which CI
+  exercises on every pull request via `wrangler deploy --dry-run`.
   `wrangler.jsonc` is the config.
 - A 15-minute cron refreshes the cached NWS forecast and alerts (and, on a
   slower cadence, the school calendar, river gauges, and tropical outlook).

@@ -110,7 +110,7 @@ directory name becomes the `/command`. Current skills:
 - `/verify-site` — curl health-check of the live deploy (routes → 200, security
   headers, one-hop canonicalization, markdown negotiation, unknown-path 404).
   Encodes the "verify with curl after deploy" rule above. Read-only.
-- `/deploy` — syntax-check `src/index.js`, surface branch/working-tree state,
+- `/deploy` — syntax-check every file under `src/`, surface branch/working-tree state,
   `npx wrangler deploy`, then verify the live site. Encodes the Deploy rules
   below (never `wrangler login`; the binding-permission gotcha; manual deploy
   ships the working tree, not git).
@@ -137,15 +137,20 @@ directory name becomes the `/command`. Current skills:
 
 ## CI / GitHub Actions
 - `.github/workflows/deploy.yml` runs three jobs on every push/PR to `main`:
-  - **Syntax check** (`node --check src/index.js`) — runs on all PRs and pushes. The **only
-    required** status check (branch protection keys on the exact name "Syntax check", so don't
-    rename this job).
+  - **Syntax check** (`find src -name '*.js' -print0 | xargs -0 -n1 node --check`) — runs on all
+    PRs and pushes. The **only required** status check (branch protection keys on the exact name
+    "Syntax check", so don't rename this job). It covers **every file under `src/`, not just the
+    entry point**: `node --check` validates one file at a time and does not follow imports, so
+    checking only `src/index.js` would go green while an imported module was unparseable.
   - **Build check (dry-run)** (`npm ci` + `npx wrangler deploy --dry-run`) — runs on all PRs and
     pushes. Parses `wrangler.jsonc` and bundles the Worker without uploading, catching
     config/bundling errors and the compat-date/wrangler-pin coupling that `node --check` can't
     see. No auth needed (`--dry-run` uploads nothing). NOT a required check (adding it to branch
     protection needs the admin API), but **the deploy job `needs` it**, so a broken build blocks
     the prod deploy even though a PR could technically still be merged with it red.
+    **Treat a green dry-run as a hard merge gate anyway.** It is the only check that resolves
+    imports, so it is the only one that catches a missing or renamed export across files —
+    exactly the failure a multi-file `src/` invites, and one `node --check` cannot see.
   - **Deploy** (`cloudflare/wrangler-action@v3`) — runs on push to `main` only, after BOTH checks
     pass (`needs: [check, build]`). Has a `concurrency: { group: deploy-production,
     cancel-in-progress: false }` guard so two quick squash-merges deploy in order instead of
