@@ -4,7 +4,7 @@ MCP discovery card.
 
 | | |
 |---|---|
-| **Builder** | `mcpServerCard()` |
+| **Builder** | `mcpServerCard()` (`src/mcp/server.js`) |
 | **Content-type** | `application/json; charset=utf-8` |
 | **Cache** | `public, max-age=3600` |
 | **CORS** | `*` |

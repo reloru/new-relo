@@ -88,19 +88,41 @@ for (const file of await jsFiles(SRC)) {
   }
   for (const [name, fn] of Object.entries(mod)) {
     if (typeof fn !== "function") continue;
-    if (!/Html$|Markdown$|^api[A-Z]|Svg$|^jsonld/.test(name)) continue;
+    // mcp* is included deliberately. The MCP module is the site's widest
+    // consumer — it calls into nearly every feature slice plus llmsTxt and
+    // openApiSpec — and check-module-refs is structurally blind to a reference
+    // whose target is not exported anywhere. During step 13, mcp/server.js
+    // referenced llmsTxt while llmsTxt was still an unexported function in
+    // index.js: invisible to the static check, and not covered here either
+    // until mcp* was added to this filter.
+    if (!/Html$|Markdown$|^api[A-Z]|Svg$|^jsonld|^mcp[A-Z]/.test(name)) continue;
     for (const lang of ["en", "es"]) {
       // radarHtml takes (lang, data); everything else takes (data, lang).
       const args = name === "radarHtml" ? [lang, DATA] : [DATA, lang];
       calls++;
       try {
-        fn(...args);
+        const r = fn(...args);
+        // Async exports (the mcp* handlers) reject rather than throw, and an
+        // unhandled rejection would crash this script *after* it printed OK —
+        // which is worse than a miss, because it looks like a pass. Catch the
+        // rejection and apply the same ReferenceError filter to it.
+        if (r && typeof r.then === "function") {
+          r.then(
+            () => {},
+            (err) => {
+              if (err instanceof ReferenceError) failures.push({ rel, name, lang, err });
+            },
+          );
+        }
       } catch (err) {
         if (err instanceof ReferenceError) failures.push({ rel, name, lang, err });
       }
     }
   }
 }
+
+// Let the async handlers above settle before judging.
+await new Promise((r) => setImmediate(r));
 
 if (failures.length) {
   console.error(`\nUnresolved references in ${failures.length} render path(s):\n`);

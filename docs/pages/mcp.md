@@ -6,7 +6,7 @@ The human page a browser gets when it opens `/mcp`. **The JSON-RPC protocol at
 
 | | |
 |---|---|
-| **Handlers** | `mcpInfoHtml(lang)` / `mcpInfoMarkdown(lang)` — `src/index.js` |
+| **Handlers** | `mcpInfoHtml(lang)` / `mcpInfoMarkdown(lang)` — `src/mcp/server.js` |
 | **Route** | `_fetch` → `path === "/mcp"`, GET/HEAD branch; `path === "/es/mcp"` for Spanish |
 | **Spanish** | `/es/mcp` — **GET/HEAD only; any other method 404s.** It is a page, not an endpoint. |
 | **Cache** | `public, max-age=3600` |

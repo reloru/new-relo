@@ -5,7 +5,7 @@ channel: a feed reader gets storm alerts without the site knowing who they are.
 
 | | |
 |---|---|
-| **Builder** | `alertsRss(data)` |
+| **Builder** | `alertsRss(data)` (`src/features/alerts.js`) |
 | **Loader** | `loadWeather(env)` → `weather` KV |
 | **Content-type** | `application/rss+xml; charset=utf-8` |
 | **Cache** | `public, max-age=300` |

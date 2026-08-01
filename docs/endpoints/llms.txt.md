@@ -4,7 +4,7 @@ Plain-language site summary for LLMs (llmstxt.org).
 
 | | |
 |---|---|
-| **Builder** | `llmsTxt()` |
+| **Builder** | `llmsTxt()` (`src/discovery.js`) |
 | **Content-type** | `text/markdown; charset=utf-8` — the body *is* markdown, same as the site's `?format=md` views |
 | **Cache** | `public, max-age=3600` |
 
