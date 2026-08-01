@@ -24,9 +24,14 @@ Incidents and lane closures on the Crosby-area corridors, from Houston TranStar.
 
 **Camera images are never embedded or proxied.** TxDOT's terms prohibit
 hotlinking and framing, so the page links TranStar's per-roadway camera pages
-(`by_roadway.aspx?rd=US-90`, `IH-10_East`) and the live map instead. Only RSS
-facts — road, location, status, lanes — are republished, with attribution. Same
-model as `/news`.
+and the live map instead. Only RSS facts — road, location, status, lanes — are
+republished, with attribution. Same model as `/news`.
+
+Those camera pages live on **`traffic.houstontranstar.org`**
+(`/cctv/transtar/by_roadway.aspx?mnu=freeway&rd=US-90` or `IH-10_East`) — the
+same host as the RSS feeds, the live map and the closures page. The `www.` host
+404s for this path (its `/cctv/` serves a PDF); only the plain attribution link
+in the page footer points at `www.houstontranstar.org/`.
 
 ## Relevance matching
 
