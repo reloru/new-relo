@@ -6,7 +6,7 @@ home, and every sub-page's back-link ("← Back to the forecast") points here.
 
 | | |
 |---|---|
-| **Handlers** | `renderHtml(data, lang)` / `renderMarkdown(data, lang)` — `src/index.js` |
+| **Handlers** | `renderHtml(data, lang)` / `renderMarkdown(data, lang)` — `src/features/weather.js` |
 | **Route** | `_fetch` → `page === "/weather"` |
 | **Spanish** | `/es/weather`, same handlers, `lang="es"` |
 | **Cache** | `public, max-age=300` |

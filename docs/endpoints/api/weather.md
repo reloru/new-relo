@@ -6,7 +6,7 @@ Shared contract: `docs/endpoints/api/README.md`.
 
 | | |
 |---|---|
-| **Builder** | `apiWeather(data)` |
+| **Builder** | `apiWeather(data)` (`src/features/weather.js`) |
 | **Loader** | `loadWeather(env)` → `weather` KV |
 | **Cache** | `public, max-age=300` |
 | **ETag seed** | `` `${data.updated}|${ctDate}` `` — the CT calendar date is in the seed because `sun` changes with it even when the cache stamp does not |

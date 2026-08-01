@@ -26,19 +26,27 @@ representations **cannot drift**. Changing the shape changes both.
 
 ## Response
 
+Top level: `location`, `updated`, and the `airQuality` object.
+
+Inside `airQuality`:
+
 | Field | Notes |
 |---|---|
 | `usAqi`, `category` | overall US AQI = max of the pollutant NowCast sub-indices |
-| `dominant` | the pollutant at that max |
-| `subIndices` | per-pollutant O₃ / PM2.5 / PM10 |
+| `dominantPollutant` | the pollutant at that max |
+| `subIndices` | per-pollutant `pm25` / `ozone` / `pm10` |
 | `measured` | `true` = AirNow monitors, `false` = Open-Meteo modeled |
 | `modeled` | `!measured`, kept for backward compatibility |
 | `dominantMonitor`, `monitors` | monitor site names, per pollutant. AirNow path only. |
 | `reportingAgency`, `reportingArea`, `observed`, `source` | provenance |
-| `pm25`, `pm10`, `ozone` | raw concentrations — **Open-Meteo only**, `null` on the AirNow path |
+| `pm2_5`, `pm10`, `ozone`, `concentrationUnit` | raw concentrations — **Open-Meteo only**, `null` on the AirNow path |
 | `nearbyMonitor` | `{site, distanceMi, aqi, agency, observedIso}` for Channelview C15 ozone. Present only when both it and the headline AQI resolved; dropped entirely on any error or reporting gap. |
 
-`null` when both AirNow and Open-Meteo failed.
+`airQuality` is `null` when both AirNow and Open-Meteo failed.
+
+Verified against the live response 2026-08-01: `usAqi: 38`, `category: "Good"`,
+`dominantPollutant: "PM2.5"`, `monitors: {pm25: "Baytown C148", ozone: "Baytown
+Garth C1017", pm10: "Clinton C403"}`, `measured: true`.
 
 ## Honest labeling
 

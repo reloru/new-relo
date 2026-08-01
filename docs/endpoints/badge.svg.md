@@ -5,7 +5,7 @@ A hotlinkable live-weather badge other local sites can embed with a plain
 
 | | |
 |---|---|
-| **Builder** | `badgeSvg(data)` |
+| **Builder** | `badgeSvg(data)` (`src/features/weather.js`) |
 | **Loader** | `loadWeather(env)` |
 | **Content-type** | `image/svg+xml; charset=utf-8` |
 | **Cache** | `public, max-age=300, s-maxage=900` — roughly the cron cadence, so hotlinks cost almost nothing |
