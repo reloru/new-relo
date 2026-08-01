@@ -19,6 +19,8 @@ import {
 } from "./i18n.js";
 import { esc, nl2br, iconUrl, fmt, fullTime, clockTime, hourLabel, dayLabel, capFirst, relTime } from "./lib/format.js";
 import { pop, feelsLikeRawF, feelsLikeF, currentHourly, sunTimesForCtDate } from "./lib/derived.js";
+import { topbar, footer } from "./chrome.js";
+import { JSONLD_SITE, JSONLD_DATASET, OG_COMMON, ORG_ID, WEBSITE_ID } from "./seo.js";
 
 async function getJson(url) {
   const res = await fetch(url, { headers: NWS_HEADERS });
@@ -494,123 +496,8 @@ function renderDaily(periods, lang) {
 }
 
 
-// Site header with cross-page nav. \`current\` is the active EN path key for
-// aria-current; \`lang\` selects English vs Spanish labels and the /es hrefs, and
-// adds a language toggle linking to the same page in the other language.
-function topbar(current, lang = "en") {
-  const es = lang === "es";
-  // `cls` marks a link mobile-menu-only (m-only): shown in the grouped
-  // hamburger, hidden from the flat desktop bar so the desktop nav stays lean.
-  const link = (enHref, label, cls) =>
-    `<a href="${es ? esPath(enHref) : enHref}"${cls ? ` class="${cls}"` : ""}${current === enHref ? ' aria-current="page"' : ""}>${label}</a>`;
-  const t = (en, esLabel) => (es ? esLabel : en);
-  // Section labels are hidden on desktop (flat inline bar) and shown as
-  // group headers only when the mobile menu is open. One markup, two layouts.
-  const group = (label) => `<span class="nav-group-label">${label}</span>`;
-  const toggle = es
-    ? `<a class="lang" hreflang="en-US" lang="en" href="${current}">English</a>`
-    : `<a class="lang" hreflang="es-MX" lang="es" href="${esPath(current)}">Español</a>`;
-  return `<header class="topbar">
-  <a class="skip-link" href="#main">${t("Skip to content", "Saltar al contenido")}</a>
-  <a class="brand" href="${es ? "/es" : "/"}">crosbynews.com</a>
-  <nav>
-    <details class="nav-menu">
-      <summary aria-label="${t("Menu", "Menú")}">&#9776;</summary>
-      <div class="nav-links">${link("/", t("Home", "Inicio"))} ${group(t("Weather", "Clima"))} ${link("/weather", t("Weather", "Clima"))} ${link("/hourly", t("Hourly", "Por hora"), "m-only")} ${link("/radar", t("Radar", "Radar"))} ${link("/alerts", t("Alerts", "Alertas"))} ${link("/water", t("Water Levels", "Niveles de agua"))} ${link("/fishing", t("Fishing", "Pesca"), "m-only")} ${link("/tropics", t("Tropics", "Trópicos"), "m-only")} ${link("/pollen", t("Pollen", "Polen"), "m-only")} ${link("/air", t("Air Quality", "Calidad del aire"), "m-only")} ${group(t("Community", "Comunidad"))} ${link("/news", t("News", "Noticias"))} ${link("/traffic", t("Traffic", "Tráfico"), "m-only")} ${link("/calendar", t("School Calendar", "Calendario escolar"))} ${group(t("More", "Más"))} ${link("/emergency", t("Emergency", "Emergencias"), "m-only")} ${link("/about", t("About", "Acerca de"))} ${link("/developers", t("Developers", "Desarrolladores"), "m-only")}</div>
-    </details>
-    ${toggle}
-  </nav>
-</header>`;
-}
-
-const WEATHER_PAGES = new Set(["/", "/weather", "/hourly", "/radar", "/alerts"]);
-
-function footer({ page, lang = "en", source, data }) {
-  const es = lang === "es";
-  const lk = (enHref, label) => `<a href="${es ? esPath(enHref) : enHref}">${label}</a>`;
-  const mdHref = (es ? esPath(page) : page) + "?format=md";
-
-  const weatherLine = WEATHER_PAGES.has(page) && data
-    ? `${!(data.alerts ?? []).length ? T(lang, "No active weather alerts. ", "Sin alertas meteorológicas activas. ") : ""}${source}<br>
-  ${T(lang, "Updated", "Actualizado")} ${esc(fullTime(data.updated, lang))} CT &middot; ${T(lang, "refreshes every 15 minutes.", "se actualiza cada 15 minutos.")}`
-    : source;
-
-  const links = `<div class="footer-links">${lk("/", T(lang, "Home", "Inicio"))} &middot; ${lk("/emergency", T(lang, "Emergency", "Emergencias"))} &middot; ${lk("/about", T(lang, "About", "Acerca de"))} &middot; ${lk("/developers", T(lang, "Developers", "Desarrolladores"))} &middot; ${lk("/privacy", T(lang, "Privacy", "Privacidad"))} &middot; ${lk("/contact", T(lang, "Contact", "Contacto"))} &middot; ${lk("/sitemap", T(lang, "Sitemap", "Mapa del sitio"))} &middot; <a href="${mdHref}">${T(lang, "View as Markdown", "Ver en Markdown")}</a></div>`;
-
-  const disclaimer = `<div class="footer-disclaimer">${T(lang, "crosbynews.com is an independent project and is not affiliated with the National Weather Service, NOAA, or any government agency.", "crosbynews.com es un proyecto independiente y no está afiliado al Servicio Meteorológico Nacional, la NOAA ni ninguna agencia gubernamental.")}</div>`;
-
-  return `<footer>
-  ${weatherLine}
-  ${links}
-  ${disclaimer}
-</footer>`;
-}
 
 
-// Sitewide structured data (schema.org JSON-LD): the site's identity + publisher.
-// Static, so it's built once at module load; it's a non-executable data block, so
-// CSP `script-src` doesn't apply (no hash needed). Pages can add a page-specific
-// node (e.g. AboutPage) alongside it. Kept honest — no invented schema for the
-// forecast (there's no truthful schema.org type for it) and no fake ratings/FAQ.
-const ORG_ID = SITE + "/#org";
-const WEBSITE_ID = SITE + "/#website";
-const JSONLD_SITE = `<script type="application/ld+json">${JSON.stringify({
-  "@context": "https://schema.org",
-  "@graph": [
-    {
-      "@type": "Organization",
-      "@id": ORG_ID,
-      name: "crosbynews.com",
-      alternateName: "Crosby News",
-      url: SITE + "/",
-      description: "Independent live weather and local news for Crosby, Texas.",
-      email: "contact@crosbynews.com",
-      sameAs: ["https://github.com/reloru/new-relo"],
-    },
-    {
-      "@type": "WebSite",
-      "@id": WEBSITE_ID,
-      url: SITE + "/",
-      name: "crosbynews.com",
-      description: "Live weather and local news for Crosby, Texas — fast, ad-free, no trackers.",
-      inLanguage: "en-US",
-      publisher: { "@id": ORG_ID },
-    },
-  ],
-})}</script>`;
-
-// schema.org Dataset describing the public weather API — emitted on /developers
-// (both languages; the API itself is English-only and language-neutral) so
-// dataset search engines (e.g. Google Dataset Search) can discover it. Honest:
-// unlike forecast markup, a Dataset is a truthful schema type for what the API
-// actually is. Static, so built once at module load, like JSONLD_SITE.
-const JSONLD_DATASET = `<script type="application/ld+json">${JSON.stringify({
-  "@context": "https://schema.org",
-  "@type": "Dataset",
-  "@id": SITE + "/#weather-dataset",
-  name: "Crosby, TX weather — current conditions, forecast, and alerts",
-  description:
-    "Current conditions, hourly forecast, 7-day forecast, and active National Weather Service alerts for Crosby, Texas (northeast Harris County), refreshed every 15 minutes from the U.S. National Weather Service (api.weather.gov). Free public JSON API, no authentication.",
-  url: SITE + "/developers",
-  isAccessibleForFree: true,
-  license: "https://www.weather.gov/disclaimer",
-  creator: { "@id": ORG_ID },
-  spatialCoverage: {
-    "@type": "Place",
-    name: "Crosby, TX",
-    geo: { "@type": "GeoCoordinates", latitude: LAT, longitude: LON },
-  },
-  distribution: [
-    { "@type": "DataDownload", encodingFormat: "application/json", contentUrl: SITE + "/api/weather" },
-  ],
-})}</script>`;
-
-// Invariant Open Graph / Twitter tags every page repeats. og:url is per-page
-// (it mirrors <link rel="canonical">). No og:image — that would need a binary
-// asset, which the "no static assets" rule forbids; cards still render the
-// title, description, and site name.
-const OG_COMMON = `<meta property="og:site_name" content="Crosby News">
-<meta name="twitter:card" content="summary">`;
 
 function renderHtml(data, lang) {
   const hasAlerts = (data.alerts ?? []).length > 0;
