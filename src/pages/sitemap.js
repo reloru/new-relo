@@ -105,7 +105,10 @@ ${topbar("/sitemap", lang)}
       ${extLk("/api/air", t("Air Quality API", "API de calidad del aire"), t("JSON: the measured AQI + per-pollutant breakdown.", "JSON: el AQI medido + desglose por contaminante."))}
       ${extLk("/api/health", t("Health Check", "Estado del servicio"), t("Per-feed readability, shape, and freshness.", "Legibilidad, forma y frescura por fuente."))}
       ${extLk("/openapi.json", "OpenAPI 3.1", t("Machine-readable API description.", "Descripción de la API legible por máquinas."))}
-      ${extLk("/mcp", t("MCP Server", "Servidor MCP"), t("Model Context Protocol server (Streamable HTTP).", "Servidor del Protocolo de Contexto de Modelo (Streamable HTTP)."))}
+      ${/* lk, not extLk: /mcp is a bilingual PAGE (it has a Spanish explainer at
+           /es/mcp), unlike its neighbours here, which are English-only endpoints.
+           extLk does not localize, which sent Spanish readers to the English
+           page. */ ""}${lk("/mcp", t("MCP Server", "Servidor MCP"), t("Model Context Protocol server (Streamable HTTP).", "Servidor del Protocolo de Contexto de Modelo (Streamable HTTP) — página explicativa."))}
       ${extLk("/llms.txt", "llms.txt", t("Plain-language site summary for LLMs.", "Resumen del sitio en lenguaje sencillo para LLM."))}
       ${extLk("/alerts.xml", t("Alerts RSS", "RSS de alertas"), t("Active weather alerts as an RSS feed.", "Alertas meteorológicas activas como feed RSS."))}
       ${extLk("/news.xml", t("News RSS", "RSS de noticias"), t("Local headlines as an RSS feed.", "Titulares locales como feed RSS."))}
@@ -170,7 +173,8 @@ export function sitemapPageMarkdown(lang) {
     extLk("/api/air", t("Air Quality API", "API de calidad del aire"), "JSON"),
     extLk("/api/health", t("Health", "Estado"), t("Per-feed health.", "Salud por fuente.")),
     extLk("/openapi.json", "OpenAPI 3.1", t("API spec.", "Especificación de la API.")),
-    extLk("/mcp", t("MCP Server", "Servidor MCP"), "Streamable HTTP"),
+    // Bilingual page, not an English-only endpoint — see the HTML renderer.
+    lk("/mcp", t("MCP Server", "Servidor MCP"), "Streamable HTTP"),
     extLk("/llms.txt", "llms.txt", t("LLM summary.", "Resumen para LLM.")),
     extLk("/alerts.xml", t("Alerts RSS", "RSS de alertas"), "RSS 2.0"),
     extLk("/news.xml", t("News RSS", "RSS de noticias"), "RSS 2.0"),

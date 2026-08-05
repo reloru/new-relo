@@ -464,6 +464,13 @@ invariants that cut across pages.
   (API, MCP protocol, assets, `.well-known`) are English-only and never carry the
   prefix. The one exception is `/es/mcp`, a Spanish HUMAN explainer page —
   GET/HEAD only, a POST there 404s; the protocol lives only at `/mcp`.
+  **A Spanish page must link to Spanish pages.** `scripts/check-renders.mjs`
+  enforces it: any anchor on an `/es` page pointing at a path in `PAGE_PATHS`
+  must use the `/es` form. The language toggle is exempt (it is the switcher,
+  identified by `hreflang="en-US"`), and deliberate exceptions live in that
+  script's `ES_LINK_ALLOW`. This exists because `/sitemap` linked Spanish
+  readers to the English `/mcp` for four days: `/mcp` stopped being an
+  English-only endpoint and the non-localizing link helper stayed.
 - **Live third-party text is never machine-translated.** Short NWS conditions,
   period names, wind and directions go through hand-written dictionaries
   (`ES_SHORT`, `ES_PERIOD`, `ES_WEEKDAY`, `ES_DIR`); the same pattern covers

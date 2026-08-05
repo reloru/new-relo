@@ -58,6 +58,21 @@ to the next person. All four were closed 2026-08-01 (audit finding B6). When a
 non-page route becomes a page, walk the "Adding a page" checklist in CLAUDE.md
 against it rather than assuming the gaps are intentional.
 
+## Links to this page
+
+`/sitemap` links it with the **localizing** helper, so `/es/sitemap` points at
+`/es/mcp`. Its neighbours in that section use the non-localizing one, which is
+correct for them — they are English-only endpoints — and was wrong here from the
+moment `/mcp` gained a Spanish counterpart. Reported by the owner 2026-08-05.
+
+Two links to `/mcp` from Spanish pages are deliberate and are allow-listed in
+`scripts/check-renders.mjs`:
+
+- **this page's own** `/mcp` references — the Idioma section exists to say the
+  protocol is English-only and to connect to `/mcp`, never `/es/mcp`
+- **`/developers`**, where the link's label *is* the endpoint URL. A POST to
+  `/es/mcp` 404s by design, so localizing it would document a broken endpoint.
+
 ## Meta
 
 - Title "MCP Server" / "Servidor MCP" — crosbynews.com
