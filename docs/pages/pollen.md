@@ -40,9 +40,29 @@ newest by slug date, and `parsePollenCount` reads the four groups plus the
 per-genus species lists (the first `<ul>` after each "Major … counted" heading,
 bounded at `</ul>`).
 
+**URL matching is deliberately permissive, in two places**, because HHD changes
+the shape of these URLs without notice:
+
+- the day-year separator is **optional** — HHD publishes both
+  `…-july-31-2026` and, from 2026-08-03, `…-august-52026`
+- the index href match is **case-insensitive** — HHD serves this section as both
+  `/services/…` and `/Services/…`, mixing the two on a single index page
+
+Neither strictness fails loudly. The fetch still succeeds, an older count still
+parses, and the page keeps rendering a real but **frozen** count. Both patterns
+were strict until 2026-08-05, and between them they hid three days of published
+counts while `/pollen` showed July 31 as though nothing were wrong. Let
+`parsePollenCount` be the strict gate — it is the one that can distinguish a
+real layout change from a cosmetic URL change.
+
 `fetchPollen()` **throws on failure OR on an unrecognizable layout** (fewer than
 2 groups parsed), so neither a transient outage nor a Drupal redesign can wipe
 the last good count. `loadPollen()` cold-warms.
+
+Note what that guarantee does and does not cover: it protects the last good
+count from being *wiped*, not from going *stale*. A count that stops advancing
+is the failure mode this page is most exposed to, and it is invisible to
+`/api/health`, which judges freshness by KV write time — see issue #156.
 
 **Weekends serve Friday's count**, labeled honestly with the count's own date.
 It is never presented as today's.

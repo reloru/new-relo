@@ -26,6 +26,16 @@ import { esc, capFirst, dayLabel } from "../lib/format.js";
 // july-16-2026"); we pick the newest by slug date. Worker reachability to
 // www.houstonhealth.org was canary-verified from the deployed runtime
 // (200 + real body on index and count page) before this shipped.
+//
+// Both halves of that scrape are deliberately LOOSE about the URL's shape,
+// because HHD changes it without notice and the failure is silent: the fetch
+// still succeeds, an older count still parses, and the page keeps rendering a
+// real — but frozen — count. On 2026-08-03 the slug lost its day-year hyphen
+// and some days moved to a capitalized "/Services/" path; between them the two
+// strict patterns hid three days of counts and pinned /pollen to July 31 until
+// the owner spotted a published count the site was not showing. Match the URL
+// permissively and let parsePollenCount() below be the strict gate — it is the
+// one that can tell a real layout change from a cosmetic URL change.
 export const POLLEN_KV_KEY = "pollen";
 export const POLLEN_ORIGIN = "https://www.houstonhealth.org";
 export const POLLEN_INDEX_PATH = "/services/pollen-mold";
@@ -34,8 +44,15 @@ export const POLLEN_MONTHS = { january: 1, february: 2, march: 3, april: 4, may:
 
 // "/services/pollen-mold/houston-pollen-mold-count-thursday-july-16-2026"
 // → "2026-07-16" (null when the slug doesn't carry a parseable date).
+//
+// HHD publishes the day and year BOTH ways, and both must keep parsing:
+// "...-july-31-2026" and, from 2026-08-03, "...-august-52026" with no
+// separator. The day-year hyphen is therefore optional. The `\d{1,2}` stays
+// greedy so a two-digit day still wins ("122026" → day 12, year 2026); on a
+// one-digit day it backtracks to 1 because `\d{4}` cannot otherwise be
+// satisfied ("52026" → day 5, year 2026).
 export function pollenSlugDate(slug) {
-  const m = String(slug).match(/-([a-z]+)-(\d{1,2})-(\d{4})[^\d]*$/i);
+  const m = String(slug).match(/-([a-z]+)-(\d{1,2})-?(\d{4})[^\d]*$/i);
   if (!m) return null;
   const mo = POLLEN_MONTHS[m[1].toLowerCase()];
   if (!mo) return null;
@@ -102,7 +119,11 @@ export async function fetchPollen() {
   const idx = await fetch(POLLEN_ORIGIN + POLLEN_INDEX_PATH, { headers: { "User-Agent": "crosbynews.com" } });
   if (!idx.ok) throw new Error(`HHD pollen index failed: ${idx.status} ${idx.statusText}`);
   const idxHtml = await idx.text();
-  const candidates = [...idxHtml.matchAll(/href="(\/services\/pollen-mold\/houston-pollen-mold-count-[^"#?]+)"/g)]
+  // Case-insensitive: HHD serves the same section as both "/services/..." and
+  // "/Services/..." and mixes the two on one index page, so a lowercase-only
+  // match silently drops whichever days happen to be published under the
+  // capitalized path. Origin-relative and unchanged otherwise.
+  const candidates = [...idxHtml.matchAll(/href="(\/services\/pollen-mold\/houston-pollen-mold-count-[^"#?]+)"/gi)]
     .map((m) => ({ path: m[1], date: pollenSlugDate(m[1]) }))
     .filter((c) => c.date);
   if (!candidates.length) throw new Error("HHD pollen index listed no count pages");
