@@ -4,7 +4,7 @@ Proxies the NWS KHGX radar image through our origin.
 
 | | |
 |---|---|
-| **Handler** | inline in `_fetch` |
+| **Handler** | inline in `routeRequest` |
 | **Upstream** | `radar.weather.gov/ridge/standard/KHGX_loop.gif`, or `KHGX_0.gif` with `?still=1` |
 | **Content-type** | upstream's, else `image/gif` |
 | **Cache** | `public, max-age=120, s-maxage=180`; upstream fetched with `cf: {cacheTtl: 180, cacheEverything: true}` |

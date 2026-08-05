@@ -4,7 +4,7 @@ Liveness and cache freshness.
 
 | | |
 |---|---|
-| **Handler** | inline in `_fetch` |
+| **Handler** | inline in `routeRequest` |
 | **Cache** | `no-store` |
 | **CORS** | `*` |
 | **Conditional GET** | none — not routed through `conditional()` |

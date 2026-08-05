@@ -5,7 +5,7 @@ Hide a news article site-wide. Owner-only editorial control — the "nuke" behin
 
 | | |
 |---|---|
-| **Handler** | inline in `_fetch`, shared with `/api/news/restore` |
+| **Handler** | inline in `routeRequest`, shared with `/api/news/restore` |
 | **Methods** | `POST` only. Any other method falls through to the 404 guard. |
 | **CORS** | **none, deliberately** — same-origin only |
 | **Cache** | not set; responses are not cacheable in practice |

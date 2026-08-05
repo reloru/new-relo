@@ -8,7 +8,7 @@ readable by people; only a pointer section remains.
 |---|---|
 | **Handlers** | `aboutHtml(lang)` / `aboutMarkdown(lang)` — `src/pages/about.js` |
 | **Content** | `ABOUT` / `ABOUT_ES` objects, `{h, p, links}` shape — rendered by both, so HTML and Markdown cannot drift |
-| **Route** | `_fetch` → `page === "/about"` |
+| **Route** | `routeRequest` (`src/router.js`) → `page === "/about"` |
 | **Spanish** | `/es/about` |
 | **Cache** | `public, max-age=3600` |
 | **Negotiation** | `Accept: text/markdown` or `?format=md`; `Vary: Accept` |

@@ -4,7 +4,7 @@ The public VAPID key, so a browser can create a push subscription.
 
 | | |
 |---|---|
-| **Handler** | inline in `_fetch` |
+| **Handler** | inline in `routeRequest` |
 | **Cache** | `public, max-age=3600` |
 | **CORS** | `*` |
 

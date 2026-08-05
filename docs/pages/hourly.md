@@ -6,7 +6,7 @@ data — no extra upstream call.
 | | |
 |---|---|
 | **Handlers** | `hourlyHtml(data, lang)` / `hourlyMarkdown(data, lang)` — `src/features/hourly.js` |
-| **Route** | `_fetch` → `page === "/hourly"` |
+| **Route** | `routeRequest` (`src/router.js`) → `page === "/hourly"` |
 | **Spanish** | `/es/hourly` |
 | **Cache** | `public, max-age=300` |
 | **Negotiation** | `Accept: text/markdown` or `?format=md`; `Vary: Accept` |

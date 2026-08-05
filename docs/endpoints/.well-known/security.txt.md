@@ -4,7 +4,7 @@ RFC 9116 security contact.
 
 | | |
 |---|---|
-| **Handler** | inline in `_fetch` |
+| **Handler** | inline in `routeRequest` |
 | **Content-type** | `text/plain; charset=utf-8` |
 | **Cache** | `public, max-age=86400` |
 

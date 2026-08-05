@@ -7,7 +7,7 @@ The Model Context Protocol server. Stateless, Streamable HTTP, JSON-RPC 2.0.
 
 | | |
 |---|---|
-| **Handlers** | `mcpHandle(msg, env)` (`src/mcp/server.js`), dispatched from `_fetch` |
+| **Handlers** | `mcpHandle(msg, env)` (`src/mcp/server.js`), dispatched from `routeRequest` |
 | **Methods** | `POST` for the protocol; `OPTIONS` → 204; `GET`/`HEAD` → the page (or 405 for `Accept: text/event-stream`); anything else → 405 |
 | **CORS** | `MCP_CORS` |
 | **Language** | English-only. `POST /es/mcp` **404s** — that path is a page, not an endpoint. |

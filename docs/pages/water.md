@@ -5,7 +5,7 @@ Live flood gauges for the waters that flood Crosby and NE Harris County.
 | | |
 |---|---|
 | **Handlers** | `waterHtml(data, lang)` / `waterMarkdown(data, lang)` — `src/features/water.js` |
-| **Route** | `_fetch` → `page === "/water"` |
+| **Route** | `routeRequest` (`src/router.js`) → `page === "/water"` |
 | **Spanish** | `/es/water` |
 | **Cache** | `public, max-age=300` |
 | **Negotiation** | `Accept: text/markdown` or `?format=md`; `Vary: Accept` |

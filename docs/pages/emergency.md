@@ -7,7 +7,7 @@ County. Pure static content — **zero data loading**.
 |---|---|
 | **Handlers** | `emergencyHtml(lang)` / `emergencyMarkdown(lang)` — `src/pages/emergency.js` |
 | **Content** | `EMERGENCY` / `EMERGENCY_ES` objects, `{h, p, links}` shape |
-| **Route** | `_fetch` → `page === "/emergency"` |
+| **Route** | `routeRequest` (`src/router.js`) → `page === "/emergency"` |
 | **Spanish** | `/es/emergency` |
 | **Cache** | `public, max-age=3600` |
 | **Negotiation** | `Accept: text/markdown` or `?format=md`; `Vary: Accept` |
