@@ -96,6 +96,9 @@ ${topbar("/sitemap", lang)}
     <ul>
       ${lk("/developers", t("Developers &amp; Agents", "Desarrolladores y agentes"), t("Start here — the API, MCP server, feeds, and agent integrations, documented on one page.", "Empieza aquí — la API, el servidor MCP, los feeds y las integraciones para agentes, en una sola página."))}
       ${extLk("/api/weather", t("Weather API", "API del clima"), t("JSON: current conditions, hourly, 7-day, and alerts.", "JSON: condiciones actuales, por hora, 7 días y alertas."))}
+      ${extLk("/api/water", t("Water Levels API", "API de niveles de agua"), t("JSON: river/bayou stage, flow, and NWS flood stages.", "JSON: nivel y caudal de ríos y bayous, con etapas de inundación del NWS."))}
+      ${extLk("/api/fishing", t("Fishing API", "API de pesca"), t("JSON: USGS water conditions for nearby fishing waters.", "JSON: condiciones del agua del USGS para las aguas de pesca cercanas."))}
+      ${extLk("/api/tropics", t("Tropics API", "API de trópicos"), t("JSON: active Atlantic tropical cyclones from the NHC.", "JSON: ciclones tropicales activos del Atlántico, del NHC."))}
       ${extLk("/api/news", t("News API", "API de noticias"), t("JSON: recent local headlines.", "JSON: titulares locales recientes."))}
       ${extLk("/api/calendar", t("School Calendar API", "API del calendario escolar"), t("JSON: upcoming Crosby ISD events.", "JSON: próximos eventos de Crosby ISD."))}
       ${extLk("/api/traffic", t("Traffic API", "API de tráfico"), t("JSON: incidents and lane closures on Crosby's roads.", "JSON: incidentes y cierres de carriles en los caminos de Crosby."))}
@@ -158,6 +161,9 @@ export function sitemapPageMarkdown(lang) {
     "",
     lk("/developers", t("Developers & Agents", "Desarrolladores y agentes"), t("Start here — API, MCP, feeds, agents on one page.", "Empieza aquí — API, MCP, feeds y agentes en una página.")),
     extLk("/api/weather", t("Weather API", "API del clima"), "JSON"),
+    extLk("/api/water", t("Water Levels API", "API de niveles de agua"), "JSON"),
+    extLk("/api/fishing", t("Fishing API", "API de pesca"), "JSON"),
+    extLk("/api/tropics", t("Tropics API", "API de trópicos"), "JSON"),
     extLk("/api/news", t("News API", "API de noticias"), "JSON"),
     extLk("/api/calendar", t("School Calendar API", "API del calendario escolar"), "JSON"),
     extLk("/api/traffic", t("Traffic API", "API de tráfico"), "JSON"),

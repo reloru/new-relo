@@ -54,6 +54,7 @@ Every page supports \`Accept: text/markdown\` (or \`?format=md\`) for a clean ma
 - News API: \`GET ${SITE}/api/news\` — recent Crosby-area headlines (JSON).
 - School calendar API: \`GET ${SITE}/api/calendar\` — upcoming Crosby ISD events (JSON).
 - Water levels API: \`GET ${SITE}/api/water\` — river/bayou stage + NWS flood stages (JSON).
+- Fishing API: \`GET ${SITE}/api/fishing\` — USGS water conditions (temperature, dissolved oxygen, pH, turbidity) for the waters people fish near Crosby (JSON).
 - Tropics API: \`GET ${SITE}/api/tropics\` — active Atlantic tropical cyclones from the NOAA NHC (JSON; empty storms array = quiet basin).
 - Traffic API: \`GET ${SITE}/api/traffic\` — incidents and lane closures on Crosby's roads from Houston TranStar (JSON; empty arrays = quiet roads).
 - Pollen API: \`GET ${SITE}/api/pollen\` — the Houston Health Department's measured daily pollen and mold count (JSON; weekday mornings).
