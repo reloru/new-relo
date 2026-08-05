@@ -37,16 +37,29 @@ fish.
 Cron + KV, key `fishing`, cron-owned, refreshed **every tick** (USGS instantaneous
 values post about every 15–30 minutes).
 
-`fetchFishing()` makes **one** call to `waterservices.usgs.gov/nwis/iv/` for all
-`FISHING_SITES` — the keyless legacy service, not the newer keyed API. Parameter
-codes via `USGS_PARAMS`: `00010` → `tempC` (converted with `cToF`), `00300` → DO,
-`00400` → pH, `63680` → turbidity, `00065` → gage height. `usgsNum()` filters
-USGS's `-999999` no-data sentinel and empty strings.
+`fetchFishing(env)` makes **one** call to `api.waterdata.usgs.gov`'s
+`collections/latest-continuous/items` — USGS's modernized OGC-API-Features
+water data service, authenticated with the `USGS_API_KEY` Worker secret
+(header `X-Api-Key`) — for all `FISHING_SITES` and every parameter code at
+once. Parameter codes via `USGS_PARAMS`: `00010` → `tempC` (converted with
+`cToF`), `00300` → DO, `00400` → pH, `63680` → turbidity, `00065` → gage
+height. `usgsNum()` filters USGS's `-999999` no-data sentinel and empty
+strings. (Previously this called the legacy keyless
+`waterservices.usgs.gov/nwis/iv/` service, which intermittently 503'd on this
+bulk multi-site request and is being superseded by the API used here —
+migrated 2026-08-05.)
 
-The legacy service intermittently returns 503 (observed in production), and
-because it's one bulk request for all 9 stations, a 503 costs the whole batch
-for that tick, not just one station. `fetchUsgsIv()` retries once, after a
-1.5s delay, on 503 or 429 before giving up — anything else still fails fast.
+USGS can register more than one time series for the same parameter at a site
+(different sensors/methods); `latest-continuous` returns one feature per time
+series, so the parser keeps whichever feature has the most recent `time` per
+(station, parameter) rather than the last one in response order — confirmed
+live that Jack's Ditch (Lake Houston) reports multiple time series per
+parameter, which a naive last-wins parse would have picked nondeterministically.
+
+`api.waterdata.usgs.gov` can still return a transient 503, or 429 if the
+per-key rate limit is ever exceeded (unlikely at ~4 requests/hour); the fetch
+retries once, after a 1.5s delay, on either before giving up — anything else
+still fails fast.
 
 It **throws when nothing usable comes back**, so a total USGS outage skips the
 write and the last snapshot survives — the same pattern as `/water`.

@@ -42,9 +42,9 @@ a flood). `fetchWater()` pulls each gauge from
 A total NWPS outage therefore aborts without writing, and the last good snapshot
 survives. `loadWater()` cold-warms on a missing or stale-shaped entry.
 
-USGS reserve keys (`USGS_API_KEY`, `USGS_ACCOUNT_ID`) exist as Worker secrets but
-are **unused** — `/fishing` reads the keyless legacy USGS service instead. They
-are held for a possible future move to the keyed API.
+`USGS_API_KEY` is used by `/fishing` (see `docs/pages/fishing.md`), not `/water` —
+this page still reads NWPS, no key needed. `USGS_ACCOUNT_ID` exists as a Worker
+secret alongside it but is unused by either page.
 
 On throw: `renderError`, 502.
 

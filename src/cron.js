@@ -74,11 +74,11 @@ export async function scheduled(event, env, ctx) {
       console.error("Cron water refresh failed:", e && e.stack);
       run.failed("water", e);
     }
-    // Refresh fishing conditions every tick (USGS IV posts ~every 15-30 min).
-    // fetchFishing() throws on a total USGS outage, so a hiccup keeps the last
-    // snapshot. Independent try/catch from the above.
+    // Refresh fishing conditions every tick (USGS continuous data posts ~every
+    // 15-30 min). fetchFishing() throws on a total USGS outage, so a hiccup
+    // keeps the last snapshot. Independent try/catch from the above.
     try {
-      await env.WEATHER.put(FISHING_KV_KEY, JSON.stringify(await fetchFishing()));
+      await env.WEATHER.put(FISHING_KV_KEY, JSON.stringify(await fetchFishing(env)));
       run.ok("fishing");
     } catch (e) {
       console.error("Cron fishing refresh failed:", e && e.stack);
