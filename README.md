@@ -92,8 +92,11 @@ claude mcp add --transport http crosbynews https://crosbynews.com/mcp
   source under `src/` is bundled by Wrangler (esbuild) at deploy time, which CI
   exercises on every pull request via `wrangler deploy --dry-run`.
   `wrangler.jsonc` is the config.
-- A 15-minute cron refreshes the cached NWS forecast and alerts (and, on a
-  slower cadence, the school calendar, river gauges, and tropical outlook).
+- A 15-minute cron refreshes the cached NWS forecast and alerts, plus river
+  gauges, fishing-water conditions and road incidents on every tick — and, on a
+  slower cadence, the tropical outlook (~1h), the pollen count (~2h) and the
+  school calendar (~6h). Local news is the exception: it is written
+  out-of-band, because Google News blocks Worker IPs.
 - Data: U.S. National Weather Service (public domain), NOAA NWPS and NHC,
   EPA (UV), EPA/AirNow (measured air quality, Open-Meteo modeled fallback),
   the Houston Health Department (pollen & mold), the U.S. Geological Survey

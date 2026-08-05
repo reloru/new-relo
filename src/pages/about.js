@@ -1,7 +1,6 @@
 // The "what this site is" page. Human-facing; the API/agent detail lives on
 // /developers. Content in ABOUT/ABOUT_ES so HTML and Markdown cannot drift.
 
-import { SITE } from "../config.js";
 import { T, canonicalFor, hreflangTags } from "../i18n.js";
 import { esc } from "../lib/format.js";
 import { BASE_CSS } from "../assets/base-css.js";

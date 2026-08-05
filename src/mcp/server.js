@@ -30,8 +30,8 @@ import { loadNews, newsDate, apiNews } from "../features/news.js";
 import { loadCalendar, upcomingEvents, calTime, apiCalendar } from "../features/calendar.js";
 import { EMERGENCY } from "../pages/emergency.js";
 import { pop, currentHourly, feelsLikeF, feelsLikeRawF, sunTimesForCtDate } from "../lib/derived.js";
-import { uvCurrent, uvPeakToday, uvCategory, aqiCategory, aqiDominantLabel, aqiHealth,
-         aqiApiObject, aqiSourceTag, apiAir } from "../features/air.js";
+import { uvCurrent, uvPeakToday, uvCategory,
+         aqiCategory, aqiDominantLabel, aqiHealth, apiAir } from "../features/air.js";
 
 // A stateless Model Context Protocol server exposing the weather as callable
 // tools. Single endpoint at /mcp: POST a JSON-RPC message, get one back.

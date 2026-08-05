@@ -8,7 +8,6 @@
 // Counts publish weekday mornings only; weekends carry Friday's, labeled with
 // its own countDate and never presented as today's.
 
-import { SITE } from "../config.js";
 import { T, canonicalFor, hreflangTags } from "../i18n.js";
 import { BASE_CSS } from "../assets/base-css.js";
 import { topbar, footer } from "../chrome.js";

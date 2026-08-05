@@ -5,8 +5,8 @@
 import { T, esPath } from "./i18n.js";
 import { esc, fullTime } from "./lib/format.js";
 
-// Site header with cross-page nav. \`current\` is the active EN path key for
-// aria-current; \`lang\` selects English vs Spanish labels and the /es hrefs, and
+// Site header with cross-page nav. `current` is the active EN path key for
+// aria-current; `lang` selects English vs Spanish labels and the /es hrefs, and
 // adds a language toggle linking to the same page in the other language.
 export function topbar(current, lang = "en") {
   const es = lang === "es";

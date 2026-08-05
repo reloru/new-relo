@@ -10,7 +10,6 @@
 // Camera images are never embedded or proxied — TxDOT's terms forbid
 // hotlinking, so we link TranStar's own per-roadway camera pages.
 
-import { SITE } from "../config.js";
 import { T, canonicalFor, hreflangTags } from "../i18n.js";
 import { esc, fullTime } from "../lib/format.js";
 import { BASE_CSS } from "../assets/base-css.js";

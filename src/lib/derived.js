@@ -111,5 +111,3 @@ export function sunTimesForCtDate(ms) {
   const [y, m, d] = new Date(ms).toLocaleDateString("en-CA", { timeZone: TZ }).split("-").map(Number);
   return sunTimes(Date.UTC(y, m - 1, d, 18));
 }
-
-// NWS icon URLs carry a ?size= param; bump it for crisper rendering, and

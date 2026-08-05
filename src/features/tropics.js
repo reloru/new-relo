@@ -5,7 +5,6 @@
 // documented upstream, and guessing it would put a wrong number on a
 // hurricane page.
 
-import { SITE } from "../config.js";
 import { T, canonicalFor, hreflangTags, translateDir } from "../i18n.js";
 import { esc, fullTime } from "../lib/format.js";
 import { BASE_CSS } from "../assets/base-css.js";

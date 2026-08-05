@@ -2,7 +2,6 @@
 // this page cannot fail. Every external link and phone number was verified
 // before shipping.
 
-import { SITE } from "../config.js";
 import { T, canonicalFor, hreflangTags } from "../i18n.js";
 import { esc } from "../lib/format.js";
 import { BASE_CSS } from "../assets/base-css.js";

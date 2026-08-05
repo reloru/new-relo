@@ -8,11 +8,10 @@
 
 import { SITE, TZ } from "../config.js";
 import { T, canonicalFor, hreflangTags } from "../i18n.js";
-import { esc, fullTime } from "../lib/format.js";
+import { esc, fullTime, rssDate } from "../lib/format.js";
 import { BASE_CSS } from "../assets/base-css.js";
 import { topbar, footer } from "../chrome.js";
 import { JSONLD_SITE, OG_COMMON } from "../seo.js";
-import { rssDate } from "../lib/format.js";
 import { NEWS_ADMIN_SCRIPT } from "../assets/client-scripts.js";
 
 // The Worker is a pure renderer: /news serves the WEATHER KV "news" key,
@@ -185,7 +184,6 @@ export function newsMarkdown(data, lang) {
   out.push("", "---", `${T(lang, "Headlines aggregated from public sources, filtered for Crosby, TX.", "Titulares recopilados de fuentes públicas, filtrados para Crosby, TX.")} · [crosbynews.com](${canonicalFor("/", lang)})`);
   return out.join("\n");
 }
-
 
 export function newsRss(data) {
   const items = (data.items ?? [])

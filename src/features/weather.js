@@ -7,11 +7,11 @@
 // features/air.js. The three non-NWS calls are failure-tolerant: each degrades
 // to null rather than blocking the NWS refresh.
 
-import { LAT, LON, KV_KEY, NWS_HEADERS, SITE, TZ } from "../config.js";
+import { LAT, LON, KV_KEY, NWS_HEADERS } from "../config.js";
 import { T, canonicalFor, hreflangTags, translateConditions, translatePeriodName,
          translateWind, translateDir, ES_NWS_NOTE } from "../i18n.js";
-import { esc, nl2br, iconUrl, fmt, fullTime, clockTime, hourLabel, dayLabel, capFirst } from "../lib/format.js";
-import { pop, feelsLikeRawF, feelsLikeF, currentHourly, sunTimes, sunTimesForCtDate } from "../lib/derived.js";
+import { esc, nl2br, iconUrl, fullTime, clockTime, hourLabel } from "../lib/format.js";
+import { pop, feelsLikeRawF, feelsLikeF, currentHourly, sunTimesForCtDate } from "../lib/derived.js";
 import { BASE_CSS } from "../assets/base-css.js";
 import { HOME_SCRIPT } from "../assets/client-scripts.js";
 import { topbar, footer } from "../chrome.js";
@@ -71,9 +71,6 @@ export async function fetchWeather(env) {
     aqi,
   };
 }
-
-
-
 
 export function renderAlerts(alerts, lang) {
   if (!alerts.length) return "";
@@ -158,10 +155,6 @@ export function renderDaily(periods, lang) {
     <div class="periods">${cards}</div>
   </section>`;
 }
-
-
-
-
 
 export function renderHtml(data, lang) {
   const hasAlerts = (data.alerts ?? []).length > 0;
@@ -292,8 +285,6 @@ export function renderMarkdown(data, lang) {
   out.push("---", `[crosbynews.com](${canonicalFor("/", lang)}) · ${T(lang, "data from the National Weather Service", "datos del Servicio Meteorológico Nacional")}`);
   return out.join("\n");
 }
-
-
 
 // Shared loader: cached weather, refreshing on a missing or stale-shaped entry.
 export async function loadWeather(env) {

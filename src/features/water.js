@@ -5,7 +5,6 @@
 // -9999 (undefined threshold) and -999 (no forecast) are NWPS sentinels,
 // filtered by waterNum() so they never render as numbers.
 
-import { SITE } from "../config.js";
 import { T, canonicalFor, hreflangTags } from "../i18n.js";
 import { esc, fullTime, clockTime } from "../lib/format.js";
 import { BASE_CSS } from "../assets/base-css.js";

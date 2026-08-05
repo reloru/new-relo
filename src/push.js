@@ -13,12 +13,6 @@
 // whatever endpoint was stored, so an arbitrary URL here would be a
 // server-side request forgery primitive. Do not relax it to 'any https URL'.
 
-// Opt-in browser push for life-threatening warnings only. Design: the Worker
-// sends an EMPTY VAPID-authenticated wake-up (no encrypted payload — sidesteps
-// the ECDH/HKDF/AES-GCM payload encryption entirely); the service worker
-// composes the notification locally from /api/weather. We store only an
-// anonymous push endpoint + its keys (no personal data), one KV entry per
-// subscription under the `push:` prefix, and prune dead ones on 404/410.
 export const PUSH_PREFIX = "push:";
 export const PUSH_NOTIFIED_KEY = "push_notified"; // alert IDs already pushed (dedupe)
 // Warnings that earn a push — warnings only, never watches/advisories. Kept in
@@ -49,14 +43,10 @@ export function pushEndpointAllowed(endpoint) {
   }
 }
 
-export const b64urlToBytes = (s) => {
-  s = String(s).replace(/-/g, "+").replace(/_/g, "/");
-  while (s.length % 4) s += "=";
-  const bin = atob(s);
-  const out = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-  return out;
-};
+// Only the encode direction is needed: the JWT and the public key are built
+// here, never parsed here. (A decode helper lived alongside this one until the
+// 2026-08-01 audit — it was the leftover of a payload-encryption path this
+// design deliberately avoids, and nothing ever called it.)
 export const bytesToB64url = (bytes) => {
   let bin = "";
   for (const b of new Uint8Array(bytes)) bin += String.fromCharCode(b);

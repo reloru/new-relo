@@ -6,11 +6,10 @@
 
 import { SITE } from "../config.js";
 import { T, canonicalFor, hreflangTags } from "../i18n.js";
-import { esc } from "../lib/format.js";
+import { esc, fullTime, nl2br, rssDate } from "../lib/format.js";
 import { BASE_CSS } from "../assets/base-css.js";
 import { topbar, footer } from "../chrome.js";
 import { JSONLD_SITE, OG_COMMON } from "../seo.js";
-import { fullTime, nl2br, rssDate } from "../lib/format.js";
 import { PUSH_CLIENT_SCRIPT } from "../assets/client-scripts.js";
 
 // Stable URL for active NWS alerts in Crosby. When nothing is active (the usual

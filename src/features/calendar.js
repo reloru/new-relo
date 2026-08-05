@@ -4,13 +4,12 @@
 // timeZone: "UTC" deliberately, so a floating time renders exactly as the
 // district published it rather than being shifted.
 
-import { SITE, TZ } from "../config.js";
+import { TZ } from "../config.js";
 import { T, canonicalFor, hreflangTags } from "../i18n.js";
 import { esc, fullTime } from "../lib/format.js";
 import { BASE_CSS } from "../assets/base-css.js";
 import { topbar, footer } from "../chrome.js";
 import { JSONLD_SITE, OG_COMMON } from "../seo.js";
-import { capFirst } from "../lib/format.js";
 
 // Crosby ISD publishes public iCal feeds. We render the combined "All
 // Calendars" feed (the union of every campus) so the page always has content
