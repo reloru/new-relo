@@ -487,9 +487,15 @@ invariants that cut across pages.
   good data instead of wiping it. Key ownership and cadence are in `/kv`'s SKILL.md
   and in each page's file.
 - **Canonical `Link` headers** are added centrally in the `fetch` wrapper from
-  `PAGE_PATHS` (the 19 English content paths + their `/es` counterparts, 38
-  total), so `?format=md` variants consolidate onto one URL. `/mcp` and `/es/mcp`
-  are deliberately outside that set.
+  `PAGE_PATHS` (the 20 English content paths + their `/es` counterparts, 40
+  total), so `?format=md` variants consolidate onto one URL. **`/mcp` and
+  `/es/mcp` are in that set**, and in `sitemapXml()`, as of 2026-08-01. They were
+  outside both while `/mcp` was protocol-only; it became a real HTML page (and
+  was deliberately made indexable so AI search can cite it) and nothing that
+  treats pages as pages was updated to match. `PAGE_PATHS` matches on pathname,
+  not method, so a `POST /mcp` JSON-RPC response also carries the canonical
+  `Link` header — inert for MCP clients, which read the body and the
+  `mcp-*` headers.
 - **Adding a page** means touching, in the same PR: the handler, `PAGE_PATHS`,
   `sitemapXml()`, `llmsTxt()`, `topbar()`, the `/sitemap` page, and a new
   `docs/pages/<page>.md`. Adding a public endpoint: the handler,

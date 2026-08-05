@@ -40,21 +40,33 @@ Order matters:
 
 - Canonical `https://crosbynews.com/mcp` · Spanish `https://crosbynews.com/es/mcp`
 - `hreflangTags("/mcp")` — the en/es pair is linked reciprocally
-- **Not in `PAGE_PATHS`**, so unlike the other 19 content pages this response
-  carries no HTTP `Link: rel="canonical"` header. The in-HTML canonical still
-  does the work.
-- **Not in `sitemap.xml`.**
+- **In `PAGE_PATHS`**, so this response carries the HTTP `Link: rel="canonical"`
+  header like every other content page. `PAGE_PATHS` matches on pathname, not
+  method, so a `POST /mcp` JSON-RPC response carries it too — inert for MCP
+  clients, which read the body and the `mcp-*` headers.
+- **In `sitemap.xml`** — `changefreq: monthly`, `priority: 0.4`, both languages.
 - **Indexable.** The old `noindex` meta was removed 2026-07-13 so Google's AI
   Overviews / AI Mode can cite `/mcp` as a supporting link — a page must be
-  indexed to be AI-citable. That intent and the sitemap omission sit oddly
-  together; recorded in `docs/audit/2026-07-30-state.md`, finding 4.
+  indexed to be AI-citable, and a crawler working from the sitemap has to be
+  able to find it.
+
+**This page is the standing example of a route outgrowing its own machinery.**
+`/mcp` began as protocol-only; when it grew an HTML explainer, none of the things
+that treat pages as pages — `PAGE_PATHS`, `sitemapXml()`, the Open Graph block,
+`JSONLD_SITE` — were updated to match, and each omission then read as deliberate
+to the next person. All four were closed 2026-08-01 (audit finding B6). When a
+non-page route becomes a page, walk the "Adding a page" checklist in CLAUDE.md
+against it rather than assuming the gaps are intentional.
 
 ## Meta
 
 - Title "MCP Server" / "Servidor MCP" — crosbynews.com
-- Per-language description
+- Per-language description, hoisted to a const and reused verbatim by
+  `og:title` / `og:description` so the two cannot drift
 - `theme-color` `#0b3d61`
-- **No JSON-LD.** This is the one HTML page that emits no `JSONLD_SITE` block.
+- Open Graph: `og:title`, `og:description`, `og:type`, per-page `og:url`, plus
+  the shared `OG_COMMON` — like every other page
+- `JSONLD_SITE` — like every other page
 - `<link rel="manifest">`, favicon SVG + ICO alternate
 
 ## CSP

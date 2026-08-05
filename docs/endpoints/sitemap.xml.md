@@ -11,7 +11,7 @@ human-readable page — see `docs/pages/sitemap.md`.
 
 ## Contents
 
-19 content pages **× 2 languages = 38 `<url>` entries**. Each carries
+20 content pages **× 2 languages = 40 `<url>` entries**. Each carries
 `changefreq`, `priority`, `xhtml:link` hreflang alternates (`en-US`, `es-MX`,
 `x-default` → English), and — for `/`, `/weather` and `/hourly` — a `<lastmod>`
 of the current date, computed at request time.
@@ -35,10 +35,11 @@ The hreflang alternates here assert the same pairing as the in-page
 Assets and endpoints are not listed — `/badge.svg`, `/radar-image`, `/icons/*`,
 the RSS feeds, the API. They are not pages.
 
-**`/mcp` and `/es/mcp` are also absent**, which is more debatable: `/mcp` was
-deliberately made indexable so AI search can cite it, and a crawler working from
-this file will never find it. Recorded as finding 4 in
-`docs/audit/2026-07-30-state.md`.
+**`/mcp` and `/es/mcp` ARE listed** (`changefreq: monthly`, `priority: 0.4`),
+as of 2026-08-01. `/mcp` was deliberately made indexable so AI search can cite
+it, which only works if a crawler can find it; it was absent here purely because
+`/mcp` predates being an HTML page. Recorded as finding 4 in
+`docs/audit/2026-07-30-state.md` and B6 in `docs/audit/2026-08-01-post-decomposition.md`.
 
 ## Referenced by
 

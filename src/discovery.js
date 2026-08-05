@@ -155,6 +155,9 @@ export function sitemapXml() {
     { path: "/privacy", changefreq: "monthly", priority: "0.3" },
     { path: "/contact", changefreq: "monthly", priority: "0.3" },
     { path: "/sitemap", changefreq: "monthly", priority: "0.3" },
+    // The MCP explainer. Indexable on purpose (so AI Overviews can cite it as
+    // a supporting link) — which only works if a crawler can find it.
+    { path: "/mcp", changefreq: "monthly", priority: "0.4" },
   ];
   const entry = (loc, page) => {
     const en = SITE + page.path;
