@@ -164,6 +164,23 @@ export function openApiSpec() {
       },
     },
   };
+  const FishingStation = {
+    type: "object",
+    properties: {
+      id: { type: "string", description: "USGS site number (e.g. 08072000)." },
+      water: { type: ["string", "null"], description: 'The water body this station stands in, e.g. "Lake Houston".' },
+      spot: { type: ["string", "null"], description: 'Where on that water, e.g. "FM 1960 bridge".' },
+      knownFor: { type: ["string", "null"], description: 'Species the water is fished for, e.g. "bass, crappie, white bass, catfish". Editorial, not USGS.' },
+      temperatureF: { type: ["number", "null"], description: "Water temperature in °F, converted from the USGS Celsius reading. null when this station does not measure it." },
+      dissolvedOxygenMgL: { type: ["number", "null"], description: "Dissolved oxygen, mg/L. The main fish-activity signal." },
+      ph: { type: ["number", "null"] },
+      turbidityFNU: { type: ["number", "null"], description: "Turbidity in Formazin Nephelometric Units — water clarity." },
+      waterLevelFt: { type: ["number", "null"], description: "Gauge height in feet. Level-only stations report this and nothing else." },
+      conditions: { type: "string", description: 'One-line plain-language read of the station, e.g. "Healthy oxygen". Derived in-Worker from the readings above, not a USGS field. English only, even on /es.' },
+      observed: { type: ["string", "null"], format: "date-time", description: "When USGS observed the reading (station-local offset, as USGS reports it) — distinct from the top-level `updated`, which is when we fetched." },
+      officialUrl: { type: "string", format: "uri", description: "The station's USGS monitoring-location page." },
+    },
+  };
   const Gauge = {
     type: "object",
     properties: {
@@ -192,12 +209,17 @@ export function openApiSpec() {
       license: { name: "Public domain (NWS source data)", url: "https://www.weather.gov/disclaimer" },
     },
     servers: [{ url: SITE }],
+    // Deliberately unauthenticated. An empty root `security` says so in a way a
+    // client generator or linter can read, instead of leaving "no auth" to prose.
+    security: [],
     paths: {
       "/api/weather": {
         get: {
           operationId: "getWeather",
           summary: "Current conditions, forecast, and alerts for Crosby, TX",
+          parameters: [{ $ref: "#/components/parameters/IfNoneMatch" }],
           responses: {
+            "304": { $ref: "#/components/responses/NotModified" },
             "200": {
               description: "Weather snapshot",
               content: { "application/json": { schema: { $ref: "#/components/schemas/Weather" } } },
@@ -210,7 +232,9 @@ export function openApiSpec() {
         get: {
           operationId: "getNews",
           summary: "Recent local news headlines for Crosby, TX",
+          parameters: [{ $ref: "#/components/parameters/IfNoneMatch" }],
           responses: {
+            "304": { $ref: "#/components/responses/NotModified" },
             "200": {
               description: "Curated headline list (community items first on the site; incidents flagged by category)",
               content: { "application/json": { schema: { $ref: "#/components/schemas/News" } } },
@@ -223,7 +247,9 @@ export function openApiSpec() {
         get: {
           operationId: "getCalendar",
           summary: "Upcoming Crosby ISD school calendar events",
+          parameters: [{ $ref: "#/components/parameters/IfNoneMatch" }],
           responses: {
+            "304": { $ref: "#/components/responses/NotModified" },
             "200": {
               description: "Upcoming events (soonest first, capped at 60)",
               content: { "application/json": { schema: { $ref: "#/components/schemas/SchoolCalendar" } } },
@@ -236,7 +262,9 @@ export function openApiSpec() {
         get: {
           operationId: "getWater",
           summary: "River and bayou levels with NWS flood stages for the Crosby, TX area",
+          parameters: [{ $ref: "#/components/parameters/IfNoneMatch" }],
           responses: {
+            "304": { $ref: "#/components/responses/NotModified" },
             "200": {
               description: "Current stage, flow, flood category, and thresholds per gauge",
               content: { "application/json": { schema: { $ref: "#/components/schemas/Water" } } },
@@ -249,25 +277,13 @@ export function openApiSpec() {
         get: {
           operationId: "getFishing",
           summary: "Live fishing-water conditions (USGS) for the waters people fish near Crosby, TX",
+          parameters: [{ $ref: "#/components/parameters/IfNoneMatch" }],
           responses: {
+            "304": { $ref: "#/components/responses/NotModified" },
             "200": {
               description:
                 "Per-station conditions from USGS real-time monitoring for the fished waters (Lake Houston, the San Jacinto forks, the Trinity River, and nearby bayous): temperature, dissolved oxygen, pH, and turbidity where measured, or water level for level-only stations. Nearby readings, not the exact spot.",
-              content: {
-                "application/json": {
-                  schema: {
-                    type: "object",
-                    properties: {
-                      location: { type: "string" },
-                      source: { type: "string" },
-                      note: { type: "string" },
-                      updated: { type: ["string", "null"] },
-                      stations: { type: "array", items: { type: "object" } },
-                    },
-                    required: ["stations"],
-                  },
-                },
-              },
+              content: { "application/json": { schema: { $ref: "#/components/schemas/Fishing" } } },
             },
             "502": { description: "Fishing data unavailable" },
           },
@@ -277,7 +293,9 @@ export function openApiSpec() {
         get: {
           operationId: "getTropics",
           summary: "Active Atlantic tropical cyclones from the NOAA National Hurricane Center",
+          parameters: [{ $ref: "#/components/parameters/IfNoneMatch" }],
           responses: {
+            "304": { $ref: "#/components/responses/NotModified" },
             "200": {
               description: "Active Atlantic systems; an empty storms array means a quiet basin (the normal state most of the year)",
               content: { "application/json": { schema: { $ref: "#/components/schemas/Tropics" } } },
@@ -290,7 +308,9 @@ export function openApiSpec() {
         get: {
           operationId: "getPollen",
           summary: "Measured daily pollen and mold count for the Houston / Crosby, TX area",
+          parameters: [{ $ref: "#/components/parameters/IfNoneMatch" }],
           responses: {
+            "304": { $ref: "#/components/responses/NotModified" },
             "200": {
               description:
                 "The Houston Health Department's daily count (National Allergy Bureau scale): tree/weed/grass pollen and mold spores with category + grains-per-m³, plus the species counted above zero. Publishes weekday mornings; weekends carry Friday's count.",
@@ -304,7 +324,9 @@ export function openApiSpec() {
         get: {
           operationId: "getAir",
           summary: "Measured US Air Quality Index for the Houston / Crosby, TX area",
+          parameters: [{ $ref: "#/components/parameters/IfNoneMatch" }],
           responses: {
+            "304": { $ref: "#/components/responses/NotModified" },
             "200": {
               description:
                 "Current US AQI for the Houston-Galveston-Brazoria reporting area (which includes Crosby). Measured by EPA/AirNow monitors when available (measured:true), with an Open-Meteo modeled fallback (measured:false).",
@@ -318,7 +340,9 @@ export function openApiSpec() {
         get: {
           operationId: "getTraffic",
           summary: "Traffic incidents and lane closures on Crosby, TX area roads",
+          parameters: [{ $ref: "#/components/parameters/IfNoneMatch" }],
           responses: {
+            "304": { $ref: "#/components/responses/NotModified" },
             "200": {
               description:
                 "Incidents and scheduled lane closures on US-90, FM-2100, FM-1942, and the Crosby stretch of IH-10 East, from Houston TranStar. Empty arrays mean quiet roads; null means that feed was unreachable at the last refresh.",
@@ -350,6 +374,20 @@ export function openApiSpec() {
       },
     },
     components: {
+      parameters: {
+        IfNoneMatch: {
+          name: "If-None-Match",
+          in: "header",
+          required: false,
+          description: "A previously returned weak ETag. When it still matches the cached snapshot, the endpoint answers 304 with no body — the cheap way to poll.",
+          schema: { type: "string" },
+        },
+      },
+      responses: {
+        NotModified: {
+          description: "Not Modified — the caller's If-None-Match matches the current snapshot, so no body is sent. The ETag is derived from the cache's refresh stamp, so it changes exactly when the payload would.",
+        },
+      },
       schemas: {
         Weather: {
           type: "object",
@@ -377,11 +415,11 @@ export function openApiSpec() {
                 source: { type: "string" },
               },
             },
-            airQuality: AirQuality,
-            current: { anyOf: [HourlyPeriod, { type: "null" }] },
-            hourly: { type: "array", items: HourlyPeriod },
-            forecast: { type: "array", items: Period },
-            alerts: { type: "array", items: Alert },
+            airQuality: { $ref: "#/components/schemas/AirQuality" },
+            current: { anyOf: [{ $ref: "#/components/schemas/HourlyPeriod" }, { type: "null" }] },
+            hourly: { type: "array", items: { $ref: "#/components/schemas/HourlyPeriod" } },
+            forecast: { type: "array", items: { $ref: "#/components/schemas/Period" } },
+            alerts: { type: "array", items: { $ref: "#/components/schemas/Alert" } },
           },
         },
         HourlyPeriod,
@@ -394,7 +432,7 @@ export function openApiSpec() {
             location: { type: "string" },
             source: { type: "string" },
             updated: { type: ["string", "null"], format: "date-time" },
-            items: { type: "array", items: NewsItem },
+            items: { type: "array", items: { $ref: "#/components/schemas/NewsItem" } },
           },
         },
         NewsItem,
@@ -405,17 +443,29 @@ export function openApiSpec() {
             source: { type: "string" },
             timezone: { type: "string" },
             updated: { type: ["string", "null"], format: "date-time" },
-            events: { type: "array", items: SchoolEvent },
+            events: { type: "array", items: { $ref: "#/components/schemas/SchoolEvent" } },
           },
         },
         SchoolEvent,
+        Fishing: {
+          type: "object",
+          properties: {
+            location: { type: "string" },
+            source: { type: "string" },
+            note: { type: "string", description: "Standing caveat: nearest station per water body, a nearby reading rather than the exact fishing spot." },
+            updated: { type: ["string", "null"], format: "date-time", description: "When we last refreshed the cache (cron, every tick). Per-reading times are each station's `observed`." },
+            stations: { type: "array", items: { $ref: "#/components/schemas/FishingStation" } },
+          },
+          required: ["stations"],
+        },
+        FishingStation,
         Water: {
           type: "object",
           properties: {
             location: { type: "string" },
             source: { type: "string" },
             updated: { type: ["string", "null"], format: "date-time" },
-            gauges: { type: "array", items: Gauge },
+            gauges: { type: "array", items: { $ref: "#/components/schemas/Gauge" } },
           },
         },
         Gauge,
@@ -425,7 +475,7 @@ export function openApiSpec() {
             basin: { type: "string" },
             source: { type: "string" },
             updated: { type: ["string", "null"], format: "date-time" },
-            storms: { type: "array", items: Storm },
+            storms: { type: "array", items: { $ref: "#/components/schemas/Storm" } },
           },
         },
         Storm,
@@ -465,7 +515,7 @@ export function openApiSpec() {
           properties: {
             location: { type: "string" },
             updated: { type: ["string", "null"], format: "date-time" },
-            airQuality: AirQuality,
+            airQuality: { $ref: "#/components/schemas/AirQuality" },
           },
         },
         Traffic: {
