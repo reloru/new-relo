@@ -63,6 +63,15 @@ Deleting a `push:` entry just unsubscribes that device; deleting
 `push_notified` re-notifies every active severe warning next tick. `list`
 shows these alongside the content keys.
 
+Also present (health, cron-owned): **`cron_status`** — `{at, feeds:{<name>:
+{ok, at, skipped?, reason?, error?}}}`, written by the cron at the END of every
+tick and read only by `/api/health`, which uses it to answer "did the last
+refresh ATTEMPT succeed?" — a question staleness alone cannot answer, since an
+upstream that started failing five minutes ago still has fresh data. Deleting it
+is harmless: `/api/health` reports `lastRefresh.recorded: false` until the next
+tick rewrites it. Never hand-edit it — a fabricated `ok:true` would mask a
+genuinely failing upstream.
+
 Also present (editorial, worker-owned): **`news_blocklist`** — `{articleLink:
 blockedAtMs}` of news articles the owner hid via the `/news?admin=<ADMIN_KEY>`
 nuke (written by `/api/news/delete` + `/api/news/restore`, read by `loadNews()`

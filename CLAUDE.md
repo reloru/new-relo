@@ -690,7 +690,10 @@ invariants that cut across pages.
   say "Value not found" even when the deployed Worker is reading the key fine.)
 - The WEATHER namespace holds eight content keys: `weather`, `calendar`, `water`,
   `fishing`, `tropics`, `pollen`, and `traffic` (all cron-owned — the Worker refreshes them) and
-  `news` (routine-owned — written out-of-band, the Worker only reads it). It also holds
+  `news` (routine-owned — written out-of-band, the Worker only reads it). The cron
+  also writes **`cron_status`** at the end of every tick — per-feed
+  `{ok, at, skipped?, error?}` — which is how `/api/health` reports whether the
+  last refresh ATTEMPT succeeded, distinct from whether the data is fresh. It also holds
   the Web Push state: `push_notified` (cron-owned dedupe list — first created
   when a severe warning actually pushes, so it's absent until then; that's the
   normal quiet state, not a bug) and one entry per

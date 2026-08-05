@@ -32,6 +32,13 @@ jobs:
       # 502. This runs every renderer in BOTH languages, which is ground truth.
       - name: Check renderers (both languages)
         run: node scripts/check-renders.mjs
+      # /api/health is the status relation of every api-catalog entry, so a
+      # regression there is invisible by construction: a broken health check
+      # still returns 200 "ok". This drives its state machine off stubbed KV —
+      # unreadable, missing, malformed, stale, expired, refresh-failed, critical
+      # vs not — and asserts the verdicts differ. Pure node, no install.
+      - name: Check /api/health state machine
+        run: node scripts/test-health.mjs
 
   # Build gate: parse wrangler.jsonc and bundle the Worker without uploading.
   # Catches config/bundling errors and the compat-date/wrangler-pin coupling

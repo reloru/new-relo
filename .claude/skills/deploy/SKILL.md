@@ -29,6 +29,7 @@ no install):
 ```bash
 node scripts/check-module-refs.mjs
 node scripts/check-renders.mjs
+node scripts/test-health.mjs
 ```
 `node --check` catches syntax errors but NOT a missing or renamed export — the
 dry-run in step 3 catches that, so treat it as a merge gate, not an optional
