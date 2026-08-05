@@ -30,6 +30,24 @@ fetch and make a monitor's polling interval into an upstream request rate.
 thing it can report; the response arriving proves it. The question worth
 answering is whether the data being served is still worth serving.
 
+## NOT a liveness probe
+
+**Do not point an uptime monitor, load balancer, or readiness check at this
+endpoint.** It answers `503` whenever a critical feed is unreadable, malformed or
+expired — which says nothing about whether the Worker is up. A perfectly healthy
+deploy serving a stale cache returns `503` here by design.
+
+Use a static route for liveness: **`/robots.txt`** (or `/favicon.svg`). No KV, no
+data dependency, no upstream — it answers "is the Worker responding", which is
+the different question.
+
+This is not hypothetical. `scripts/test-sw-offline.mjs` used `/api/health` as its
+"is dev up yet" probe, and the moment this endpoint gained real verdicts that
+probe started failing against a working server: miniflare's local KV is empty on
+a fresh run (or holds a stale snapshot from a previous one), so health correctly
+reported `unhealthy` and the readiness loop waited out its full timeout before
+declaring the server dead. The script now probes `/robots.txt`.
+
 ## States
 
 | `status` | HTTP | Meaning |

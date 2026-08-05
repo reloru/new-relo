@@ -45,11 +45,27 @@ let failures = 0;
 const ok = (m) => console.log(`  ✓ ${m}`);
 const bad = (m) => { console.log(`  ✗ ${m}`); failures++; };
 
+// LIVENESS probe — deliberately NOT /api/health.
+//
+// /api/health stopped being a liveness signal when it became a monitoring
+// contract: it answers 503 whenever a CRITICAL feed is unreadable, malformed or
+// expired, which is exactly the normal state of a local dev server (miniflare's
+// KV is empty on a fresh run, or holds whatever stale snapshot a previous run
+// left behind). A perfectly healthy server therefore fails an `r.ok` check, and
+// this script sat in its retry loop for the full 60s before reporting "dev
+// server never became ready" — about a server that had been serving the whole
+// time.
+//
+// /robots.txt is the right probe: static, no KV, no data dependency. It answers
+// "is the Worker up", which is the question being asked here. Anything else that
+// needs a liveness check should use it too, not /api/health.
+const LIVENESS_PATH = "/robots.txt";
+
 async function waitForServer(timeoutMs) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     try {
-      const r = await fetch(`${BASE}/api/health`);
+      const r = await fetch(`${BASE}${LIVENESS_PATH}`);
       if (r.ok) return true;
     } catch {}
     await sleep(500);
@@ -57,7 +73,7 @@ async function waitForServer(timeoutMs) {
   return false;
 }
 async function serverUp() {
-  try { return (await fetch(`${BASE}/api/health`)).ok; } catch { return false; }
+  try { return (await fetch(`${BASE}${LIVENESS_PATH}`)).ok; } catch { return false; }
 }
 
 async function main() {

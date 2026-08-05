@@ -65,6 +65,10 @@ A `degraded` is worth reporting too — it means a section feed is stale or its
 last refresh attempt failed, which is exactly the early warning the endpoint
 exists to give.
 
+**Corollary: `/api/health` is not a liveness probe.** If you need "is the Worker
+up", use `/robots.txt` — static, no KV, no data dependency. Using `/api/health`
+for that reports a healthy deploy as dead whenever its cache is stale.
+
 **Also assert each page is substantive, not just 200.** A page that renders but
 lost its data reads as healthy on status alone:
 
