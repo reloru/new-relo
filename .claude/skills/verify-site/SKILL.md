@@ -50,6 +50,21 @@ for p in / /weather /hourly … /es /es/weather /es/hourly … ; do
 done | grep -v '^200' || echo "all 200"
 ```
 
+**`/api/health` is the one exception to "expect 200".** Since 2026-08-05 it is a
+monitoring contract: `200` means ok *or* degraded, `503` means a **critical**
+feed (the weather cache) is unreadable, malformed or expired. A `503` there is
+the endpoint working correctly and reporting a real problem — read
+`.status` and `.summary.problems` and report THOSE, rather than filing it as a
+route regression. Its `status` field is the check, not its HTTP code alone:
+
+```bash
+curl -s "$BASE/api/health" | python3 -m json.tool | head -20
+```
+
+A `degraded` is worth reporting too — it means a section feed is stale or its
+last refresh attempt failed, which is exactly the early warning the endpoint
+exists to give.
+
 **Also assert each page is substantive, not just 200.** A page that renders but
 lost its data reads as healthy on status alone:
 

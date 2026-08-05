@@ -38,6 +38,7 @@ import { loadPollen, pollenHtml, pollenMarkdown, apiPollen } from "./features/po
 import { homeHtml, homeMarkdown, renderError } from "./features/home.js";
 import { MCP_CORS, mcpHandle, mcpJson, rpcError, mcpServerCard, mcpInfoHtml, mcpInfoMarkdown } from "./mcp/server.js";
 import { apiCatalog, openApiSpec } from "./api/openapi.js";
+import { healthReport } from "./api/health.js";
 import { llmsTxt, robotsTxt, sitemapXml, CROSBY_WEATHER_SKILL, agentSkillsIndex } from "./discovery.js";
 import { pushEndpointAllowed, pushKeyFor } from "./push.js";
 
@@ -274,13 +275,25 @@ export async function routeRequest(request, env, ctx) {
       return mcpJson(batch ? out : out[0], 200);
     }
 
+    // Service health. A monitoring contract, not a liveness ping: it reads the
+    // same cached state the public endpoints serve (never a live upstream
+    // fetch) and reports per-feed readability, shape and freshness. 503 only
+    // when something CRITICAL is broken, so "non-2xx = down" stays meaningful.
     if (path === "/api/health") {
-      let updated = null;
+      let report;
       try {
-        const cached = await env.WEATHER.get(KV_KEY, "json");
-        updated = cached?.updated ?? null;
-      } catch {}
-      return new Response(JSON.stringify({ status: "ok", updated }), {
+        report = await healthReport(env);
+      } catch (err) {
+        // The health endpoint failing is itself a finding, and must not 500 —
+        // a monitor would report "site down" for a bug in the reporter.
+        console.error("health report failed:", err && err.stack);
+        report = {
+          httpStatus: 503,
+          body: { status: "unhealthy", updated: null, checkedAt: new Date().toISOString(), summary: { problems: [`health check itself failed: ${(err && err.message) || err}`] } },
+        };
+      }
+      return new Response(JSON.stringify(report.body, null, 2), {
+        status: report.httpStatus,
         headers: {
           "content-type": "application/json; charset=utf-8",
           "access-control-allow-origin": "*",

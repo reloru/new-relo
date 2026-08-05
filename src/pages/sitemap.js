@@ -103,7 +103,7 @@ ${topbar("/sitemap", lang)}
       ${extLk("/api/traffic", t("Traffic API", "API de tráfico"), t("JSON: incidents and lane closures on Crosby's roads.", "JSON: incidentes y cierres de carriles en los caminos de Crosby."))}
       ${extLk("/api/pollen", t("Pollen API", "API de polen"), t("JSON: the measured daily pollen and mold count.", "JSON: el conteo diario medido de polen y moho."))}
       ${extLk("/api/air", t("Air Quality API", "API de calidad del aire"), t("JSON: the measured AQI + per-pollutant breakdown.", "JSON: el AQI medido + desglose por contaminante."))}
-      ${extLk("/api/health", t("Health Check", "Estado del servicio"), t("Service status and cache freshness.", "Estado del servicio y antigüedad de la caché."))}
+      ${extLk("/api/health", t("Health Check", "Estado del servicio"), t("Per-feed readability, shape, and freshness.", "Legibilidad, forma y frescura por fuente."))}
       ${extLk("/openapi.json", "OpenAPI 3.1", t("Machine-readable API description.", "Descripción de la API legible por máquinas."))}
       ${extLk("/mcp", t("MCP Server", "Servidor MCP"), t("Model Context Protocol server (Streamable HTTP).", "Servidor del Protocolo de Contexto de Modelo (Streamable HTTP)."))}
       ${extLk("/llms.txt", "llms.txt", t("Plain-language site summary for LLMs.", "Resumen del sitio en lenguaje sencillo para LLM."))}
@@ -168,7 +168,7 @@ export function sitemapPageMarkdown(lang) {
     extLk("/api/traffic", t("Traffic API", "API de tráfico"), "JSON"),
     extLk("/api/pollen", t("Pollen API", "API de polen"), "JSON"),
     extLk("/api/air", t("Air Quality API", "API de calidad del aire"), "JSON"),
-    extLk("/api/health", t("Health", "Estado"), t("Status + cache.", "Estado + caché.")),
+    extLk("/api/health", t("Health", "Estado"), t("Per-feed health.", "Salud por fuente.")),
     extLk("/openapi.json", "OpenAPI 3.1", t("API spec.", "Especificación de la API.")),
     extLk("/mcp", t("MCP Server", "Servidor MCP"), "Streamable HTTP"),
     extLk("/llms.txt", "llms.txt", t("LLM summary.", "Resumen para LLM.")),
