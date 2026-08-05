@@ -76,7 +76,7 @@ Each entry under `feeds` reports:
 
 | Field | Notes |
 |---|---|
-| `kv` | `ok` / `missing` / `unreadable`. **Storage-level, kept separate from data-level:** `unreadable` is a KV or JSON-parse failure, `missing` is a cold cache, and neither is the same as stale. |
+| `kv` | `ok` / `missing` / `unreadable`. **Storage-level, kept separate from data-level:** `unreadable` is a KV or JSON-parse failure (`.get(k,"json")` threw), `missing` is a cold cache (the key returned null), and `ok` means the value was present and parsed — which says nothing about whether it is any good. Freshness and `shape` answer that. A present-but-four-days-old entry is `kv: "ok"` with an `expired` freshness, **not** `missing`. |
 | `updated`, `ageSeconds` | from the cached entry's own refresh stamp |
 | `freshness` | `fresh` / `stale` / `expired` / `unknown`, judged against **this feed's** thresholds |
 | `thresholds` | the two numbers used, so the verdict is auditable rather than magic |

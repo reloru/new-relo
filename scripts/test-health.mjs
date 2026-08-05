@@ -124,10 +124,22 @@ await check("weather 1h old (past fresh, inside stale) -> degraded / 200", envWi
   want: { freshness: "stale" },
 });
 
-await check("weather 3h old (past stale) -> unhealthy / 503", envWith({ ...healthyStore(), weather: { ...healthyStore().weather, updated: ISO(3 * 3600 * 1000) } }), {
+// `kv` is STORAGE-level and must not absorb data-level verdicts: a present,
+// parseable, four-day-old entry is `kv: "ok"` with an expired freshness — NOT
+// `missing`. Conflating them would make a cold cache and a stale one look
+// identical, which is half of what this endpoint exists to separate.
+await check("weather 3h old (past stale) -> unhealthy / 503, but kv stays ok", envWith({ ...healthyStore(), weather: { ...healthyStore().weather, updated: ISO(3 * 3600 * 1000) } }), {
   status: "unhealthy", httpStatus: 503,
-  probe: (b) => ({ freshness: b.feeds.weather.freshness }),
-  want: { freshness: "expired" },
+  probe: (b) => ({ freshness: b.feeds.weather.freshness, kv: b.feeds.weather.kv }),
+  want: { freshness: "expired", kv: "ok" },
+});
+
+// The other side of that distinction, asserted against the same status code:
+// missing and stale both yield 503, and must remain tellable apart in the body.
+await check("cold cache and stale cache both 503 but report different kv", envWith({ ...healthyStore(), weather: null }), {
+  status: "unhealthy", httpStatus: 503,
+  probe: (b) => ({ kv: b.feeds.weather.kv, updated: b.feeds.weather.updated, freshness: b.feeds.weather.freshness }),
+  want: { kv: "missing", updated: null, freshness: "unknown" },
 });
 
 // The point of per-feed thresholds: the same age is fine for one feed and not

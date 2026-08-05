@@ -688,6 +688,13 @@ invariants that cut across pages.
 - `wrangler kv key get/put/list` default to *local* (miniflare) state. To read
   or write the real production namespace, pass `--remote`. (A get without it can
   say "Value not found" even when the deployed Worker is reading the key fine.)
+- **Local KV persists across runs** in `.wrangler/state/v3/kv/` (gitignored), so
+  a "fresh" `wrangler dev` is NOT a cold cache — it replays whatever the last
+  local run warmed, however many days ago. Verified 2026-08-05: a dev server was
+  served a `weather` value written four days earlier, with every hourly period
+  long elapsed. `rm -rf .wrangler/state` for a genuinely cold start. This is also
+  why `/api/health` legitimately returns 503 in local dev, and why nothing should
+  use it as a liveness probe (see `docs/endpoints/api/health.md`).
 - The WEATHER namespace holds eight content keys: `weather`, `calendar`, `water`,
   `fishing`, `tropics`, `pollen`, and `traffic` (all cron-owned — the Worker refreshes them) and
   `news` (routine-owned — written out-of-band, the Worker only reads it). The cron

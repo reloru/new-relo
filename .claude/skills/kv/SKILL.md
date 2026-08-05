@@ -16,6 +16,22 @@ resolves `--binding WEATHER` from `wrangler.jsonc` (namespace id
 a `get` reports "Value not found" even though production has the key. Every
 command below passes `--remote` — keep it.
 
+**And local state PERSISTS across runs.** It lives in `.wrangler/state/v3/kv/`
+(gitignored) and survives `wrangler dev` restarts, reboots, and days of elapsed
+time — so "a fresh local dev server" is not a cold cache. A local run cold-warms
+KV once and every later run reads that same snapshot back, however old it is.
+
+This is not academic: a `wrangler dev` session on 2026-08-05 was served a
+`weather` value written on 2026-08-01, whose 48 hourly periods had all elapsed
+two days earlier. `/api/health` correctly reported `kv: "ok"` (present and
+readable) with an expired-and-unusable verdict — and it was briefly misread as an
+empty cache, because "local dev must be cold" is the intuitive assumption and it
+is wrong. To get a genuinely cold local cache, delete the state:
+
+```bash
+rm -rf .wrangler/state          # next `wrangler dev` starts truly empty
+```
+
 ## The eight content keys (different owners, different risk)
 - **`weather`** — NWS forecast + active alerts, shape
   `{ updated, place, periods, hourly, alerts }` (`hourly` is the array
