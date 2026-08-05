@@ -175,8 +175,14 @@ const ES_LINK_ALLOW = [
   // The Spanish MCP explainer exists to tell readers the PROTOCOL is English-only
   // and to connect to /mcp, never /es/mcp. Its English links are the whole point.
   { file: "mcp/server.js", path: "/mcp" },
-  // /developers lists /mcp as the endpoint URL, and the label IS that URL. A POST
-  // to /es/mcp 404s by design, so localizing it would document a broken endpoint.
+  // /developers lists /mcp as the ENDPOINT, where the label is the URL itself and
+  // a POST to /es/mcp 404s — localizing it would document a broken endpoint. That
+  // alone is not sufficient justification, though: clicking an anchor is a GET,
+  // and the Spanish note used to advertise "un GET muestra una página explicativa"
+  // while handing over the English one. The exception is allowed because the
+  // Spanish page now carries a SEPARATE, clearly-labelled /es/mcp link beside it,
+  // so the explainer is reachable in Spanish. Remove that link and this exception
+  // stops being honest.
   { file: "pages/developers.js", path: "/mcp" },
 ];
 const allowed = (rel, p) => ES_LINK_ALLOW.some((a) => rel.endsWith(a.file) && a.path === p);
