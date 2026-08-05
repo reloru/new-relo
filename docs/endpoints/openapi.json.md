@@ -20,7 +20,15 @@ endpoints are deliberately absent.
 Component schemas (`HourlyPeriod`, `Period`, `Alert`, …) set
 `additionalProperties: true` on purpose: NWS and NHC payloads are passed through
 verbatim and carry more fields than are enumerated. Documenting them as closed
-would make the spec lie the first time an upstream adds a field.
+would make the spec lie the first time an upstream adds a field. **That applies
+to nested passthrough objects too** — `probabilityOfPrecipitation` is open, since
+NWS sends `unitCode` alongside `value`.
+
+**`AirQuality` is one shared component**, spliced into both `Weather` and `Air`
+rather than hand-copied into each. It used to be two literal copies, which is how
+`nearbyMonitor` came to be undocumented in both at once after it shipped on the
+endpoints (2026-08-01 audit, finding B3). Anything added to the AQI object goes
+in the one definition and reaches both paths.
 
 Derived fields are called out as derived — `feelsLike` carries a description
 saying it is a heat index or wind chill computed from NWS's own formulas, and
