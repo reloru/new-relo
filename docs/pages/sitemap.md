@@ -21,11 +21,18 @@ Static, no data loading. Four groups:
 | Weather & Forecast | `/`, `/weather`, `/hourly`, `/radar`, `/alerts`, `/water`, `/fishing`, `/tropics`, `/pollen`, `/air` |
 | Community | `/news`, `/traffic`, `/calendar`, `/emergency` |
 | About & Policies | `/about`, `/privacy`, `/contact` |
-| Developers & Agents | `/developers`, the `/api/*` endpoints, `/openapi.json`, `/mcp`, the RSS feeds, `/badge.svg`, `/llms.txt`, `/.well-known/*` |
+| Developers & Agents | `/developers`, all ten `/api/*` endpoints, `/openapi.json`, `/mcp`, the RSS feeds, `/badge.svg`, `/llms.txt`, `/.well-known/api-catalog`, `/sitemap.xml` |
+
+The API entries are the nine public data endpoints plus `/api/health`. The push
+and news-admin endpoints are withheld, matching `openapi.json`, the api-catalog
+and `llms.txt`.
 
 **This list is hand-maintained.** Adding a page or a public endpoint means adding
 it here as well as to `sitemapXml()`, `llmsTxt()`, and — for pages — `PAGE_PATHS`
-and the topbar.
+and the topbar. Nothing generates it and nothing cross-checks it, so it is the
+easiest surface on the site to forget: `/api/water`, `/api/fishing` and
+`/api/tropics` each shipped without being added, and stayed missing until the
+2026-08-01 audit (finding B5).
 
 ## Canonical & sitemap
 

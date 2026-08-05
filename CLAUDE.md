@@ -493,8 +493,13 @@ invariants that cut across pages.
 - **Adding a page** means touching, in the same PR: the handler, `PAGE_PATHS`,
   `sitemapXml()`, `llmsTxt()`, `topbar()`, the `/sitemap` page, and a new
   `docs/pages/<page>.md`. Adding a public endpoint: the handler,
-  `openApiSpec()`, `apiCatalog()`, `llmsTxt()`, `README.md`, `/developers`, and
-  `docs/endpoints/…`.
+  `openApiSpec()`, `apiCatalog()`, `llmsTxt()`, `README.md`, `/developers`,
+  **the `/sitemap` page** (`src/pages/sitemap.js` — BOTH the HTML list and the
+  markdown one), and `docs/endpoints/…`.
+  **The `/sitemap` page is the one nothing points at**, which is why
+  `/api/water`, `/api/fishing` and `/api/tropics` were all missing from it until
+  the 2026-08-01 audit. None of these lists is generated or cross-checked by CI
+  — adding an endpoint and skipping one of them fails silently.
 
 ## News pipeline (runs OUTSIDE the Worker)
 - Google News RSS is the only source with real Crosby coverage, but it hard-

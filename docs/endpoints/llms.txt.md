@@ -19,13 +19,12 @@ Plain-language site summary for LLMs (llmstxt.org).
 | `## Data policy` | public domain, no auth, no rate limits, attribution string |
 | `## Optional` | the spec's skippable-links section: both RSS feeds, `/badge.svg`, `/sitemap.xml`, the api-catalog, security.txt |
 
-## Known gap
-
-The `## API & agent access` list names eight public APIs and **omits
-`/api/fishing`**, while the same function lists `get_fishing` among the MCP tools
-four lines later. An oversight from the PR that shipped `/fishing`, not a policy
-— `openapi.json`, the api-catalog and README all carry it. See
-`docs/audit/2026-07-30-state.md`, section (c).
+The `## API & agent access` list names **all nine public data APIs** — weather,
+water, fishing, tropics, pollen, air, traffic, news, calendar — plus the OpenAPI
+spec, the MCP endpoint and the server card. (`/api/health` is deliberately out:
+it is a status probe, not a data endpoint, and belongs to the api-catalog's
+`status` relation.) The push and news-admin endpoints are withheld here exactly
+as they are from `openapi.json` and the api-catalog.
 
 ## Hand-maintained
 
