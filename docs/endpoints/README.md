@@ -49,7 +49,7 @@ file.
 ## Language
 
 **Every route here is English-only** and carries no `/es` prefix. The `/es`
-mapping in `_fetch` happens *after* all of these have matched, so they are
+mapping in `routeRequest` happens *after* all of these have matched, so they are
 structurally out of reach of it. The one exception is a page, not an endpoint:
 `/es/mcp` (see `docs/pages/mcp.md`).
 

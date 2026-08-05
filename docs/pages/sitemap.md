@@ -7,7 +7,7 @@ is the machine-readable crawler sitemap — see
 | | |
 |---|---|
 | **Handlers** | `sitemapPageHtml(lang)` / `sitemapPageMarkdown(lang)` — `src/pages/sitemap.js` |
-| **Route** | `_fetch` → `page === "/sitemap"` |
+| **Route** | `routeRequest` (`src/router.js`) → `page === "/sitemap"` |
 | **Spanish** | `/es/sitemap` |
 | **Cache** | `public, max-age=3600` |
 | **Negotiation** | `Accept: text/markdown` or `?format=md`; `Vary: Accept` |

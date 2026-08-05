@@ -458,7 +458,7 @@ file per non-page route). Start there rather than here; this file keeps only the
 invariants that cut across pages.
 
 - **`/es` is not a second page set.** `lang` is a parameter threaded through the
-  render functions, and `_fetch` strips the prefix before dispatch
+  render functions, and `routeRequest()` (`src/router.js`) strips the prefix before dispatch
   (`page = path.slice(3)`, with `/es` and `/es/` both normalizing to `/`), so one
   set of handlers serves both languages and they cannot drift. Non-page routes
   (API, MCP protocol, assets, `.well-known`) are English-only and never carry the

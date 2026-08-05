@@ -4,7 +4,7 @@ Proxies NWS weather icons through our origin.
 
 | | |
 |---|---|
-| **Handler** | inline in `_fetch`, matched with `path.startsWith("/icons/")` |
+| **Handler** | inline in `routeRequest`, matched with `path.startsWith("/icons/")` |
 | **Upstream** | `https://api.weather.gov${path}${url.search}` |
 | **Methods** | `GET`, `HEAD`. Anything else → **405** `Allow: GET, HEAD` |
 | **Content-type** | upstream's, else `image/png` |

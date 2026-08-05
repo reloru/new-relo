@@ -9,7 +9,7 @@ Public, unauthenticated, no rate limits, CORS `*`. English-only.
 ## Request
 
 `GET` (and `HEAD`). `OPTIONS` gets a 204 preflight from the shared branch in
-`_fetch`, allowing `GET, OPTIONS`, `access-control-max-age: 86400`.
+`routeRequest`, allowing `GET, OPTIONS`, `access-control-max-age: 86400`.
 
 No query parameters are read by any of them.
 

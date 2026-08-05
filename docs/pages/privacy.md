@@ -7,7 +7,7 @@ sources, analytics, and push notifications.
 |---|---|
 | **Handlers** | `privacyHtml(lang)` / `privacyMarkdown(lang)` — `src/pages/privacy.js` |
 | **Content** | `PRIVACY` / `PRIVACY_ES` objects |
-| **Route** | `_fetch` → `page === "/privacy"` |
+| **Route** | `routeRequest` (`src/router.js`) → `page === "/privacy"` |
 | **Spanish** | `/es/privacy` |
 | **Cache** | `public, max-age=3600` |
 | **Negotiation** | `Accept: text/markdown` or `?format=md`; `Vary: Accept` |

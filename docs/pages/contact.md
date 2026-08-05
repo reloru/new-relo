@@ -6,7 +6,7 @@ General and security contact addresses.
 |---|---|
 | **Handlers** | `contactHtml(lang)` / `contactMarkdown(lang)` — `src/pages/contact.js` |
 | **Content** | `CONTACT` / `CONTACT_ES` objects |
-| **Route** | `_fetch` → `page === "/contact"` |
+| **Route** | `routeRequest` (`src/router.js`) → `page === "/contact"` |
 | **Spanish** | `/es/contact` |
 | **Cache** | `public, max-age=3600` |
 | **Negotiation** | `Accept: text/markdown` or `?format=md`; `Vary: Accept` |

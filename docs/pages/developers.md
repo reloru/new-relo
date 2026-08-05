@@ -7,7 +7,7 @@ Everything an API consumer or agent needs, on one page. Split off `/about` in th
 |---|---|
 | **Handlers** | `developersHtml(lang)` / `developersMarkdown(lang)` — `src/pages/developers.js` |
 | **Content** | `DEVELOPERS` / `DEVELOPERS_ES` objects, same `{h, p, links}` shape as `ABOUT` |
-| **Route** | `_fetch` → `page === "/developers"` |
+| **Route** | `routeRequest` (`src/router.js`) → `page === "/developers"` |
 | **Spanish** | `/es/developers` |
 | **Cache** | `public, max-age=3600` |
 | **Negotiation** | `Accept: text/markdown` or `?format=md`; `Vary: Accept` |

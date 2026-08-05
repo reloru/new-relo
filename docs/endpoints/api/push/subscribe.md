@@ -4,7 +4,7 @@ Store a browser push subscription.
 
 | | |
 |---|---|
-| **Handler** | inline in `_fetch` |
+| **Handler** | inline in `routeRequest` |
 | **Methods** | `POST` only |
 | **CORS** | `*` |
 
