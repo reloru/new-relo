@@ -7,9 +7,9 @@
 // rather than getting their own keys, and both are labeled by source wherever
 // they appear.
 
-import { LAT, LON, SITE, TZ } from "../config.js";
+import { LAT, LON, TZ } from "../config.js";
 import { T, canonicalFor, hreflangTags } from "../i18n.js";
-import { esc, capFirst, dayLabel, fullTime, fmt } from "../lib/format.js";
+import { esc, fmt } from "../lib/format.js";
 import { BASE_CSS } from "../assets/base-css.js";
 import { topbar, footer } from "../chrome.js";
 import { JSONLD_SITE, OG_COMMON } from "../seo.js";

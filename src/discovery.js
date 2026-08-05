@@ -182,23 +182,6 @@ ${urls.join("\n")}
 `;
 }
 
-
-
-// --- Local news (rendered from KV; fetched out-of-band) ------------------
-// --- end Local news -------------------------------------------------------
-
-// --- Crosby ISD school calendar (iCal, cron-owned KV) --------------------
-// --- end Crosby ISD school calendar ---------------------------------------
-
-
-
-
-
-
-
-// --- end MCP server -------------------------------------------------------
-
-
 // --- Agent Skills discovery (agentskills.io v0.2.0) -----------------------
 export const SKILLS_SCHEMA = "https://schemas.agentskills.io/discovery/0.2.0/schema.json";
 

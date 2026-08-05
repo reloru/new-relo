@@ -6,8 +6,7 @@ import { T, canonicalFor, hreflangTags, esPath } from "../i18n.js";
 import { esc } from "../lib/format.js";
 import { BASE_CSS } from "../assets/base-css.js";
 import { topbar, footer } from "../chrome.js";
-import { JSONLD_SITE, OG_COMMON, ORG_ID, WEBSITE_ID } from "../seo.js";
-
+import { JSONLD_SITE, OG_COMMON } from "../seo.js";
 
 export function sitemapPageHtml(lang) {
   const t = (en, es) => T(lang, en, es);

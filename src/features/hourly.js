@@ -1,14 +1,12 @@
 // The full multi-day hourly table. Reuses the cached NWS hourly data — the
 // only surface that shows all 48 periods; everything else slices to 12.
 
-import { SITE } from "../config.js";
-import { T, canonicalFor, hreflangTags } from "../i18n.js";
-import { esc } from "../lib/format.js";
+import { T, canonicalFor, hreflangTags, translateConditions,
+         translateWind, translateDir, ES_NWS_NOTE } from "../i18n.js";
+import { esc, fullTime, clockTime, hourLabel, dayLabel, capFirst, iconUrl } from "../lib/format.js";
 import { BASE_CSS } from "../assets/base-css.js";
 import { topbar, footer } from "../chrome.js";
 import { JSONLD_SITE, OG_COMMON } from "../seo.js";
-import { translateConditions, translateWind, translateDir, ES_NWS_NOTE } from "../i18n.js";
-import { fmt, fullTime, clockTime, hourLabel, dayLabel, capFirst, iconUrl } from "../lib/format.js";
 import { pop, feelsLikeRawF, sunTimesForCtDate } from "../lib/derived.js";
 
 // Full multi-day hourly forecast (the cache holds 48h; the homepage shows 12).

@@ -2,12 +2,11 @@
 // filed inside the About-page region of the old single file, several hundred
 // lines from the renderers that use them; this reunites them.
 
-import { SITE } from "../config.js";
 import { T, canonicalFor, hreflangTags } from "../i18n.js";
 import { esc } from "../lib/format.js";
 import { BASE_CSS } from "../assets/base-css.js";
 import { topbar, footer } from "../chrome.js";
-import { JSONLD_SITE, OG_COMMON, ORG_ID, WEBSITE_ID } from "../seo.js";
+import { JSONLD_SITE, OG_COMMON, WEBSITE_ID } from "../seo.js";
 
 export const PRIVACY = {
   title: "Privacy Policy",
@@ -99,7 +98,6 @@ export const PRIVACY_ES = {
   ],
 };
 
-// --- Contact page -------------------------------------------------------------
 export function jsonldPrivacy(lang) {
   const P = lang === "es" ? PRIVACY_ES : PRIVACY;
   return `<script type="application/ld+json">${JSON.stringify({

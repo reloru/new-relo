@@ -3,7 +3,6 @@
 // sites that are physically closer are deliberately excluded, because nearest
 // data is not the same as a place people fish.
 
-import { SITE } from "../config.js";
 import { T, canonicalFor, hreflangTags } from "../i18n.js";
 import { esc, fullTime, clockTime } from "../lib/format.js";
 import { BASE_CSS } from "../assets/base-css.js";

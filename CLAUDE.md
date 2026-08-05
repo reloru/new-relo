@@ -370,7 +370,7 @@ directory name becomes the `/command`. Current skills:
   `airQuality.nearbyMonitor` on `/api/air` + `/api/weather` + MCP
   `get_air_quality`. Ozone only — PM is already covered by the headline monitors.
 - Derived data: "feels like" temperature (`feelsLikeF`/`feelsLikeRawF` in
-  `src/index.js`) is the one number on the site NOT taken verbatim from NWS —
+  `src/lib/derived.js`) is the one number on the site NOT taken verbatim from NWS —
   it's the heat index or wind chill, computed in-Worker from NWS's own
   published formulas applied to the temperature/humidity/wind NWS already
   returns. Heat index uses NWS's two-step algorithm: the simple Steadman form
@@ -408,7 +408,7 @@ directory name becomes the `/command`. Current skills:
   `pollen` key (Houston Health Department daily count, throttled ~2h — one
   count per weekday morning), and the
   `traffic` key (Houston TranStar RSS, every tick — incidents and high-water
-  reports move fast); `fetch()` cold-warms all six. (The `news` key is
+  reports move fast); `fetch()` cold-warms all seven. (The `news` key is
   written out-of-band — see the News pipeline.)
 - Styling: an inline `<style>` block in the rendered HTML — no build step,
   no static assets.
@@ -430,8 +430,8 @@ directory name becomes the `/command`. Current skills:
   `::details-content` and `display:contents` does NOT override it, so removing
   that rule makes the entire desktop nav disappear (only brand + Español show).
   `footer({ page, lang, source, data })` renders a shared
-  footer on every page: per-page source attribution, a links row (Home · About ·
-  Developers · Privacy · Contact · Sitemap · View as Markdown), and an independent-project
+  footer on every page: per-page source attribution, a links row (Home · Emergency ·
+  About · Developers · Privacy · Contact · Sitemap · View as Markdown), and an independent-project
   disclaimer. Weather pages (`/`, `/weather`, `/hourly`, `/radar`, `/alerts` —
   the `WEATHER_PAGES` set) also show an alert-status + freshness line when `data`
   is passed.
@@ -589,19 +589,23 @@ invariants that cut across pages.
   "streamable-http", url: "https://crosbynews.com/mcp" }]`. `server.json` at the
   repo root is the source of truth (validated with `mcp-publisher validate`).
   Verify: `curl "https://registry.modelcontextprotocol.io/v0.1/servers?search=com.crosbynews/weather"`.
-- **Bump `server.json`'s `version` and `MCP_SERVER_INFO.version` (`src/index.js`)
+- **Bump `server.json`'s `version` and `MCP_SERVER_INFO.version` (`src/mcp/server.js`)
   in the same PR** whenever the tool set changes. (`/openapi.json`'s
   `info.version` is a separate track — it describes the REST API.) Bumping
   `server.json` does NOT publish; the listing only moves when someone runs the
   publish flow below, so a bumped-but-unpublished version is normal, and an
   unpublished version is skipped rather than backfilled.
-- **Six hand-maintained places name the tools — update every one when adding a
-  tool.** `mcpTools()` is the only generated list; the rest are prose that goes
+- **Five hand-maintained places name the tools — update every one when adding a
+  tool.** `mcpTools()` is the only generated list; these five are prose that goes
   stale silently: `CROSBY_WEATHER_SKILL` (served at
-  `/.well-known/agent-skills/crosby-weather/SKILL.md`), `mcpServerCard()`'s
-  `description`, the MCP `initialize` `instructions`, `llmsTxt()`, and the
+  `/.well-known/agent-skills/crosby-weather/SKILL.md`), `llmsTxt()`, the
   `MCP server` section of **both** `DEVELOPERS` and `DEVELOPERS_ES`
-  (the `/developers` page). `README.md` lists them too.
+  (the `/developers` page), and `README.md`.
+  Two surfaces that look like they belong on that list do NOT: `mcpServerCard()`
+  derives its tool list from `mcpTools()` so it cannot drift, and the MCP
+  `initialize` `instructions` string is prose about the data with no tool names
+  in it. (This entry said "six" and counted those two until the 2026-08-01
+  audit; `src/mcp/server.js` and `src/discovery.js` had already said five.)
 - **Namespace auth = DNS.** The `com.crosbynews` namespace is proven by a TXT
   record on the apex `crosbynews.com`: `v=MCPv1; k=ed25519; p=<base64 pubkey>`
   (added via the Cloudflare DNS API alongside the SPF/DKIM/DMARC/DNS-AID

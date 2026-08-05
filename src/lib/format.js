@@ -25,7 +25,6 @@ export function iconUrl(url, size) {
   return esc(sized.replace("https://api.weather.gov/icons/", "/icons/"));
 }
 
-
 // Date/time formatting. `lang` is optional and defaults to English, so every
 // existing English call site is unchanged; the Spanish (/es) render paths pass
 // "es" to get es-MX month/weekday/AM-PM rendering. Times stay in Central (CT).

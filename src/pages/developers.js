@@ -3,13 +3,11 @@
 // prose in BOTH objects — two of the five hand-maintained surfaces that go
 // stale when a tool is added.
 
-import { SITE } from "../config.js";
 import { T, canonicalFor, hreflangTags } from "../i18n.js";
 import { esc } from "../lib/format.js";
 import { BASE_CSS } from "../assets/base-css.js";
 import { topbar, footer } from "../chrome.js";
-import { JSONLD_SITE, OG_COMMON, ORG_ID, WEBSITE_ID } from "../seo.js";
-import { JSONLD_DATASET } from "../seo.js";
+import { JSONLD_SITE, OG_COMMON, ORG_ID, WEBSITE_ID, JSONLD_DATASET } from "../seo.js";
 
 // The site's agent/developer surface, gathered onto one page (moved off /about
 // during the 2026 restructure so /about stays human-facing). Same {h,p,links}
@@ -49,7 +47,7 @@ export const DEVELOPERS = {
     },
     {
       h: "Markdown for every page",
-      p: ["Any page returns clean Markdown instead of HTML when you send an Accept: text/markdown header or append ?format=md — handy for LLMs and text pipelines. The forecast, hub, water, news, alerts, and calendar pages all support it."],
+      p: ["Any page returns clean Markdown instead of HTML when you send an Accept: text/markdown header or append ?format=md — handy for LLMs and text pipelines. Every content page supports it, in both languages, including this one and the MCP explainer."],
       links: [
         { href: "/weather?format=md", label: "/weather?format=md", note: "the forecast, rendered as Markdown" },
         { href: "/llms.txt", label: "/llms.txt", note: "plain-language site summary for LLMs (llmstxt.org)" },
@@ -131,7 +129,7 @@ export const DEVELOPERS_ES = {
     },
     {
       h: "Markdown en cada página",
-      p: ["Cualquier página devuelve Markdown limpio en lugar de HTML si envías un encabezado Accept: text/markdown o agregas ?format=md — útil para LLM y flujos de texto."],
+      p: ["Cualquier página devuelve Markdown limpio en lugar de HTML si envías un encabezado Accept: text/markdown o agregas ?format=md — útil para LLM y flujos de texto. Todas las páginas de contenido lo admiten, en ambos idiomas."],
       links: [
         { href: "/es/weather?format=md", label: "/es/weather?format=md", note: "el pronóstico, en Markdown" },
         { href: "/llms.txt", label: "/llms.txt", note: "resumen del sitio en lenguaje sencillo para LLM (llmstxt.org)" },

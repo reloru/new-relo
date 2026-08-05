@@ -4,7 +4,6 @@
 // security@crosbynews.com here must agree with /.well-known/security.txt and
 // stay a real mailbox — it is also a DMARC rua recipient.
 
-import { SITE } from "../config.js";
 import { T, canonicalFor, hreflangTags } from "../i18n.js";
 import { esc } from "../lib/format.js";
 import { BASE_CSS } from "../assets/base-css.js";

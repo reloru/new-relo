@@ -17,7 +17,7 @@ import { SW_SCRIPT } from "./assets/sw-script.js";
 import { KV_KEY, TZ, SITE } from "./config.js";
 import { footer } from "./chrome.js";
 import { linkHeader, conditional } from "./lib/http.js";
-import { aqiHealth, airHtml, airMarkdown, apiAir } from "./features/air.js";
+import { airHtml, airMarkdown, apiAir } from "./features/air.js";
 import { loadWeather, renderHtml, renderMarkdown, apiWeather, badgeSvg } from "./features/weather.js";
 import { aboutHtml, aboutMarkdown } from "./pages/about.js";
 import { developersHtml, developersMarkdown } from "./pages/developers.js";
@@ -27,7 +27,7 @@ import { emergencyHtml, emergencyMarkdown } from "./pages/emergency.js";
 import { sitemapPageHtml, sitemapPageMarkdown } from "./pages/sitemap.js";
 import { radarHtml, radarMarkdown } from "./features/radar.js";
 import { hourlyHtml, hourlyMarkdown } from "./features/hourly.js";
-import { alertsHtml, alertsMarkdown } from "./features/alerts.js";
+import { alertsHtml, alertsMarkdown, alertsRss } from "./features/alerts.js";
 import { loadNews, isAdmin, newsHtml, newsMarkdown, newsRss, apiNews, NEWS_BLOCKLIST_KV_KEY } from "./features/news.js";
 import { loadCalendar, calendarHtml, calendarMarkdown, apiCalendar, upcomingEvents } from "./features/calendar.js";
 import { loadWater, waterHtml, waterMarkdown, apiWater } from "./features/water.js";
@@ -39,7 +39,6 @@ import { homeHtml, homeMarkdown, renderError } from "./features/home.js";
 import { MCP_CORS, mcpHandle, mcpJson, rpcError, mcpServerCard, mcpInfoHtml, mcpInfoMarkdown } from "./mcp/server.js";
 import { apiCatalog, openApiSpec } from "./api/openapi.js";
 import { llmsTxt, robotsTxt, sitemapXml, CROSBY_WEATHER_SKILL, agentSkillsIndex } from "./discovery.js";
-import { alertsRss } from "./features/alerts.js";
 import { pushEndpointAllowed, pushKeyFor } from "./push.js";
 
 export async function routeRequest(request, env, ctx) {
@@ -720,7 +719,7 @@ export async function routeRequest(request, env, ctx) {
       }
     }
 
-    // Crosby ISD school calendar — rendered from the cached iCal feed.
+    // River and bayou levels — cron + KV, NWS flood stages from NOAA's NWPS.
     if (page === "/water") {
       const accept = (request.headers.get("accept") || "").toLowerCase();
       const wantsMarkdown = accept.includes("text/markdown") || url.searchParams.get("format") === "md";
@@ -930,7 +929,7 @@ export async function routeRequest(request, env, ctx) {
     }
 
     try {
-      // The hub summarizes every section, so it loads all four datasets — in
+      // The hub summarizes every section, so it loads all five datasets — in
       // parallel, so one slow source can't serially block the front page. Each
       // loader self-heals on a cold cache; a rejected one shouldn't blank the
       // whole page, so failures degrade to an empty shape.
@@ -976,8 +975,3 @@ export async function routeRequest(request, env, ctx) {
       });
     }
 }
-
-
-// The content pages, each its own canonical URL. Their responses get an HTTP
-// `Link: rel="canonical"` header in the wrapper below, so the content-negotiated
-// `?format=md` variants — and the http→https pair — consolidate onto one URL for

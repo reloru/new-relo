@@ -9,26 +9,25 @@
 // Never render whole alert products here. One Special Weather Statement once
 // ate 80% of the mobile page; full products belong on /alerts and /weather.
 
-import { SITE, TZ } from "../config.js";
-import { T, esPath, canonicalFor, hreflangTags, translateConditions,
-         translatePeriodName, translateWind, translateDir, ES_NWS_NOTE } from "../i18n.js";
-import { esc, iconUrl, fullTime, clockTime, dayLabel, capFirst, relTime } from "../lib/format.js";
-import { pop, feelsLikeF, feelsLikeRawF, currentHourly, sunTimesForCtDate } from "../lib/derived.js";
+import { TZ } from "../config.js";
+import { T, esPath, canonicalFor, hreflangTags,
+         translateConditions, translatePeriodName, translateWind, translateDir } from "../i18n.js";
+import { esc, iconUrl, clockTime, dayLabel, capFirst, relTime } from "../lib/format.js";
+import { pop, feelsLikeF, feelsLikeRawF, currentHourly } from "../lib/derived.js";
 import { BASE_CSS } from "../assets/base-css.js";
 import { HOME_SCRIPT } from "../assets/client-scripts.js";
 import { topbar, footer } from "../chrome.js";
 import { JSONLD_SITE, OG_COMMON } from "../seo.js";
-import { uvCurrent, uvPeakToday, uvCategory, aqiCategory, aqiSourceNote } from "./air.js";
+import { uvPeakToday, uvCategory, aqiCategory, aqiSourceNote } from "./air.js";
 import { waterCatLabel, waterCatClass, WATER_FLOOD_CATS, WATER_CAT_ORDER } from "./water.js";
-import { tropicsClassLabel, tropicsStormLine } from "./tropics.js";
+import { tropicsStormLine } from "./tropics.js";
 import { newsList } from "./news.js";
 import { upcomingEvents, translateEvent } from "./calendar.js";
-import { pollenCatLabel, pollenCatRank, pollenGroupLabel, POLLEN_GROUPS } from "./pollen.js";
 
 // The root (/ and /es) is the "front page of Crosby": current conditions up
 // top (kept prominent so the root retains its weather relevance) plus at-a-
 // glance cards linking into Weather, Water, News, and the School Calendar. The
-// full forecast lives at /weather. The hub loads all four datasets in parallel
+// full forecast lives at /weather. The hub loads all five datasets in parallel
 // (cheap KV reads) so one slow source can't serially block the page.
 export function hubWaterSummary(water, lang) {
   const gauges = water.gauges ?? [];
