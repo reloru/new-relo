@@ -40,7 +40,13 @@ Inside `airQuality`:
 | `dominantMonitor`, `monitors` | monitor site names, per pollutant. AirNow path only. |
 | `reportingAgency`, `reportingArea`, `observed`, `source` | provenance |
 | `pm2_5`, `pm10`, `ozone`, `concentrationUnit` | raw concentrations — **Open-Meteo only**, `null` on the AirNow path |
-| `nearbyMonitor` | `{site, distanceMi, aqi, agency, observedIso}` for Channelview C15 ozone. Present only when both it and the headline AQI resolved; dropped entirely on any error or reporting gap. |
+| `nearbyMonitor` | `{site, pollutant, usAqi, category, distanceMiles, observed, reportingAgency, note}` for Channelview C15 ozone — the nearest *dedicated* ozone monitor, a cross-check so a locally elevated reading can't hide behind the closest-per-pollutant headline. `null` when that monitor didn't report in the last refresh window, or when the headline AQI is itself unavailable. |
+
+**`nearbyMonitor` is renamed on the way out.** The KV entry stores
+`aqi.nearby` as `{site, distanceMi, aqi, agency, observedIso}`; `aqiApiObject()`
+maps it to the public names above. Read the API names from
+`aqiApiObject()` in `src/features/air.js`, not from the KV shape — they differ
+field for field.
 
 `airQuality` is `null` when both AirNow and Open-Meteo failed.
 

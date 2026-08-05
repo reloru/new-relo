@@ -44,7 +44,7 @@ export function openApiSpec() {
       windSpeed: { type: "string" },
       windDirection: { type: "string" },
       windGust: { type: "string" },
-      probabilityOfPrecipitation: { type: "object", properties: { value: { type: ["number", "null"] } } },
+      probabilityOfPrecipitation: { type: "object", additionalProperties: true, properties: { value: { type: ["number", "null"] }, unitCode: { type: "string" } } },
       icon: { type: "string", format: "uri" },
       feelsLike: {
         type: ["number", "null"],
@@ -67,7 +67,7 @@ export function openApiSpec() {
       detailedForecast: { type: "string" },
       windSpeed: { type: "string" },
       windDirection: { type: "string" },
-      probabilityOfPrecipitation: { type: "object", properties: { value: { type: ["number", "null"] } } },
+      probabilityOfPrecipitation: { type: "object", additionalProperties: true, properties: { value: { type: ["number", "null"] }, unitCode: { type: "string" } } },
       icon: { type: "string", format: "uri" },
     },
   };
@@ -120,6 +120,48 @@ export function openApiSpec() {
       movementDirection: { type: ["string", "null"], description: "Compass direction of movement (speed omitted — NHC's unit for it is not clearly documented)." },
       lastUpdate: { type: ["string", "null"], format: "date-time" },
       advisoryUrl: { type: "string", format: "uri", description: "The official NHC public advisory." },
+    },
+  };
+  // ONE definition, spliced into both /api/weather and /api/air. They used to be
+  // two hand-copied blocks, which is how `nearbyMonitor` came to be missing from
+  // both at once — it shipped on the endpoints and neither copy was updated.
+  // Anything added to the AQI object goes here and lands on both.
+  const AirQuality = {
+    type: ["object", "null"],
+    description:
+      "US Air Quality Index. `measured: true` = EPA/AirNow official monitors for the Houston-Galveston-Brazoria reporting area (the nearest official area, which includes Crosby — there's no monitor in Crosby itself). `measured: false` = Open-Meteo modeled forecast for Crosby's coordinates, the fallback when AirNow isn't reporting. `modeled` is the inverse of `measured` (kept for back-compat). null when both failed.",
+    properties: {
+      usAqi: { type: "integer", description: "US AQI, 0–500 scale (the max of the pollutant sub-indices)." },
+      category: { type: "string", description: "Good / Moderate / Unhealthy for Sensitive Groups / Unhealthy / Very Unhealthy / Hazardous." },
+      dominantPollutant: { type: ["string", "null"], description: "The pollutant driving the overall AQI." },
+      dominantMonitor: { type: ["string", "null"], description: "Monitor site reporting the dominant pollutant (measured path)." },
+      monitors: { type: ["object", "null"], description: "Per-pollutant reporting monitor site names (measured path)." },
+      reportingAgency: { type: ["string", "null"], description: "Agency operating the monitors (e.g. TCEQ)." },
+      subIndices: { type: ["object", "null"], description: "Per-pollutant AQI (ozone/pm25/pm10/…). Present for both sources." },
+      pm2_5: { type: ["number", "null"], description: "PM2.5 concentration in concentrationUnit (modeled source only; null when measured)." },
+      pm10: { type: ["number", "null"] },
+      ozone: { type: ["number", "null"] },
+      concentrationUnit: { type: "string" },
+      measured: { type: "boolean" },
+      modeled: { type: "boolean", description: "Inverse of measured; retained for back-compat." },
+      reportingArea: { type: ["string", "null"], description: "AirNow reporting area (measured source only)." },
+      observed: { type: ["string", "null"], description: "Local observation time (measured source only)." },
+      source: { type: "string" },
+      nearbyMonitor: {
+        type: ["object", "null"],
+        description:
+          "Cross-reference reading from the nearest DEDICATED ozone monitor (Channelview C15, ~8.5 mi), so a locally elevated ozone value can't hide behind the closest-per-pollutant headline above. Hourly, EPA/AirNow. null when that monitor didn't report in the last refresh window, or when the headline AQI is itself unavailable.",
+        properties: {
+          site: { type: "string" },
+          pollutant: { type: "string", description: "Always \"ozone\" — PM is already covered by the headline monitors." },
+          usAqi: { type: "integer" },
+          category: { type: "string" },
+          distanceMiles: { type: "number", description: "Straight-line distance from Crosby." },
+          observed: { type: ["string", "null"], format: "date-time" },
+          reportingAgency: { type: ["string", "null"] },
+          note: { type: "string" },
+        },
+      },
     },
   };
   const Gauge = {
@@ -335,29 +377,7 @@ export function openApiSpec() {
                 source: { type: "string" },
               },
             },
-            airQuality: {
-              type: ["object", "null"],
-              description:
-                "US Air Quality Index. `measured: true` = EPA/AirNow official monitors for the Houston-Galveston-Brazoria reporting area (the nearest official area, which includes Crosby — there's no monitor in Crosby itself). `measured: false` = Open-Meteo modeled forecast for Crosby's coordinates, the fallback when AirNow isn't reporting. `modeled` is the inverse of `measured` (kept for back-compat). null when both failed.",
-              properties: {
-                usAqi: { type: "integer", description: "US AQI, 0–500 scale (the max of the pollutant sub-indices)." },
-                category: { type: "string", description: "Good / Moderate / Unhealthy for Sensitive Groups / Unhealthy / Very Unhealthy / Hazardous." },
-                dominantPollutant: { type: ["string", "null"], description: "The pollutant driving the overall AQI." },
-                dominantMonitor: { type: ["string", "null"], description: "Monitor site reporting the dominant pollutant (measured path)." },
-                monitors: { type: ["object", "null"], description: "Per-pollutant reporting monitor site names (measured path)." },
-                reportingAgency: { type: ["string", "null"], description: "Agency operating the monitors (e.g. TCEQ)." },
-                subIndices: { type: ["object", "null"], description: "Per-pollutant AQI (ozone/pm25/pm10/…). Present for both sources." },
-                pm2_5: { type: ["number", "null"], description: "PM2.5 concentration in concentrationUnit (modeled source only; null when measured)." },
-                pm10: { type: ["number", "null"] },
-                ozone: { type: ["number", "null"] },
-                concentrationUnit: { type: "string" },
-                measured: { type: "boolean" },
-                modeled: { type: "boolean", description: "Inverse of measured; retained for back-compat." },
-                reportingArea: { type: ["string", "null"], description: "AirNow reporting area (measured source only)." },
-                observed: { type: ["string", "null"], description: "Local observation time (measured source only)." },
-                source: { type: "string" },
-              },
-            },
+            airQuality: AirQuality,
             current: { anyOf: [HourlyPeriod, { type: "null" }] },
             hourly: { type: "array", items: HourlyPeriod },
             forecast: { type: "array", items: Period },
@@ -367,6 +387,7 @@ export function openApiSpec() {
         HourlyPeriod,
         Period,
         Alert,
+        AirQuality,
         News: {
           type: "object",
           properties: {
@@ -444,28 +465,7 @@ export function openApiSpec() {
           properties: {
             location: { type: "string" },
             updated: { type: ["string", "null"], format: "date-time" },
-            airQuality: {
-              type: ["object", "null"],
-              description: "measured:true = EPA/AirNow monitors (Houston metro reporting area incl. Crosby); measured:false = Open-Meteo modeled fallback. Null when both failed.",
-              properties: {
-                usAqi: { type: "integer" },
-                category: { type: "string" },
-                dominantPollutant: { type: ["string", "null"] },
-                dominantMonitor: { type: ["string", "null"] },
-                monitors: { type: ["object", "null"] },
-                reportingAgency: { type: ["string", "null"] },
-                subIndices: { type: ["object", "null"], description: "Per-pollutant AQI (ozone/pm25/pm10/…)." },
-                pm2_5: { type: ["number", "null"] },
-                pm10: { type: ["number", "null"] },
-                ozone: { type: ["number", "null"] },
-                concentrationUnit: { type: "string" },
-                measured: { type: "boolean" },
-                modeled: { type: "boolean" },
-                reportingArea: { type: ["string", "null"] },
-                observed: { type: ["string", "null"] },
-                source: { type: "string" },
-              },
-            },
+            airQuality: AirQuality,
           },
         },
         Traffic: {
