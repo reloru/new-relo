@@ -4,7 +4,10 @@
 - This is a **live, complete, self-maintaining** production site. Make targeted
   changes only — don't rebuild it.
 - After deploying, verify against the live site with `curl` (deploys land in
-  ~10–40s) — check the headers/routes you touched.
+  ~10–40s) — check the headers/routes you touched. **Sample more than once:** a
+  new Worker version reaches Cloudflare's edges over a minute or two, so a single
+  curl can return the OLD page from a colo that has not rolled over yet (see the
+  propagation gotcha below).
 - **Keep this file current:** when you change a route, a behavior, or an
   invariant that lives outside the Worker, update CLAUDE.md in the same PR.
 - **A PR that changes a page's handler, content, data source, canonical URL,
@@ -64,6 +67,24 @@ as a coding agent. A human reading for site behavior can skip this section.
 - **Parse GitHub API JSON with `jq` or `python3`, never `grep`** — fields sit on
   separate lines, so a pattern spanning two of them silently never matches and a
   poll loop spins forever.
+- **A post-deploy `curl` can be WRONG for a minute or two, and a cache-buster
+  does not help.** A new Worker version propagates across Cloudflare's colos
+  over roughly 1–2 minutes, and requests fan out across them — so a request with
+  a brand-new `?cb=` query string can still be served by an edge running the
+  PREVIOUS version. This is version propagation, not caching, which is why the
+  usual cache-busting trick does nothing for it. Measured 2026-08-05 on
+  `/es/developers`: 7 of 8 fresh requests showed the new build and 1 showed the
+  old, for about two minutes after the deploy job went green; three separate
+  "final" verifications that day were briefly wrong because they sampled once and
+  happened to hit the stale edge. **Sample ~8 times and require them to agree**
+  before calling a deploy verified:
+
+      for i in $(seq 1 8); do curl -s "$URL?cb=$RANDOM-$i" | grep -c "$MARKER"; done
+
+  Separately, edge *caching* is real too and behaves differently: content pages
+  carry `max-age=300`–`3600`, so a bare re-request (no cache-buster) can serve a
+  stale copy for far longer. Cache-busting fixes that one; only waiting fixes
+  propagation.
 - **For an HTTP status, use `curl -s -o /dev/null -w "%{http_code}"`.** With
   `curl -sI` the proxy's CONNECT tunnel prepends `HTTP/1.1 200 Connection
   Established`, so the first `HTTP/...` line is not the response's and a `301`

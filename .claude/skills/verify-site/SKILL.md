@@ -10,8 +10,20 @@ allowed-tools: Bash(curl *)
 Confirm the deployed site is healthy. Use the base URL in `$ARGUMENTS` if one was
 given, otherwise `https://crosbynews.com`. Run the checks below with `curl`, then
 report a compact PASS/FAIL table. For anything that FAILs, quote the actual
-status/header so it's actionable. Deploys land in ~10–40s, so if a change is
-missing, wait and re-run before calling it a failure.
+status/header so it's actionable.
+
+**Deploys land in ~10–40s but take 1–2 minutes to reach every edge.** A single
+curl can be served by a colo still running the PREVIOUS Worker version, and a
+`?cb=` cache-buster does NOT help — this is version propagation, not caching.
+When checking that a specific change went live, sample ~8 times and require
+agreement before reporting either way:
+
+```bash
+for i in $(seq 1 8); do curl -s "$BASE$PATH?cb=$RANDOM-$i" | grep -c "$MARKER"; done
+```
+
+Measured 2026-08-05: 7/8 new, 1/8 old, persisting ~2 minutes past a green deploy
+job. Report a mixed sample as "still propagating", never as a failure.
 
 ## 1. Routes return 200 — **both languages, every page**
 
