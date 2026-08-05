@@ -10,8 +10,11 @@ import { topbar, footer } from "../chrome.js";
 import { JSONLD_SITE, OG_COMMON } from "../seo.js";
 
 // Live water conditions for the waters people ACTUALLY fish near Crosby, matched
-// to the nearest USGS real-time station. Source: waterservices.usgs.gov — the
-// keyless legacy IV service (the staged USGS_API_KEY isn't needed for it).
+// to the nearest USGS real-time station. Source: api.waterdata.usgs.gov —
+// USGS's modernized OGC-API-Features water data service, authenticated with
+// the USGS_API_KEY secret. (Previously the legacy keyless
+// waterservices.usgs.gov/nwis/iv/ service, which intermittently 503'd on this
+// bulk multi-site request and is being superseded by the API used here.)
 // Location selection is fishing-first, not data-first: Lake Houston (the local
 // lake — three in-lake stations incl. the FM 1960 bridge), the San Jacinto
 // forks, and the Trinity at Liberty carry the full water-quality suite
@@ -39,42 +42,55 @@ export const usgsNum = (v) => (v === "" || v == null || v === "-999999" || Numbe
 export const fishMeta = (id) => FISHING_SITES.find((s) => s.id === id) || {};
 export const cToF = (c) => Math.round((c * 9) / 5 + 32);
 
-// The legacy IV service intermittently 503s under load; that's a whole-batch
-// failure since it's one bulk request for every station, so it's worth one
-// retry before treating it as a real outage. 429 (rate limit) gets the same
-// courtesy. Anything else fails fast, same as before.
-async function fetchUsgsIv(url) {
+// api.waterdata.usgs.gov can still return a transient 503 or a 429 (over the
+// per-key rate limit, though our ~4 requests/hour never come close); retry
+// once, after a short delay, before treating it as a real outage. Anything
+// else fails fast.
+async function fetchUsgsOgc(url, env) {
   for (let attempt = 0; ; attempt++) {
-    const res = await fetch(url, { headers: { "User-Agent": "crosbynews.com", Accept: "application/json" } });
+    const res = await fetch(url, {
+      headers: { "User-Agent": "crosbynews.com", Accept: "application/json", "X-Api-Key": env.USGS_API_KEY || "" },
+    });
     if (res.ok) return res;
     if (attempt > 0 || (res.status !== 503 && res.status !== 429)) {
-      throw new Error(`USGS IV request failed: ${res.status}`);
+      throw new Error(`USGS OGC request failed: ${res.status}`);
     }
     await new Promise((r) => setTimeout(r, 1500));
   }
 }
 
-// One USGS IV call for every station; parse the latest value per parameter.
+// One call to the "latest-continuous" collection for every station and
+// parameter at once; parse the latest value per (station, parameter). USGS
+// can register more than one time series for the same parameter at a site
+// (different sensors/methods) — latest-continuous returns one feature per
+// time series, so for a given (station, parameter) keep whichever feature has
+// the most recent `time`, not just whichever the response happens to list
+// last (confirmed live: Jack's Ditch returns 16 features for 4 parameters).
 // Per-station filtering keeps a bad site from sinking the batch; throw only if
 // nothing usable came back so the cron aborts-without-writing (water pattern).
-export async function fetchFishing() {
-  const ids = FISHING_SITES.map((s) => s.id).join(",");
-  const res = await fetchUsgsIv(
-    `https://waterservices.usgs.gov/nwis/iv/?format=json&sites=${ids}&parameterCd=00010,00300,00400,63680,00065&siteStatus=all`
+export async function fetchFishing(env) {
+  const ids = FISHING_SITES.map((s) => `USGS-${s.id}`).join(",");
+  const paramCodes = Object.keys(USGS_PARAMS).join(",");
+  const res = await fetchUsgsOgc(
+    `https://api.waterdata.usgs.gov/ogcapi/v0/collections/latest-continuous/items?monitoring_location_id=${ids}&parameter_code=${paramCodes}&limit=200&f=json`,
+    env
   );
   const j = await res.json();
-  const series = j?.value?.timeSeries;
-  if (!Array.isArray(series) || !series.length) throw new Error("USGS IV: no timeSeries");
+  const features = j?.features;
+  if (!Array.isArray(features) || !features.length) throw new Error("USGS OGC: no features");
   const byId = {};
-  for (const ts of series) {
-    const id = ts.sourceInfo?.siteCode?.[0]?.value;
-    const key = USGS_PARAMS[ts.variable?.variableCode?.[0]?.value];
+  for (const f of features) {
+    const p = f?.properties;
+    const id = p?.monitoring_location_id?.replace(/^USGS-/, "");
+    const key = USGS_PARAMS[p?.parameter_code];
     if (!id || !key) continue;
-    const vals = ts.values?.[0]?.value;
-    const last = Array.isArray(vals) && vals.length ? vals[vals.length - 1] : null;
-    const num = last ? usgsNum(last.value) : null;
+    const num = usgsNum(p.value);
     if (num == null) continue;
-    (byId[id] ||= {})[key] = { value: num, time: last.dateTime || null };
+    const time = p.time || null;
+    const existing = (byId[id] ||= {})[key];
+    if (!existing || (time && (!existing.time || time > existing.time))) {
+      byId[id][key] = { value: num, time };
+    }
   }
   const stations = FISHING_SITES.map((s) => {
     const d = byId[s.id];
@@ -85,7 +101,7 @@ export async function fetchFishing() {
     const times = Object.values(params).map((p) => p.time).filter(Boolean).sort();
     return { id: s.id, params, observed: times[times.length - 1] || null };
   }).filter(Boolean);
-  if (!stations.length) throw new Error("USGS IV: no usable stations");
+  if (!stations.length) throw new Error("USGS OGC: no usable stations");
   return { updated: new Date().toISOString(), stations };
 }
 
@@ -100,7 +116,7 @@ export async function loadFishing(env) {
   }
   if (!data || !Array.isArray(data.stations)) {
     try {
-      data = await fetchFishing();
+      data = await fetchFishing(env);
       await env.WEATHER.put(FISHING_KV_KEY, JSON.stringify(data));
     } catch (e) {
       console.error("fishing cold fetch failed:", e && e.stack);
@@ -308,7 +324,7 @@ export function fishingMarkdown(data, lang) {
 export function apiFishing(data) {
   return {
     location: "Crosby, TX area — the waters people fish (Lake Houston, San Jacinto forks, Trinity River, nearby bayous)",
-    source: "USGS real-time water data (waterservices.usgs.gov)",
+    source: "USGS real-time water data (api.waterdata.usgs.gov)",
     note: "Nearest USGS monitoring station per fished water body — a nearby reading, not the exact fishing spot. Dissolved oxygen, temperature, pH, and turbidity indicate conditions, not a guaranteed bite.",
     updated: data.updated ?? null,
     stations: (data.stations ?? []).map((st) => {
