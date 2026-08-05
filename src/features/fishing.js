@@ -39,16 +39,29 @@ export const usgsNum = (v) => (v === "" || v == null || v === "-999999" || Numbe
 export const fishMeta = (id) => FISHING_SITES.find((s) => s.id === id) || {};
 export const cToF = (c) => Math.round((c * 9) / 5 + 32);
 
+// The legacy IV service intermittently 503s under load; that's a whole-batch
+// failure since it's one bulk request for every station, so it's worth one
+// retry before treating it as a real outage. 429 (rate limit) gets the same
+// courtesy. Anything else fails fast, same as before.
+async function fetchUsgsIv(url) {
+  for (let attempt = 0; ; attempt++) {
+    const res = await fetch(url, { headers: { "User-Agent": "crosbynews.com", Accept: "application/json" } });
+    if (res.ok) return res;
+    if (attempt > 0 || (res.status !== 503 && res.status !== 429)) {
+      throw new Error(`USGS IV request failed: ${res.status}`);
+    }
+    await new Promise((r) => setTimeout(r, 1500));
+  }
+}
+
 // One USGS IV call for every station; parse the latest value per parameter.
 // Per-station filtering keeps a bad site from sinking the batch; throw only if
 // nothing usable came back so the cron aborts-without-writing (water pattern).
 export async function fetchFishing() {
   const ids = FISHING_SITES.map((s) => s.id).join(",");
-  const res = await fetch(
-    `https://waterservices.usgs.gov/nwis/iv/?format=json&sites=${ids}&parameterCd=00010,00300,00400,63680,00065&siteStatus=all`,
-    { headers: { "User-Agent": "crosbynews.com", Accept: "application/json" } }
+  const res = await fetchUsgsIv(
+    `https://waterservices.usgs.gov/nwis/iv/?format=json&sites=${ids}&parameterCd=00010,00300,00400,63680,00065&siteStatus=all`
   );
-  if (!res.ok) throw new Error(`USGS IV request failed: ${res.status}`);
   const j = await res.json();
   const series = j?.value?.timeSeries;
   if (!Array.isArray(series) || !series.length) throw new Error("USGS IV: no timeSeries");
