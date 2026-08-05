@@ -18,6 +18,7 @@ import { esc, fullTime, clockTime, hourLabel } from "../lib/format.js";
 import { BASE_CSS } from "../assets/base-css.js";
 import { topbar, footer } from "../chrome.js";
 import { openApiSpec } from "../api/openapi.js";
+import { JSONLD_SITE, OG_COMMON } from "../seo.js";
 import { llmsTxt, CROSBY_WEATHER_SKILL } from "../discovery.js";
 import { loadWeather } from "../features/weather.js";
 import { loadWater, waterState, waterCatLabel, WATER_FLOOD_CATS, apiWater } from "../features/water.js";
@@ -631,16 +632,30 @@ export function mcpInfoHtml(lang) {
   const tools = mcpTools()
     .map((t) => `<li><code>${esc(t.name)}</code> &mdash; ${esc(t.description)}</li>`)
     .join("\n      ");
+  // Hoisted so the <title>/<meta description> and the Open Graph pair are one
+  // string each rather than two copies that can drift.
+  const title = T(lang, "MCP Server", "Servidor MCP");
+  const description = T(
+    lang,
+    "Model Context Protocol (MCP) server for Crosby, TX weather: connect an AI agent to get live conditions, forecast, and alerts.",
+    "Servidor de Model Context Protocol (MCP) para datos de Crosby, TX: conecta un agente de IA para obtener el clima en vivo, el pronóstico y las alertas.",
+  );
   return `<!DOCTYPE html>
 <html lang="${T(lang, "en", "es-MX")}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${T(lang, "MCP Server", "Servidor MCP")} &mdash; crosbynews.com</title>
-<meta name="description" content="${T(lang, "Model Context Protocol (MCP) server for Crosby, TX weather: connect an AI agent to get live conditions, forecast, and alerts.", "Servidor de Model Context Protocol (MCP) para datos de Crosby, TX: conecta un agente de IA para obtener el clima en vivo, el pronóstico y las alertas.")}">
+<title>${esc(title)} &mdash; crosbynews.com</title>
+<meta name="description" content="${esc(description)}">
 <meta name="theme-color" content="#0b3d61">
+<meta property="og:title" content="${esc(title)} &mdash; crosbynews.com">
+<meta property="og:description" content="${esc(description)}">
+<meta property="og:type" content="website">
+<meta property="og:url" content="${canonicalFor("/mcp", lang)}">
+${OG_COMMON}
 <link rel="canonical" href="${canonicalFor("/mcp", lang)}">
 ${hreflangTags("/mcp")}
+${JSONLD_SITE}
 <link rel="manifest" href="/manifest.json">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="alternate icon" href="/favicon.ico">
