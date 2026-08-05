@@ -43,6 +43,11 @@ codes via `USGS_PARAMS`: `00010` → `tempC` (converted with `cToF`), `00300` �
 `00400` → pH, `63680` → turbidity, `00065` → gage height. `usgsNum()` filters
 USGS's `-999999` no-data sentinel and empty strings.
 
+The legacy service intermittently returns 503 (observed in production), and
+because it's one bulk request for all 9 stations, a 503 costs the whole batch
+for that tick, not just one station. `fetchUsgsIv()` retries once, after a
+1.5s delay, on 503 or 429 before giving up — anything else still fails fast.
+
 It **throws when nothing usable comes back**, so a total USGS outage skips the
 write and the last snapshot survives — the same pattern as `/water`.
 `loadFishing()` cold-warms.
