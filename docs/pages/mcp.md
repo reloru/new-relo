@@ -72,6 +72,13 @@ Two links to `/mcp` from Spanish pages are deliberate and are allow-listed in
   protocol is English-only and to connect to `/mcp`, never `/es/mcp`
 - **`/developers`**, where the link's label *is* the endpoint URL. A POST to
   `/es/mcp` 404s by design, so localizing it would document a broken endpoint.
+  **The Spanish page carries a second, separate link to `/es/mcp`** labelled as
+  the Spanish explainer, so a reader who wants the explanation in Spanish has
+  one. That pairing is what makes the exception honest: the endpoint entry keeps
+  label and href identical, which a developers page needs, and the human page is
+  still reachable in the reader's language. Before it existed, the Spanish note
+  promised "un GET muestra una página explicativa" and delivered the English one
+  — reported by the owner 2026-08-05, after the first fix in this area missed it.
 
 ## Meta
 

@@ -60,7 +60,7 @@ export const DEVELOPERS = {
         "Connect from Claude Code: claude mcp add --transport http crosbynews https://crosbynews.com/mcp",
       ],
       links: [
-        { href: "/mcp", label: "/mcp", note: "MCP endpoint (POST JSON-RPC); a GET shows a human explainer" },
+        { href: "/mcp", label: "/mcp", note: "MCP endpoint (POST JSON-RPC); a GET shows a human explainer (also in Spanish at /es/mcp)" },
         { href: "/.well-known/mcp/server-card.json", label: "MCP server card", note: "discovery metadata" },
       ],
     },
@@ -142,7 +142,8 @@ export const DEVELOPERS_ES = {
         "Conéctate desde Claude Code: claude mcp add --transport http crosbynews https://crosbynews.com/mcp",
       ],
       links: [
-        { href: "/mcp", label: "/mcp", note: "endpoint MCP (POST JSON-RPC); un GET muestra una página explicativa" },
+        { href: "/mcp", label: "/mcp", note: "endpoint MCP (POST JSON-RPC) — el servidor funciona solo en inglés" },
+        { href: "/es/mcp", label: "/es/mcp", note: "página explicativa en español (no es un endpoint: un POST aquí devuelve 404)" },
         { href: "/.well-known/mcp/server-card.json", label: "Tarjeta del servidor MCP", note: "metadatos de descubrimiento" },
       ],
     },
