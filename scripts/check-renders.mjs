@@ -73,6 +73,14 @@ async function jsFiles(dir) {
   return out.sort();
 }
 
+// Renderers that take (lang) alone — the static pages plus the MCP explainer.
+// Passing them (data, lang) makes `lang` an object, which is truthy-but-not-"es",
+// so they render English twice and the Spanish branch never executes: a silent
+// halving of coverage on exactly the pages this script exists to protect.
+const ONE_ARG_LANG = /^(about|contact|privacy|emergency|sitemapPage|developers|mcpInfo)(Html|Markdown)$/;
+// Pure discovery surfaces: no data, no language.
+const NO_ARG = /^(llmsTxt|robotsTxt|sitemapXml|openApiSpec|apiCatalog|agentSkillsIndex|contentSecurityPolicy)$/;
+
 const failures = [];
 let calls = 0;
 
@@ -95,10 +103,28 @@ for (const file of await jsFiles(SRC)) {
     // referenced llmsTxt while llmsTxt was still an unexported function in
     // index.js: invisible to the static check, and not covered here either
     // until mcp* was added to this filter.
-    if (!/Html$|Markdown$|^api[A-Z]|Svg$|^jsonld|^mcp[A-Z]/.test(name)) continue;
+    // The discovery surfaces (llmsTxt, robotsTxt, sitemapXml, openApiSpec,
+    // apiCatalog, agentSkillsIndex), the RSS feeds, the shared chrome and
+    // renderError are covered too. They were outside this filter until the
+    // 2026-08-01 audit, and the consequence of a ReferenceError in any of them
+    // is severe and silent in a way a page's is not: /llms.txt, /sitemap.xml or
+    // /robots.txt would 500 with all three gates green, and a broken
+    // renderError would turn every 502 into a 500 — the error page failing is
+    // precisely when nobody is watching. No latent instance existed when this
+    // widened (650 probe calls, both languages, clean); the point is the gate.
+    if (!/Html$|Markdown$|^api[A-Z]|Svg$|^jsonld|^mcp[A-Z]|Txt$|Xml$|Spec$|Rss$|^render|^topbar$|^footer$|^agentSkillsIndex$|^contentSecurityPolicy$/.test(name)) continue;
     for (const lang of ["en", "es"]) {
-      // radarHtml takes (lang, data); everything else takes (data, lang).
-      const args = name === "radarHtml" ? [lang, DATA] : [DATA, lang];
+      // Call shapes differ. Most renderers take (data, lang); the rest are
+      // listed here rather than guessed, because calling one wrongly makes it
+      // bail early and silently stop covering its own body.
+      const args =
+        name === "radarHtml" ? [lang, DATA] // (lang, data)
+        : ONE_ARG_LANG.test(name) ? [lang] // static pages: (lang)
+        : name === "footer" ? [{ page: "/", lang, source: "S", data: DATA }]
+        : name === "topbar" ? ["/", lang]
+        : name === "renderError" ? [new Error("probe"), "a data source"]
+        : NO_ARG.test(name) ? [] // discovery surfaces are pure
+        : [DATA, lang];
       calls++;
       try {
         const r = fn(...args);
