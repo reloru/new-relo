@@ -12,7 +12,8 @@
 //
 // Run: node scripts/test-health.mjs
 
-import { healthReport, FEEDS, CRON_STATUS_KV_KEY } from "../src/api/health.js";
+import { healthReport, cronRunRecorder, FEEDS, CRON_STATUS_KV_KEY } from "../src/api/health.js";
+import { openApiSpec } from "../src/api/openapi.js";
 
 const ISO = (msAgo = 0) => new Date(Date.now() - msAgo).toISOString();
 const period = {
@@ -215,6 +216,87 @@ await check("keeps the old {status, updated} contract at the top level", envWith
   probe: (b) => ({ hasStatus: typeof b.status === "string", hasUpdated: typeof b.updated === "string" }),
   want: { hasStatus: true, hasUpdated: true },
 });
+
+// --- the published contract must match what is actually emitted --------------
+//
+// /openapi.json is the machine-readable description of this endpoint. Nothing
+// forces the two to agree, and a spec that quietly drifts is worse than no spec:
+// a client generator will build against the lie. So walk a REAL report against
+// the published Health schema and fail on any undocumented field or any value
+// outside a declared enum.
+{
+  const spec = openApiSpec();
+  const sc = spec.components.schemas;
+  const deref = (x) => (x && x.$ref ? sc[x.$ref.split("/").pop()] : x);
+  const problems = [];
+
+  function walk(path, schema, value) {
+    schema = deref(schema);
+    if (!schema || value == null || typeof value !== "object" || Array.isArray(value)) return;
+    const props = schema.properties || {};
+    const open = schema.additionalProperties;
+    for (const k of Object.keys(value)) {
+      const sub = props[k] ?? (open && typeof open === "object" ? open : null);
+      if (!sub) {
+        if (open !== true) problems.push(`${path}.${k} is emitted but not documented`);
+        continue;
+      }
+      const d = deref(sub);
+      if (d?.enum && value[k] != null && !d.enum.includes(value[k])) {
+        problems.push(`${path}.${k} = ${JSON.stringify(value[k])} is outside the documented enum ${JSON.stringify(d.enum)}`);
+      }
+      walk(`${path}.${k}`, sub, value[k]);
+    }
+  }
+
+  // Exercise BOTH status codes, so fields that only appear on one path
+  // (problems, error strings) are covered too.
+  for (const [label, env] of [
+    ["healthy", envWith(healthyStore())],
+    ["unhealthy", envWith({ ...healthyStore(), weather: null, water: new Error("boom") })],
+  ]) {
+    const { body } = await healthReport(env);
+    walk(`Health(${label})`, sc.Health, body);
+  }
+
+  if (problems.length) { failures++; problems.forEach((p) => console.log(`  FAIL  schema: ${p}`)); }
+  else console.log("  PASS  every emitted field is documented in /openapi.json, enums included");
+}
+
+// --- cron writer and health reader must agree -------------------------------
+//
+// cron_status is a contract between two files that never call each other:
+// src/cron.js writes it, src/api/health.js reads it. Nothing type-checks the
+// boundary, so build a record the way the cron actually does — through the real
+// recorder, not a hand-written fixture — and assert the reader understands every
+// outcome it can produce.
+{
+  const run = cronRunRecorder();
+  run.ok("weather");
+  run.failed("water", new Error("NWPS 503"));
+  run.skipped("calendar", "still within the throttle window");
+  const snap = run.snapshot();
+
+  const shapeOk =
+    typeof snap.at === "string" &&
+    snap.feeds.weather.ok === true &&
+    snap.feeds.water.ok === false &&
+    snap.feeds.water.error === "NWPS 503" &&
+    snap.feeds.calendar.skipped === true;
+
+  const { body } = await healthReport(envWith({ ...healthyStore(), [CRON_STATUS_KV_KEY]: snap }));
+  const readOk =
+    body.cronLastRun === snap.at &&
+    body.feeds.weather.lastRefresh.ok === true &&
+    body.feeds.water.lastRefresh.ok === false &&
+    body.feeds.water.status === "degraded" &&
+    body.feeds.calendar.lastRefresh.skipped === true &&
+    body.feeds.calendar.status === "ok";
+
+  const ok = shapeOk && readOk;
+  if (!ok) { failures++; console.log(`  FAIL  cron_status contract (writer shape ${shapeOk}, reader ${readOk})`); }
+  else console.log("  PASS  cron_status: recorder output is understood by the health reader (ok / failed / skipped)");
+}
 
 console.log(
   failures
