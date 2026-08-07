@@ -355,16 +355,12 @@ export function openApiSpec() {
       "/api/health": {
         get: {
           operationId: "getHealth",
-          summary: "Service health: per-feed readability, shape and freshness",
+          summary: "Site liveness, per-feed refresh attempts, and when the data last changed",
           description:
-            "A monitoring contract, not a liveness ping. Evaluates the same cached state the endpoints above serve — it never fetches an upstream, so polling this does not generate upstream load. **`200` means ok OR degraded; `503` means a CRITICAL feed is broken.** Read `status` for the distinction: `degraded` still serves useful data (a section feed is stale or its last refresh failed), while `unhealthy` means the weather cache — which the front page, forecast, alerts, air quality, badge and most MCP tools all read — is unreadable, malformed, or expired.",
+            "Three facts and nothing else: the site is live (this response proves it), when each feed last TRIED to fetch new data and whether that worked, and when the data shown on the pages actually changed. Reads one cached record and never touches an upstream, so polling it generates no upstream load. **Always `200`** — whether a timestamp is recent enough is the caller's judgment, not this endpoint's.",
           responses: {
             "200": {
-              description: "Service is ok or degraded. See `status`.",
-              content: { "application/json": { schema: { $ref: "#/components/schemas/Health" } } },
-            },
-            "503": {
-              description: "A critical feed is unreadable, malformed or expired. Body is the same shape, with `status: \"unhealthy\"` and the reasons in `summary.problems`.",
+              description: "The report. Always 200 while the Worker is answering.",
               content: { "application/json": { schema: { $ref: "#/components/schemas/Health" } } },
             },
           },
@@ -518,83 +514,27 @@ export function openApiSpec() {
         },
         Health: {
           type: "object",
-          description: "Service health. `status` is derived from the per-feed checks, not from the fact that the Worker answered.",
+          description: "Site liveness plus, per feed, when it last tried to fetch and when its data last changed.",
           properties: {
-            status: { type: "string", enum: ["ok", "degraded", "unhealthy"], description: "ok = every feed readable, well-shaped and fresh. degraded = something is stale, its last refresh failed, or a NON-critical feed is broken; the service still serves useful data. unhealthy = a CRITICAL feed is broken (503)." },
-            updated: { type: ["string", "null"], format: "date-time", description: "The weather cache's refresh stamp. Kept at the top level for backward compatibility with the previous {status, updated} shape." },
+            site: { type: "string", description: 'Always "live" — reaching this response IS the liveness check.' },
             checkedAt: { type: "string", format: "date-time", description: "When this report was generated. Never cached (`no-store`)." },
-            cronLastRun: { type: ["string", "null"], format: "date-time", description: "When the cron last completed a tick and recorded its outcomes. null until the first tick after deploy." },
-            worker: {
-              type: "object",
-              description: "Runtime and configuration. Reaching this response IS the runtime check — dispatch, routing and rendering all already happened.",
-              properties: {
-                status: { type: "string", enum: ["ok", "unhealthy"] },
-                runtime: { type: "string", description: 'Always "responding" when a body is returned.' },
-                version: {
-                  type: ["object", "null"],
-                  description: "Deployment identity, so a symptom can be tied to a release. null when the version_metadata binding is absent (local dev, or a deploy predating it).",
-                  properties: {
-                    id: { type: ["string", "null"], description: "Cloudflare Worker version id." },
-                    tag: { type: ["string", "null"] },
-                    timestamp: { type: ["string", "null"], format: "date-time", description: "When this version was deployed — the closest thing to a build timestamp." },
-                  },
-                },
-                bindings: {
-                  type: "object",
-                  description: 'Configuration presence ONLY, never values. WEATHER is "bound" or "MISSING"; each optional secret is "set" or "unset". An unset secret is not an error — the feature degrades on its own — but it explains behavior (no AirNow key means a modeled AQI rather than a measured one).',
-                  additionalProperties: { type: "string" },
-                },
-              },
-            },
+            cronLastRun: { type: ["string", "null"], format: "date-time", description: "When the refresh loop last completed a tick. null until the first tick after deploy." },
             feeds: {
               type: "object",
               description: "One entry per cached feed, keyed by name.",
               additionalProperties: { $ref: "#/components/schemas/HealthFeed" },
             },
-            summary: {
-              type: "object",
-              properties: {
-                total: { type: "integer" },
-                ok: { type: "integer" },
-                degraded: { type: "integer" },
-                unhealthy: { type: "integer" },
-                problems: { type: "array", items: { type: "string" }, description: "Every problem found, prefixed with its feed name — enough for a human or a pager to see what failed without walking the tree." },
-              },
-            },
+            error: { type: "string", description: "Present only when the refresh record itself could not be read, e.g. the KV binding is missing. The response is still 200." },
           },
-          required: ["status"],
+          required: ["site", "checkedAt", "feeds"],
         },
         HealthFeed: {
           type: "object",
           properties: {
-            status: { type: "string", enum: ["ok", "degraded", "unhealthy"] },
-            critical: { type: "boolean", description: "Whether a failure here makes the whole service unhealthy (503). Only the weather cache is critical; every other feed backs a single section page." },
-            cadence: { type: "string", description: "Human-readable refresh schedule, e.g. \"~6h (cron, throttled)\"." },
-            serves: { type: "array", items: { type: "string" }, description: "The routes that break when this feed does." },
-            kv: { type: "string", enum: ["ok", "missing", "unreadable"], description: "Storage-level outcome, kept separate from data-level ones: `unreadable` is a KV or JSON-parse failure, `missing` is a cold cache, and neither is the same as stale data." },
-            updated: { type: ["string", "null"], format: "date-time" },
-            ageSeconds: { type: ["integer", "null"] },
-            freshness: { type: "string", enum: ["fresh", "stale", "expired", "unknown"], description: "Judged against this feed's own thresholds, not a global one." },
-            thresholds: {
-              type: "object",
-              properties: { freshSeconds: { type: "integer" }, staleSeconds: { type: "integer" } },
-            },
-            shape: { type: "string", enum: ["ok", "invalid"], description: "Whether the cached entry is actually usable — catches a successful fetch that returned unusable data, e.g. an empty gauges array or a forecast window that has fully elapsed." },
-            lastRefresh: {
-              type: ["object", "null"],
-              description: "Result of the last refresh ATTEMPT, which staleness alone cannot answer: an upstream that started failing five minutes ago still has fresh data. `tracked:false` for the news key, which a routine writes out-of-band rather than the cron. `skipped:true` means a throttled feed was not due — deliberately not reported as a success.",
-              additionalProperties: true,
-              properties: {
-                tracked: { type: "boolean" },
-                ok: { type: "boolean" },
-                at: { type: "string", format: "date-time" },
-                skipped: { type: "boolean" },
-                reason: { type: "string" },
-                error: { type: "string" },
-              },
-            },
-            data: { type: "object", description: "Per-feed counts and sub-signals — gauge count, active storms, whether AQI is measured or modeled, and so on.", additionalProperties: true },
-            problems: { type: "array", items: { type: "string" } },
+            lastAttempt: { type: ["string", "null"], format: "date-time", description: "When this feed last TRIED to fetch new data. A throttled tick that was not due is not an attempt and does not move this. null for `news`, which a routine writes out-of-band, and until the first cron tick after deploy." },
+            ok: { type: ["boolean", "null"], description: "Whether that attempt succeeded. null when no attempt has been recorded." },
+            error: { type: "string", description: "Present only when the last attempt failed: the upstream error." },
+            dataChangedAt: { type: ["string", "null"], format: "date-time", description: "When the cached content itself last CHANGED — not when it was last rewritten. A refresh that succeeds and re-stores identical data does not move this, which is how a feed serving frozen content becomes visible." },
           },
         },
         Traffic: {

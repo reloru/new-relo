@@ -275,21 +275,23 @@ export async function routeRequest(request, env, ctx) {
       return mcpJson(batch ? out : out[0], 200);
     }
 
-    // Service health. A monitoring contract, not a liveness ping: it reads the
-    // same cached state the public endpoints serve (never a live upstream
-    // fetch) and reports per-feed readability, shape and freshness. 503 only
-    // when something CRITICAL is broken, so "non-2xx = down" stays meaningful.
+    // Service health: the site is live (this response proves it), when each
+    // feed last tried to fetch and whether it worked, and when the data on the
+    // page actually changed. Reads one KV key, never an upstream. Always 200 —
+    // "is the data fresh enough" is the caller's judgment, made from the
+    // timestamps in the body.
     if (path === "/api/health") {
       let report;
       try {
         report = await healthReport(env);
       } catch (err) {
-        // The health endpoint failing is itself a finding, and must not 500 —
-        // a monitor would report "site down" for a bug in the reporter.
+        // Still a 200: the site IS live, which is this endpoint's first
+        // question, and the reporter's own failure is reported as a fact
+        // rather than as an outage.
         console.error("health report failed:", err && err.stack);
         report = {
-          httpStatus: 503,
-          body: { status: "unhealthy", updated: null, checkedAt: new Date().toISOString(), summary: { problems: [`health check itself failed: ${(err && err.message) || err}`] } },
+          httpStatus: 200,
+          body: { site: "live", checkedAt: new Date().toISOString(), feeds: {}, error: `health check itself failed: ${(err && err.message) || err}` },
         };
       }
       return new Response(JSON.stringify(report.body, null, 2), {

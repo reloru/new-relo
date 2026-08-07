@@ -1,61 +1,42 @@
-// Exercise /api/health's state machine directly, with stubbed KV.
+// Exercise /api/health and the cron record it reads, with a stubbed KV.
 //
-// healthReport(env) is a pure function of `env` on purpose: it reads KV and
-// nothing else, so every branch — unreadable, missing, malformed, stale,
-// expired, refresh-failed, critical vs not — can be driven from a fake binding
-// with no server, no network, and no clock games beyond the timestamps we hand
-// it.
+// The endpoint reports three things: the site is live, when each feed last
+// tried to fetch and whether it worked, and when the data on the page actually
+// changed. The first is trivially true. The other two are a contract between
+// two files that never call each other — src/cron.js writes `cron_status`,
+// src/api/health.js reads it — so the tests below drive the REAL recorder and
+// the REAL writer, then read the result back through the REAL reporter.
 //
-// This matters more than a smoke test would. The endpoint's whole value is that
-// it distinguishes cases that used to look identical, and the only way to know
-// it does is to construct each case and assert the verdict differs.
+// The case that matters most is "refresh succeeded, content identical": that is
+// the failure that put a three-day-old pollen count on the live site while every
+// other signal said healthy, and `dataChangedAt` exists to make it visible.
 //
 // Run: node scripts/test-health.mjs
 
-import { healthReport, cronRunRecorder, FEEDS, CRON_STATUS_KV_KEY } from "../src/api/health.js";
+import { healthReport, cronRunRecorder, recordCronRun, FEEDS, CRON_STATUS_KV_KEY } from "../src/api/health.js";
 import { openApiSpec } from "../src/api/openapi.js";
 
 const ISO = (msAgo = 0) => new Date(Date.now() - msAgo).toISOString();
-const period = {
-  number: 1, name: "Now", startTime: ISO(30 * 60000), endTime: ISO(-30 * 60000),
-  isDaytime: true, temperature: 78, temperatureUnit: "F", shortForecast: "Sunny",
-  detailedForecast: "Sunny.", windSpeed: "5 mph", windDirection: "SW",
-  probabilityOfPrecipitation: { value: 10 }, relativeHumidity: { value: 60 },
-  icon: "https://api.weather.gov/icons/land/day/few?size=small",
-};
 
-// A healthy snapshot for every feed, all stamped "just now".
-function healthyStore(age = 0) {
+// A KV stub that stores strings, like the real one, so put/get round-trips
+// through JSON exactly as production does.
+function fakeKv(seed = {}) {
+  const store = new Map(Object.entries(seed).map(([k, v]) => [k, JSON.stringify(v)]));
   return {
-    weather: { updated: ISO(age), place: "Crosby, TX", hourly: [period], periods: [period], alerts: [], uv: { hourly: [1] }, aqi: { usAqi: 38, measured: true } },
-    water: { updated: ISO(age), gauges: [{ id: "x", name: "Cedar Bayou" }] },
-    fishing: { updated: ISO(age), stations: [{ id: "1", params: {} }] },
-    traffic: { updated: ISO(age), incidents: [], closures: [] },
-    tropics: { updated: ISO(age), storms: [] },
-    pollen: { updated: ISO(age), countDate: "2026-08-05", groups: { tree: { category: "Low" } } },
-    calendar: { updated: ISO(age), events: [{ summary: "E" }] },
-    news: { updated: ISO(age), items: [{ title: "T" }] },
-    [CRON_STATUS_KV_KEY]: { at: ISO(age), feeds: Object.fromEntries(FEEDS.filter((f) => f.cronOwned !== false).map((f) => [f.name, { ok: true, at: ISO(age) }])) },
+    store,
+    WEATHER: {
+      get: async (key, type) => {
+        const raw = store.get(key);
+        if (raw === undefined) return null;
+        return type === "json" ? JSON.parse(raw) : raw;
+      },
+      put: async (key, value) => { store.set(key, value); },
+    },
   };
 }
 
-// `store` maps key -> value, or key -> Error to simulate a KV/parse failure.
-const envWith = (store, extra = {}) => ({
-  WEATHER: {
-    get: async (key) => {
-      const v = store[key];
-      if (v instanceof Error) throw v;
-      return v ?? null;
-    },
-  },
-  ...extra,
-});
-
 let failures = 0;
-async function check(label, env, expect) {
-  const r = await healthReport(env);
-  const got = { status: r.status, httpStatus: r.httpStatus, ...expect.probe?.(r.body) };
-  const want = { status: expect.status, httpStatus: expect.httpStatus, ...expect.want };
+function assert(label, got, want) {
   const ok = JSON.stringify(got) === JSON.stringify(want);
   if (!ok) failures++;
   console.log(`  ${ok ? "PASS" : "FAIL"}  ${label}`);
@@ -65,165 +46,153 @@ async function check(label, env, expect) {
   }
 }
 
-console.log("\n/api/health state machine:\n");
+console.log("\n/api/health:\n");
 
-// --- the healthy baseline --------------------------------------------------
-await check("all feeds fresh and well-shaped -> ok / 200", envWith(healthyStore()), {
-  status: "ok", httpStatus: 200,
-  probe: (b) => ({ unhealthy: b.summary.unhealthy, degraded: b.summary.degraded, problems: b.summary.problems.length }),
-  want: { unhealthy: 0, degraded: 0, problems: 0 },
-});
+// --- 1. is the site live ----------------------------------------------------
 
-// --- the distinction the old endpoint could not make ------------------------
-// Each of these used to return an identical 200 {"status":"ok"}.
-
-await check("weather KV unreadable (corrupt JSON) -> unhealthy / 503", envWith({ ...healthyStore(), weather: new Error("Unexpected token") }), {
-  status: "unhealthy", httpStatus: 503,
-  probe: (b) => ({ kv: b.feeds.weather.kv, shape: b.feeds.weather.shape }),
-  want: { kv: "unreadable", shape: "ok" },
-});
-
-await check("weather key absent (cold cache) -> unhealthy / 503", envWith({ ...healthyStore(), weather: null }), {
-  status: "unhealthy", httpStatus: 503,
-  probe: (b) => ({ kv: b.feeds.weather.kv }),
-  want: { kv: "missing" },
-});
-
-await check("weather present but hourly[] empty -> unhealthy / 503", envWith({ ...healthyStore(), weather: { updated: ISO(0), hourly: [], periods: [period], alerts: [] } }), {
-  status: "unhealthy", httpStatus: 503,
-  probe: (b) => ({ kv: b.feeds.weather.kv, shape: b.feeds.weather.shape }),
-  want: { kv: "ok", shape: "invalid" },
-});
-
-// A freshly-fetched but fully-elapsed forecast window: `updated` is seconds old,
-// every period is in the past. Parses fine, renders a hero, useless to a reader.
-await check("weather fetched just now but forecast window elapsed -> unhealthy / 503", envWith({
-  ...healthyStore(),
-  weather: { updated: ISO(0), hourly: [{ ...period, startTime: ISO(7200000), endTime: ISO(3600000) }], periods: [period], alerts: [] },
-}), {
-  status: "unhealthy", httpStatus: 503,
-  probe: (b) => ({ freshness: b.feeds.weather.freshness, shape: b.feeds.weather.shape }),
-  want: { freshness: "fresh", shape: "invalid" },
-});
-
-// Pins the reason the check above cannot be written as `!currentHourly(d)`:
-// currentHourly falls back to the last already-started period rather than
-// returning null, so the hero degrades to the most recent known hour instead of
-// going blank. Deliberate for rendering; it also makes it useless as a probe.
 {
-  const { currentHourly } = await import("../src/lib/derived.js");
-  const allPast = { hourly: [{ ...period, startTime: ISO(7200000), endTime: ISO(3600000) }] };
-  const ok = currentHourly(allPast) !== null && currentHourly({ hourly: [] }) === null;
-  if (!ok) failures++;
-  console.log(`  ${ok ? "PASS" : "FAIL"}  currentHourly() falls back to the last started period (never null when non-empty)`);
+  const env = fakeKv();
+  const r = await healthReport(env);
+  assert("empty KV -> still 200 and live; every feed reports nulls, not errors", {
+    httpStatus: r.httpStatus,
+    site: r.body.site,
+    feeds: Object.keys(r.body.feeds).length,
+    weather: r.body.feeds.weather,
+  }, {
+    httpStatus: 200,
+    site: "live",
+    feeds: FEEDS.length,
+    weather: { lastAttempt: null, ok: null, dataChangedAt: null },
+  });
 }
 
-// --- freshness, per feed ----------------------------------------------------
-await check("weather 1h old (past fresh, inside stale) -> degraded / 200", envWith({ ...healthyStore(), weather: { ...healthyStore().weather, updated: ISO(3600 * 1000) } }), {
-  status: "degraded", httpStatus: 200,
-  probe: (b) => ({ freshness: b.feeds.weather.freshness }),
-  want: { freshness: "stale" },
-});
+{
+  // No KV binding at all: the site is still answering, which is this endpoint's
+  // first question. It must not turn a reporting gap into a claimed outage.
+  const r = await healthReport({});
+  assert("KV binding missing -> 200, live, with the reason stated", {
+    httpStatus: r.httpStatus, site: r.body.site, hasError: typeof r.body.error === "string",
+  }, { httpStatus: 200, site: "live", hasError: true });
+}
 
-// `kv` is STORAGE-level and must not absorb data-level verdicts: a present,
-// parseable, four-day-old entry is `kv: "ok"` with an expired freshness — NOT
-// `missing`. Conflating them would make a cold cache and a stale one look
-// identical, which is half of what this endpoint exists to separate.
-await check("weather 3h old (past stale) -> unhealthy / 503, but kv stays ok", envWith({ ...healthyStore(), weather: { ...healthyStore().weather, updated: ISO(3 * 3600 * 1000) } }), {
-  status: "unhealthy", httpStatus: 503,
-  probe: (b) => ({ freshness: b.feeds.weather.freshness, kv: b.feeds.weather.kv }),
-  want: { freshness: "expired", kv: "ok" },
-});
+// --- 2. last attempt, and whether it worked ---------------------------------
 
-// The other side of that distinction, asserted against the same status code:
-// missing and stale both yield 503, and must remain tellable apart in the body.
-await check("cold cache and stale cache both 503 but report different kv", envWith({ ...healthyStore(), weather: null }), {
-  status: "unhealthy", httpStatus: 503,
-  probe: (b) => ({ kv: b.feeds.weather.kv, updated: b.feeds.weather.updated, freshness: b.feeds.weather.freshness }),
-  want: { kv: "missing", updated: null, freshness: "unknown" },
-});
+{
+  const env = fakeKv({ weather: { updated: ISO(0), periods: [1] }, water: { updated: ISO(0), gauges: [1] } });
+  const run = cronRunRecorder();
+  run.ok("weather");
+  run.failed("water", new Error("NWPS 503"));
+  await recordCronRun(env, run);
 
-// The point of per-feed thresholds: the same age is fine for one feed and not
-// another. 4h is expired for weather (2h limit) but fresh for the calendar (8h).
-await check("calendar 4h old -> still fresh (its own cadence is ~6h)", envWith({ ...healthyStore(), calendar: { ...healthyStore().calendar, updated: ISO(4 * 3600 * 1000) } }), {
-  status: "ok", httpStatus: 200,
-  probe: (b) => ({ calendar: b.feeds.calendar.freshness, weatherWouldBe: b.feeds.weather.freshness }),
-  want: { calendar: "fresh", weatherWouldBe: "fresh" },
-});
+  const { body } = await healthReport(env);
+  assert("a successful attempt reports ok:true and no error", {
+    ok: body.feeds.weather.ok, hasError: "error" in body.feeds.weather, hasAttempt: !!body.feeds.weather.lastAttempt,
+  }, { ok: true, hasError: false, hasAttempt: true });
 
-// --- critical vs non-critical ----------------------------------------------
-await check("non-critical feed dead (fishing missing) -> degraded / 200, NOT 503", envWith({ ...healthyStore(), fishing: null }), {
-  status: "degraded", httpStatus: 200,
-  probe: (b) => ({ feed: b.feeds.fishing.status, critical: b.feeds.fishing.critical, unhealthyCount: b.summary.unhealthy }),
-  want: { feed: "unhealthy", critical: false, unhealthyCount: 1 },
-});
+  assert("a failed attempt reports ok:false and the upstream error", {
+    ok: body.feeds.water.ok, error: body.feeds.water.error,
+  }, { ok: false, error: "NWPS 503" });
 
-await check("every non-critical feed dead -> still degraded / 200 (weather is fine)", envWith({
-  ...Object.fromEntries(Object.keys(healthyStore()).map((k) => [k, k === "weather" || k === CRON_STATUS_KV_KEY ? healthyStore()[k] : null])),
-}), {
-  status: "degraded", httpStatus: 200,
-  probe: (b) => ({ weather: b.feeds.weather.status, unhealthyCount: b.summary.unhealthy }),
-  want: { weather: "ok", unhealthyCount: 7 },
-});
+  assert("cronLastRun records the tick itself", typeof body.cronLastRun, "string");
+}
 
-// --- last refresh attempt ---------------------------------------------------
-await check("upstream failing but data still fresh -> degraded / 200 (early warning)", envWith({
-  ...healthyStore(),
-  [CRON_STATUS_KV_KEY]: { at: ISO(0), feeds: { water: { ok: false, at: ISO(0), error: "NWPS 503" } } },
-}), {
-  status: "degraded", httpStatus: 200,
-  probe: (b) => ({ water: b.feeds.water.status, freshness: b.feeds.water.freshness, refreshOk: b.feeds.water.lastRefresh.ok }),
-  want: { water: "degraded", freshness: "fresh", refreshOk: false },
-});
+{
+  // Throttled feeds (calendar/tropics/pollen ~hourly to ~6h) fetch on only some
+  // ticks. "Last time it tried" must survive the ticks where it did not try —
+  // neither blanked nor silently bumped to now.
+  const env = fakeKv({ calendar: { updated: ISO(0), events: [1] } });
+  const first = cronRunRecorder();
+  first.ok("calendar");
+  await recordCronRun(env, first);
+  const attempted = (await healthReport(env)).body.feeds.calendar.lastAttempt;
 
-await check("throttled feed skipped this tick -> not a failure", envWith({
-  ...healthyStore(),
-  [CRON_STATUS_KV_KEY]: { at: ISO(0), feeds: { calendar: { ok: true, skipped: true, reason: "still within the throttle window", at: ISO(0) } } },
-}), {
-  status: "ok", httpStatus: 200,
-  probe: (b) => ({ calendar: b.feeds.calendar.status, skipped: b.feeds.calendar.lastRefresh.skipped }),
-  want: { calendar: "ok", skipped: true },
-});
+  await new Promise((r) => setTimeout(r, 5));
+  await recordCronRun(env, cronRunRecorder()); // a tick where calendar was throttled
 
-await check("news refresh is untracked (routine-owned, not the cron)", envWith(healthyStore()), {
-  status: "ok", httpStatus: 200,
-  probe: (b) => ({ tracked: b.feeds.news.lastRefresh.tracked }),
-  want: { tracked: false },
-});
+  const after = (await healthReport(env)).body.feeds.calendar;
+  assert("a throttled tick carries the previous attempt forward, unchanged", {
+    lastAttempt: after.lastAttempt, ok: after.ok, movedToTick: after.lastAttempt === (await healthReport(env)).body.cronLastRun,
+  }, { lastAttempt: attempted, ok: true, movedToTick: false });
+}
 
-// --- worker / bindings ------------------------------------------------------
-await check("KV binding missing entirely -> unhealthy / 503", { AIRNOW_API_KEY: "x" }, {
-  status: "unhealthy", httpStatus: 503,
-  probe: (b) => ({ worker: b.worker.status, kv: b.worker.bindings.WEATHER, feeds: Object.keys(b.feeds).length }),
-  want: { worker: "unhealthy", kv: "MISSING", feeds: 0 },
-});
+// --- 3. when the data actually changed --------------------------------------
+//
+// The reason this endpoint exists in its current form. /pollen served the same
+// count for three business days: every fetch succeeded, every write succeeded,
+// and the KV entry's `updated` stamp advanced every two hours the whole time.
 
-await check("optional secrets reported as presence only, never values", envWith(healthyStore(), { AIRNOW_API_KEY: "super-secret", CF_VERSION_METADATA: { id: "v1", tag: "", timestamp: ISO(0) } }), {
-  status: "ok", httpStatus: 200,
-  probe: (b) => ({ airnow: b.worker.bindings.AIRNOW_API_KEY, leaked: JSON.stringify(b).includes("super-secret"), versionId: b.worker.version.id }),
-  want: { airnow: "set", leaked: false, versionId: "v1" },
-});
+{
+  const env = fakeKv();
+  const count = { countDate: "2026-08-03", groups: { tree: { category: "Low" } } };
 
-await check("version metadata absent -> null, not a failure", envWith(healthyStore()), {
-  status: "ok", httpStatus: 200,
-  probe: (b) => ({ version: b.worker.version }),
-  want: { version: null },
-});
+  // Tick 1 — first sighting. Seeds from the entry's own write stamp.
+  env.store.set("pollen", JSON.stringify({ updated: ISO(4 * 3600_000), ...count }));
+  const t1 = cronRunRecorder(); t1.ok("pollen");
+  await recordCronRun(env, t1);
+  const first = (await healthReport(env)).body.feeds.pollen;
 
-// --- backward compatibility -------------------------------------------------
-await check("keeps the old {status, updated} contract at the top level", envWith(healthyStore()), {
-  status: "ok", httpStatus: 200,
-  probe: (b) => ({ hasStatus: typeof b.status === "string", hasUpdated: typeof b.updated === "string" }),
-  want: { hasStatus: true, hasUpdated: true },
-});
+  // Tick 2 — the failure mode. A successful refresh re-stores the IDENTICAL
+  // count under a brand-new `updated` stamp.
+  await new Promise((r) => setTimeout(r, 5));
+  env.store.set("pollen", JSON.stringify({ updated: ISO(0), ...count }));
+  const t2 = cronRunRecorder(); t2.ok("pollen");
+  await recordCronRun(env, t2);
+  const frozen = (await healthReport(env)).body.feeds.pollen;
+
+  assert("a refresh that re-stores identical content does NOT move dataChangedAt", {
+    changed: frozen.dataChangedAt === first.dataChangedAt,
+    attemptMoved: frozen.lastAttempt !== first.lastAttempt,
+    ok: frozen.ok,
+  }, { changed: true, attemptMoved: true, ok: true });
+
+  // Tick 3 — a genuinely new count.
+  const landed = ISO(0);
+  env.store.set("pollen", JSON.stringify({ updated: landed, countDate: "2026-08-06", groups: { tree: { category: "High" } } }));
+  const t3 = cronRunRecorder(); t3.ok("pollen");
+  await recordCronRun(env, t3);
+  const moved = (await healthReport(env)).body.feeds.pollen;
+
+  assert("new content moves dataChangedAt to when that content landed", {
+    dataChangedAt: moved.dataChangedAt, differsFromFrozen: moved.dataChangedAt !== frozen.dataChangedAt,
+  }, { dataChangedAt: landed, differsFromFrozen: true });
+}
+
+{
+  // `news` is written out-of-band by a Claude routine, so nothing ever records a
+  // fetch attempt for it — but its content is fingerprinted like any other feed,
+  // which is the only reason a stalled routine is visible at all.
+  const env = fakeKv({ news: { updated: ISO(6 * 3600_000), items: [{ title: "A" }] } });
+  await recordCronRun(env, cronRunRecorder());
+  const seeded = (await healthReport(env)).body.feeds.news;
+
+  env.store.set("news", JSON.stringify({ updated: ISO(0), items: [{ title: "A" }, { title: "B" }] }));
+  await recordCronRun(env, cronRunRecorder());
+  const after = (await healthReport(env)).body.feeds.news;
+
+  assert("news: no attempt is ever recorded, but its content changes are", {
+    lastAttempt: after.lastAttempt, ok: after.ok, tracksChange: after.dataChangedAt !== seeded.dataChangedAt,
+  }, { lastAttempt: null, ok: null, tracksChange: true });
+}
+
+{
+  // An unreadable entry must not be mistaken for a change. Corrupt JSON makes
+  // .get(k,"json") throw; the last known change stamp has to survive that.
+  const env = fakeKv({ traffic: { updated: ISO(0), incidents: [], closures: [] } });
+  await recordCronRun(env, cronRunRecorder());
+  const before = (await healthReport(env)).body.feeds.traffic.dataChangedAt;
+
+  env.store.set("traffic", "{not json");
+  await recordCronRun(env, cronRunRecorder());
+  const after = (await healthReport(env)).body.feeds.traffic.dataChangedAt;
+
+  assert("a corrupt entry leaves the last change stamp alone", { before: !!before, after }, { before: true, after: before });
+}
 
 // --- the published contract must match what is actually emitted --------------
 //
 // /openapi.json is the machine-readable description of this endpoint. Nothing
 // forces the two to agree, and a spec that quietly drifts is worse than no spec:
-// a client generator will build against the lie. So walk a REAL report against
-// the published Health schema and fail on any undocumented field or any value
-// outside a declared enum.
+// a client generator will build against the lie.
 {
   const spec = openApiSpec();
   const sc = spec.components.schemas;
@@ -249,58 +218,25 @@ await check("keeps the old {status, updated} contract at the top level", envWith
     }
   }
 
-  // Exercise BOTH status codes, so fields that only appear on one path
-  // (problems, error strings) are covered too.
-  for (const [label, env] of [
-    ["healthy", envWith(healthyStore())],
-    ["unhealthy", envWith({ ...healthyStore(), weather: null, water: new Error("boom") })],
-  ]) {
+  // A populated report and a bare one, so fields that appear on only one path
+  // (a feed `error`, the top-level `error`) are both covered.
+  const populated = fakeKv({ water: { updated: ISO(0), gauges: [1] } });
+  const run = cronRunRecorder();
+  run.failed("water", new Error("NWPS 503"));
+  await recordCronRun(populated, run);
+
+  for (const [label, env] of [["populated", populated], ["no binding", {}]]) {
     const { body } = await healthReport(env);
     walk(`Health(${label})`, sc.Health, body);
   }
 
   if (problems.length) { failures++; problems.forEach((p) => console.log(`  FAIL  schema: ${p}`)); }
-  else console.log("  PASS  every emitted field is documented in /openapi.json, enums included");
-}
-
-// --- cron writer and health reader must agree -------------------------------
-//
-// cron_status is a contract between two files that never call each other:
-// src/cron.js writes it, src/api/health.js reads it. Nothing type-checks the
-// boundary, so build a record the way the cron actually does — through the real
-// recorder, not a hand-written fixture — and assert the reader understands every
-// outcome it can produce.
-{
-  const run = cronRunRecorder();
-  run.ok("weather");
-  run.failed("water", new Error("NWPS 503"));
-  run.skipped("calendar", "still within the throttle window");
-  const snap = run.snapshot();
-
-  const shapeOk =
-    typeof snap.at === "string" &&
-    snap.feeds.weather.ok === true &&
-    snap.feeds.water.ok === false &&
-    snap.feeds.water.error === "NWPS 503" &&
-    snap.feeds.calendar.skipped === true;
-
-  const { body } = await healthReport(envWith({ ...healthyStore(), [CRON_STATUS_KV_KEY]: snap }));
-  const readOk =
-    body.cronLastRun === snap.at &&
-    body.feeds.weather.lastRefresh.ok === true &&
-    body.feeds.water.lastRefresh.ok === false &&
-    body.feeds.water.status === "degraded" &&
-    body.feeds.calendar.lastRefresh.skipped === true &&
-    body.feeds.calendar.status === "ok";
-
-  const ok = shapeOk && readOk;
-  if (!ok) { failures++; console.log(`  FAIL  cron_status contract (writer shape ${shapeOk}, reader ${readOk})`); }
-  else console.log("  PASS  cron_status: recorder output is understood by the health reader (ok / failed / skipped)");
+  else console.log("  PASS  every emitted field is documented in /openapi.json");
 }
 
 console.log(
   failures
     ? `\n${failures} health check(s) FAILED\n`
-    : `\nHealth endpoint OK — every state distinguished, criticality respected.\n`,
+    : `\nHealth endpoint OK — live, per-feed attempts, and real content-change stamps.\n`,
 );
 process.exit(failures ? 1 : 0);

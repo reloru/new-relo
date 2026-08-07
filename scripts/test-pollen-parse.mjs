@@ -8,11 +8,12 @@
 //
 // The reason it needs a test rather than care is that NOTHING GOES WRONG when
 // it breaks. The index fetches fine, an older slug still matches, that page
-// still parses into four valid groups, and the KV entry is rewritten on
-// schedule — so /api/health reports the feed fresh and the page renders a real,
-// correctly-labelled count. It simply stops advancing. There is no exception to
-// catch and no status code to alarm on; the only observable is that a date
-// stops moving, which is exactly what a human is bad at noticing.
+// still parses into four valid groups, the KV entry is rewritten on schedule,
+// and the page renders a real, correctly-labelled count. It simply stops
+// advancing. There is no exception to catch and no status code to alarm on; the
+// only observable is that a date stops moving, which is exactly what a human is
+// bad at noticing. (/api/health's `dataChangedAt` reports that stalled date
+// after the fact — this test is what keeps it from happening.)
 //
 // So: pin the parsing, and pin it against the formats HHD has actually served.
 // Pure string work, no network — the point is to fix the contract, not to

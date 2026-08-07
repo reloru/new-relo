@@ -69,8 +69,10 @@ the last good count. `loadPollen()` cold-warms.
 
 Note what that guarantee does and does not cover: it protects the last good
 count from being *wiped*, not from going *stale*. A count that stops advancing
-is the failure mode this page is most exposed to, and it is invisible to
-`/api/health`, which judges freshness by KV write time — see issue #156.
+is the failure mode this page is most exposed to. `/api/health` now surfaces it:
+`feeds.pollen.dataChangedAt` moves only when the cached content actually
+changes, so a refresh that keeps re-storing the same count leaves that stamp
+sitting still while `lastAttempt` keeps advancing.
 
 **Weekends serve Friday's count**, labeled honestly with the count's own date.
 It is never presented as today's.

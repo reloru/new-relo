@@ -214,8 +214,8 @@ REST API (public, no auth):
   - hourly   - next 12 hourly periods
   - forecast - 7-day day/night forecast
   - alerts   - active NWS alerts (empty array when none)
-- GET https://crosbynews.com/api/health - per-feed readability, shape and
-  freshness; 503 when a critical feed is broken
+- GET https://crosbynews.com/api/health - site liveness, when each feed last
+  tried to refresh and whether it worked, and when its data last changed
 - OpenAPI spec: https://crosbynews.com/openapi.json
 
 MCP server (Streamable HTTP, JSON-RPC):

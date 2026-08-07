@@ -32,12 +32,13 @@ jobs:
       # 502. This runs every renderer in BOTH languages, which is ground truth.
       - name: Check renderers (both languages)
         run: node scripts/check-renders.mjs
-      # /api/health is the status relation of every api-catalog entry, so a
+      # /api/health is the status relation of every api-catalog entry, and a
       # regression there is invisible by construction: a broken health check
-      # still returns 200 "ok". This drives its state machine off stubbed KV —
-      # unreadable, missing, malformed, stale, expired, refresh-failed, critical
-      # vs not — and asserts the verdicts differ. Pure node, no install.
-      - name: Check /api/health state machine
+      # still returns a cheerful 200. This drives the real cron recorder, writer
+      # and reporter against a stubbed KV — centrally, that a refresh which
+      # re-stores identical content must NOT move `dataChangedAt`, the signal
+      # that a feed is serving frozen data. Pure node, no install.
+      - name: Check /api/health
         run: node scripts/test-health.mjs
       # The pollen scrape is the one upstream that publishes no API, and HHD
       # changes its URL shape without notice. When a matcher stops matching

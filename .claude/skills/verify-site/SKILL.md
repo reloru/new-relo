@@ -62,24 +62,27 @@ for p in / /weather /hourly … /es /es/weather /es/hourly … ; do
 done | grep -v '^200' || echo "all 200"
 ```
 
-**`/api/health` is the one exception to "expect 200".** Since 2026-08-05 it is a
-monitoring contract: `200` means ok *or* degraded, `503` means a **critical**
-feed (the weather cache) is unreadable, malformed or expired. A `503` there is
-the endpoint working correctly and reporting a real problem — read
-`.status` and `.summary.problems` and report THOSE, rather than filing it as a
-route regression. Its `status` field is the check, not its HTTP code alone:
+**`/api/health` always returns 200** — it reports facts, not a verdict, so its
+status code says only that the Worker answered. The findings are in the body:
 
 ```bash
-curl -s "$BASE/api/health" | python3 -m json.tool | head -20
+curl -s "$BASE/api/health" | python3 -m json.tool
 ```
 
-A `degraded` is worth reporting too — it means a section feed is stale or its
-last refresh attempt failed, which is exactly the early warning the endpoint
-exists to give.
+Read each feed's three fields and report anything off:
 
-**Corollary: `/api/health` is not a liveness probe.** If you need "is the Worker
-up", use `/robots.txt` — static, no KV, no data dependency. Using `/api/health`
-for that reports a healthy deploy as dead whenever its cache is stale.
+- `ok: false` — that upstream failed at its last refresh attempt. The `error`
+  field says why.
+- `lastAttempt` far behind `cronLastRun` — for `weather`/`water`/`fishing`/
+  `traffic` (every tick) that means the feed stopped being attempted at all.
+  `calendar`/`tropics`/`pollen` are throttled (~6h/~1h/~2h), so lagging is
+  normal for them; `news` is `null` by design (written out-of-band).
+- **`dataChangedAt` far behind `lastAttempt`** — the important one. It means
+  refreshes are succeeding while the content sits frozen, which is exactly how
+  `/pollen` served a three-day-old count with every other signal green. Judge it
+  against how often that feed's data genuinely moves: hours for weather/water/
+  traffic, a day for pollen, longer for calendar and a quiet tropics basin.
+- `cronLastRun` not within ~15 minutes — the cron itself has stopped.
 
 **Also assert each page is substantive, not just 200.** A page that renders but
 lost its data reads as healthy on status alone:
