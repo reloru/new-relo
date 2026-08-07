@@ -456,9 +456,11 @@ directory name becomes the `/command`. Current skills:
   patterns**; `scripts/test-pollen-parse.mjs` (required CI job) pins both
   formats and both casings. The failure mode is silent by construction: when a
   matcher stops matching, the fetch still succeeds, an older page still parses,
-  the KV entry is still rewritten on schedule, and `/api/health` still reports
-  the feed fresh — the count just stops advancing. That ran three days before a
-  human noticed. Issue #156 tracks the health-side check that would catch it.
+  and the KV entry is still rewritten on schedule — the count just stops
+  advancing. That ran three days before a human noticed. `/api/health`'s
+  `dataChangedAt` is the signal that now catches it (issue #156): it moves only
+  when the cached CONTENT changes, so a feed re-storing the same count leaves it
+  frozen while `lastAttempt` keeps ticking.
 - Styling: an inline `<style>` block in the rendered HTML — no build step,
   no static assets.
 - Chrome: `topbar(current, lang)` renders the site header with nav links, and
@@ -748,15 +750,17 @@ invariants that cut across pages.
   a "fresh" `wrangler dev` is NOT a cold cache — it replays whatever the last
   local run warmed, however many days ago. Verified 2026-08-05: a dev server was
   served a `weather` value written four days earlier, with every hourly period
-  long elapsed. `rm -rf .wrangler/state` for a genuinely cold start. This is also
-  why `/api/health` legitimately returns 503 in local dev, and why nothing should
-  use it as a liveness probe (see `docs/endpoints/api/health.md`).
+  long elapsed. `rm -rf .wrangler/state` for a genuinely cold start.
 - The WEATHER namespace holds eight content keys: `weather`, `calendar`, `water`,
   `fishing`, `tropics`, `pollen`, and `traffic` (all cron-owned — the Worker refreshes them) and
   `news` (routine-owned — written out-of-band, the Worker only reads it). The cron
   also writes **`cron_status`** at the end of every tick — per-feed
-  `{ok, at, skipped?, error?}` — which is how `/api/health` reports whether the
-  last refresh ATTEMPT succeeded, distinct from whether the data is fresh. It also holds
+  `{at, ok, error?, changedAt, hash}` — which is the whole of what `/api/health`
+  serves: `at`/`ok` are the last refresh ATTEMPT (a throttled tick records
+  nothing, so the previous attempt carries forward), and `changedAt`/`hash` track
+  when the CONTENT last actually changed. The cron fingerprints every feed key
+  each tick, `news` included, which is why a feed that keeps refreshing
+  successfully while serving frozen data is visible at all. It also holds
   the Web Push state: `push_notified` (cron-owned dedupe list — first created
   when a severe warning actually pushes, so it's absent until then; that's the
   normal quiet state, not a bug) and one entry per

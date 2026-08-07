@@ -103,7 +103,7 @@ ${topbar("/sitemap", lang)}
       ${extLk("/api/traffic", t("Traffic API", "API de tráfico"), t("JSON: incidents and lane closures on Crosby's roads.", "JSON: incidentes y cierres de carriles en los caminos de Crosby."))}
       ${extLk("/api/pollen", t("Pollen API", "API de polen"), t("JSON: the measured daily pollen and mold count.", "JSON: el conteo diario medido de polen y moho."))}
       ${extLk("/api/air", t("Air Quality API", "API de calidad del aire"), t("JSON: the measured AQI + per-pollutant breakdown.", "JSON: el AQI medido + desglose por contaminante."))}
-      ${extLk("/api/health", t("Health Check", "Estado del servicio"), t("Per-feed readability, shape, and freshness.", "Legibilidad, forma y frescura por fuente."))}
+      ${extLk("/api/health", t("Health Check", "Estado del servicio"), t("Refresh attempts and when each feed's data last changed.", "Intentos de actualización y cuándo cambiaron los datos de cada fuente."))}
       ${extLk("/openapi.json", "OpenAPI 3.1", t("Machine-readable API description.", "Descripción de la API legible por máquinas."))}
       ${/* lk, not extLk: /mcp is a bilingual PAGE (it has a Spanish explainer at
            /es/mcp), unlike its neighbours here, which are English-only endpoints.
@@ -175,7 +175,7 @@ export function sitemapPageMarkdown(lang) {
     extLk("/api/traffic", t("Traffic API", "API de tráfico"), "JSON"),
     extLk("/api/pollen", t("Pollen API", "API de polen"), "JSON"),
     extLk("/api/air", t("Air Quality API", "API de calidad del aire"), "JSON"),
-    extLk("/api/health", t("Health", "Estado"), t("Per-feed health.", "Salud por fuente.")),
+    extLk("/api/health", t("Health", "Estado"), t("Refresh attempts and data-change times.", "Intentos de actualización y cambios de datos.")),
     extLk("/openapi.json", "OpenAPI 3.1", t("API spec.", "Especificación de la API.")),
     // Bilingual page, not an English-only endpoint — see the HTML renderer.
     lk("/mcp", t("MCP Server", "Acerca del servidor MCP"), t("Streamable HTTP", "el servidor está en /mcp, solo en inglés")),

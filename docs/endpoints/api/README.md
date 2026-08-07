@@ -58,7 +58,7 @@ intentional for a debuggable public API and is a different judgement from
 
 ## Documented in
 
-- `/openapi.json` — all nine plus `/api/health` (which documents both `200` and `503`)
+- `/openapi.json` — all nine plus `/api/health` (which documents only `200` — it reports facts, not a verdict)
 - `/.well-known/api-catalog` — all nine, each with `service-desc`, `service-doc`
   and a `status` link to `/api/health`
 - `/llms.txt` — eight of the nine; **`/api/fishing` is missing**

@@ -28,10 +28,11 @@ Each carries:
 The push and news-admin endpoints are deliberately absent, consistent with every
 other discovery surface.
 
-## Caveat on the `status` relation
+## What the `status` relation gives you
 
-`/api/health` returns `{"status":"ok"}` unconditionally, so a consumer following
-this relation is polling a constant. See
+`/api/health` always answers `200` — it reports facts rather than a verdict, so
+a consumer following this relation reads the body: when each feed last tried to
+refresh, whether that worked, and when its data last actually changed. See
 `docs/endpoints/api/health.md`.
 
 ## Advertised by

@@ -1,175 +1,146 @@
 # `GET /api/health`
 
-Service health as a **monitoring contract**, not a liveness ping.
+Three facts, and nothing else.
 
 | | |
 |---|---|
 | **Builder** | `healthReport(env)` (`src/api/health.js`) |
-| **Loader** | reads KV **directly** — deliberately not the `load*()` helpers |
+| **Loader** | reads the single `cron_status` KV key — no feed keys, no `load*()` helpers, no upstreams |
 | **Cache** | `no-store` |
 | **CORS** | `*` |
-| **Conditional GET** | none — no ETag; the report is generated per request |
-| **Status codes** | `200` = ok **or** degraded · `503` = unhealthy |
+| **Conditional GET** | none — the report is generated per request |
+| **Status codes** | `200`, always |
 
-## Why it is not a ping
+## What it answers
 
-The previous version returned the literal string `"ok"` on every path. A KV
-outage, a corrupt value, and a six-hour-stale cache were indistinguishable — and
-because this endpoint is the `status` relation of **every**
-`/.well-known/api-catalog` entry, anything monitoring the site through the
-catalog was monitoring a constant.
+1. **Is the site live?** Reaching the response is the answer.
+2. **When did each feed last TRY to fetch new data, and did it work?**
+3. **When did the data being shown on the pages actually change?**
 
-Two rules shape the current design.
+Anything else — is that fresh *enough*, is this feed important, does this
+warrant paging someone — is the caller's judgment, made from these timestamps.
+The endpoint reports facts and does not grade them.
 
-**No live upstream probes.** It evaluates exactly the cached state the public
-endpoints serve. It does *not* call `loadWeather()` and friends, because those
-cold-warm on a miss — which would turn a health check into an NWS/USGS/TranStar
-fetch and make a monitor's polling interval into an upstream request rate.
+## Shape
 
-**Usefulness, not reachability.** "The Worker answered" is the least interesting
-thing it can report; the response arriving proves it. The question worth
-answering is whether the data being served is still worth serving.
-
-## NOT a liveness probe
-
-**Do not point an uptime monitor, load balancer, or readiness check at this
-endpoint.** It answers `503` whenever a critical feed is unreadable, malformed or
-expired — which says nothing about whether the Worker is up. A perfectly healthy
-deploy serving a stale cache returns `503` here by design.
-
-Use a static route for liveness: **`/robots.txt`** (or `/favicon.svg`). No KV, no
-data dependency, no upstream — it answers "is the Worker responding", which is
-the different question.
-
-This is not hypothetical. `scripts/test-sw-offline.mjs` used `/api/health` as its
-"is dev up yet" probe, and the moment this endpoint gained real verdicts that
-probe started failing against a working server: miniflare's local KV is empty on
-a fresh run (or holds a stale snapshot from a previous one), so health correctly
-reported `unhealthy` and the readiness loop waited out its full timeout before
-declaring the server dead. The script now probes `/robots.txt`.
-
-## States
-
-| `status` | HTTP | Meaning |
-|---|---|---|
-| `ok` | 200 | Every feed readable, well-shaped, and fresh for its own cadence. |
-| `degraded` | 200 | Still serving useful data. Something is stale, a last refresh attempt failed, or a **non-critical** feed is broken. |
-| `unhealthy` | 503 | A **critical** feed is unreadable, malformed, or expired. |
-
-`503` is reserved for critical failures so that a monitor's default
-"non-2xx = down" rule fires for outages and not for a stale pollen count.
-`degraded` is deliberately a `200` with the detail in the body.
-
-## Critical vs non-critical
-
-**`weather` is the only critical feed.** It backs `/`, `/weather`, `/hourly`,
-`/alerts`, `/air`, `/radar`'s footer, `/api/weather`, `/api/air`, `/badge.svg`,
-`/alerts.xml` and most MCP tools — losing it is losing the site.
-
-Every other feed backs one section page. `/fishing` being stale is a bad fishing
-page, not a broken weather site, and paging someone at 3am for it would be the
-wrong call.
-
-## Per-feed checks
-
-Each entry under `feeds` reports:
+```json
+{
+  "site": "live",
+  "checkedAt": "2026-08-07T18:22:05.123Z",
+  "cronLastRun": "2026-08-07T18:15:04.008Z",
+  "feeds": {
+    "weather": { "lastAttempt": "2026-08-07T18:15:02.311Z", "ok": true,  "dataChangedAt": "2026-08-07T18:15:02.311Z" },
+    "water":   { "lastAttempt": "2026-08-07T18:15:03.114Z", "ok": false, "error": "NWPS 503", "dataChangedAt": "2026-08-07T17:45:01.882Z" },
+    "pollen":  { "lastAttempt": "2026-08-07T17:00:02.640Z", "ok": true,  "dataChangedAt": "2026-08-07T12:00:03.417Z" },
+    "news":    { "lastAttempt": null, "ok": null, "dataChangedAt": "2026-08-07T09:02:11.000Z" }
+  }
+}
+```
 
 | Field | Notes |
 |---|---|
-| `kv` | `ok` / `missing` / `unreadable`. **Storage-level, kept separate from data-level:** `unreadable` is a KV or JSON-parse failure (`.get(k,"json")` threw), `missing` is a cold cache (the key returned null), and `ok` means the value was present and parsed — which says nothing about whether it is any good. Freshness and `shape` answer that. A present-but-four-days-old entry is `kv: "ok"` with an `expired` freshness, **not** `missing`. |
-| `updated`, `ageSeconds` | from the cached entry's own refresh stamp |
-| `freshness` | `fresh` / `stale` / `expired` / `unknown`, judged against **this feed's** thresholds |
-| `thresholds` | the two numbers used, so the verdict is auditable rather than magic |
-| `shape` | `ok` / `invalid` — does the entry contain *usable* data |
-| `lastRefresh` | result of the last refresh **attempt**, where tracked |
-| `data` | per-feed counts and sub-signals (gauge count, active storms, measured vs modeled AQI, …) |
-| `critical`, `cadence`, `serves`, `problems` | context for whoever is reading at 3am |
+| `site` | always `"live"` |
+| `checkedAt` | when this report was generated |
+| `cronLastRun` | when the refresh loop last completed a tick. `null` until the first tick after a deploy. If this stops moving, the cron itself is dead — which no per-feed field would show. |
+| `feeds.<name>.lastAttempt` | when this feed last **tried** to fetch |
+| `feeds.<name>.ok` | whether that attempt succeeded — `null` when none has been recorded |
+| `feeds.<name>.error` | present **only** when the last attempt failed |
+| `feeds.<name>.dataChangedAt` | when the cached content itself last **changed** |
+| `error` | top level, present only when the refresh record could not be read at all (e.g. the KV binding is missing). Still a `200`. |
 
-### Freshness thresholds
+## `lastAttempt` is an attempt, not a tick
 
-Per-feed, because the cadences differ by two orders of magnitude. One global
-threshold would either scream about the school calendar or stay silent while the
-forecast went cold.
+Three feeds are throttled — `calendar` ~6h, `tropics` ~1h, `pollen` ~2h — so
+most cron ticks skip them. A skipped tick is **not** an attempt: it records
+nothing, and `recordCronRun()` carries the previous attempt forward. "The last
+time it tried" would be worthless if a tick that did nothing reset it.
 
-| Feed | Cadence | fresh ≤ | expired > |
-|---|---|---|---|
-| `weather` | every 15 min | 30 min | 2 h |
-| `water` | every 15 min | 30 min | 2 h |
-| `traffic` | every 15 min | 30 min | 2 h |
-| `fishing` | every 15 min (USGS posts every 15–30) | 1 h | 4 h |
-| `tropics` | ~1 h, throttled | 2 h | 6 h |
-| `pollen` | ~2 h, throttled | 3 h | 12 h |
-| `calendar` | ~6 h, throttled | 8 h | 48 h |
-| `news` | ~daily, out-of-band routine | 36 h | 7 d |
+`news` reports `lastAttempt: null, ok: null` permanently. Google News blocks
+Worker IPs, so that key is written out-of-band by a Claude routine; nothing in
+the Worker ever attempts that fetch, and reporting a fabricated attempt would be
+worse than reporting none. Its **content** is still tracked — see below.
 
-### Shape checks
+## `dataChangedAt` is the one that catches real failures
 
-These catch a *successful* fetch that returned unusable data — the failure mode
-a status code cannot see:
+`lastAttempt` and `dataChangedAt` answer different questions, and the gap
+between them is where this site's actual failure mode lives.
 
-- `weather` — non-empty `hourly[]` and `periods[]`, `alerts[]` present, and the
-  hourly **window has not fully elapsed**. That last one cannot be written as
-  `!currentHourly(d)`: `currentHourly()` deliberately falls back to the last
-  already-started period rather than returning null, so the hero degrades to the
-  most recent known hour instead of going blank. Good for rendering, useless as
-  a probe.
-- `water` — non-empty `gauges[]` · `fishing` — non-empty `stations[]`
-- `traffic` — `incidents` and `closures` **keys present**. `null` is a valid
-  value here (that feed was unreachable at the last refresh) and is reported in
-  `data`; an *absent* key means a malformed snapshot.
-- `pollen` — `groups{}` and `countDate`
-- `tropics` — `storms[]` present; **empty is the normal quiet-basin state**
-- `news` — `items[]` present; empty is acceptable, since `/news` renders an
-  honest "no recent news" rather than an error
-- `calendar` — non-empty `events[]`
+`/pollen` served the same count for three business days in Aug 2026 while HHD
+published new ones (root cause: our URL matchers had stopped recognizing HHD's
+slugs — fixed in #158). Every refresh succeeded. Every write succeeded. The KV
+entry's `updated` stamp advanced every two hours the whole time. **Anything that
+judges a feed by when it was last written calls that healthy** — and the
+previous version of this endpoint did exactly that, reporting `fresh` / `ok`
+throughout. The owner noticed, not the monitoring.
 
-### `lastRefresh`
+So the cron fingerprints each cached entry every tick (FNV-1a over the JSON with
+the entry's own `updated` write-stamp removed) and stamps `changedAt` only when
+the fingerprint moves. A successful refresh that re-stores identical content
+leaves `dataChangedAt` alone. That closes issue #156 generically — for all eight
+feeds at once, rather than as a per-feed content-stamp check.
 
-Answers "did the last refresh **attempt** succeed?", which staleness alone
-cannot: an upstream that started failing five minutes ago still has fresh data.
-A failed attempt degrades the service even while the data is fine — that is the
-early warning that precedes staleness.
+Three details worth knowing:
 
-Sourced from the `cron_status` KV key, written by the cron at the end of every
-tick. Three outcomes: `ok`, `failed` (with the error message), and `skipped`
-(a throttled feed that was not due). **`skipped` is not reported as a success** —
-conflating them would hide a feed that had quietly stopped refreshing.
+- **The stamp is the content's own `updated`, not the tick time.** When a change
+  is detected, `changedAt` is taken from the entry that carries it, so an
+  out-of-band write is stamped when it landed, not when the cron noticed.
+- **`news` is covered too.** The fingerprint is taken from whatever is in KV,
+  regardless of who put it there — which is the only signal that a stalled news
+  routine produces at all. Detection is up to one tick (15 min) late.
+- **The first record after a deploy seeds from the entry's `updated`.** There is
+  no prior fingerprint to compare against, so the initial value is the best
+  available approximation and becomes exact from the next change onward.
 
-`news` reports `tracked: false`: it is written out-of-band by the news routine,
-so the cron has no outcome to record for it.
+A feed whose payload embeds an upstream timestamp that moves on every fetch will
+show a change on every fetch. That is still meaningfully better than "when we
+last wrote the key", which is unconditionally now.
 
-## Worker section
+## Always 200
 
-- `runtime` — always `"responding"`. Reaching the response *is* the check;
-  measuring it from inside would be theatre.
-- `version` — `{id, tag, timestamp}` from the `CF_VERSION_METADATA` binding, so
-  a symptom can be tied to a release. `null` when the binding is absent (local
-  dev, or a deploy predating it); `wrangler dev` binds it but leaves the fields
-  blank, which is normalised to `null` rather than reported as a real identity.
-- `bindings` — **presence only, never values.** `WEATHER` is `bound`/`MISSING`;
-  each optional secret is `set`/`unset`. An unset secret is not an error (each
-  feature degrades on its own) but it explains behavior — no `AIRNOW_API_KEY`
-  means a modeled AQI rather than a measured one.
+The previous version answered `503` whenever a critical feed was stale or
+malformed, which made it useless as a liveness check and required a documented
+warning not to point a monitor at it. It no longer grades anything, so there is
+no verdict to encode in a status code: **`200` whenever the Worker is
+answering**, including when the KV binding is missing (reported as `error`) and
+when the reporter itself throws (caught in the route, same shape).
 
-A missing `WEATHER` binding short-circuits the whole report to `unhealthy`,
-because every feed would otherwise report an identical misleading `missing`.
+This makes it a valid liveness probe again. `/robots.txt` is still the cheaper
+one if liveness is *all* you want — no KV read at all.
+
+## Cost
+
+One KV read per request (down from nine), and never an upstream fetch — so
+polling this cannot turn a monitor's interval into an upstream request rate.
+
+## The `cron_status` key
+
+Written by `recordCronRun()` at the end of every tick, read only here:
+
+```json
+{ "at": "<tick>", "feeds": { "<name>": { "at": "…", "ok": true, "error": "…", "changedAt": "…", "hash": "1f3a9c02" } } }
+```
+
+`hash` is internal bookkeeping — the fingerprint the next tick compares against —
+and is not exposed in the response. Deleting the key is harmless: every field
+reports `null` until the next tick rewrites it, and the change stamps re-seed.
+Never hand-edit it; a fabricated `ok: true` would mask a genuinely failing
+upstream.
 
 ## Backward compatibility
 
-The top-level `{status, updated}` pair is preserved: `status` is still `"ok"` in
-the healthy case, and `updated` is still the weather cache's stamp. Anything
-reading only those two fields keeps working.
-
-## Failure of the health check itself
-
-Wrapped in the route. If `healthReport()` throws, the response is a `503` with
-`status: "unhealthy"` and the error in `summary.problems` — never a `500`, which
-a monitor would report as "site down" for what is a bug in the reporter.
+**Deliberately broken.** The old top-level `{status, updated}` pair is gone,
+along with `worker`, `summary`, and the per-feed `kv` / `freshness` /
+`thresholds` / `shape` / `lastRefresh` / `data` fields. Nothing outside this repo
+is known to consume them, and keeping a grading vocabulary the endpoint no
+longer computes would be worse than removing it.
 
 ## Tested
 
-`scripts/test-health.mjs` drives the state machine off stubbed KV — unreadable,
-missing, malformed, stale, expired, refresh-failed, critical vs non-critical,
-binding missing — and asserts the verdicts differ. It runs in CI inside the
-required `Syntax check` job. A health endpoint that regresses to always-"ok" is
-invisible by construction, so it gets a test rather than a smoke check.
+`scripts/test-health.mjs` drives the real recorder, the real writer and the real
+reporter against a stubbed KV: the live/no-binding paths, a successful and a
+failed attempt, a throttled tick carrying its previous attempt forward, `news`
+tracking content without ever recording an attempt, a corrupt entry leaving the
+last change stamp alone — and, centrally, **a successful refresh that re-stores
+identical content must not move `dataChangedAt`**. It also walks a real report
+against the published `/openapi.json` schema, so the spec cannot drift from what
+is emitted. Runs in CI inside the required `Syntax check` job.

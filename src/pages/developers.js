@@ -34,7 +34,7 @@ export const DEVELOPERS = {
         { href: "/api/traffic", label: "/api/traffic", note: "incidents and lane closures on Crosby's roads, from Houston TranStar" },
         { href: "/api/news", label: "/api/news", note: "recent local Crosby-area headlines" },
         { href: "/api/calendar", label: "/api/calendar", note: "upcoming Crosby ISD school events" },
-        { href: "/api/health", label: "/api/health", note: "per-feed readability, shape and freshness; 503 when a critical feed is broken" },
+        { href: "/api/health", label: "/api/health", note: "site liveness, when each feed last tried to refresh and whether it worked, and when its data last actually changed" },
       ],
     },
     {
@@ -116,7 +116,7 @@ export const DEVELOPERS_ES = {
         { href: "/api/traffic", label: "/api/traffic", note: "incidentes y cierres de carriles en los caminos de Crosby, según Houston TranStar" },
         { href: "/api/news", label: "/api/news", note: "titulares locales recientes del área de Crosby" },
         { href: "/api/calendar", label: "/api/calendar", note: "próximos eventos escolares de Crosby ISD" },
-        { href: "/api/health", label: "/api/health", note: "legibilidad, forma y frescura por fuente; 503 cuando falla una fuente crítica" },
+        { href: "/api/health", label: "/api/health", note: "si el sitio está en línea, cuándo intentó actualizarse cada fuente y si funcionó, y cuándo cambiaron realmente sus datos" },
       ],
     },
     {

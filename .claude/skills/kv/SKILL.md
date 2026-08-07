@@ -23,10 +23,9 @@ KV once and every later run reads that same snapshot back, however old it is.
 
 This is not academic: a `wrangler dev` session on 2026-08-05 was served a
 `weather` value written on 2026-08-01, whose 48 hourly periods had all elapsed
-two days earlier. `/api/health` correctly reported `kv: "ok"` (present and
-readable) with an expired-and-unusable verdict — and it was briefly misread as an
-empty cache, because "local dev must be cold" is the intuitive assumption and it
-is wrong. To get a genuinely cold local cache, delete the state:
+two days earlier — and it was briefly misread as an empty cache, because "local
+dev must be cold" is the intuitive assumption and it is wrong. To get a
+genuinely cold local cache, delete the state:
 
 ```bash
 rm -rf .wrangler/state          # next `wrangler dev` starts truly empty
@@ -80,12 +79,15 @@ Deleting a `push:` entry just unsubscribes that device; deleting
 shows these alongside the content keys.
 
 Also present (health, cron-owned): **`cron_status`** — `{at, feeds:{<name>:
-{ok, at, skipped?, reason?, error?}}}`, written by the cron at the END of every
-tick and read only by `/api/health`, which uses it to answer "did the last
-refresh ATTEMPT succeed?" — a question staleness alone cannot answer, since an
-upstream that started failing five minutes ago still has fresh data. Deleting it
-is harmless: `/api/health` reports `lastRefresh.recorded: false` until the next
-tick rewrites it. Never hand-edit it — a fabricated `ok:true` would mask a
+{at, ok, error?, changedAt, hash}}}`, written by the cron at the END of every
+tick and read only by `/api/health`. Two independent things live in each entry:
+`at`/`ok`/`error` are the last refresh **attempt** (a throttled tick records
+nothing and its previous attempt is carried forward), while `changedAt`/`hash`
+track when the cached CONTENT last actually changed — the cron fingerprints
+every feed key each tick, including routine-owned `news`, so a feed that keeps
+refreshing successfully while serving frozen data is visible. Deleting the key
+is harmless: every field reports `null` until the next tick rewrites it and the
+change stamps re-seed. Never hand-edit it — a fabricated `ok:true` would mask a
 genuinely failing upstream.
 
 Also present (editorial, worker-owned): **`news_blocklist`** — `{articleLink:

@@ -8,13 +8,14 @@
 // move fast), tropics ~1h, pollen ~2h (one count per weekday morning),
 // calendar ~6h.
 //
-// Every branch also records its OUTCOME through the recorder, written once at
-// the end to the `cron_status` key. That is the only way /api/health can
-// answer "did the last refresh attempt succeed?" — a question staleness alone
-// cannot answer, because an upstream that started failing five minutes ago
-// still has fresh data. A throttled feed that was not due records `skipped`,
-// which is deliberately NOT the same as a success: conflating them would hide
-// a feed that had quietly stopped refreshing altogether.
+// Every branch that actually FETCHES records its outcome through the recorder,
+// written once at the end to the `cron_status` key — the only place
+// /api/health can learn when each feed last tried and whether it worked. A
+// throttled feed that was not due records nothing at all, so its previous
+// attempt is carried forward: "last time it tried" must not be reset by a tick
+// where it did not try. recordCronRun() also fingerprints every cached entry
+// there, which is what lets /api/health report when the data on the page
+// actually changed rather than when it was last rewritten.
 
 import { KV_KEY } from "./config.js";
 import { fetchWeather } from "./features/weather.js";
@@ -57,8 +58,6 @@ export async function scheduled(event, env, ctx) {
       if (!cur || !Array.isArray(cur.events) || age > 6 * 3600 * 1000) {
         await env.WEATHER.put(CALENDAR_KV_KEY, JSON.stringify(await fetchCalendar()));
         run.ok("calendar");
-      } else {
-        run.skipped("calendar", "still within the throttle window");
       }
     } catch (e) {
       console.error("Cron calendar refresh failed:", e && e.stack);
@@ -93,8 +92,6 @@ export async function scheduled(event, env, ctx) {
       if (!cur || !Array.isArray(cur.storms) || age > 3600 * 1000) {
         await env.WEATHER.put(TROPICS_KV_KEY, JSON.stringify(await fetchTropics()));
         run.ok("tropics");
-      } else {
-        run.skipped("tropics", "still within the throttle window");
       }
     } catch (e) {
       console.error("Cron tropics refresh failed:", e && e.stack);
@@ -121,8 +118,6 @@ export async function scheduled(event, env, ctx) {
       if (!cur || !cur.groups || !cur.countDate || age > 2 * 3600 * 1000) {
         await env.WEATHER.put(POLLEN_KV_KEY, JSON.stringify(await fetchPollen()));
         run.ok("pollen");
-      } else {
-        run.skipped("pollen", "still within the throttle window");
       }
     } catch (e) {
       console.error("Cron pollen refresh failed:", e && e.stack);

@@ -45,20 +45,15 @@ let failures = 0;
 const ok = (m) => console.log(`  ✓ ${m}`);
 const bad = (m) => { console.log(`  ✗ ${m}`); failures++; };
 
-// LIVENESS probe — deliberately NOT /api/health.
+// LIVENESS probe. /robots.txt is static — no KV, no data dependency — so it
+// answers "is the Worker up" and nothing else, which is the question being
+// asked here.
 //
-// /api/health stopped being a liveness signal when it became a monitoring
-// contract: it answers 503 whenever a CRITICAL feed is unreadable, malformed or
-// expired, which is exactly the normal state of a local dev server (miniflare's
-// KV is empty on a fresh run, or holds whatever stale snapshot a previous run
-// left behind). A perfectly healthy server therefore fails an `r.ok` check, and
-// this script sat in its retry loop for the full 60s before reporting "dev
-// server never became ready" — about a server that had been serving the whole
-// time.
-//
-// /robots.txt is the right probe: static, no KV, no data dependency. It answers
-// "is the Worker up", which is the question being asked here. Anything else that
-// needs a liveness check should use it too, not /api/health.
+// Worth keeping even though /api/health is a valid liveness signal again (it
+// answers 200 whenever the Worker is answering, and no longer 503s over a stale
+// local cache — a regression that once sat this script in its retry loop for
+// the full 60s before declaring a perfectly healthy server dead). /robots.txt
+// still reads no KV at all, so it stays the cheaper and narrower probe.
 const LIVENESS_PATH = "/robots.txt";
 
 async function waitForServer(timeoutMs) {

@@ -66,8 +66,9 @@ Every page is content-negotiated — send `Accept: text/markdown` (or add
   [`/api/pollen`](https://crosbynews.com/api/pollen),
   [`/api/traffic`](https://crosbynews.com/api/traffic),
   [`/api/fishing`](https://crosbynews.com/api/fishing), and
-  [`/api/health`](https://crosbynews.com/api/health) (per-feed readability,
-  shape and freshness; 503 when a critical feed is broken).
+  [`/api/health`](https://crosbynews.com/api/health) (site liveness, when each
+  feed last tried to refresh and whether it worked, and when its data last
+  actually changed).
   Public, no auth.
 - **OpenAPI 3.1** — [`/openapi.json`](https://crosbynews.com/openapi.json)
 - **MCP server** (Streamable HTTP) — `https://crosbynews.com/mcp`, with tools
