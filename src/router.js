@@ -17,6 +17,7 @@ import { SW_SCRIPT } from "./assets/sw-script.js";
 import { KV_KEY, TZ, SITE } from "./config.js";
 import { footer } from "./chrome.js";
 import { linkHeader, conditional } from "./lib/http.js";
+import { centralStamp } from "./lib/format.js";
 import { airHtml, airMarkdown, apiAir } from "./features/air.js";
 import { loadWeather, renderHtml, renderMarkdown, apiWeather, badgeSvg } from "./features/weather.js";
 import { aboutHtml, aboutMarkdown } from "./pages/about.js";
@@ -291,7 +292,7 @@ export async function routeRequest(request, env, ctx) {
         console.error("health report failed:", err && err.stack);
         report = {
           httpStatus: 200,
-          body: { site: "live", checkedAt: new Date().toISOString(), feeds: {}, error: `health check itself failed: ${(err && err.message) || err}` },
+          body: { site: "live", checkedAt: centralStamp(new Date().toISOString()), feeds: {}, error: `health check itself failed: ${(err && err.message) || err}` },
         };
       }
       return new Response(JSON.stringify(report.body, null, 2), {
