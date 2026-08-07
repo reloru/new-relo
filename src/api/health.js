@@ -77,10 +77,27 @@ function fingerprint(value) {
   return h.toString(16);
 }
 
+// Elapsed hours since an instant, to one decimal. Paired with every stamp so
+// "how long has this been frozen" — the question the stamps exist to answer —
+// does not require arithmetic across AM/PM, and so a monitor can threshold on it
+// without parsing a human date.
+//
+// Computed from the stored ISO instant, never from the rendered stamp, so the
+// formatting cannot cost precision. Hours throughout, including when that means
+// 121.4: one unit stays comparable across feeds whose cadences differ by two
+// orders of magnitude. null in, null out.
+function hoursSince(iso, now) {
+  const t = Date.parse(iso ?? "");
+  return Number.isFinite(t) ? Math.round((now - t) / 360000) / 10 : null;
+}
+
 // The whole report. Returns {httpStatus, body} so the route stays a thin
 // serializer and this stays testable without a Request.
 export async function healthReport(env) {
-  const body = { site: "live", checkedAt: centralStamp(new Date().toISOString()), cronLastRun: null, feeds: {} };
+  // One instant for the whole report: every elapsed figure below is relative to
+  // the same moment, so they can be compared against each other.
+  const now = Date.now();
+  const body = { site: "live", checkedAt: centralStamp(new Date(now).toISOString()), cronLastRun: null, hoursSinceCronRun: null, feeds: {} };
 
   let cron = null;
   if (!env?.WEATHER) {
@@ -94,6 +111,10 @@ export async function healthReport(env) {
   }
 
   body.cronLastRun = centralStamp(cron?.at);
+  // Well past 0.25 means the cron itself has stopped — a failure no per-feed
+  // field would show, since they would all just sit still together.
+  body.hoursSinceCronRun = hoursSince(cron?.at, now);
+
   for (const feed of FEEDS) {
     const rec = cron?.feeds?.[feed.name] || {};
     body.feeds[feed.name] = {
@@ -101,10 +122,14 @@ export async function healthReport(env) {
       // feed that was not due records nothing, so this keeps pointing at the
       // real attempt instead of being bumped by a tick that did nothing.
       lastAttempt: centralStamp(rec.at),
+      hoursSinceAttempt: hoursSince(rec.at, now),
       ok: typeof rec.ok === "boolean" ? rec.ok : null,
       ...(rec.error ? { error: rec.error } : {}),
       // When the CONTENT last moved, which is not when it was last written.
+      // Read against hoursSinceAttempt: refreshing while this climbs is the
+      // frozen-feed signature.
       dataChangedAt: centralStamp(rec.changedAt),
+      hoursSinceChange: hoursSince(rec.changedAt, now),
     };
   }
 

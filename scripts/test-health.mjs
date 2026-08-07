@@ -70,7 +70,7 @@ console.log("\n/api/health:\n");
     httpStatus: 200,
     site: "live",
     feeds: FEEDS.length,
-    weather: { lastAttempt: null, ok: null, dataChangedAt: null },
+    weather: { lastAttempt: null, hoursSinceAttempt: null, ok: null, dataChangedAt: null, hoursSinceChange: null },
   });
 }
 
@@ -236,6 +236,48 @@ console.log("\n/api/health:\n");
     changed: bare.feeds.weather.dataChangedAt,
     cron: bare.cronLastRun,
   }, { attempt: null, changed: null, cron: null });
+}
+
+// --- elapsed hours, paired with every stamp ---------------------------------
+//
+// The number is what makes the frozen-feed signature readable at a glance and
+// thresholdable by a monitor: refreshing minutes ago while the content is hours
+// old. It must come from the stored instant, not the rendered stamp.
+{
+  const env = fakeKv();
+  env.store.set("pollen", JSON.stringify({ updated: ISO(9 * 3600_000), countDate: "2026-08-05", groups: { t: 1 } }));
+  const t1 = cronRunRecorder(); t1.ok("pollen");
+  await recordCronRun(env, t1);
+
+  // A second successful refresh storing the IDENTICAL count.
+  env.store.set("pollen", JSON.stringify({ updated: ISO(0), countDate: "2026-08-05", groups: { t: 1 } }));
+  const t2 = cronRunRecorder(); t2.ok("pollen");
+  await recordCronRun(env, t2);
+
+  const b = await healthReport(env);
+  const p = b.body.feeds.pollen;
+  assert("elapsed hours expose the gap between refreshing and changing", {
+    attempt: p.hoursSinceAttempt,
+    change: p.hoursSinceChange,
+    ok: p.ok,
+    cron: b.body.hoursSinceCronRun,
+  }, { attempt: 0, change: 9, ok: true, cron: 0 });
+
+  const bare = (await healthReport(fakeKv())).body;
+  assert("no record means null hours, not zero", {
+    attempt: bare.feeds.weather.hoursSinceAttempt,
+    change: bare.feeds.weather.hoursSinceChange,
+    cron: bare.hoursSinceCronRun,
+  }, { attempt: null, change: null, cron: null });
+
+  // One decimal, and derived from the exact instant rather than the stamp the
+  // reader sees — a stamp rendered to the second cannot express 0.4h anyway.
+  const precise = fakeKv();
+  precise.store.set("water", JSON.stringify({ updated: ISO(27 * 60_000), gauges: [1] }));
+  await recordCronRun(precise, cronRunRecorder());
+  assert("elapsed carries one decimal, from the stored instant", {
+    change: (await healthReport(precise)).body.feeds.water.hoursSinceChange,
+  }, { change: 0.5 });
 }
 
 // --- the published contract must match what is actually emitted --------------

@@ -28,11 +28,28 @@ The endpoint reports facts and does not grade them.
   "site": "live",
   "checkedAt": "Friday, Aug 7, 2026, 1:22:05 PM CDT",
   "cronLastRun": "Friday, Aug 7, 2026, 1:15:04 PM CDT",
+  "hoursSinceCronRun": 0.1,
   "feeds": {
-    "weather": { "lastAttempt": "Friday, Aug 7, 2026, 1:15:02 PM CDT", "ok": true,  "dataChangedAt": "Friday, Aug 7, 2026, 1:15:02 PM CDT" },
-    "water":   { "lastAttempt": "Friday, Aug 7, 2026, 1:15:03 PM CDT", "ok": false, "error": "NWPS 503", "dataChangedAt": "Friday, Aug 7, 2026, 12:45:01 PM CDT" },
-    "pollen":  { "lastAttempt": "Friday, Aug 7, 2026, 12:00:02 PM CDT", "ok": true,  "dataChangedAt": "Friday, Aug 7, 2026, 7:00:03 AM CDT" },
-    "news":    { "lastAttempt": null, "ok": null, "dataChangedAt": "Friday, Aug 7, 2026, 4:02:11 AM CDT" }
+    "weather": {
+      "lastAttempt": "Friday, Aug 7, 2026, 1:15:02 PM CDT", "hoursSinceAttempt": 0.1,
+      "ok": true,
+      "dataChangedAt": "Friday, Aug 7, 2026, 1:15:02 PM CDT", "hoursSinceChange": 0.1
+    },
+    "water": {
+      "lastAttempt": "Friday, Aug 7, 2026, 1:15:03 PM CDT", "hoursSinceAttempt": 0.1,
+      "ok": false, "error": "NWPS 503",
+      "dataChangedAt": "Friday, Aug 7, 2026, 12:45:01 PM CDT", "hoursSinceChange": 0.6
+    },
+    "pollen": {
+      "lastAttempt": "Friday, Aug 7, 2026, 12:00:02 PM CDT", "hoursSinceAttempt": 1.4,
+      "ok": true,
+      "dataChangedAt": "Friday, Aug 7, 2026, 7:00:03 AM CDT", "hoursSinceChange": 6.4
+    },
+    "news": {
+      "lastAttempt": null, "hoursSinceAttempt": null,
+      "ok": null,
+      "dataChangedAt": "Friday, Aug 7, 2026, 4:02:11 AM CDT", "hoursSinceChange": 9.3
+    }
   }
 }
 ```
@@ -65,15 +82,44 @@ precise moments.
 `null` means *no record*, and stays `null` — never a rendered date. Formatting a
 missing stamp would print `Wednesday, Dec 31, 1969`, which reads as data.
 
+## Elapsed hours
+
+Every stamp is paired with an `hoursSince*` number, to one decimal. It exists so
+"how long has this been frozen" — the question the stamps are for — needs no
+arithmetic across AM/PM, and so a monitor can threshold on it without parsing a
+human date. That is the machine-readable half the format change gave up.
+
+**The pair is the signal.** A feed refreshing minutes ago while its content is
+hours old is the frozen-feed signature:
+
+```
+"hoursSinceAttempt": 0.1,     ← refreshing fine
+"hoursSinceChange": 6.4       ← content has not moved since 7 AM
+```
+
+There is no single threshold, which is why the endpoint reports the number and
+declines to grade it. Judge it per feed: hours for `weather`/`water`/`traffic`,
+a day for `pollen`, longer for `calendar` and a quiet `tropics` basin. `news`
+legitimately goes quiet in a small town.
+
+Hours are used throughout, even when that means `121.4`, so one unit stays
+comparable across feeds whose cadences differ by two orders of magnitude.
+Computed from the exact stored instant rather than the rendered stamp, so the
+formatting costs no precision — and `null` when there is no record, never `0`,
+which would read as "just now".
+
 | Field | Notes |
 |---|---|
 | `site` | always `"live"` |
 | `checkedAt` | when this report was generated |
-| `cronLastRun` | when the refresh loop last completed a tick. `null` until the first tick after a deploy. If this stops moving, the cron itself is dead — which no per-feed field would show. |
+| `cronLastRun` | when the refresh loop last completed a tick. `null` until the first tick after a deploy. |
+| `hoursSinceCronRun` | elapsed hours since that tick. The cron runs every 15 min, so **well past 0.25 means the refresh loop itself has stopped** — a failure no per-feed field would show, since they would all sit still together. |
 | `feeds.<name>.lastAttempt` | when this feed last **tried** to fetch |
+| `feeds.<name>.hoursSinceAttempt` | elapsed hours since that attempt |
 | `feeds.<name>.ok` | whether that attempt succeeded — `null` when none has been recorded |
 | `feeds.<name>.error` | present **only** when the last attempt failed |
 | `feeds.<name>.dataChangedAt` | when the cached content itself last **changed** |
+| `feeds.<name>.hoursSinceChange` | elapsed hours since that change. **Read against `hoursSinceAttempt`** — see below. |
 | `error` | top level, present only when the refresh record could not be read at all (e.g. the KV binding is missing). Still a `200`. |
 
 ## `lastAttempt` is an attempt, not a tick

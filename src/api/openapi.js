@@ -514,11 +514,12 @@ export function openApiSpec() {
         },
         Health: {
           type: "object",
-          description: "Site liveness plus, per feed, when it last tried to fetch and when its data last changed. EVERY timestamp is a human-readable US Central stamp, not ISO 8601 — \"Friday, Aug 7, 2026, 11:20:35 AM CDT\". The zone abbreviation resolves CST/CDT from the instant itself. null means no record rather than an unknown time.",
+          description: "Site liveness plus, per feed, when it last tried to fetch and when its data last changed. EVERY timestamp is a human-readable US Central stamp, not ISO 8601 — \"Friday, Aug 7, 2026, 11:20:35 AM CDT\". The zone abbreviation resolves CST/CDT from the instant itself. null means no record rather than an unknown time. Each stamp is paired with an `hoursSince*` number, computed from the exact stored instant, so elapsed time can be thresholded without parsing the human date.",
           properties: {
             site: { type: "string", description: 'Always "live" — reaching this response IS the liveness check.' },
             checkedAt: { type: "string", description: "When this report was generated. Never cached (`no-store`)." },
             cronLastRun: { type: ["string", "null"], description: "When the refresh loop last completed a tick. null until the first tick after deploy." },
+            hoursSinceCronRun: { type: ["number", "null"], description: "Elapsed hours since that tick, to one decimal. The cron runs every 15 minutes, so well past 0.25 means the refresh loop itself has stopped — a failure no per-feed field would show, since they would all sit still together." },
             feeds: {
               type: "object",
               description: "One entry per cached feed, keyed by name.",
@@ -532,9 +533,11 @@ export function openApiSpec() {
           type: "object",
           properties: {
             lastAttempt: { type: ["string", "null"], description: "When this feed last TRIED to fetch new data. A throttled tick that was not due is not an attempt and does not move this. null for `news`, which a routine writes out-of-band, and until the first cron tick after deploy." },
+            hoursSinceAttempt: { type: ["number", "null"], description: "Elapsed hours since that attempt, to one decimal. null when no attempt has been recorded." },
             ok: { type: ["boolean", "null"], description: "Whether that attempt succeeded. null when no attempt has been recorded." },
             error: { type: "string", description: "Present only when the last attempt failed: the upstream error." },
             dataChangedAt: { type: ["string", "null"], description: "When the cached content itself last CHANGED — not when it was last rewritten. A refresh that succeeds and re-stores identical data does not move this, which is how a feed serving frozen content becomes visible." },
+            hoursSinceChange: { type: ["number", "null"], description: "Elapsed hours since the content changed, to one decimal. Read against hoursSinceAttempt: a feed refreshing successfully while this climbs is serving frozen data. Judge the threshold per feed — hours for weather/water/traffic, a day for pollen, longer for calendar and a quiet tropics basin." },
           },
         },
         Traffic: {

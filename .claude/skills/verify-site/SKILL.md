@@ -69,20 +69,35 @@ status code says only that the Worker answered. The findings are in the body:
 curl -s "$BASE/api/health" | python3 -m json.tool
 ```
 
-Read each feed's three fields and report anything off:
+Timestamps are Central and human-readable; each is paired with an `hoursSince*`
+number, which is what to actually check:
+
+```bash
+curl -s "$BASE/api/health" | python3 -c "
+import sys,json
+d=json.load(sys.stdin)
+print('cron', d['hoursSinceCronRun'], 'h ago')
+for k,v in d['feeds'].items():
+    print(f\"{k:9} attempt={v['hoursSinceAttempt']}h ok={v['ok']} changed={v['hoursSinceChange']}h\", v.get('error',''))
+"
+```
+
+Report anything off:
 
 - `ok: false` — that upstream failed at its last refresh attempt. The `error`
   field says why.
-- `lastAttempt` far behind `cronLastRun` — for `weather`/`water`/`fishing`/
-  `traffic` (every tick) that means the feed stopped being attempted at all.
+- `hoursSinceCronRun` well past **0.25** — the cron itself has stopped. Check
+  this first: it explains every other field at once.
+- `hoursSinceAttempt` large for `weather`/`water`/`fishing`/`traffic` (every
+  tick, so expect ≤0.25) means that feed stopped being attempted.
   `calendar`/`tropics`/`pollen` are throttled (~6h/~1h/~2h), so lagging is
   normal for them; `news` is `null` by design (written out-of-band).
-- **`dataChangedAt` far behind `lastAttempt`** — the important one. It means
-  refreshes are succeeding while the content sits frozen, which is exactly how
-  `/pollen` served a three-day-old count with every other signal green. Judge it
-  against how often that feed's data genuinely moves: hours for weather/water/
-  traffic, a day for pollen, longer for calendar and a quiet tropics basin.
-- `cronLastRun` not within ~15 minutes — the cron itself has stopped.
+- **`hoursSinceChange` >> `hoursSinceAttempt`** — the important one. Refreshes
+  are succeeding while the content sits frozen, which is exactly how `/pollen`
+  served a three-day-old count with every other signal green. There is no single
+  threshold; judge it against how often that feed's data genuinely moves — hours
+  for weather/water/traffic, a day for pollen, longer for calendar and a quiet
+  tropics basin. `news` legitimately goes quiet in a small town.
 
 **Also assert each page is substantive, not just 200.** A page that renders but
 lost its data reads as healthy on status alone:
