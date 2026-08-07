@@ -26,16 +26,44 @@ The endpoint reports facts and does not grade them.
 ```json
 {
   "site": "live",
-  "checkedAt": "2026-08-07T18:22:05.123Z",
-  "cronLastRun": "2026-08-07T18:15:04.008Z",
+  "checkedAt": "Friday, Aug 7, 2026, 1:22:05 PM CDT",
+  "cronLastRun": "Friday, Aug 7, 2026, 1:15:04 PM CDT",
   "feeds": {
-    "weather": { "lastAttempt": "2026-08-07T18:15:02.311Z", "ok": true,  "dataChangedAt": "2026-08-07T18:15:02.311Z" },
-    "water":   { "lastAttempt": "2026-08-07T18:15:03.114Z", "ok": false, "error": "NWPS 503", "dataChangedAt": "2026-08-07T17:45:01.882Z" },
-    "pollen":  { "lastAttempt": "2026-08-07T17:00:02.640Z", "ok": true,  "dataChangedAt": "2026-08-07T12:00:03.417Z" },
-    "news":    { "lastAttempt": null, "ok": null, "dataChangedAt": "2026-08-07T09:02:11.000Z" }
+    "weather": { "lastAttempt": "Friday, Aug 7, 2026, 1:15:02 PM CDT", "ok": true,  "dataChangedAt": "Friday, Aug 7, 2026, 1:15:02 PM CDT" },
+    "water":   { "lastAttempt": "Friday, Aug 7, 2026, 1:15:03 PM CDT", "ok": false, "error": "NWPS 503", "dataChangedAt": "Friday, Aug 7, 2026, 12:45:01 PM CDT" },
+    "pollen":  { "lastAttempt": "Friday, Aug 7, 2026, 12:00:02 PM CDT", "ok": true,  "dataChangedAt": "Friday, Aug 7, 2026, 7:00:03 AM CDT" },
+    "news":    { "lastAttempt": null, "ok": null, "dataChangedAt": "Friday, Aug 7, 2026, 4:02:11 AM CDT" }
   }
 }
 ```
+
+## Timestamps
+
+Every stamp is **US Central, 12-hour, with the weekday, seconds, and the zone**:
+
+```
+Friday, Aug 7, 2026, 11:20:35 AM CDT     (daylight saving)
+Friday, Jan 9, 2026, 2:30:05 PM CST      (standard time)
+```
+
+This is a page a person opens to decide whether something looks stuck, and a UTC
+ISO string is the wrong thing to hand them for that.
+
+The `CDT`/`CST` suffix is not decoration — it is resolved from the instant, so a
+January stamp and an August stamp are not silently an hour apart in the reader's
+head.
+
+Seconds are included because the cron writes its feeds sequentially inside one
+tick: without them a whole tick collapses into the same repeated stamp and the
+ordering is lost.
+
+**Not ISO 8601, so not machine-parseable as a date.** Deliberate — this endpoint
+is read by people. `cron_status` still stores exact ISO instants internally; the
+formatting happens on the way out, so the change detection keeps comparing
+precise moments.
+
+`null` means *no record*, and stays `null` — never a rendered date. Formatting a
+missing stamp would print `Wednesday, Dec 31, 1969`, which reads as data.
 
 | Field | Notes |
 |---|---|
@@ -120,8 +148,10 @@ Written by `recordCronRun()` at the end of every tick, read only here:
 { "at": "<tick>", "feeds": { "<name>": { "at": "…", "ok": true, "error": "…", "changedAt": "…", "hash": "1f3a9c02" } } }
 ```
 
-`hash` is internal bookkeeping — the fingerprint the next tick compares against —
-and is not exposed in the response. Deleting the key is harmless: every field
+Stored as exact **ISO instants**, unlike the response — the change detection
+compares moments, and the Central formatting is applied on the way out. `hash`
+is internal bookkeeping (the fingerprint the next tick compares against) and is
+not exposed in the response. Deleting the key is harmless: every field
 reports `null` until the next tick rewrites it, and the change stamps re-seed.
 Never hand-edit it; a fabricated `ok: true` would mask a genuinely failing
 upstream.
@@ -141,6 +171,12 @@ reporter against a stubbed KV: the live/no-binding paths, a successful and a
 failed attempt, a throttled tick carrying its previous attempt forward, `news`
 tracking content without ever recording an attempt, a corrupt entry leaving the
 last change stamp alone — and, centrally, **a successful refresh that re-stores
-identical content must not move `dataChangedAt`**. It also walks a real report
+identical content must not move `dataChangedAt`**. It also pins the timestamp
+format in both halves of the year, so the CST/CDT switch cannot silently
+regress, and that a missing stamp stays `null`. Movement is asserted against the
+stored ISO record rather than the rendered string, since consecutive ticks in a
+test land inside the same second. It also pins the timestamp
+format in both halves of the year, so the CST/CDT switch cannot silently
+regress, and that a missing stamp stays `null`. It also walks a real report
 against the published `/openapi.json` schema, so the spec cannot drift from what
 is emitted. Runs in CI inside the required `Syntax check` job.

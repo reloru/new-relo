@@ -35,6 +35,14 @@ function fakeKv(seed = {}) {
   };
 }
 
+// The reported stamps are rendered to the SECOND for a human to read, so two
+// events inside the same second are indistinguishable in the response — which
+// these tests routinely produce, since they run consecutive ticks with no clock
+// between them. Movement assertions therefore read `cron_status`, which keeps
+// exact ISO instants because that is what the change detection compares.
+// Rendering is pinned separately, further down.
+const record = (env) => JSON.parse(env.store.get(CRON_STATUS_KV_KEY));
+
 let failures = 0;
 function assert(label, got, want) {
   const ok = JSON.stringify(got) === JSON.stringify(want);
@@ -104,14 +112,14 @@ console.log("\n/api/health:\n");
   const first = cronRunRecorder();
   first.ok("calendar");
   await recordCronRun(env, first);
-  const attempted = (await healthReport(env)).body.feeds.calendar.lastAttempt;
+  const attempted = record(env).feeds.calendar.at;
 
   await new Promise((r) => setTimeout(r, 5));
   await recordCronRun(env, cronRunRecorder()); // a tick where calendar was throttled
 
-  const after = (await healthReport(env)).body.feeds.calendar;
+  const after = record(env);
   assert("a throttled tick carries the previous attempt forward, unchanged", {
-    lastAttempt: after.lastAttempt, ok: after.ok, movedToTick: after.lastAttempt === (await healthReport(env)).body.cronLastRun,
+    lastAttempt: after.feeds.calendar.at, ok: after.feeds.calendar.ok, movedToTick: after.feeds.calendar.at === after.at,
   }, { lastAttempt: attempted, ok: true, movedToTick: false });
 }
 
@@ -129,7 +137,7 @@ console.log("\n/api/health:\n");
   env.store.set("pollen", JSON.stringify({ updated: ISO(4 * 3600_000), ...count }));
   const t1 = cronRunRecorder(); t1.ok("pollen");
   await recordCronRun(env, t1);
-  const first = (await healthReport(env)).body.feeds.pollen;
+  const first = record(env).feeds.pollen;
 
   // Tick 2 — the failure mode. A successful refresh re-stores the IDENTICAL
   // count under a brand-new `updated` stamp.
@@ -137,11 +145,11 @@ console.log("\n/api/health:\n");
   env.store.set("pollen", JSON.stringify({ updated: ISO(0), ...count }));
   const t2 = cronRunRecorder(); t2.ok("pollen");
   await recordCronRun(env, t2);
-  const frozen = (await healthReport(env)).body.feeds.pollen;
+  const frozen = record(env).feeds.pollen;
 
   assert("a refresh that re-stores identical content does NOT move dataChangedAt", {
-    changed: frozen.dataChangedAt === first.dataChangedAt,
-    attemptMoved: frozen.lastAttempt !== first.lastAttempt,
+    changed: frozen.changedAt === first.changedAt,
+    attemptMoved: frozen.at !== first.at,
     ok: frozen.ok,
   }, { changed: true, attemptMoved: true, ok: true });
 
@@ -150,11 +158,11 @@ console.log("\n/api/health:\n");
   env.store.set("pollen", JSON.stringify({ updated: landed, countDate: "2026-08-06", groups: { tree: { category: "High" } } }));
   const t3 = cronRunRecorder(); t3.ok("pollen");
   await recordCronRun(env, t3);
-  const moved = (await healthReport(env)).body.feeds.pollen;
+  const moved = record(env).feeds.pollen;
 
   assert("new content moves dataChangedAt to when that content landed", {
-    dataChangedAt: moved.dataChangedAt, differsFromFrozen: moved.dataChangedAt !== frozen.dataChangedAt,
-  }, { dataChangedAt: landed, differsFromFrozen: true });
+    changedAt: moved.changedAt, differsFromFrozen: moved.changedAt !== frozen.changedAt,
+  }, { changedAt: landed, differsFromFrozen: true });
 }
 
 {
@@ -163,14 +171,15 @@ console.log("\n/api/health:\n");
   // which is the only reason a stalled routine is visible at all.
   const env = fakeKv({ news: { updated: ISO(6 * 3600_000), items: [{ title: "A" }] } });
   await recordCronRun(env, cronRunRecorder());
-  const seeded = (await healthReport(env)).body.feeds.news;
+  const seeded = record(env).feeds.news;
 
   env.store.set("news", JSON.stringify({ updated: ISO(0), items: [{ title: "A" }, { title: "B" }] }));
   await recordCronRun(env, cronRunRecorder());
-  const after = (await healthReport(env)).body.feeds.news;
+  const after = record(env);
+  const reported = (await healthReport(env)).body.feeds.news;
 
   assert("news: no attempt is ever recorded, but its content changes are", {
-    lastAttempt: after.lastAttempt, ok: after.ok, tracksChange: after.dataChangedAt !== seeded.dataChangedAt,
+    lastAttempt: reported.lastAttempt, ok: reported.ok, tracksChange: after.feeds.news.changedAt !== seeded.changedAt,
   }, { lastAttempt: null, ok: null, tracksChange: true });
 }
 
@@ -179,13 +188,54 @@ console.log("\n/api/health:\n");
   // .get(k,"json") throw; the last known change stamp has to survive that.
   const env = fakeKv({ traffic: { updated: ISO(0), incidents: [], closures: [] } });
   await recordCronRun(env, cronRunRecorder());
-  const before = (await healthReport(env)).body.feeds.traffic.dataChangedAt;
+  const before = record(env).feeds.traffic.changedAt;
 
   env.store.set("traffic", "{not json");
   await recordCronRun(env, cronRunRecorder());
-  const after = (await healthReport(env)).body.feeds.traffic.dataChangedAt;
+  const after = record(env).feeds.traffic.changedAt;
 
   assert("a corrupt entry leaves the last change stamp alone", { before: !!before, after }, { before: true, after: before });
+}
+
+// --- timestamps are for a human, and carry their own zone -------------------
+//
+// Every stamp in this report is US Central, 12-hour, with the weekday and the
+// CST/CDT abbreviation. The abbreviation is the part worth pinning: it is
+// derived from the instant, so a January and an August stamp must not read as
+// the same wall clock. `null` must stay null — rendering "no record" as a 1969
+// date (what `new Date(null)` yields) would be worse than saying nothing.
+{
+  const shape = /^[A-Z][a-z]+day, [A-Z][a-z]{2} \d{1,2}, \d{4}, \d{1,2}:\d{2}:\d{2} [AP]M C[DS]T$/;
+
+  const summer = fakeKv({ weather: { updated: "2026-08-07T16:20:35Z", hourly: [1] } });
+  const s = cronRunRecorder(); s.ok("weather");
+  await recordCronRun(summer, s);
+  const hot = (await healthReport(summer)).body;
+
+  const winter = fakeKv({ weather: { updated: "2026-01-09T20:30:05Z", hourly: [1] } });
+  await recordCronRun(winter, cronRunRecorder());
+  const cold = (await healthReport(winter)).body;
+
+  assert("stamps render as Central 12-hour with weekday and zone", {
+    changed: hot.feeds.weather.dataChangedAt,
+    attemptShape: shape.test(hot.feeds.weather.lastAttempt),
+    checkedShape: shape.test(hot.checkedAt),
+  }, {
+    changed: "Friday, Aug 7, 2026, 11:20:35 AM CDT",
+    attemptShape: true,
+    checkedShape: true,
+  });
+
+  assert("the zone abbreviation follows daylight saving, not a fixed offset", {
+    winter: cold.feeds.weather.dataChangedAt,
+  }, { winter: "Friday, Jan 9, 2026, 2:30:05 PM CST" });
+
+  const bare = (await healthReport(fakeKv())).body;
+  assert("no record stays null, never a 1969 date", {
+    attempt: bare.feeds.weather.lastAttempt,
+    changed: bare.feeds.weather.dataChangedAt,
+    cron: bare.cronLastRun,
+  }, { attempt: null, changed: null, cron: null });
 }
 
 // --- the published contract must match what is actually emitted --------------

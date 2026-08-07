@@ -21,8 +21,16 @@
 //
 // It always answers 200. Whether the data is fresh ENOUGH is a judgment that
 // depends on who is asking; the timestamps are reported and the caller decides.
+//
+// Every timestamp is rendered for a human reading it — US Central, 12-hour, with
+// the weekday and the CST/CDT abbreviation ("Friday, Aug 7, 2026, 11:20:35 AM CDT").
+// This is a page someone opens to decide whether something looks stuck, and a
+// UTC ISO string is the wrong thing to hand them for that. `cron_status` still
+// stores ISO internally — the formatting happens on the way out, so the change
+// detection below keeps comparing exact instants.
 
 import { KV_KEY } from "../config.js";
+import { centralStamp } from "../lib/format.js";
 import { CALENDAR_KV_KEY } from "../features/calendar.js";
 import { WATER_KV_KEY } from "../features/water.js";
 import { FISHING_KV_KEY } from "../features/fishing.js";
@@ -72,7 +80,7 @@ function fingerprint(value) {
 // The whole report. Returns {httpStatus, body} so the route stays a thin
 // serializer and this stays testable without a Request.
 export async function healthReport(env) {
-  const body = { site: "live", checkedAt: new Date().toISOString(), cronLastRun: null, feeds: {} };
+  const body = { site: "live", checkedAt: centralStamp(new Date().toISOString()), cronLastRun: null, feeds: {} };
 
   let cron = null;
   if (!env?.WEATHER) {
@@ -85,18 +93,18 @@ export async function healthReport(env) {
     }
   }
 
-  body.cronLastRun = cron?.at ?? null;
+  body.cronLastRun = centralStamp(cron?.at);
   for (const feed of FEEDS) {
     const rec = cron?.feeds?.[feed.name] || {};
     body.feeds[feed.name] = {
       // The last time a fetch was ATTEMPTED — not the last tick. A throttled
       // feed that was not due records nothing, so this keeps pointing at the
       // real attempt instead of being bumped by a tick that did nothing.
-      lastAttempt: rec.at ?? null,
+      lastAttempt: centralStamp(rec.at),
       ok: typeof rec.ok === "boolean" ? rec.ok : null,
       ...(rec.error ? { error: rec.error } : {}),
       // When the CONTENT last moved, which is not when it was last written.
-      dataChangedAt: rec.changedAt ?? null,
+      dataChangedAt: centralStamp(rec.changedAt),
     };
   }
 

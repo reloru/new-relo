@@ -514,11 +514,11 @@ export function openApiSpec() {
         },
         Health: {
           type: "object",
-          description: "Site liveness plus, per feed, when it last tried to fetch and when its data last changed.",
+          description: "Site liveness plus, per feed, when it last tried to fetch and when its data last changed. EVERY timestamp is a human-readable US Central stamp, not ISO 8601 — \"Friday, Aug 7, 2026, 11:20:35 AM CDT\". The zone abbreviation resolves CST/CDT from the instant itself. null means no record rather than an unknown time.",
           properties: {
             site: { type: "string", description: 'Always "live" — reaching this response IS the liveness check.' },
-            checkedAt: { type: "string", format: "date-time", description: "When this report was generated. Never cached (`no-store`)." },
-            cronLastRun: { type: ["string", "null"], format: "date-time", description: "When the refresh loop last completed a tick. null until the first tick after deploy." },
+            checkedAt: { type: "string", description: "When this report was generated. Never cached (`no-store`)." },
+            cronLastRun: { type: ["string", "null"], description: "When the refresh loop last completed a tick. null until the first tick after deploy." },
             feeds: {
               type: "object",
               description: "One entry per cached feed, keyed by name.",
@@ -531,10 +531,10 @@ export function openApiSpec() {
         HealthFeed: {
           type: "object",
           properties: {
-            lastAttempt: { type: ["string", "null"], format: "date-time", description: "When this feed last TRIED to fetch new data. A throttled tick that was not due is not an attempt and does not move this. null for `news`, which a routine writes out-of-band, and until the first cron tick after deploy." },
+            lastAttempt: { type: ["string", "null"], description: "When this feed last TRIED to fetch new data. A throttled tick that was not due is not an attempt and does not move this. null for `news`, which a routine writes out-of-band, and until the first cron tick after deploy." },
             ok: { type: ["boolean", "null"], description: "Whether that attempt succeeded. null when no attempt has been recorded." },
             error: { type: "string", description: "Present only when the last attempt failed: the upstream error." },
-            dataChangedAt: { type: ["string", "null"], format: "date-time", description: "When the cached content itself last CHANGED — not when it was last rewritten. A refresh that succeeds and re-stores identical data does not move this, which is how a feed serving frozen content becomes visible." },
+            dataChangedAt: { type: ["string", "null"], description: "When the cached content itself last CHANGED — not when it was last rewritten. A refresh that succeeds and re-stores identical data does not move this, which is how a feed serving frozen content becomes visible." },
           },
         },
         Traffic: {

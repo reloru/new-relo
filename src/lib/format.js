@@ -38,6 +38,24 @@ export function fmt(iso, opts, lang) {
 export const fullTime = (iso, lang) => fmt(iso, { dateStyle: "medium", timeStyle: "short" }, lang);
 export const clockTime = (iso, lang) => fmt(iso, { hour: "numeric", minute: "2-digit" }, lang);
 export const hourLabel = (iso, lang) => fmt(iso, { hour: "numeric" }, lang);
+// A full stamp for humans: "Friday, Aug 7, 2026, 11:20:35 AM CDT". Used by
+// /api/health, where every value is a moment in time and a bare ISO string in
+// UTC is the wrong thing to hand a person deciding whether a feed looks stuck.
+//
+// Seconds are included because the cron writes its feeds sequentially within a
+// tick, so minute precision collapsed a whole tick into one repeated stamp and
+// lost the ordering.
+//
+// `timeZoneName: "short"` is load-bearing, not decoration: it resolves CST vs
+// CDT from the instant itself, so a January and an August stamp are not silently
+// an hour apart in the reader's head. Returns null — never a string — for a
+// missing or unparseable stamp, so "we have no record" cannot render as
+// "Wednesday, Dec 31, 1969" (which is exactly what `new Date(null)` yields).
+export function centralStamp(iso, lang) {
+  const t = Date.parse(iso ?? "");
+  if (!Number.isFinite(t)) return null;
+  return fmt(t, { weekday: "long", month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit", timeZoneName: "short" }, lang) || null;
+}
 export const dayLabel = (iso, lang) => fmt(iso, { weekday: "long", month: "short", day: "numeric" }, lang);
 // Spanish correctly lowercases weekday/month names in running text, but our
 // UI uses them as HEADINGS ("Sábado 4 de jul"), where a leading capital is
