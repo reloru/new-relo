@@ -35,13 +35,13 @@ site.
 
 There is **no API**. `fetchPollen()` scrapes `houstonhealth.org`: the index page
 (`/services/pollen-mold`) lists per-date count pages with slug dates
-(`…/houston-pollen-mold-count-thursday-july-16-2026`); `pollenSlugDate` picks the
-newest by slug date, and `parsePollenCount` reads the four groups plus the
-per-genus species lists (the first `<ul>` after each "Major … counted" heading,
-bounded at `</ul>`).
+(`…/houston-pollen-mold-count-thursday-july-16-2026`);
+`pollenNewestFromIndex()` picks the newest by slug date (via `pollenSlugDate`),
+and `parsePollenCount` reads the four groups plus the per-genus species lists
+(the first `<ul>` after each "Major … counted" heading, bounded at `</ul>`).
 
-**URL matching is deliberately permissive, in two places**, because HHD changes
-the shape of these URLs without notice:
+**URL matching in `pollenNewestFromIndex()` is deliberately permissive, in two
+places**, because HHD changes the shape of these URLs without notice:
 
 - the day-year separator is **optional** — HHD publishes both
   `…-july-31-2026` and, from 2026-08-03, `…-august-52026`
@@ -54,6 +54,14 @@ were strict until 2026-08-05, and between them they hid three days of published
 counts while `/pollen` showed July 31 as though nothing were wrong. Let
 `parsePollenCount` be the strict gate — it is the one that can distinguish a
 real layout change from a cosmetic URL change.
+
+`pollenNewestFromIndex()` is split out of `fetchPollen()` and takes no network,
+so the selection is pinned offline by **`scripts/test-pollen-parse.mjs`** in the
+required `Syntax check` job: both URL formats, both path casings, the greedy
+day/year split on the joined form, and newest-wins regardless of page order.
+Fixing only one of the two matchers still yields a wrong-but-plausible answer
+(Aug 3 rather than Aug 5), which is why the test asserts the composed result and
+not just the date parser.
 
 `fetchPollen()` **throws on failure OR on an unrecognizable layout** (fewer than
 2 groups parsed), so neither a transient outage nor a Drupal redesign can wipe

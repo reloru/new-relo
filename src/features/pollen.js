@@ -112,6 +112,25 @@ export function parsePollenCount(html) {
   return { groups, species };
 }
 
+// Index HTML → the newest count page as {path, date}, or null when none parse.
+//
+// Split out from fetchPollen() and kept free of network so the whole selection
+// — both matchers plus newest-wins — is testable offline. It is the exact unit
+// that failed on 2026-08-03: each half degraded quietly and the composition
+// still returned a real, older page. See scripts/test-pollen-parse.mjs.
+//
+// The href match is case-insensitive because HHD serves the same section as
+// both "/services/..." and "/Services/...", mixing the two on one index page,
+// so a lowercase-only match silently drops whichever days happen to be
+// published under the capitalized path.
+export function pollenNewestFromIndex(idxHtml) {
+  const candidates = [...String(idxHtml).matchAll(/href="(\/services\/pollen-mold\/houston-pollen-mold-count-[^"#?]+)"/gi)]
+    .map((m) => ({ path: m[1], date: pollenSlugDate(m[1]) }))
+    .filter((c) => c.date);
+  if (!candidates.length) return null;
+  return candidates.reduce((a, b) => (b.date > a.date ? b : a));
+}
+
 // Fetch the newest published count. Throws on any failure — including a page
 // whose layout we no longer recognize (fewer than two groups parsed) — so the
 // cron aborts-without-writing and the last good count survives (water pattern).
@@ -119,15 +138,8 @@ export async function fetchPollen() {
   const idx = await fetch(POLLEN_ORIGIN + POLLEN_INDEX_PATH, { headers: { "User-Agent": "crosbynews.com" } });
   if (!idx.ok) throw new Error(`HHD pollen index failed: ${idx.status} ${idx.statusText}`);
   const idxHtml = await idx.text();
-  // Case-insensitive: HHD serves the same section as both "/services/..." and
-  // "/Services/..." and mixes the two on one index page, so a lowercase-only
-  // match silently drops whichever days happen to be published under the
-  // capitalized path. Origin-relative and unchanged otherwise.
-  const candidates = [...idxHtml.matchAll(/href="(\/services\/pollen-mold\/houston-pollen-mold-count-[^"#?]+)"/gi)]
-    .map((m) => ({ path: m[1], date: pollenSlugDate(m[1]) }))
-    .filter((c) => c.date);
-  if (!candidates.length) throw new Error("HHD pollen index listed no count pages");
-  const newest = candidates.reduce((a, b) => (b.date > a.date ? b : a));
+  const newest = pollenNewestFromIndex(idxHtml);
+  if (!newest) throw new Error("HHD pollen index listed no count pages");
   const page = await fetch(POLLEN_ORIGIN + newest.path, { headers: { "User-Agent": "crosbynews.com" } });
   if (!page.ok) throw new Error(`HHD pollen count page failed: ${page.status} ${page.statusText}`);
   const { groups, species } = parsePollenCount(await page.text());
