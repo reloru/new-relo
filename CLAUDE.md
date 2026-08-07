@@ -43,6 +43,19 @@ as a coding agent. A human reading for site behavior can skip this section.
   `wrangler dev` — must be the actual edge runtime and its egress IPs), curl
   the *live* URL to confirm a real 200 + body, then `git restore` the file and
   redeploy clean before building anything that depends on it.
+- **A check that reuses the code under test cannot falsify it.** The 2026-08-05
+  audit concluded HHD had stopped publishing pollen counts, and said so in a
+  merged doc. It hadn't. The audit probed for the "missing" days by GENERATING
+  candidate URLs from the same date pattern `pollenSlugDate()` uses — so the
+  probe inherited the exact bug it existed to find, got a clean 404 for every
+  day, and returned a confident wrong answer that survived review. The counts
+  were being published the whole time; our parser had stopped recognizing the
+  URLs. When checking whether a parser is missing data, **extract what the
+  upstream actually serves using a deliberately looser pattern and diff it
+  against our parse** — never re-derive the expected input from our own logic.
+  Generalized: prefer ground truth (what the upstream returns, what the live
+  site renders) over a re-derivation of the thing being tested, and treat a
+  check that agrees with the code on every case as unproven rather than passing.
 - **`AskUserQuestion` can fail silently in automated/routine-driven sessions**
   (observed failure: "Tool permission request failed: Error: Tool permission
   stream closed before response received" — there's no human available to
@@ -431,6 +444,21 @@ directory name becomes the `/command`. Current skills:
   `traffic` key (Houston TranStar RSS, every tick — incidents and high-water
   reports move fast); `fetch()` cold-warms all seven. (The `news` key is
   written out-of-band — see the News pipeline.)
+- **Pollen is the only HTML scrape, and HHD changes its URL shape without
+  notice.** Everything else on the site reads an API or a feed; `/pollen` reads
+  a city Drupal site that has already changed twice. On 2026-08-03 the slug lost
+  the hyphen between day and year (`…-august-52026`, where `…-july-31-2026` had
+  been the format) and some days moved to a capitalized `/Services/` path. Both
+  matchers in `pollenNewestFromIndex()` are therefore **deliberately
+  permissive** — optional day-year separator, case-insensitive href — and
+  `parsePollenCount()` is the strict gate, because it is the one that can tell a
+  real layout change from a cosmetic URL change. **Do not tighten the URL
+  patterns**; `scripts/test-pollen-parse.mjs` (required CI job) pins both
+  formats and both casings. The failure mode is silent by construction: when a
+  matcher stops matching, the fetch still succeeds, an older page still parses,
+  the KV entry is still rewritten on schedule, and `/api/health` still reports
+  the feed fresh — the count just stops advancing. That ran three days before a
+  human noticed. Issue #156 tracks the health-side check that would catch it.
 - Styling: an inline `<style>` block in the rendered HTML — no build step,
   no static assets.
 - Chrome: `topbar(current, lang)` renders the site header with nav links, and

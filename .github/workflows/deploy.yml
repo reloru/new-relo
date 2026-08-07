@@ -39,6 +39,14 @@ jobs:
       # vs not — and asserts the verdicts differ. Pure node, no install.
       - name: Check /api/health state machine
         run: node scripts/test-health.mjs
+      # The pollen scrape is the one upstream that publishes no API, and HHD
+      # changes its URL shape without notice. When a matcher stops matching
+      # NOTHING fails: the index fetches, an older slug matches, that page parses
+      # into four valid groups, and the KV entry is rewritten on schedule — so
+      # health reports fresh while the count silently stops advancing. That ran
+      # for three days in Aug 2026. Pins both URL formats and both path casings.
+      - name: Check pollen index parsing
+        run: node scripts/test-pollen-parse.mjs
 
   # Build gate: parse wrangler.jsonc and bundle the Worker without uploading.
   # Catches config/bundling errors and the compat-date/wrangler-pin coupling
