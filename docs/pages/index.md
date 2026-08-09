@@ -29,6 +29,13 @@ nav restructure.
 | News card | `news` KV via `loadNews` (blocklist-filtered) |
 | Calendar card | `calendar` KV |
 
+**Escaping is at render, not at construction.** `hubWaterSummary` returns
+`label` and `detail` as raw text; `homeHtml` applies `esc()` at the point of use
+and `homeMarkdown` emits them as-is. The struct feeds both renderers, so
+escaping inside it is wrong for one of them — it previously sent `&amp;` into
+markdown for a gauge name containing "&", and forced a tag-stripping regex
+downstream that CodeQL flagged. Don't reintroduce `esc()` in the summary.
+
 **Aggregate-row mechanics.** High / Low / Feels like / Rain chance / UV / Wind /
 Gusts are max or range over the **remaining** hours of the CT calendar day — past
 hours are excluded even when the NWS product still carries them. In the evening,

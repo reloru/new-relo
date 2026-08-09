@@ -120,8 +120,9 @@ and does not wait for human approval at any step.
   file the change makes stale (the drift gotcha above) when routes, KV keys,
   behaviors, or deploy steps change.
 - **Squash-merge to `main` yourself** once correctness and doc-currency are
-  verified; no additional approval required. The only merge gate is the
-  required `Syntax check` CI job.
+  verified; no additional approval required. The merge gates are the required
+  `Syntax check` **and `Build check (dry-run)`** jobs, and the branch must be up
+  to date with `main` first (`strict` is on — see the protection section below).
 - **Post-merge, verify the deploy** — confirm CI's deploy job landed, then run
   `/verify-site` (it already encodes the full live-site checklist: routes →
   200, one-hop canonicalization, security headers, markdown negotiation,
@@ -182,17 +183,19 @@ directory name becomes the `/command`. Current skills:
 ## CI / GitHub Actions
 - `.github/workflows/deploy.yml` runs three jobs on every push/PR to `main`:
   - **Syntax check** (`find src -name '*.js' -print0 | xargs -0 -n1 node --check`) — runs on all
-    PRs and pushes. The **only required** status check (branch protection keys on the exact name
+    PRs and pushes. A required status check (protection keys on the exact name
     "Syntax check", so don't rename this job). It covers **every file under `src/`, not just the
     entry point**: `node --check` validates one file at a time and does not follow imports, so
     checking only `src/index.js` would go green while an imported module was unparseable.
   - **Build check (dry-run)** (`npm ci` + `npx wrangler deploy --dry-run`) — runs on all PRs and
     pushes. Parses `wrangler.jsonc` and bundles the Worker without uploading, catching
     config/bundling errors and the compat-date/wrangler-pin coupling that `node --check` can't
-    see. No auth needed (`--dry-run` uploads nothing). NOT a required check (adding it to branch
-    protection needs the admin API), but **the deploy job `needs` it**, so a broken build blocks
-    the prod deploy even though a PR could technically still be merged with it red.
-    **Treat a green dry-run as a hard merge gate anyway.** It resolves imports, so it catches
+    see. No auth needed (`--dry-run` uploads nothing). **Also a required check** — verified
+    2026-08-09 in `new-relo-main-ruleset`, which lists both this and "Syntax check" as
+    `required_status_checks`. (This entry previously said it was NOT required and that adding it
+    "needs the admin API"; both were stale.) The deploy job also `needs` it, so a broken build
+    blocks the prod deploy independently of the merge gate.
+    It resolves imports, so it catches
     a missing or renamed export across files — a failure `node --check` cannot see.
     **But it does NOT catch a module using another module's export without importing it**:
     esbuild treats an unresolved identifier as a *global* and emits no error. That gap is
@@ -257,11 +260,23 @@ directory name becomes the `/command`. Current skills:
   and push, before opening the next PR from that branch. `-X ours` discards the now-redundant
   diff (main already has your changes, squashed) while keeping the branch valid for a fresh PR.
   This is different from resuming a stale branch untouched — always reconcile first.
-- The repo is **public**. Branch protection on `main` is **enabled** (classic protection):
-  it requires the `Syntax check` status check and blocks force-pushes + branch deletion, with
-  admin bypass left on (`enforce_admins: false`) and no required PR reviews — so solo squash-
-  merges still work, but `main`'s history can't be force-pushed or the branch deleted. `strict`
-  is off, so a PR needn't be up to date with `main` before merging.
+- The repo is **public**. `main` is protected by **two systems at once** — classic branch
+  protection AND a repository ruleset (`new-relo-main-ruleset`, created 2026-08-05). They do
+  not override each other: **GitHub evaluates both and applies the union, most-restrictive
+  wins.** So the effective rules are the superset, and "why did this merge get blocked" has two
+  places to look. GitHub's own direction is to migrate classic → rulesets rather than run both;
+  consolidating is the tidy end state, but **compare them side by side before deleting either**,
+  since a session cannot read the classic settings (`branches/main/protection` → 403, needs
+  `Administration`) and so cannot prove they are equivalent.
+  The ruleset (readable, and verified 2026-08-09) enforces:
+  `deletion` + `non_fast_forward` (no force-push, no branch deletion), `pull_request` with
+  `required_approving_review_count: 0` (a PR is **mandatory** — no direct pushes to `main` — but
+  needs no approval, which is what makes solo squash-merges work), `required_linear_history`,
+  and `required_status_checks` listing **both** `Syntax check` and `Build check (dry-run)` with
+  **`strict_required_status_checks_policy: true`** — so a PR **must** be up to date with `main`
+  before merging. (This entry previously said classic-only, `Syntax check`-only, and `strict`
+  off. The `strict` one bites in practice: if `main` moves while your PR is open, update the
+  branch before merging.)
 - Secret scanning + push protection are **on** (free on public repos): a push containing a
   detectable secret is blocked before it lands.
 
@@ -315,6 +330,32 @@ directory name becomes the `/command`. Current skills:
     (`code-scanning/*`). An App-token error, not a PAT error — another tell that the PAT is unused.
   - `"Dependabot alerts are disabled for this repository."` → not an error at all; that's the
     feature being off, and it's a usable readout of current state.
+- **Why no credential can fix this, and why the App can't be widened.** Two independent layers,
+  neither with a user-facing setting. Settled 2026-08-09; don't re-investigate.
+  1. *The session's credential is not yours.* The proxy strips `Authorization` on
+     `api.github.com` and injects a short-lived App-backed token — `Github-Authentication-Token-
+     Expiration` is same-day, both scope headers come back empty, and `/user/installations`
+     answers `"sessions are bound to their configured repositories"`. Claude Code on the web
+     documents this: credentials "are never inside the sandbox … authentication is handled
+     through a secure proxy using scoped credentials."
+  2. *The App never requests `Administration`.* The Claude GitHub App's full declared set is
+     Actions, Checks, Contents, Discussions, Issues (r/w), Members, Metadata, Statuses (read),
+     Pull requests, Repository hooks, Workflows (r/w). **No `Administration`** — which is what
+     `vulnerability-alerts`, `automated-security-fixes` and `private-vulnerability-reporting`
+     require. Per the docs you "accept its full permission set. GitHub doesn't let you accept a
+     subset," and a permission the App doesn't request cannot be granted; only Anthropic
+     changing the App manifest adds one (GitHub then prompts the owner to approve).
+  So: a classic PAT with `repo` + `security_events` is already *sufficient* on paper — it is
+  simply never consulted. Installing `gh` changes nothing (same `HTTPS_PROXY`; `gh api user`
+  works, `gh api repos/{o}/{r}/vulnerability-alerts` returns the identical proxy 403).
+  `/root/.ccr/README.md` says twice to report these rather than route around them.
+- **The allowlist is per-path, not per-category** — which is why the settings above split three
+  ways rather than all failing alike. `/rulesets` reads fine from a session (that is how the
+  ruleset above was inspected, and plausibly how it was created), `private-vulnerability-
+  reporting` reaches GitHub and fails on App permissions, and the two Dependabot paths never
+  leave the sandbox. Don't generalize from one endpoint's behavior to another's; probe it.
+- **Malware alerts and grouped security updates have no REST toggle at all** — dashboard-only
+  for every GitHub user, not a session limitation.
 
 ## Domain
 - Live on crosbynews.com (apex + www) and the *.workers.dev URL.

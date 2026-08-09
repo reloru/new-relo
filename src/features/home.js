@@ -35,7 +35,13 @@ export function hubWaterSummary(water, lang) {
   if (flooding.length) {
     const rank = (c) => WATER_CAT_ORDER.indexOf(c);
     const worst = flooding.reduce((a, b) => (rank(b.category) > rank(a.category) ? b : a));
-    return { cls: waterCatClass(worst.category), label: waterCatLabel(worst.category, lang), detail: `${esc(worst.name)}` };
+    // Raw, NOT esc()'d — this struct feeds an HTML renderer and a markdown one,
+    // so escaping here would be wrong for one of them. Both fields are escaped
+    // at the point of HTML use instead (see hubHtml), which is what `label` has
+    // always done. Escaping at construction meant markdown received `&amp;` for
+    // a gauge name containing "&", and forced a tag-stripping regex downstream
+    // that CodeQL flagged (js/incomplete-multi-character-sanitization, #5).
+    return { cls: waterCatClass(worst.category), label: waterCatLabel(worst.category, lang), detail: String(worst.name ?? "") };
   }
   if (!gauges.length) return { cls: "w-unknown", label: T(lang, "Unavailable", "No disponible"), detail: T(lang, "Water data temporarily unavailable", "Datos de agua no disponibles temporalmente") };
   return { cls: "w-normal", label: T(lang, "All normal", "Todo normal"), detail: T(lang, "No area gauges at flood stage", "Ningún medidor del área en etapa de inundación") };
@@ -340,7 +346,7 @@ export function homeHtml(weather, water, news, cal, tropics, lang) {
       <section class="hub-card">
         <h2><a href="${lk("/water")}">${T(lang, "Water Levels", "Niveles de agua")}</a></h2>
         <p class="hub-water ${ws.cls}"><span class="hub-water-badge">${esc(ws.label)}</span></p>
-        ${WATER_FLOOD_CATS.some((c) => ws.cls === waterCatClass(c)) || ws.cls === "w-unknown" ? `<p class="hub-water-detail">${ws.detail}</p>` : ""}
+        ${WATER_FLOOD_CATS.some((c) => ws.cls === waterCatClass(c)) || ws.cls === "w-unknown" ? `<p class="hub-water-detail">${esc(ws.detail)}</p>` : ""}
         ${waterUpdated ? `<p class="hub-stamp">${waterUpdated}</p>` : ""}
       </section>
       <section class="hub-card">
@@ -500,7 +506,11 @@ export function homeMarkdown(weather, water, news, cal, tropics, lang) {
   const ws = hubWaterSummary(water, lang);
   const wsNormal = ws.cls === "w-normal";
   const wsStamp = water.updated ? ` (${T(lang, "updated", "actualizado")} ${clockTime(water.updated, lang)} CT)` : "";
-  out.push(`**${T(lang, "Water levels", "Niveles de agua")}:** ${ws.label.replace(/&[a-z]+;/g, "")}${wsNormal ? "" : ` — ${String(ws.detail).replace(/<[^>]+>/g, "")}`}${wsStamp}. [${T(lang, "All gauges", "Todos los medidores")}](${canonicalFor("/water", lang)})`, "");
+  // Both fields arrive raw from hubWaterSummary, so markdown uses them as-is.
+  // The entity-strip and tag-strip that used to sit here were no-ops undoing an
+  // esc() applied at construction — waterCatLabel returns plain text, and the
+  // pre-escaped detail had no literal "<" left to strip.
+  out.push(`**${T(lang, "Water levels", "Niveles de agua")}:** ${ws.label}${wsNormal ? "" : ` — ${ws.detail}`}${wsStamp}. [${T(lang, "All gauges", "Todos los medidores")}](${canonicalFor("/water", lang)})`, "");
   const newsItems = (news.items ?? []).filter((n) => !n.crime).slice(0, 3);
   if (newsItems.length) {
     out.push("", `## ${T(lang, "Local news", "Noticias locales")}`, "");

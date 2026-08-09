@@ -6,6 +6,17 @@ on:
   pull_request:
     branches: [main]
 
+# Least privilege for GITHUB_TOKEN, applied to every job below (CodeQL
+# actions/missing-workflow-permissions, alerts #1-3). Without this block the
+# repository default applies, which is read-WRITE on repos created before
+# Feb 2023 — a needlessly broad token sitting in the same job as
+# CLOUDFLARE_API_TOKEN. Nothing here needs write: `check` and `build` only
+# check out and run node, and `deploy` authenticates to Cloudflare with its
+# own secret, not GITHUB_TOKEN. Add a narrower per-job override rather than
+# widening this if some future job needs to write.
+permissions:
+  contents: read
+
 jobs:
   # The required status check. Branch protection keys on the exact job name
   # "Syntax check" — do not rename it. It covers EVERY file under src/, not just
@@ -16,8 +27,8 @@ jobs:
     name: Syntax check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
       - name: Check JS syntax
@@ -48,6 +59,15 @@ jobs:
       # for three days in Aug 2026. Pins both URL formats and both path casings.
       - name: Check pollen index parsing
         run: node scripts/test-pollen-parse.mjs
+      # decodeEntities() decodes Google News titles, and titles reach markdown
+      # UNESCAPED (home.js emits `- [${n.title}](${n.link})`), so the Worker's
+      # esc() is not a backstop. Decoding in stages let one stage's output be
+      # re-scanned by the next, turning `&amp;lt;script&amp;gt;` into a live
+      # `<script>`. The fix is a single regex pass; this pins it, because
+      # "simplifying" it back into a readable .replace() chain reintroduces the
+      # hole with nothing failing. Pure node, no install.
+      - name: Check entity decoding
+        run: node scripts/test-decode-entities.mjs
 
   # Build gate: parse wrangler.jsonc and bundle the Worker without uploading.
   # Catches config/bundling errors and the compat-date/wrangler-pin coupling
@@ -60,8 +80,8 @@ jobs:
     name: Build check (dry-run)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
           cache: npm
@@ -82,9 +102,9 @@ jobs:
       group: deploy-production
       cancel-in-progress: false
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Deploy via Wrangler
-        uses: cloudflare/wrangler-action@v3
+        uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
