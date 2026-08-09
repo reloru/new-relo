@@ -74,8 +74,9 @@ jobs:
   # that `node --check` can't see — before they reach the production deploy.
   # Uses the lockfile's pinned wrangler (npm ci), so CI, local dev, and this
   # dry-run all run the identical version. No auth needed: --dry-run uploads
-  # nothing. Not the required status check (that's "Syntax check"), but the
-  # deploy job depends on it, so a broken build can't ship to prod.
+  # nothing. This IS a required status check alongside "Syntax check" (both are
+  # listed in new-relo-main-ruleset), and the deploy job also depends on it, so a
+  # broken build can neither be merged nor ship to prod.
   build:
     name: Build check (dry-run)
     runs-on: ubuntu-latest

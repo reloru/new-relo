@@ -223,8 +223,15 @@ directory name becomes the `/command`. Current skills:
     pass (`needs: [check, build]`). Has a `concurrency: { group: deploy-production,
     cancel-in-progress: false }` guard so two quick squash-merges deploy in order instead of
     racing (wrangler is last-write-wins).
-- `wranglerVersion: "4"` is required in the wrangler-action config. Without it, the action
-  installs wrangler 3.x, which can't parse `wrangler.jsonc` and fails with "Missing entry-point".
+- `wranglerVersion: "4"` is kept explicit in the wrangler-action config, but it is **no longer
+  load-bearing**: since `cloudflare/wrangler-action@v4` (merged 2026-08-09, PR #164) the action
+  installs wrangler 4.x by *default*. Under `@v3` it defaulted to 3.x, which can't parse
+  `wrangler.jsonc` and failed with "Missing entry-point" — that was the reason for the pin.
+  Keep the line anyway: it costs nothing and states the intent explicitly.
+  **Note CI cannot catch a regression here.** The build job runs `npx wrangler deploy --dry-run`
+  directly, not through the action, so wrangler-action itself is exercised ONLY by the deploy
+  job — which runs post-merge on `main`. Read a wrangler-action major bump's release notes
+  before merging it; a green PR proves nothing about it.
   The deploy action installs the latest 4.x; the build-check job and local dev use the repo's
   pinned `wrangler` devDependency (see `package.json`, via `npm ci`) so the dry-run and the
   prod runtime stay aligned. **`package.json` is the only place the version number lives —
