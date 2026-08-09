@@ -44,7 +44,11 @@ console.log("decodeEntities — double-encoded input decodes ONE level only:");
 check("&amp;lt; stays text", decodeEntities("&amp;lt;script&amp;gt;"), "&lt;script&gt;");
 check("numeric &#38;lt; stays text", decodeEntities("&#38;lt;script&#38;gt;"), "&lt;script&gt;");
 check("hex &#x26;lt; stays text", decodeEntities("&#x26;lt;img&#x26;gt;"), "&lt;img&gt;");
-check("no live tag emitted", /<script>/.test(decodeEntities("&amp;lt;script&amp;gt;")), false);
+// Assert on the actual security property — no literal "<" survives at all —
+// rather than probing for one lowercase tag. Stronger (a <SCRIPT> or <img>
+// would fail it too), and it avoids writing a regex that reads like an HTML
+// filter, which CodeQL flags as js/bad-tag-filter.
+check("no live markup emitted", decodeEntities("&amp;lt;script&amp;gt;").includes("<"), false);
 check("triple-encoded peels one", decodeEntities("&amp;amp;lt;"), "&amp;lt;");
 
 // Ordinary single-encoded entities must still decode — the fix must not turn
