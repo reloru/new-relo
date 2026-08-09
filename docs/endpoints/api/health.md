@@ -29,6 +29,7 @@ The endpoint reports facts and does not grade them.
   "checkedAt": "Friday, Aug 7, 2026, 1:22:05 PM CDT",
   "cronLastRun": "Friday, Aug 7, 2026, 1:15:04 PM CDT",
   "hoursSinceCronRun": 0.1,
+  "note": "hoursSinceChange is when the content last changed, not whether it is current. A feed with nothing new to report (no active storms, no weekend pollen count) correctly sits still — judge it against how often that feed's data really changes, not against hoursSinceAttempt.",
   "feeds": {
     "weather": {
       "lastAttempt": "Friday, Aug 7, 2026, 1:15:02 PM CDT", "hoursSinceAttempt": 0.1,
@@ -129,6 +130,7 @@ which would read as "just now".
 | `checkedAt` | when this report was generated |
 | `cronLastRun` | when the refresh loop last completed a tick. `null` until the first tick after a deploy. |
 | `hoursSinceCronRun` | elapsed hours since that tick. The cron runs every 15 min, so **well past 0.25 means the refresh loop itself has stopped** — a failure no per-feed field would show, since they would all sit still together. |
+| `note` | fixed guidance on reading `hoursSinceChange` — **not a status field**, its value never varies. Sits directly above `feeds` as a legend for them. |
 | `feeds.<name>.lastAttempt` | when this feed last **tried** to fetch |
 | `feeds.<name>.hoursSinceAttempt` | elapsed hours since that attempt |
 | `feeds.<name>.ok` | whether that attempt succeeded — `null` when none has been recorded |

@@ -520,6 +520,7 @@ export function openApiSpec() {
             checkedAt: { type: "string", description: "When this report was generated. Never cached (`no-store`)." },
             cronLastRun: { type: ["string", "null"], description: "When the refresh loop last completed a tick. null until the first tick after deploy." },
             hoursSinceCronRun: { type: ["number", "null"], description: "Elapsed hours since that tick, to one decimal. The cron runs every 15 minutes, so well past 0.25 means the refresh loop itself has stopped — a failure no per-feed field would show, since they would all sit still together." },
+            note: { type: "string", description: "Fixed guidance on reading `hoursSinceChange`, not a status field — its value never varies. A large gap is a fault only when the upstream should have moved; a quiet tropics basin or a weekend with no pollen count correctly holds still." },
             feeds: {
               type: "object",
               description: "One entry per cached feed, keyed by name.",
