@@ -1,0 +1,52 @@
+# Dependabot configuration.
+#
+# Read this file with one fact in mind: **nothing here ships to production.**
+# package-lock.json is 92 entries, 91 of them dev-flagged and ZERO non-dev — the
+# only direct dependency is wrangler, and the other 90 are its transitive tree.
+# wrangler.jsonc declares no `assets` and no `site`, so the deployed artifact is
+# the esbuild bundle rooted at src/index.js and nothing else. A CVE in this tree
+# therefore cannot reach crosbynews.com.
+#
+# The exposure runs the other way. The deploy job (.github/workflows/deploy.yml)
+# runs `npm ci` and wrangler with CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID
+# in the environment, so a compromised package in that tree executes next to the
+# credential that can rewrite the live site. That is what this file defends: the
+# deploy token, not the Worker.
+#
+# Which is why the two ecosystems below rank equally. The Action tags run in the
+# same job, with the same secrets, as the npm install does.
+version: 2
+updates:
+  # actions/checkout@v4, actions/setup-node@v4 and cloudflare/wrangler-action@v3
+  # are floating major tags — they move under us without a commit in this repo,
+  # and nothing else here watches them.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: "ci"
+
+  # Build toolchain only (see the header). Grouped so one advisory in the
+  # 90-package transitive tree arrives as one PR instead of several.
+  #
+  # Monthly, not weekly: wrangler ships very frequently (currently ^4.114.0), and
+  # weekly would mean a PR most weeks for a dependency that never reaches prod.
+  #
+  # These PRs get a real gate rather than a rubber stamp — the "Build check
+  # (dry-run)" job runs `npm ci` + `npx wrangler deploy --dry-run`, which
+  # genuinely exercises a wrangler bump. And per CLAUDE.md the compat-date
+  # coupling is one-directional: bumping wrangler RAISES the workerd ceiling, so
+  # a version bump can never violate compatibility_date and needs no boot check.
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: monthly
+    groups:
+      wrangler:
+        patterns: ["*"]
+    commit-message:
+      prefix: "deps"
