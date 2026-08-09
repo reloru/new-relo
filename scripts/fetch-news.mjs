@@ -103,13 +103,29 @@ const CRIME_RE = new RegExp(
   "i"
 );
 
+// The five named entities Google News actually emits. An unknown name (&nbsp;,
+// &mdash;) is left verbatim, as it was before.
+const HTML_ENTITIES = { quot: '"', apos: "'", amp: "&", lt: "<", gt: ">" };
+
+// ONE pass, deliberately — do not split this back into a chain of .replace()s.
+// Decoding in stages lets an earlier stage's OUTPUT be re-scanned by a later
+// one: `&amp;` used to decode to `&` before `&lt;`/`&gt;` ran, so a title
+// containing `&amp;lt;script&amp;gt;` collapsed to a live `<script>`
+// (CodeQL js/double-escaping, alert #4). String.replace never re-examines its
+// own replacement text, so a single regex over the whole string decodes each
+// entity exactly one level and that collapse becomes impossible.
+// It matters because titles reach markdown UNESCAPED — src/features/home.js
+// emits `- [${n.title}](${n.link})` verbatim — so the Worker's esc() on the
+// HTML path is not a backstop here.
 function decodeEntities(s) {
   return String(s ?? "")
     .replace(/<!\[CDATA\[(.*?)\]\]>/gs, "$1")
-    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(+n))
-    .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCharCode(parseInt(n, 16)))
-    .replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+    .replace(/&(?:#(\d+)|#[xX]([0-9a-fA-F]+)|([a-zA-Z]+));/g, (m, dec, hex, name) => {
+      if (dec !== undefined) return String.fromCharCode(+dec);
+      if (hex !== undefined) return String.fromCharCode(parseInt(hex, 16));
+      const v = HTML_ENTITIES[name.toLowerCase()];
+      return v === undefined ? m : v;
+    })
     .trim();
 }
 
@@ -377,4 +393,4 @@ async function main() {
 // imported, so the pure helpers above can be unit-tested.
 if (import.meta.url === pathToFileURL(process.argv[1] || "").href) main();
 
-export { areaTier, isCrime, crimeFamily, parseEventDate, stalePastEvent };
+export { areaTier, isCrime, crimeFamily, parseEventDate, stalePastEvent, decodeEntities };
