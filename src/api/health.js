@@ -97,7 +97,20 @@ export async function healthReport(env) {
   // One instant for the whole report: every elapsed figure below is relative to
   // the same moment, so they can be compared against each other.
   const now = Date.now();
-  const body = { site: "live", checkedAt: centralStamp(new Date(now).toISOString()), cronLastRun: null, hoursSinceCronRun: null, feeds: {} };
+  // Sits directly above `feeds` because it is a legend for what follows. A
+  // large hoursSinceChange reads as alarming and usually isn't: the fingerprint
+  // tracks whether the CONTENT moved, so a feed with nothing new to report
+  // correctly sits still. Without this, judging the number needs the endpoint
+  // doc open alongside it — which is one lookup too many for a page whose whole
+  // point is being scannable.
+  const body = {
+    site: "live",
+    checkedAt: centralStamp(new Date(now).toISOString()),
+    cronLastRun: null,
+    hoursSinceCronRun: null,
+    note: "hoursSinceChange is when the content last changed, not whether it is current. A feed with nothing new to report (no active storms, no weekend pollen count) correctly sits still — judge it against how often that feed's data really changes, not against hoursSinceAttempt.",
+    feeds: {},
+  };
 
   let cron = null;
   if (!env?.WEATHER) {
