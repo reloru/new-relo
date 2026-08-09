@@ -102,6 +102,21 @@ declines to grade it. Judge it per feed: hours for `weather`/`water`/`traffic`,
 a day for `pollen`, longer for `calendar` and a quiet `tropics` basin. `news`
 legitimately goes quiet in a small town.
 
+**A large `hoursSinceChange` does not by itself mean the data is out of date.**
+The fingerprint tracks whether the *content* moved, so it sits still whenever
+the upstream has nothing new to say — and that is usually the correct answer,
+not a fault. A quiet basin returns `"storms": []` on every fetch, which hashes
+identically forever; HHD publishes pollen on weekday mornings, so Friday's count
+is still current all weekend and reads as ~72h by Monday. In both cases the site
+is showing the right thing.
+
+What distinguishes a fault is not the size of the number but whether the
+upstream *should* have moved. So compare `hoursSinceChange` against how often
+that feed's data genuinely changes, never against `hoursSinceAttempt` — a feed
+can refresh every 15 minutes for days and be perfectly healthy. `/pollen` was a
+real failure because HHD *was* publishing new counts, on weekdays, and we had
+stopped seeing them.
+
 Hours are used throughout, even when that means `121.4`, so one unit stays
 comparable across feeds whose cadences differ by two orders of magnitude.
 Computed from the exact stored instant rather than the rendered stamp, so the
