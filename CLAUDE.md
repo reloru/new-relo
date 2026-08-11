@@ -71,8 +71,11 @@ as a coding agent. A human reading for site behavior can skip this section.
   not just this file. (`.github/pull_request_template.md` carries a checklist
   reminder for this + the CLAUDE.md-currency rule.)
 - **Reach for `gh` when `mcp__github__*` doesn't cover it** — account settings,
-  repo settings, Actions/workflows. It isn't installed by default:
-  `apt-get install -y gh` (Ubuntu repos, 2.45.x). Auth needs no setup —
+  repo settings, Actions/workflows. **Pre-installed** via the cloud environment's
+  startup script (`apt update && apt install -y gh`, owner-configured
+  2026-08-09) — check with `command -v gh` before assuming it's missing; only
+  fall back to installing it yourself (`apt-get install -y gh`, Ubuntu repos,
+  2.45.x) in an environment that doesn't run that script. Auth needs no setup —
   `GH_TOKEN`/`GITHUB_TOKEN` are real PATs already in the environment, so
   **never `gh auth login`**. `gh auth status` false-negatives on a valid token;
   check with `gh api user`. GraphQL-backed subcommands (`gh repo view`) 403
