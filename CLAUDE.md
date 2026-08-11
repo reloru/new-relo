@@ -284,6 +284,28 @@ directory name becomes the `/command`. Current skills:
   before merging. (This entry previously said classic-only, `Syntax check`-only, and `strict`
   off. The `strict` one bites in practice: if `main` moves while your PR is open, update the
   branch before merging.)
+  **Also a `code_scanning` rule** (added 2026-08-09, once CodeQL reached a zero-alert baseline —
+  see the GitHub security settings section below): `{tool: "CodeQL", alerts_threshold: "errors",
+  security_alerts_threshold: "high_or_higher"}` — mirrors the "Check runs failure threshold"
+  values (Standard: Only errors, Security: High or higher) exactly, so there is one threshold
+  decision, not two. **Deliberately not** the `CodeQL` check run added as a `required_status_check`
+  — this ruleset-native rule is the correct mechanism instead: it evaluates alerts directly
+  rather than trusting the check run's conclusion (which reported `neutral`, not `success`, on
+  PR #164), and it also blocks a merge if the tool is unconfigured or still scanning, which a
+  status check would not catch. Do not add both — that recreates the "two places to look"
+  problem this section already describes for classic-vs-ruleset.
+  **`Analyze (javascript-typescript)` / `Analyze (actions)` are NOT required anywhere** — those
+  check runs report only that a scan completed, not its findings, so requiring them gates
+  nothing. Same for `Dependabot` (only appears on Dependabot's own PRs) and
+  `Deploy to Cloudflare Workers` (`if: push to main` — never runs on a PR): requiring either
+  would deadlock every PR forever, with no session-side fix (ruleset writes are proxy-blocked,
+  same as the endpoints two sections below).
+  **`Require code quality results` and `Restrict code coverage` are available in the ruleset UI
+  but must stay OFF** — this repo has neither GitHub Code Quality nor any coverage-instrumented
+  test run wired up (`grep -riE "nyc|c8|istanbul|coverage" package.json .github/workflows/`
+  → nothing), so either would create the identical deadlock: a required gate no tool ever
+  satisfies. Enabling would need standing up the underlying tool first and confirming it posts
+  results on a real PR — never flip the ruleset rule before that.
 - Secret scanning + push protection are **on** (free on public repos): a push containing a
   detectable secret is blocked before it lands.
 
