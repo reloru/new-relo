@@ -270,7 +270,8 @@ directory name becomes the `/command`. Current skills:
   and push, before opening the next PR from that branch. `-X ours` discards the now-redundant
   diff (main already has your changes, squashed) while keeping the branch valid for a fresh PR.
   This is different from resuming a stale branch untouched — always reconcile first.
-- The repo is **public**. `main` is protected by **two systems at once** — classic branch
+- The repo is **public** and **MIT licensed** (`LICENSE`, added 2026-08-09;
+  `package.json`'s `license` field matches). `main` is protected by **two systems at once** — classic branch
   protection AND a repository ruleset (`new-relo-main-ruleset`, created 2026-08-05). They do
   not override each other: **GitHub evaluates both and applies the union, most-restrictive
   wins.** So the effective rules are the superset, and "why did this merge get blocked" has two

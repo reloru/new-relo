@@ -113,6 +113,14 @@ npx wrangler dev      # run locally
 npx wrangler deploy   # deploy (CI also deploys on push to main)
 ```
 
+## License
+
+[MIT](LICENSE) — the code is free to reuse. The live site's DATA is not: it's
+sourced from NWS, NOAA, EPA/AirNow, HHD, USGS, Houston TranStar, Crosby ISD, and
+Google News under each provider's own terms, and `com.crosbynews/weather`
+(the published MCP listing) is this project's own namespace, not something a
+fork inherits.
+
 ---
 
 Independent project — not affiliated with the National Weather Service, NOAA, or
