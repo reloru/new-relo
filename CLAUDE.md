@@ -72,10 +72,16 @@ as a coding agent. A human reading for site behavior can skip this section.
   reminder for this + the CLAUDE.md-currency rule.)
 - **Reach for `gh` when `mcp__github__*` doesn't cover it** — account settings,
   repo settings, Actions/workflows. **Pre-installed** via the cloud environment's
-  startup script (`apt update && apt install -y gh`, owner-configured
-  2026-08-09) — check with `command -v gh` before assuming it's missing; only
-  fall back to installing it yourself (`apt-get install -y gh`, Ubuntu repos,
-  2.45.x) in an environment that doesn't run that script. Auth needs no setup —
+  startup script — check with `command -v gh` before assuming it's missing.
+  The script installs from **GitHub's own apt repo** (`cli.github.com/packages`,
+  owner-switched 2026-08-09 from the Ubuntu-community package after upstream
+  flagged that community build — Ubuntu 2.45.x/2.46.x — as broken against
+  deprecated GitHub APIs; verified 2.97.0 on the next container boot after the
+  switch). Falling back to `apt-get install -y gh` in an environment that
+  doesn't run the script gets that same outdated Ubuntu-community 2.45.x,
+  not this one — if the fallback ever matters, prefer reproducing the
+  official-repo script instead (four `mkdir`/key-import lines + a
+  `sources.list.d` entry; the owner has it saved). Auth needs no setup —
   `GH_TOKEN`/`GITHUB_TOKEN` are real PATs already in the environment, so
   **never `gh auth login`**. `gh auth status` false-negatives on a valid token;
   check with `gh api user`. GraphQL-backed subcommands (`gh repo view`) 403
