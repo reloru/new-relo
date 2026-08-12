@@ -246,7 +246,10 @@ directory name becomes the `/command`. Current skills:
   prod runtime stay aligned. **`package.json` is the only place the version number lives —
   don't repeat it here.**
 - **Compatibility date — the constraint is one-directional.** `compatibility_date`
-  (currently `2026-07-01`) must be ≤ the bundled `workerd`'s ceiling. Bumping `wrangler`
+  (currently `2026-08-11`, raised from `2026-07-01` alongside the wrangler 4.121.0 bump —
+  verified locally: `npx wrangler dev` boots clean at `2026-08-11` and fails outright one day
+  later with `"the newest date supported by this server binary is 2026-08-11"`, confirming that
+  was the actual ceiling, not a guess) must be ≤ the bundled `workerd`'s ceiling. Bumping `wrangler`
   RAISES that ceiling, so a version bump can never violate it and needs no boot check.
   Only RAISING the date is risky ("The Workers runtime failed to start"), and CI never runs
   `wrangler dev`, so that's the one change worth a local `npx wrangler dev`.
