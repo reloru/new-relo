@@ -1,6 +1,6 @@
 # docs/
 
-Four directories, two kinds of document. The distinction is the whole point:
+Five directories, two kinds of document. The distinction is the whole point:
 **state files get overwritten, dated files never do.**
 
 ## `pages/` — current expected state, one file per public page
@@ -31,6 +31,20 @@ A single URL appears in both trees when it exposes different interfaces by
 method. `/mcp` does: `GET /mcp` is a human explainer page (`pages/mcp.md`),
 `POST /mcp` is the JSON-RPC transport (`endpoints/mcp.md`).
 
+## `ops/` — current expected state, one file per cross-cutting topic
+
+The parallel tree for operational config that isn't a page or an endpoint —
+CI/CD, GitHub repo/branch-protection settings, domain/DNS attachment,
+DNS-AID, the MCP Registry listing, email auth (SPF/DKIM/DMARC), and the
+out-of-band news pipeline. Same no-history rule as `pages/`/`endpoints/`:
+one topic, one file, current state only.
+
+This exists so `CLAUDE.md` doesn't have to carry the full detail on things
+that are true regardless of which page or route touches them — CLAUDE.md
+keeps only a short pointer plus whatever invariant an agent would otherwise
+violate by not knowing it; the reasoning, history, and full mechanics live
+here.
+
 ## `audit/` — dated, never edited in place
 
 Point-in-time audits, `YYYY-MM-DD-<topic>.md`. An audit describes the codebase as
@@ -48,12 +62,19 @@ squash-merges one change per PR with a Summary / Changes / Verification body, so
 a changelog would be a second source of truth with nothing forcing it current —
 the exact drift this directory exists to stop.
 
+## `CLAUDE_NOTES.md` — the one file outside this tree
+
+Root-level, sibling to `CLAUDE.md`, not under `docs/`. Catch-all for
+anything that doesn't fit `pages/`, `endpoints/`, `ops/`,
+`audit/`, or `investigations/`. Same current-state convention as
+`pages/`/`endpoints/`/`ops/` — overwritten in place, not a journal.
+
 ## Keeping these files true
 
 A PR that changes a page's handler, content, data source, canonical URL, sitemap
 presence, meta, or CSP expectations updates that page's file **in the same PR**.
-Same rule for non-page routes and `endpoints/`. See CLAUDE.md, "Working with
-this repo."
+Same rule for non-page routes and `endpoints/`, and for cross-cutting
+operational config and `ops/`. See CLAUDE.md, "Working with this repo."
 
 ## Not deployed
 
