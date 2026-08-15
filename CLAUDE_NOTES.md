@@ -12,14 +12,19 @@ needs, promote it into `CLAUDE.md` instead of leaving it stranded here.
 - **`gh` CLI**: pre-installed via the cloud environment's startup script —
   check with `command -v gh` before assuming it's missing. The script
   installs from **GitHub's own apt repo** (`cli.github.com/packages`,
-  owner-switched 2026-08-09 from the Ubuntu-community package after
-  upstream flagged that community build — Ubuntu 2.45.x/2.46.x — as
-  broken against deprecated GitHub APIs; verified 2.97.0 on the next
-  container boot after the switch). Falling back to
+  owner-switched 2026-08-09 from the Ubuntu-community package). Ubuntu's own
+  notice for that community package: *"The GitHub CLI package is synced
+  from upstream Debian Community package. Note: As of November 2025, GitHub
+  CLI maintainers strongly recommend official Debian packages especially as
+  the community-distributed 2.45.x / 2.46.x version is broken due to
+  deprecated GitHub APIs."* Confirmed 2026-08-15 in this container:
+  `apt-cache policy gh` shows `2.97.0` installed from
+  `https://cli.github.com/packages` (the official repo, not the Ubuntu
+  `noble`/`noble-updates` `2.45.x` candidates also listed). Falling back to
   `apt-get install -y gh` in an environment that doesn't run the script
-  gets that same outdated Ubuntu-community 2.45.x, not this one — if the
-  fallback ever matters, prefer reproducing the official-repo script
-  instead — the actual startup script:
+  gets that outdated Ubuntu-community `2.45.x` instead — if the fallback
+  ever matters, prefer reproducing the official-repo script instead — the
+  actual startup script:
 
       #!/bin/bash
       type -p wget >/dev/null || (apt update && apt install wget -y)
