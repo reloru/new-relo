@@ -59,63 +59,69 @@ bump can't violate `compatibility_date`.
 ## Why toggles can't be flipped from a session
 
 **These toggles cannot be set from a session — they are dashboard clicks.**
-Settled empirically 2026-08-09, and the reason is NOT token scope, so
-don't try to fix it with a token: **the egress proxy strips the
-`Authorization` header on `api.github.com` and injects its own GitHub App
-credential.** Proof: a deliberately bogus token returns 200, and a request
-with *no* auth header at all still returns `reloru`. Regenerating/widening
-the PAT changes nothing, and `gh` fails identically to `curl` (`gh api
-user` works; `gh api repos/{o}/{r}/vulnerability-alerts` returns the same
-proxy 403) because it goes through the same `HTTPS_PROXY`. The block is
-path-based at the network layer, so the request never reaches GitHub.
+This is the documented behavior of the **GitHub proxy** every Anthropic-
+hosted session runs GitHub operations through (Claude Code docs, "GitHub
+proxy"), not something reverse-engineered from this repo:
+- *Git credentials*: the git client in the VM uses a scoped credential;
+  the proxy verifies it and swaps in the real GitHub token.
+- *API requests*: requests from the built-in GitHub tools, and from `gh`
+  using the proxy-injected placeholder, go out with real credentials
+  substituted **by the proxy** — not by whatever is in `GH_TOKEN`/
+  `GITHUB_TOKEN` locally. Setting your own token makes it pass through to
+  the container unchanged (so a script reading it directly gets a real,
+  usable value) — but it does not change what the proxy does with
+  `api.github.com` traffic; that substitution/allowlisting happens either
+  way.
+- *Repository scope*: GitHub API and release-asset requests reach only
+  repositories attached to the session — confirmed here by
+  `/user/installations` answering `"sessions are bound to their configured
+  repositories"`.
+- *GraphQL restriction*: the proxy serves only a **pinned allowlist of
+  GraphQL operations for pull-request workflows**. Everything else on
+  `/graphql` 403s with `"This GraphQL query is not enabled for this
+  session"` and names the REST fallback (`gh api repos/{owner}/{repo}/
+  ...`) — **regardless of the credentials supplied**, so a real `GH_TOKEN`
+  you set yourself gets the identical 403. This is why `gh pr list`,
+  `gh repo view`, `gh issue list`, and any other GraphQL-backed `gh`
+  subcommand fail here even though `gh api <rest-endpoint>` works fine —
+  and why GraphQL-only surfaces (e.g. Projects v2) aren't reachable
+  through this proxy at all. Use REST via `mcp__github__*` or
+  `gh api repos/{owner}/{repo}/...` instead.
 
-Three distinct 403s worth telling apart:
+Three distinct 403 messages seen against this repo, worth telling apart
+(verified 2026-08-15 still match):
 - `"Access to this GitHub API path is not permitted through this proxy."`
-  → **egress policy** (`vulnerability-alerts`, `automated-security-fixes`).
+  → **egress allowlist** (`vulnerability-alerts`, `automated-security-fixes`).
   `/root/.ccr/README.md` says to report these, not route around them.
-- `"Resource not accessible by integration"` → the injected **App token's**
-  permission set (`code-scanning/*`). An App-token error, not a PAT error
-  — another tell that the PAT is unused.
+- `"Resource not accessible by integration"` → the substituted credential's
+  own permission set is insufficient (`code-scanning/*`). Distinct from
+  the egress-allowlist message above — this one means the request reached
+  GitHub and GitHub itself said no.
 - `"Dependabot alerts are disabled for this repository."` → not an error
   at all; that's the feature being off, and it's a usable readout of
   current state.
 
-**Why no credential can fix this, and why the App can't be widened.** Two
-independent layers, neither with a user-facing setting. Settled
-2026-08-09; don't re-investigate.
-1. *The session's credential is not yours.* The proxy strips
-   `Authorization` on `api.github.com` and injects a short-lived
-   App-backed token — `Github-Authentication-Token-Expiration` is
-   same-day, both scope headers come back empty, and
-   `/user/installations` answers `"sessions are bound to their configured
-   repositories"`. Claude Code on the web documents this: credentials
-   "are never inside the sandbox … authentication is handled through a
-   secure proxy using scoped credentials."
-2. *The App never requests `Administration`.* The Claude GitHub App's full
-   declared set is Actions, Checks, Contents, Discussions, Issues (r/w),
-   Members, Metadata, Statuses (read), Pull requests, Repository hooks,
-   Workflows (r/w). **No `Administration`** — which is what
-   `vulnerability-alerts`, `automated-security-fixes` and
-   `private-vulnerability-reporting` require. Per the docs you "accept its
-   full permission set. GitHub doesn't let you accept a subset," and a
-   permission the App doesn't request cannot be granted; only Anthropic
-   changing the App manifest adds one (GitHub then prompts the owner to
-   approve).
-
-So: a classic PAT with `repo` + `security_events` is already *sufficient*
-on paper — it is simply never consulted. Installing `gh` changes nothing
-(same `HTTPS_PROXY`; `gh api user` works, `gh api
-repos/{o}/{r}/vulnerability-alerts` returns the identical proxy 403).
-`/root/.ccr/README.md` says twice to report these rather than route around
-them.
+**Regenerating or widening a token you set yourself does not change any of
+this.** The proxy's substitution and allowlisting apply uniformly — proven
+directly: a deliberately bogus `Authorization` value and a request with no
+auth header at all both still return `reloru`'s real data through
+`api.github.com`, and a real, well-formed `GH_TOKEN`/`GITHUB_TOKEN` (a
+fine-grained PAT / classic PAT, confirmed 2026-08-15 by echoing both) gets
+the identical `vulnerability-alerts` 403 and the identical GraphQL 403.
+Whether the specific "`Resource not accessible by integration`" failures
+trace to a GitHub App's declared permission set specifically (as opposed
+to some other scope on the substituted credential) isn't independently
+re-verifiable from inside a session — treat that detail as unconfirmed;
+the actionable fact is the one proven above: **no token change from
+inside a session moves any of these three error categories.**
 
 **The allowlist is per-path, not per-category** — which is why the
 settings above split three ways rather than all failing alike. `/rulesets`
 reads fine from a session (that is how the ruleset in `docs/ops/ci-cd.md`
 was inspected, and plausibly how it was created), `private-vulnerability-
-reporting` reaches GitHub and fails on App permissions, and the two
-Dependabot paths never leave the sandbox. Don't generalize from one
-endpoint's behavior to another's; probe it.
+reporting` reaches GitHub and fails on the substituted credential's
+permissions, and the two Dependabot paths never leave the sandbox. Don't
+generalize from one endpoint's behavior to another's; probe it.
 
 **Malware alerts and grouped security updates have no REST toggle at
 all** — dashboard-only for every GitHub user, not a session limitation.
