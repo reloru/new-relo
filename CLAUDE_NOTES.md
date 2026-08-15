@@ -37,13 +37,17 @@ needs, promote it into `CLAUDE.md` instead of leaving it stranded here.
       apt update
       apt install gh -y
 
-  Auth needs no setup — `GH_TOKEN`/`GITHUB_TOKEN` are set in the environment
-  (confirmed 2026-08-15: well-formed `github_pat_…` / `ghp_…` values), so
-  **never `gh auth login`**. Whether that's a real token you set yourself
-  (passes through unchanged, used directly) or the GitHub proxy's own
-  placeholder (substituted with real credentials on the way out) doesn't
-  change what works: `gh api <rest-endpoint>` is fine either way; `gh auth
-  status` false-negatives regardless — check with `gh api user` instead.
+  Auth needs no setup — **`GH_TOKEN`/`GITHUB_TOKEN` are real, explicitly-set
+  tokens here, not the GitHub proxy's `"proxy-injected"` sentinel** (checked
+  safely, without echoing the value: `[ "$GH_TOKEN" = "proxy-injected" ]` is
+  false; confirmed 2026-08-15, well-formed `github_pat_…` / `ghp_…`
+  prefixes). So **never `gh auth login`**. `gh auth status` false-negatives
+  regardless — check with `gh api user` instead. A real token doesn't opt
+  this session out of the proxy's other restrictions, though —
+  `gh api user/repos` (an ordinary "list my repos" call) 403s with
+  `"sessions are bound to their configured repositories"` even with this
+  real token, so the repository-scoping and GraphQL restrictions below
+  apply regardless of whether `GH_TOKEN` is the sentinel or a real value.
   **GraphQL-backed subcommands (`gh repo view`, `gh pr list`, `gh issue
   list`, raw `gh api graphql`) 403 through the proxy no matter what
   credential is supplied** — the proxy serves only a pinned allowlist of
