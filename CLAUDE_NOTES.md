@@ -56,6 +56,14 @@ needs, promote it into `CLAUDE.md` instead of leaving it stranded here.
   `gh api repos/{owner}/{repo}/...` (or `mcp__github__*`). GraphQL-only
   GitHub surfaces (e.g. Projects v2) aren't reachable through this proxy at
   all. Full detail: `docs/ops/github-security.md`.
+- **Never `echo $GH_TOKEN` / `echo $GITHUB_TOKEN` (or otherwise print them)
+  to check what they are** — if either is a real, explicitly-set token
+  rather than the proxy's sentinel, that prints a live credential straight
+  into the session transcript/logs. Compare without exposing the value
+  instead: `[ "$GH_TOKEN" = "proxy-injected" ]` — true means the GitHub
+  proxy is authenticating on your behalf (no real token in the variable to
+  leak); false means a real token is set, and the check itself never prints
+  it. Same for `GITHUB_TOKEN`.
 - **Parse GitHub API JSON with `jq` or `python3`, never `grep`** — fields
   sit on separate lines, so a pattern spanning two of them silently never
   matches and a poll loop spins forever.
