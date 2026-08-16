@@ -142,10 +142,11 @@ violate:
 - A **second workflow**, `.github/workflows/claude.yml`, runs the `@claude`
   assistant (`anthropics/claude-code-action@v1`, auth via the
   `CLAUDE_CODE_OAUTH_TOKEN` repo secret — unrelated to the Cloudflare
-  tokens). Deliberately unconstrained: full tool access including bare
-  `Bash`, no turn cap, `allowed_bots: "*"` so a cloud session can fire it
-  too. It still cannot push to `main` — the ruleset is the backstop, not
-  the token scope.
+  tokens). Deliberately unconstrained on tools: bare `Bash`, no turn cap.
+  **But `allowed_bots` stays NARROW** — the repo is public and a matching
+  bot needs neither installation nor write access, so `"*"` would let any
+  bot drive it. It still cannot push to `main` — the ruleset is the
+  backstop, not the token scope.
 
 ## GitHub security settings
 Full detail — on/off inventory, the three-way 403 taxonomy, why the toggles

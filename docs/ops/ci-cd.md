@@ -143,21 +143,33 @@ Three things worth knowing before changing it:
 
 - **Who can fire it.** Humans need **write access** to the repo — that is
   the action's own default and it is what covers the owner; there is no
-  human allowlist to maintain. Bot-authored comments are rejected by
-  default, so `allowed_bots: "*"` is what lets a Claude Code cloud session
-  fire it, since those comments post under a bot identity. Note this does
-  **not** open the repo to the public despite it being a public repo: an
-  arbitrary internet user cannot make a bot comment here — only Apps
-  already installed on `reloru/new-relo` can (Dependabot, CodeQL, Claude).
-  Naming those explicitly instead of `"*"` shrinks the surface.
-- **A `GITHUB_TOKEN`-authored comment cannot re-fire it, ever.** GitHub's
-  documented rule: "Events triggered by the `GITHUB_TOKEN` will not create
-  a new workflow run" (recursion prevention; `workflow_dispatch` and
-  `repository_dispatch` are the exceptions). So Claude-inside-this-workflow
-  writing `@claude` in a comment is inert, and `allowed_bots` does not
-  override it — that is a platform rule, not a config gap. A cloud
-  session's comments are unaffected, because they carry a *different*
-  installation token than this workflow's `GITHUB_TOKEN`.
+  human allowlist to maintain. Measured 2026-08-15: a Claude Code **cloud
+  session's** comments post as `reloru` (`type: User`, same account id as
+  `gh api user`), so those already trigger through the human path and need
+  no bot entry at all. `allowed_bots` is set to the named `claude[bot]`
+  purely so an **Action-authored** comment can trigger.
+- **`allowed_bots: "*"` is NOT safe on this repo — it is public.** The
+  action's `docs/security.md` is explicit: *"A bot that matches an entry
+  does not need to be installed on your repository or have write access."*
+  So `"*"` would let any bot account that can comment on a public issue
+  drive Claude with bare `Bash` and `contents: write`. An earlier revision
+  of this file claimed the opposite — that only Apps already installed on
+  `reloru/new-relo` could use it — and that was **wrong**. Keep the list
+  named.
+- **Do not rely on `GITHUB_TOKEN` recursion prevention to stop loops.**
+  GitHub's rule is real ("Events triggered by the `GITHUB_TOKEN` will not
+  create a new workflow run"), but the action resolves its token as
+  `steps.run.outputs.github_token || inputs.github_token || github.token`,
+  and the first of those is the **Claude App token, which is not
+  `GITHUB_TOKEN`** and so *does* create new runs. The action also ships no
+  documented self-trigger prevention. A workflow-authored comment echoing
+  the trigger phrase can therefore re-fire this workflow. A narrow
+  `allowed_bots` is what bounds it; `exclude_comments_by_actor` (supports
+  wildcards like `*[bot]`) is the lever if a loop ever starts.
+- **`github_token` is optional and intentionally unset.** Same precedence
+  chain as above — the Claude App token is used when the App is installed,
+  otherwise the workflow's `github.token`. Supplying one is only required
+  for `allowed_non_write_users`, which this workflow does not use.
 - **No `if:` trigger-phrase guard, on purpose.** The common pattern gates
   the job with `contains(github.event.comment.body, '@claude')`. GitHub
   expressions have no `toLower()` and `contains()` is case-sensitive, so

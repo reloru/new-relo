@@ -28,6 +28,17 @@ on:
 # omitted and the action does its own (case-insensitive) trigger detection.
 # The cost is a runner that starts and exits early on non-matching comments.
 
+# LOOP RISK — the action ships no documented self-trigger prevention.
+# GitHub's recursion rule ("events triggered by GITHUB_TOKEN will not create
+# a new workflow run") is NOT a reliable backstop here, because the action
+# resolves its token as
+#   steps.run.outputs.github_token || inputs.github_token || github.token
+# and the first of those is the Claude App token, which is NOT GITHUB_TOKEN
+# and therefore DOES create new workflow runs. So a workflow-authored comment
+# echoing the trigger phrase can re-fire this workflow. Keeping `allowed_bots`
+# narrow is what bounds that; if a loop ever starts, tighten allowed_bots or
+# add exclude_comments_by_actor rather than relying on the platform rule.
+
 jobs:
   claude:
     name: Claude
@@ -57,21 +68,24 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 
           # Humans: the action already allows anyone with WRITE access to the
-          # repo, which covers the owner. No allowlist needed for that.
+          # repo, which covers the owner. No allowlist needed for that — and
+          # measured 2026-08-15, a Claude Code CLOUD session's comments post
+          # as `reloru` (a User with write access), so those already trigger
+          # this workflow through the human path, not the bot path.
           #
-          # Bots: bot-authored comments are rejected by default, so this is
-          # what lets a Claude Code cloud session (which comments under a bot
-          # identity) fire the workflow. "*" allows every bot rather than
-          # naming one, since the exact bot login differs by which credential
-          # path posted the comment.
+          # Bots: bot-authored comments are rejected by default. This names
+          # the Claude App identity so an Action-authored comment can trigger
+          # too.
           #
-          # What this does and does not expose, stated plainly: a random
-          # internet user CANNOT use this, because they cannot make a bot
-          # comment on this repo — only Apps already installed on
-          # reloru/new-relo can. The real surface is those installed Apps
-          # (Dependabot, CodeQL, Claude). Replace with an explicit list
-          # (e.g. "claude[bot],github-actions[bot]") to shrink it.
-          allowed_bots: "*"
+          # NAMED, NOT "*" — deliberately. This repo is PUBLIC, and the
+          # action's own docs/security.md states: "A bot that matches an
+          # entry does not need to be installed on your repository or have
+          # write access." So `allowed_bots: "*"` on a public repo lets ANY
+          # bot account that can comment drive Claude with bare Bash and
+          # contents: write. That is not the same as "only Apps installed
+          # here" — an earlier revision of this file claimed exactly that
+          # and was wrong. Widen to "*" only with that tradeoff in view.
+          allowed_bots: "claude[bot]"
 
           # Lets Claude read CI: get_ci_status, get_workflow_run_details,
           # download_job_log. Pairs with `actions: read` above — both are
