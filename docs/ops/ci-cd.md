@@ -1,7 +1,10 @@
 # CI / GitHub Actions
 
-Current expected state of `.github/workflows/deploy.yml` and the branch-merge
-gates it feeds. Overwritten in place — no history; see `docs/README.md`.
+Current expected state of the repo's two workflows —
+`.github/workflows/deploy.yml` (CI + production deploy) and
+`.github/workflows/claude.yml` (the `@claude` assistant) — and the
+branch-merge gates the first one feeds. Overwritten in place — no history;
+see `docs/README.md`.
 
 ## The three jobs
 
@@ -115,6 +118,85 @@ hangs; `| head -20` is fine. Redirect to a file, or use `tail`.
   Node the steps themselves use.
 - Repo secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` are set at
   the repository level — same token as used by the manual deploy path.
+
+## `claude.yml` — the `@claude` assistant workflow
+
+Separate workflow, `anthropics/claude-code-action@v1`. Mentioning the
+trigger phrase (default `@claude`) in an issue, an issue comment, a PR
+review, or a PR review comment hands Claude the thread as context and it
+does what it was asked — commenting back, or pushing a branch and opening
+a PR.
+
+Auth is `secrets.CLAUDE_CODE_OAUTH_TOKEN` (repo secret, owner-configured).
+That is a **different credential from `CLOUDFLARE_API_TOKEN`** and grants
+nothing on Cloudflare; a compromise there costs a Claude quota, not the
+site.
+
+**Deliberately unconstrained** (owner policy, 2026-08-15): no `--max-turns`
+cap, no `--disallowedTools`, and bare `Bash` in `--allowedTools` (no
+parenthesised command filter), so any shell command is permitted. The
+intent is "do what we ask," so the tool surface is opened rather than
+curated. `--dangerously-skip-permissions` is the further step if even the
+enumerated allowlist becomes the thing in the way.
+
+Three things worth knowing before changing it:
+
+- **Who can fire it: anyone with write access, and that already covers
+  every Claude surface used here.** There is no allowlist to maintain.
+  **`allowed_bots` is deliberately unset.** Measured on issue #185
+  (2026-08-15), a comment from a Claude Code **cloud session** reports as:
+
+  | field | value |
+  |---|---|
+  | `user.login` | `reloru` |
+  | `user.type` | `User` |
+  | `author_association` | `OWNER` |
+  | `performed_via_github_app` | `claude` |
+
+  The GitHub **UI** renders `performed_via_github_app` as an app badge, so
+  these comments *look* bot-authored — but the **actor** the action's
+  permission check evaluates is `reloru`, a User with write access. Cloud
+  sessions therefore trigger through the ordinary human path. Do not add a
+  bot entry "so Claude can trigger it"; that is already handled, and the
+  UI badge is what makes it look otherwise.
+- **Unset `allowed_bots` is also the loop guard.** The action ships no
+  documented self-trigger prevention, and `GITHUB_TOKEN` recursion
+  prevention is **not** a backstop: the action resolves its token as
+  `steps.run.outputs.github_token || inputs.github_token || github.token`,
+  and the first of those is the Claude App token, which is not
+  `GITHUB_TOKEN` and so *does* create new runs. Naming the identity this
+  workflow posts under is precisely how a comment loop would start — so
+  leaving it unset means the workflow cannot re-trigger itself.
+- **Never set `allowed_bots: "*"` — the repo is public.** The action's
+  `docs/security.md` is explicit: *"A bot that matches an entry does not
+  need to be installed on your repository or have write access."* So `"*"`
+  hands bare `Bash` and `contents: write` to any bot account that can
+  comment on a public issue. An earlier revision of this file used `"*"`
+  and claimed only already-installed Apps could reach it; that was
+  **wrong**. If a future surface genuinely needs a bot trigger, name that
+  one login.
+- **`github_token` is optional and intentionally unset.** Same precedence
+  chain as above — the Claude App token is used when the App is installed,
+  otherwise the workflow's `github.token`. Supplying one is only required
+  for `allowed_non_write_users`, which this workflow does not use.
+- **No `if:` trigger-phrase guard, on purpose.** The common pattern gates
+  the job with `contains(github.event.comment.body, '@claude')`. GitHub
+  expressions have no `toLower()` and `contains()` is case-sensitive, so
+  that guard silently drops `@Claude` — the spelling a human most often
+  types at the start of a sentence, and a dropped trigger is
+  indistinguishable from a broken workflow. The action does its own
+  case-insensitive detection, so the guard is omitted and a runner starts
+  (then exits early) on non-matching comments. Do not "optimize" it back
+  in without handling case.
+
+`permissions:` is `contents: write`, `pull-requests: write`,
+`issues: write`, `actions: read`, `id-token: write`. `contents: write` is
+what lets Claude push a branch; it still **cannot** push to `main`, which
+`new-relo-main-ruleset` protects (PR mandatory, linear history, both
+required checks). That ruleset — not this token's scope — is the backstop
+on production. `actions: read` pairs with `additional_permissions:
+actions: read`: one grants the token scope, the other enables the CI-reading
+tools (`get_ci_status`, `get_workflow_run_details`, `download_job_log`).
 
 ## Branch workflow after a squash-merge
 

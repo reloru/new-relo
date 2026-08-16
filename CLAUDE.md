@@ -139,6 +139,16 @@ violate:
 - After a squash-merge, never keep committing on the same branch without
   reconciling first — `git fetch origin main && git merge -X ours origin/main`
   before opening the next PR from a long-lived feature branch.
+- A **second workflow**, `.github/workflows/claude.yml`, runs the `@claude`
+  assistant (`anthropics/claude-code-action@v1`, auth via the
+  `CLAUDE_CODE_OAUTH_TOKEN` repo secret — unrelated to the Cloudflare
+  tokens). Deliberately unconstrained on tools: bare `Bash`, no turn cap.
+  **`allowed_bots` is unset and must stay that way** — a cloud session's
+  comments already trigger it as `reloru` (the bot badge in the UI is
+  `performed_via_github_app`, not the actor), unset is what prevents a
+  self-trigger loop, and `"*"` would hand any bot on this public repo full
+  shell access. It cannot push to `main` — the ruleset is the backstop,
+  not the token scope.
 
 ## GitHub security settings
 Full detail — on/off inventory, the three-way 403 taxonomy, why the toggles

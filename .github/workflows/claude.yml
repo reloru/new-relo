@@ -1,0 +1,112 @@
+name: Claude
+
+# Mention the trigger phrase (default "@claude") in an issue, an issue comment,
+# a PR review, or a PR review comment and Claude picks up the whole thread as
+# context and does what it was asked.
+#
+# Deliberately unconstrained on our end (owner policy, 2026-08-15): no
+# --max-turns cap, no --disallowedTools, no restricted Bash allowlist. The
+# intent is "do what we ask," so the tool surface is opened rather than
+# curated. Narrow it here if that ever stops being the intent.
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+  pull_request_review:
+    types: [submitted]
+  issues:
+    types: [opened, assigned, labeled]
+
+# NOTE: deliberately no `if:` guard filtering on the trigger phrase.
+#
+# The usual pattern short-circuits with `contains(github.event.comment.body,
+# '@claude')` to save runner minutes. GitHub expressions have no toLower(), and
+# contains() IS case-sensitive, so that guard silently drops "@Claude" — the
+# exact spelling a human is most likely to type at the start of a sentence.
+# A dropped trigger looks identical to a broken workflow, so the guard is
+# omitted and the action does its own (case-insensitive) trigger detection.
+# The cost is a runner that starts and exits early on non-matching comments.
+
+# LOOP RISK — the action ships no documented self-trigger prevention.
+# GitHub's recursion rule ("events triggered by GITHUB_TOKEN will not create
+# a new workflow run") is NOT a reliable backstop here, because the action
+# resolves its token as
+#   steps.run.outputs.github_token || inputs.github_token || github.token
+# and the first of those is the Claude App token, which is NOT GITHUB_TOKEN
+# and therefore DOES create new workflow runs. So a workflow-authored comment
+# echoing the trigger phrase can re-fire this workflow. Keeping `allowed_bots`
+# narrow is what bounds that; if a loop ever starts, tighten allowed_bots or
+# add exclude_comments_by_actor rather than relying on the platform rule.
+
+jobs:
+  claude:
+    name: Claude
+    runs-on: ubuntu-latest
+
+    # Wide by design — Claude opens branches and PRs, comments, and reads CI.
+    # `contents: write` is what lets it push a branch; it still cannot push to
+    # `main`, which is protected by new-relo-main-ruleset (PR mandatory,
+    # linear history, both required checks) — see docs/ops/ci-cd.md. That
+    # ruleset, not this token, is the backstop on production.
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      actions: read
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # Full history so Claude can read context, diff against main, and
+          # rebase/merge without a shallow-clone surprise.
+          fetch-depth: 0
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+
+          # NO `allowed_bots` — deliberately, and it costs nothing.
+          #
+          # Measured on issue #185 (2026-08-15), a comment posted from a
+          # Claude Code CLOUD session reports as:
+          #     user.login               : reloru
+          #     user.type                : User
+          #     author_association       : OWNER
+          #     performed_via_github_app : claude
+          # The GitHub UI renders that `performed_via_github_app` as an app
+          # badge, which reads as "a bot commented" — but the ACTOR the
+          # action's permission check evaluates is `reloru`, a User with
+          # write access. So cloud-session comments already trigger through
+          # the ordinary human path and never needed a bot entry.
+          #
+          # Leaving it unset is also the loop guard. The action ships no
+          # documented self-trigger prevention, so naming the identity that
+          # this workflow itself posts under is exactly how a comment loop
+          # would start. Unset = the workflow cannot re-trigger itself.
+          #
+          # And `"*"` would be actively unsafe here: the repo is PUBLIC, and
+          # the action's docs/security.md states "A bot that matches an entry
+          # does not need to be installed on your repository or have write
+          # access" — so `"*"` hands bare Bash + contents: write to any bot
+          # account that can comment. An earlier revision of this file used
+          # `"*"` and claimed otherwise; that was wrong.
+          #
+          # If some future surface does need to trigger under a real bot
+          # login, add just that login here — never `"*"`.
+
+          # Lets Claude read CI: get_ci_status, get_workflow_run_details,
+          # download_job_log. Pairs with `actions: read` above — both are
+          # required, one grants the token scope and one turns the tools on.
+          additional_permissions: |
+            actions: read
+
+          # Full standard toolset. Bare `Bash` (no parenthesised command
+          # filter) permits any shell command, which is the point here.
+          #
+          # To go further still, swap the whole --allowedTools line for
+          # `--dangerously-skip-permissions`, which bypasses the permission
+          # layer outright instead of enumerating it.
+          claude_args: |
+            --allowedTools "Bash,Read,Write,Edit,NotebookEdit,Glob,Grep,WebFetch,WebSearch,TodoWrite,Task"
