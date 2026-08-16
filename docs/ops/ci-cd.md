@@ -179,15 +179,26 @@ Three things worth knowing before changing it:
   chain as above — the Claude App token is used when the App is installed,
   otherwise the workflow's `github.token`. Supplying one is only required
   for `allowed_non_write_users`, which this workflow does not use.
-- **No `if:` trigger-phrase guard, on purpose.** The common pattern gates
+- **No `if:` trigger-PHRASE guard, on purpose.** The common pattern gates
   the job with `contains(github.event.comment.body, '@claude')`. GitHub
   expressions have no `toLower()` and `contains()` is case-sensitive, so
   that guard silently drops `@Claude` — the spelling a human most often
   types at the start of a sentence, and a dropped trigger is
-  indistinguishable from a broken workflow. The action does its own
-  case-insensitive detection, so the guard is omitted and a runner starts
-  (then exits early) on non-matching comments. Do not "optimize" it back
-  in without handling case.
+  indistinguishable from a broken workflow. Phrase matching therefore stays
+  with the action, which does it case-insensitively. Do not "optimize" it
+  back into the workflow without handling case.
+- **There IS an `if:` guard on the ACTOR: `github.event.sender.type !=
+  'Bot'`.** Different thing, none of the risk above — it never inspects the
+  comment body. Pure waste elimination with zero behavioral change, since
+  `allowed_bots` is unset and the action already rejects every bot actor;
+  this just declines to boot a runner to reach the same rejection.
+  Measured on #184 before it was added: a single `@claude` interaction
+  spawned **two** extra no-op runs (`31919355089`, `31919520557`), both
+  from `claude[bot]`'s own replies starting a runner that immediately
+  exited. Verified identities: `reloru` → `type: User` (owner *and* Claude
+  Code cloud sessions), `claude[bot]` → `type: Bot` (this workflow's
+  replies). **If a bot is ever added to `allowed_bots`, relax this line in
+  the same commit** or that bot will silently stop triggering.
 
 `permissions:` is `contents: write`, `pull-requests: write`,
 `issues: write`, `actions: read`, `id-token: write`. `contents: write` is
