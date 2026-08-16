@@ -56,6 +56,20 @@ bump can't violate `compatibility_date`.
 - CodeQL's workflow is **advisory only** — do NOT add it to branch
   protection as a required check.
 
+## Everything below is about the Claude Code *session* proxy — not `claude.yml`
+
+**The `@claude` GitHub Actions workflow (`docs/ops/ci-cd.md`) bypasses this
+proxy entirely.** It runs on a GitHub-hosted Actions runner, not inside the
+Anthropic-hosted session sandbox, so none of the credential substitution,
+GraphQL pinned-allowlist, or repository-scoping described below apply to it.
+It authenticates to GitHub directly (Claude App token or `GITHUB_TOKEN`, per
+the action's own precedence) and to Anthropic directly via
+`CLAUDE_CODE_OAUTH_TOKEN` — two separate credentials, neither routed through
+`HTTPS_PROXY`. So `gh pr list`/GraphQL calls, `vulnerability-alerts`, and
+unrestricted-repo API access that all 403 for a session work fine for that
+workflow, subject only to its own `permissions:` block and whatever the
+token itself is scoped to.
+
 ## Why toggles can't be flipped from a session
 
 **These toggles cannot be set from a session — they are dashboard clicks.**
