@@ -67,25 +67,34 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 
-          # Humans: the action already allows anyone with WRITE access to the
-          # repo, which covers the owner. No allowlist needed for that — and
-          # measured 2026-08-15, a Claude Code CLOUD session's comments post
-          # as `reloru` (a User with write access), so those already trigger
-          # this workflow through the human path, not the bot path.
+          # NO `allowed_bots` — deliberately, and it costs nothing.
           #
-          # Bots: bot-authored comments are rejected by default. This names
-          # the Claude App identity so an Action-authored comment can trigger
-          # too.
+          # Measured on issue #185 (2026-08-15), a comment posted from a
+          # Claude Code CLOUD session reports as:
+          #     user.login               : reloru
+          #     user.type                : User
+          #     author_association       : OWNER
+          #     performed_via_github_app : claude
+          # The GitHub UI renders that `performed_via_github_app` as an app
+          # badge, which reads as "a bot commented" — but the ACTOR the
+          # action's permission check evaluates is `reloru`, a User with
+          # write access. So cloud-session comments already trigger through
+          # the ordinary human path and never needed a bot entry.
           #
-          # NAMED, NOT "*" — deliberately. This repo is PUBLIC, and the
-          # action's own docs/security.md states: "A bot that matches an
-          # entry does not need to be installed on your repository or have
-          # write access." So `allowed_bots: "*"` on a public repo lets ANY
-          # bot account that can comment drive Claude with bare Bash and
-          # contents: write. That is not the same as "only Apps installed
-          # here" — an earlier revision of this file claimed exactly that
-          # and was wrong. Widen to "*" only with that tradeoff in view.
-          allowed_bots: "claude[bot]"
+          # Leaving it unset is also the loop guard. The action ships no
+          # documented self-trigger prevention, so naming the identity that
+          # this workflow itself posts under is exactly how a comment loop
+          # would start. Unset = the workflow cannot re-trigger itself.
+          #
+          # And `"*"` would be actively unsafe here: the repo is PUBLIC, and
+          # the action's docs/security.md states "A bot that matches an entry
+          # does not need to be installed on your repository or have write
+          # access" — so `"*"` hands bare Bash + contents: write to any bot
+          # account that can comment. An earlier revision of this file used
+          # `"*"` and claimed otherwise; that was wrong.
+          #
+          # If some future surface does need to trigger under a real bot
+          # login, add just that login here — never `"*"`.
 
           # Lets Claude read CI: get_ci_status, get_workflow_run_details,
           # download_job_log. Pairs with `actions: read` above — both are

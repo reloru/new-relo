@@ -141,31 +141,40 @@ enumerated allowlist becomes the thing in the way.
 
 Three things worth knowing before changing it:
 
-- **Who can fire it.** Humans need **write access** to the repo — that is
-  the action's own default and it is what covers the owner; there is no
-  human allowlist to maintain. Measured 2026-08-15: a Claude Code **cloud
-  session's** comments post as `reloru` (`type: User`, same account id as
-  `gh api user`), so those already trigger through the human path and need
-  no bot entry at all. `allowed_bots` is set to the named `claude[bot]`
-  purely so an **Action-authored** comment can trigger.
-- **`allowed_bots: "*"` is NOT safe on this repo — it is public.** The
-  action's `docs/security.md` is explicit: *"A bot that matches an entry
-  does not need to be installed on your repository or have write access."*
-  So `"*"` would let any bot account that can comment on a public issue
-  drive Claude with bare `Bash` and `contents: write`. An earlier revision
-  of this file claimed the opposite — that only Apps already installed on
-  `reloru/new-relo` could use it — and that was **wrong**. Keep the list
-  named.
-- **Do not rely on `GITHUB_TOKEN` recursion prevention to stop loops.**
-  GitHub's rule is real ("Events triggered by the `GITHUB_TOKEN` will not
-  create a new workflow run"), but the action resolves its token as
+- **Who can fire it: anyone with write access, and that already covers
+  every Claude surface used here.** There is no allowlist to maintain.
+  **`allowed_bots` is deliberately unset.** Measured on issue #185
+  (2026-08-15), a comment from a Claude Code **cloud session** reports as:
+
+  | field | value |
+  |---|---|
+  | `user.login` | `reloru` |
+  | `user.type` | `User` |
+  | `author_association` | `OWNER` |
+  | `performed_via_github_app` | `claude` |
+
+  The GitHub **UI** renders `performed_via_github_app` as an app badge, so
+  these comments *look* bot-authored — but the **actor** the action's
+  permission check evaluates is `reloru`, a User with write access. Cloud
+  sessions therefore trigger through the ordinary human path. Do not add a
+  bot entry "so Claude can trigger it"; that is already handled, and the
+  UI badge is what makes it look otherwise.
+- **Unset `allowed_bots` is also the loop guard.** The action ships no
+  documented self-trigger prevention, and `GITHUB_TOKEN` recursion
+  prevention is **not** a backstop: the action resolves its token as
   `steps.run.outputs.github_token || inputs.github_token || github.token`,
-  and the first of those is the **Claude App token, which is not
-  `GITHUB_TOKEN`** and so *does* create new runs. The action also ships no
-  documented self-trigger prevention. A workflow-authored comment echoing
-  the trigger phrase can therefore re-fire this workflow. A narrow
-  `allowed_bots` is what bounds it; `exclude_comments_by_actor` (supports
-  wildcards like `*[bot]`) is the lever if a loop ever starts.
+  and the first of those is the Claude App token, which is not
+  `GITHUB_TOKEN` and so *does* create new runs. Naming the identity this
+  workflow posts under is precisely how a comment loop would start — so
+  leaving it unset means the workflow cannot re-trigger itself.
+- **Never set `allowed_bots: "*"` — the repo is public.** The action's
+  `docs/security.md` is explicit: *"A bot that matches an entry does not
+  need to be installed on your repository or have write access."* So `"*"`
+  hands bare `Bash` and `contents: write` to any bot account that can
+  comment on a public issue. An earlier revision of this file used `"*"`
+  and claimed only already-installed Apps could reach it; that was
+  **wrong**. If a future surface genuinely needs a bot trigger, name that
+  one login.
 - **`github_token` is optional and intentionally unset.** Same precedence
   chain as above — the Claude App token is used when the App is installed,
   otherwise the workflow's `github.token`. Supplying one is only required

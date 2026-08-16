@@ -143,10 +143,12 @@ violate:
   assistant (`anthropics/claude-code-action@v1`, auth via the
   `CLAUDE_CODE_OAUTH_TOKEN` repo secret — unrelated to the Cloudflare
   tokens). Deliberately unconstrained on tools: bare `Bash`, no turn cap.
-  **But `allowed_bots` stays NARROW** — the repo is public and a matching
-  bot needs neither installation nor write access, so `"*"` would let any
-  bot drive it. It still cannot push to `main` — the ruleset is the
-  backstop, not the token scope.
+  **`allowed_bots` is unset and must stay that way** — a cloud session's
+  comments already trigger it as `reloru` (the bot badge in the UI is
+  `performed_via_github_app`, not the actor), unset is what prevents a
+  self-trigger loop, and `"*"` would hand any bot on this public repo full
+  shell access. It cannot push to `main` — the ruleset is the backstop,
+  not the token scope.
 
 ## GitHub security settings
 Full detail — on/off inventory, the three-way 403 taxonomy, why the toggles
