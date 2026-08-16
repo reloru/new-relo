@@ -18,15 +18,17 @@ on:
   issues:
     types: [opened, assigned, labeled]
 
-# NOTE: deliberately no `if:` guard filtering on the trigger phrase.
+# NOTE: still deliberately no `if:` guard on the trigger PHRASE.
 #
 # The usual pattern short-circuits with `contains(github.event.comment.body,
 # '@claude')` to save runner minutes. GitHub expressions have no toLower(), and
 # contains() IS case-sensitive, so that guard silently drops "@Claude" — the
 # exact spelling a human is most likely to type at the start of a sentence.
-# A dropped trigger looks identical to a broken workflow, so the guard is
-# omitted and the action does its own (case-insensitive) trigger detection.
-# The cost is a runner that starts and exits early on non-matching comments.
+# A dropped trigger looks identical to a broken workflow, so phrase matching
+# stays with the action, which does it case-insensitively.
+#
+# The job-level `if:` below filters on the ACTOR instead, which is a different
+# thing and carries none of that risk — see the comment on it.
 
 # LOOP RISK — the action ships no documented self-trigger prevention.
 # GitHub's recursion rule ("events triggered by GITHUB_TOKEN will not create
@@ -43,6 +45,24 @@ jobs:
   claude:
     name: Claude
     runs-on: ubuntu-latest
+
+    # Skip bot-authored events. This is a pure waste-elimination guard with
+    # ZERO behavioral change, because `allowed_bots` is unset (see below), so
+    # the action already rejects every bot actor — this just declines to boot
+    # a runner in order to reach that same rejection.
+    #
+    # Measured on #184: one @claude interaction spawned TWO extra no-op runs
+    # (31919355089, 31919520557), both from claude[bot]'s own reply comments
+    # starting a runner that immediately exited. This removes those.
+    #
+    # Safe because it filters on actor type, NOT on the trigger phrase — so
+    # it cannot reintroduce the "@Claude" case-sensitivity failure that the
+    # phrase-guard note above exists to prevent. Verified identities:
+    #   reloru       -> type User  (owner, and Claude Code cloud sessions)
+    #   claude[bot]  -> type Bot   (this workflow's own replies)
+    # If a real bot is ever added to `allowed_bots`, this line must be
+    # relaxed in the same commit or that bot silently stops triggering.
+    if: github.event.sender.type != 'Bot'
 
     # Wide by design — Claude opens branches and PRs, comments, and reads CI.
     # `contents: write` is what lets it push a branch; it still cannot push to
