@@ -68,6 +68,19 @@ export function mcpJson(payload, status) {
 // Clients use these hints to skip per-call confirmation prompts.
 export const MCP_READ_ONLY = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false };
 
+// Language policy, stated in-protocol so a client knows it before it renders
+// anything. Two halves, and the order matters. (1) Tool output being English is
+// NOT a reason to answer an English response to a Spanish speaker — a calling
+// model is the translation layer, which is why no tool takes a `lang` argument.
+// (2) The safety carve-out this site has always enforced: NWS alert text and
+// free-form detailedForecast prose are official U.S. government warning wording
+// with no official Spanish edition (NWS paused its experimental translations in
+// 2025), so a translated warning must never be passed off as the official one.
+// Same policy the Spanish pages state to humans via ES_NWS_NOTE.
+export const MCP_LANGUAGE_NOTE =
+  "Tool output is English. Answer the user in whatever language they are writing in — English data is not a reason to reply in English. Safety exception: NWS alert text and detailed forecast prose are official U.S. government warning wording with no official translation. Convey their meaning in the user's language if that helps, but label it an unofficial translation and keep the English wording available; never present a translation as the official warning.";
+
+
 export function mcpTools() {
   // outputSchema fragments — shallow and honest: they name the load-bearing
   // fields and stay permissive (additionalProperties defaults to true) since
@@ -112,7 +125,7 @@ export function mcpTools() {
       name: "get_forecast",
       title: "Forecast",
       description:
-        "Forecast for Crosby, TX from the U.S. National Weather Service. Returns the 7-day day/night forecast, or upcoming hourly periods if `hours` is given (up to 48 — through about two days out).",
+        "Forecast for Crosby, TX from the U.S. National Weather Service. Returns the 7-day day/night forecast, or upcoming hourly periods if `hours` is given (up to 48 — through about two days out). Present it in the user's language; `detailedForecast` prose is official NWS English, so label any translation of it unofficial.",
       inputSchema: {
         type: "object",
         properties: {
@@ -134,7 +147,8 @@ export function mcpTools() {
     {
       name: "get_alerts",
       title: "Active alerts",
-      description: "Active NWS weather alerts for Crosby, TX. Returns an empty list when none are active.",
+      description:
+        "Active NWS weather alerts for Crosby, TX. Returns an empty list when none are active. Alert wording is official U.S. government warning text with no official translation: convey the meaning in the user's language if that helps, but label the translation unofficial and keep the English available.",
       inputSchema: { type: "object", properties: {}, additionalProperties: false },
       outputSchema: {
         type: "object",
@@ -624,14 +638,108 @@ export function mcpServerCard() {
   };
 }
 
+// PRESENTATION LAYER ONLY — Spanish copy for the /es/mcp documentation page.
+// The protocol is untouched: mcpTools() still emits English names, titles and
+// descriptions, and no tool takes a language argument. This is the same
+// hand-dictionary-with-English-fallback pattern the site uses everywhere else
+// (ES_SHORT, ES_PERIOD, …), and it lives beside the renderer that consumes it
+// like DEVELOPERS_ES does, because it is page copy rather than data.
+//
+// Keyed by tool name, so a tool RENAMED in mcpTools() silently loses its
+// Spanish text rather than mismatching one — and a tool ADDED there still
+// appears on the Spanish page in English rather than vanishing from the list.
+// scripts/check-renders.mjs fails the build when an entry is missing, so this
+// does not become the sixth prose surface that goes stale silently.
+export const MCP_TOOL_ES = {
+  get_current_conditions: {
+    title: "Condiciones actuales",
+    description:
+      "El clima actual en Crosby, TX: temperatura, sensación térmica, estado del cielo, probabilidad de lluvia, humedad, punto de rocío, índice UV, calidad del aire medida (EPA/AirNow, área metropolitana de Houston) y las horas de salida y puesta del sol.",
+  },
+  get_forecast: {
+    title: "Pronóstico",
+    description:
+      "El pronóstico de Crosby, TX del Servicio Meteorológico Nacional de EE. UU. (NWS). Devuelve el pronóstico de 7 días (día y noche), o las próximas horas si se indica `hours` (hasta 48, unos dos días). Las descripciones detalladas vienen en el inglés oficial del NWS.",
+  },
+  get_alerts: {
+    title: "Alertas activas",
+    description:
+      "Alertas meteorológicas activas del NWS para Crosby, TX. Devuelve una lista vacía cuando no hay ninguna. El texto de las alertas es el inglés oficial del gobierno de EE. UU.: una traducción sirve para entenderlas, pero no sustituye al aviso oficial.",
+  },
+  get_tropical_outlook: {
+    title: "Panorama tropical del Atlántico",
+    description:
+      "Ciclones tropicales activos en el Atlántico según el Centro Nacional de Huracanes de NOAA — los sistemas que importan en Crosby, TX durante la temporada (de junio a noviembre). Avisa explícitamente cuando la cuenca está tranquila.",
+  },
+  get_pollen: {
+    title: "Conteo de polen y moho",
+    description:
+      "El conteo diario de polen y moho que mide el Departamento de Salud de Houston (escala del National Allergy Bureau) — polen de árbol, maleza y pasto, más esporas de moho, con las especies que de verdad se contaron. Es una medición real, no un modelo; se publica entre semana por la mañana y aplica a la región de Crosby, TX.",
+  },
+  get_air_quality: {
+    title: "Calidad del aire (AQI)",
+    description:
+      "El índice de calidad del aire de EE. UU. (AQI) para el área metropolitana de Houston (la zona Houston-Galveston-Brazoria, que incluye a Crosby, TX). Medido por monitores de EPA/AirNow cuando están disponibles (`measured:true`), con un respaldo modelado de Open-Meteo (`measured:false`). Es un dato regional, no una lectura exacta de Crosby.",
+  },
+  get_crosby_news: {
+    title: "Noticias locales",
+    description:
+      "Titulares recientes de Crosby, TX y las comunidades cercanas del noreste del condado de Harris, reunidos de fuentes públicas y filtrados por relevancia. Vacío cuando no hay nada reciente. Los titulares aparecen tal como los publicó cada medio.",
+  },
+  get_school_events: {
+    title: "Calendario escolar",
+    description:
+      "Próximos eventos del calendario de Crosby ISD: primer y último día de clases, días festivos, días sin clases y de salida temprana, periodos de exámenes y actividades escolares.",
+  },
+  get_river_levels: {
+    title: "Niveles de ríos y arroyos",
+    description:
+      "Niveles de agua actuales y etapas de inundación del NWS para los ríos y arroyos (bayous) que inundan Crosby, TX y el noreste del condado de Harris (Cedar Bayou, el río San Jacinto, Luce Bayou y más). Cada estación reporta su nivel, caudal, categoría de inundación y umbrales.",
+  },
+  get_fishing: {
+    title: "Condiciones de pesca",
+    description:
+      "Condiciones del agua en vivo donde se pesca cerca de Crosby, TX — el lago Houston, los brazos del río San Jacinto, el río Trinity y arroyos cercanos — según el monitoreo en tiempo real del USGS. Las estaciones completas reportan temperatura, oxígeno disuelto, pH y turbidez; algunos arroyos solo reportan el nivel del agua. Es la lectura de una estación cercana, no del punto exacto de pesca, y describe las condiciones: no garantiza que piquen.",
+  },
+  get_traffic: {
+    title: "Caminos y tráfico",
+    description:
+      "Incidentes de tráfico y cierres de carriles programados en los caminos que usa Crosby, TX — la US-90, la FM-2100, la FM-1942 y el tramo de la IH-10 Este — según Houston TranStar, más enlaces a las cámaras del corredor. Los reportes de agua alta aparecen aquí durante las inundaciones. Las listas vacías significan caminos despejados.",
+  },
+  get_emergency_contacts: {
+    title: "Contactos de emergencia",
+    description:
+      "Directorio de recursos de emergencia para Crosby, TX (zona no incorporada del condado de Harris): qué hacer con el 911, la línea del sheriff que no es de emergencia, cómo reportar apagones y fugas de gas, la línea CAER de incidentes industriales, herramientas de inundaciones y caminos, refugios y ayuda por desastre. Es un directorio fijo y verificado — en una emergencia que pone en riesgo la vida, llama al 911.",
+  },
+  get_radar: {
+    title: "Imagen del radar meteorológico",
+    description:
+      "La imagen más reciente del radar KHGX del NWS (Houston/Galveston), que cubre Crosby, TX, devuelta como GIF dentro de la respuesta. Para ver la animación, visita https://crosbynews.com/es/radar.",
+  },
+};
+
+// The tool list for the explainer pages. Always driven by mcpTools() so it
+// cannot drift from the protocol; on the Spanish page each entry shows the
+// Spanish name first with the real tool name in code beside it — the code name
+// is what the agent actually calls, so it stays visible and untranslated.
+function mcpToolLines(lang, toolLine) {
+  return mcpTools().map((t) => {
+    const es = lang === "es" ? MCP_TOOL_ES[t.name] : null;
+    return toolLine(t, es);
+  });
+}
+
 // Human-facing explainer shown when a browser opens /mcp (which only speaks
 // POST JSON-RPC). Lists the tools and how to connect. The MCP protocol/API is
 // English-only; `lang` renders a Spanish HUMAN explainer at /es/mcp that points
 // readers back at the English /mcp endpoint (never /es/mcp) to actually connect.
+// The Spanish page is fully localized COPY over that unchanged English protocol.
 export function mcpInfoHtml(lang) {
-  const tools = mcpTools()
-    .map((t) => `<li><code>${esc(t.name)}</code> &mdash; ${esc(t.description)}</li>`)
-    .join("\n      ");
+  const tools = mcpToolLines(lang, (t, es) =>
+    es
+      ? `<li><strong>${esc(es.title)}</strong> <code>${esc(t.name)}</code> &mdash; ${esc(es.description)}</li>`
+      : `<li><code>${esc(t.name)}</code> &mdash; ${esc(t.description)}</li>`,
+  ).join("\n      ");
   // Hoisted so the <title>/<meta description> and the Open Graph pair are one
   // string each rather than two copies that can drift.
   const title = T(lang, "MCP Server", "Servidor MCP");
@@ -673,21 +781,26 @@ ${topbar("/mcp", lang)}
 <main id="main">
   <h1>${T(lang, "MCP Server", "Servidor MCP")}</h1>
   <p class="intro">${T(lang, "This is the Model Context Protocol (MCP) endpoint for crosbynews.com. It is meant for AI agents, not browsers &mdash; it speaks JSON-RPC over HTTP POST. This page just explains what it is.", "Este es el punto de acceso de Model Context Protocol (MCP) de crosbynews.com. Está pensado para agentes de IA, no para navegadores &mdash; usa JSON-RPC sobre HTTP POST. Esta página solo explica qué es.")}</p>
-  ${lang === "es" ? `<section class="card"><h2>Idioma</h2><p>El servidor MCP funciona <strong>solo en inglés</strong>. Para conectarte, usa la URL en inglés <code>${SITE}/mcp</code> &mdash; <strong>no</strong> <code>${SITE}/es/mcp</code>, que es únicamente esta página explicativa en español.</p></section>` : ""}
+  ${lang === "es" ? `<section class="card">
+    <h2>Idioma</h2>
+    <p>El servidor MCP vive en <code>${SITE}/mcp</code> y su protocolo funciona <strong>solo en inglés</strong>. Esta página, <code>${SITE}/es/mcp</code>, es <strong>únicamente la documentación en español</strong>: no es un punto de acceso, y un POST aquí devuelve 404. Para conectarte, siempre usa <code>${SITE}/mcp</code>.</p>
+    <p>Eso <strong>no</strong> quiere decir que tengas que usarlo en inglés. El agente de IA lee los datos en inglés y te responde en el idioma en que le escribas: <strong>pregúntale en español y te contesta en español</strong>. No hay nada extra que configurar ni ninguna herramienta distinta que llamar.</p>
+    <p>Una sola excepción, por seguridad: el texto de las alertas del NWS y las descripciones detalladas del pronóstico son avisos oficiales del gobierno de EE.&nbsp;UU. y no tienen versión oficial en español. Una traducción te sirve para entenderlos, pero el texto que manda es el inglés &mdash; el servidor se lo advierte al agente para que lo aclare en vez de hacerlas pasar por oficiales.</p>
+  </section>` : ""}
   <section class="card">
     <h2>${T(lang, "Endpoint", "Punto de acceso")}</h2>
     <p><code>${SITE}/mcp</code> &middot; ${T(lang, "transport", "transporte")}: Streamable HTTP (JSON-RPC 2.0). ${T(lang, "Discovery card", "Tarjeta de descubrimiento")}: <a href="/.well-known/mcp/server-card.json">/.well-known/mcp/server-card.json</a>.</p>
   </section>
   <section class="card">
     <h2>${T(lang, "Tools", "Herramientas")}</h2>
-    ${lang === "es" ? `<p class="intro">Los nombres y las descripciones de las herramientas se muestran en inglés &mdash; el servidor responde en inglés.</p>` : ""}
+    ${lang === "es" ? `<p class="intro">Descripciones en español. El nombre en <code>código</code> es el identificador real de la herramienta: así se llama en el protocolo y así la invoca el agente, por eso se queda en inglés. ¿Quieres el detalle técnico crudo? Está en la <a href="/.well-known/mcp/server-card.json">tarjeta del servidor</a>.</p>` : ""}
     <ul>
       ${tools}
     </ul>
   </section>
   <section class="card">
     <h2>${T(lang, "Prompts &amp; resources", "Prompts y recursos")}</h2>
-    <p>${T(lang, `The prompt <code>crosby_briefing</code> returns a data-grounded daily-briefing prompt with live weather, alerts, headlines, and school events already filled in. Resources expose <a href="/llms.txt"><code>llms.txt</code></a> and the <a href="/openapi.json">OpenAPI spec</a> in-protocol.`, `El prompt <code>crosby_briefing</code> devuelve un resumen diario con datos reales: clima en vivo, alertas, titulares y eventos escolares ya incluidos. Los recursos exponen <a href="/llms.txt"><code>llms.txt</code></a> y la <a href="/openapi.json">especificación OpenAPI</a> dentro del protocolo.`)}</p>
+    <p>${T(lang, `The prompt <code>crosby_briefing</code> returns a data-grounded daily-briefing prompt with live weather, alerts, headlines, and school events already filled in. Resources expose <a href="/llms.txt"><code>llms.txt</code></a> and the <a href="/openapi.json">OpenAPI spec</a> in-protocol.`, `El prompt <code>crosby_briefing</code> (&laquo;resumen diario de Crosby&raquo;) devuelve un resumen del día ya armado con datos reales: clima actual, alertas, salida y puesta del sol, titulares locales y eventos de Crosby ISD &mdash; más los niveles de los ríos, los incidentes en los caminos, los sistemas tropicales y el polen alto cuando alguno de esos sí es un pendiente. Pídeselo en español y te lo redacta en español. Los recursos exponen <a href="/llms.txt"><code>llms.txt</code></a> y la <a href="/openapi.json">especificación OpenAPI</a> dentro del protocolo.`)}</p>
   </section>
   <section class="card">
     <h2>${T(lang, "Connect from Claude Code", "Conectar desde Claude Code")}</h2>
@@ -706,19 +819,33 @@ ${footer({ page: "/mcp", lang: lang === "es" ? "es" : "en", source: T(lang, `Dat
 // the protocol stays English-only; the Spanish variant is a human explainer
 // that points at the English /mcp endpoint.
 export function mcpInfoMarkdown(lang) {
-  const tools = mcpTools()
-    .map((t) => `- \`${t.name}\` — ${t.description}`)
-    .join("\n");
+  const tools = mcpToolLines(lang, (t, es) =>
+    es ? `- **${es.title}** \`${t.name}\` — ${es.description}` : `- \`${t.name}\` — ${t.description}`,
+  ).join("\n");
   if (lang === "es") {
     return `# Servidor MCP — crosbynews.com
 
-Este es el punto de acceso de Model Context Protocol (MCP) de crosbynews.com.
-Usa JSON-RPC 2.0 sobre HTTP POST (transporte Streamable HTTP); esta página solo
-explica qué es.
+Esta es la documentación en español del servidor de Model Context Protocol
+(MCP) de crosbynews.com. El servidor usa JSON-RPC 2.0 sobre HTTP POST
+(transporte Streamable HTTP).
 
-**El servidor MCP funciona solo en inglés.** Para conectarte, usa la URL en
-inglés \`${SITE}/mcp\` — **no** \`${SITE}/es/mcp\`, que es únicamente esta página
-explicativa en español.
+## Idioma
+
+El servidor MCP vive en \`${SITE}/mcp\` y su protocolo funciona **solo en
+inglés**. Esta página, \`${SITE}/es/mcp\`, es **únicamente la documentación en
+español**: no es un punto de acceso, y un POST aquí devuelve 404. Para
+conectarte, siempre usa \`${SITE}/mcp\`.
+
+Eso **no** quiere decir que tengas que usarlo en inglés. El agente de IA lee
+los datos en inglés y te responde en el idioma en que le escribas:
+**pregúntale en español y te contesta en español.** No hay nada extra que
+configurar ni ninguna herramienta distinta que llamar.
+
+Una sola excepción, por seguridad: el texto de las alertas del NWS y las
+descripciones detalladas del pronóstico son avisos oficiales del gobierno de
+EE. UU. y no tienen versión oficial en español. Una traducción te sirve para
+entenderlos, pero el texto que manda es el inglés — el servidor se lo advierte
+al agente para que lo aclare en vez de hacerlas pasar por oficiales.
 
 ## Punto de acceso
 
@@ -727,13 +854,15 @@ explicativa en español.
 
 ## Herramientas
 
-_Los nombres y las descripciones se muestran en inglés — el servidor responde en inglés._
+_Descripciones en español. El nombre en \`código\` es el identificador real de la
+herramienta: así se llama en el protocolo y así la invoca el agente, por eso se
+queda en inglés. El detalle técnico crudo está en la tarjeta del servidor._
 
 ${tools}
 
 ## Prompts y recursos
 
-- Prompt \`crosby_briefing\` — un resumen diario con datos reales (clima en vivo, alertas, titulares y eventos escolares ya incluidos).
+- Prompt \`crosby_briefing\` («resumen diario de Crosby») — un resumen del día ya armado con datos reales: clima actual, alertas, salida y puesta del sol, titulares locales y eventos de Crosby ISD, más los niveles de los ríos, los incidentes en los caminos, los sistemas tropicales y el polen alto cuando alguno sí es un pendiente. Pídeselo en español y te lo redacta en español.
 - Recursos — \`${SITE}/llms.txt\` (resumen del sitio) y \`${SITE}/openapi.json\` (especificación de la API), legibles dentro del protocolo.
 
 ## Conectar desde Claude Code
@@ -1039,7 +1168,8 @@ export async function mcpHandle(msg, env) {
         capabilities: { tools: { listChanged: false }, prompts: { listChanged: false }, resources: { listChanged: false } },
         serverInfo: MCP_SERVER_INFO,
         instructions:
-          "Live Crosby, Texas data: weather from the U.S. National Weather Service, a measured air-quality index (EPA/AirNow), the daily pollen and mold count, the Atlantic tropical outlook, river/bayou flood levels, USGS water conditions for nearby fishing waters, road incidents and lane closures, a radar image, local news headlines, the Crosby ISD school calendar, and an emergency-contacts directory.",
+          "Live Crosby, Texas data: weather from the U.S. National Weather Service, a measured air-quality index (EPA/AirNow), the daily pollen and mold count, the Atlantic tropical outlook, river/bayou flood levels, USGS water conditions for nearby fishing waters, road incidents and lane closures, a radar image, local news headlines, the Crosby ISD school calendar, and an emergency-contacts directory. " +
+          MCP_LANGUAGE_NOTE,
       });
     case "ping":
       return rpcResult(id, {});

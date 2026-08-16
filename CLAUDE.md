@@ -245,7 +245,14 @@ invariants that cut across pages.
   set of handlers serves both languages and they cannot drift. Non-page routes
   (API, MCP protocol, assets, `.well-known`) are English-only and never carry the
   prefix. The one exception is `/es/mcp`, a Spanish HUMAN explainer page —
-  GET/HEAD only, a POST there 404s; the protocol lives only at `/mcp`.
+  GET/HEAD only, a POST there 404s; the protocol lives only at `/mcp`. That
+  page is **fully localized copy over an unchanged English protocol**: tool
+  titles/descriptions come from `MCP_TOOL_ES` (presentation layer, English tool
+  `name` kept in code beside the Spanish title), while `mcpTools()`,
+  `initialize` and the server card stay English and no tool takes a `lang`
+  argument. `MCP_LANGUAGE_NOTE` carries the policy the other way — it tells
+  CLIENTS to answer in the user's language, with NWS alert/forecast wording
+  flagged as unofficial when translated.
   **A Spanish page must link to Spanish pages.** `scripts/check-renders.mjs`
   enforces it: any anchor on an `/es` page pointing at a path in `PAGE_PATHS`
   must use the `/es` form. The language toggle is exempt (identified by
@@ -306,9 +313,11 @@ in Cloudflare DNS / external registries:
   the tools and go stale silently when a tool is added** — `CROSBY_WEATHER_SKILL`,
   `llmsTxt()`, `DEVELOPERS`/`DEVELOPERS_ES`'s "MCP server" section, and
   `README.md`. (`mcpServerCard()` and the MCP `initialize` instructions
-  derive/don't need updating — see the ops file.) Bump `server.json`'s
-  `version` in the same PR as any tool-set change; publishing is a separate,
-  manual step.
+  derive/don't need updating — see the ops file.) A sixth, `MCP_TOOL_ES`
+  (Spanish copy for `/es/mcp`), is the one that CANNOT go stale silently —
+  `scripts/check-renders.mjs` fails the build on a missing or orphaned entry.
+  Bump `server.json`'s `version` in the same PR as any tool-set change;
+  publishing is a separate, manual step.
 - **Email auth** (`docs/ops/email-auth.md`) — mail is iCloud-managed; DMARC
   (`_dmarc.crosbynews.com`, `p=reject`) is the one record this repo owns,
   reproducible with `node scripts/dmarc.mjs` (careful: re-running it as-is

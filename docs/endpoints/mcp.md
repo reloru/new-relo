@@ -10,7 +10,7 @@ The Model Context Protocol server. Stateless, Streamable HTTP, JSON-RPC 2.0.
 | **Handlers** | `mcpHandle(msg, env)` (`src/mcp/server.js`), dispatched from `routeRequest` |
 | **Methods** | `POST` for the protocol; `OPTIONS` → 204; `GET`/`HEAD` → the page (or 405 for `Accept: text/event-stream`); anything else → 405 |
 | **CORS** | `MCP_CORS` |
-| **Language** | English-only. `POST /es/mcp` **404s** — that path is a page, not an endpoint. |
+| **Language** | English-only — no tool takes a language argument. `POST /es/mcp` **404s** — that path is a page, not an endpoint. `MCP_LANGUAGE_NOTE` tells the CLIENT to answer the user in their own language anyway, and to mark any translation of NWS alert / detailed-forecast wording unofficial. |
 | **Registry** | published as `com.crosbynews/weather`, `remotes: [{streamable-http, https://crosbynews.com/mcp}]` |
 
 ## Request and batching
@@ -81,6 +81,10 @@ Five hand-maintained prose surfaces name the tools and go stale silently:
 `CROSBY_WEATHER_SKILL`, `llmsTxt()`, `DEVELOPERS`, `DEVELOPERS_ES`, and
 `README.md`. `mcpTools()` is the generated list; `mcpServerCard()` derives from
 it and cannot drift; the `initialize` `instructions` string names no tools.
+
+`MCP_TOOL_ES` (the Spanish copy for `/es/mcp`) is a sixth surface keyed by tool
+name, but **not** a silent one: `scripts/check-renders.mjs` fails the build on a
+tool with no entry, and on an orphan entry left behind by a rename or removal.
 
 **Adding or renaming a tool also means bumping `server.json`'s `version` and
 `MCP_SERVER_INFO.version` in the same PR.** Bumping does not publish — the
