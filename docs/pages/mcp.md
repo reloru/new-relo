@@ -32,8 +32,7 @@ Order matters:
 | Block | Source |
 |---|---|
 | What MCP is and what this server does | static |
-| **Spanish only:** an `Idioma` card — where the endpoint really is, that you can use it in Spanish anyway, and the alert-translation caveat | static |
-| Tool list — one `<li>` each | **generated from `mcpTools()`**, so it cannot drift from the protocol. English: `code` name + English description. Spanish: **Spanish name** + `code` name + Spanish description, from `MCP_TOOL_ES` |
+| Tool list — name + description, one `<li>` each | **generated from `mcpTools()`**, so it cannot drift from the protocol |
 | How to connect, with a copy-paste `claude mcp add` command | static |
 | Pointer to the server card and OpenAPI spec | static |
 
@@ -102,28 +101,5 @@ No inline script.
 lives at `/mcp`; the Spanish page repeatedly tells readers to connect to `/mcp`,
 never `/es/mcp`. A POST to `/es/mcp` 404s by design.
 
-**The Spanish page is fully localized copy over that unchanged English
-protocol** (2026-08-16). Tool titles and descriptions on `/es/mcp` come from
-`MCP_TOOL_ES` in `src/mcp/server.js` — presentation layer only. The protocol
-never sees it: `mcpTools()`, `initialize`, and the server card stay English, and
-no tool takes a language argument. The tool's real `name` stays in `<code>`
-beside the Spanish title, because that is the identifier the agent actually
-calls; a reader who wants raw technical metadata has the server card linked in
-the same section.
-
-Two things keep this honest rather than making it a sixth stale prose surface:
-
-- The list is still driven by `mcpTools()`, so a new tool **appears** on the
-  Spanish page (in English) rather than vanishing from it.
-- `scripts/check-renders.mjs` **fails the build** on a tool with no
-  `MCP_TOOL_ES` entry, and on an orphan entry whose tool was renamed or removed.
-
-The Spanish `Idioma` card also states the thing the page exists to prevent
-readers concluding: an English-only protocol does **not** mean an English-only
-experience — the agent answers in whatever language you write in. The one carve
--out it names is the same as `ES_NWS_NOTE`'s: NWS alert and detailed-forecast
-wording is official English with no official Spanish edition, so a translation
-explains but never replaces it. That policy is stated in-protocol too, via
-`MCP_LANGUAGE_NOTE` (appended to `initialize`'s `instructions` and folded into
-the `get_alerts` / `get_forecast` descriptions, since many clients read tool
-descriptions and never surface `instructions`).
+Tool names and descriptions come from `mcpTools()` and are English in both
+languages.

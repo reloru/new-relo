@@ -212,32 +212,6 @@ if (linkProblems.length) {
   process.exit(1);
 }
 
-// The /es/mcp page presents every tool in Spanish, from a hand dictionary keyed
-// by tool name. mcpTools() stays the single source of truth for WHICH tools
-// exist — a missing entry only degrades to English rather than dropping the
-// tool — but degrading silently is exactly how the other five prose surfaces
-// went stale, so adding a tool without its Spanish copy fails the build here.
-const { mcpTools, MCP_TOOL_ES } = await import(pathToFileURL(join(SRC, "mcp/server.js")).href);
-const untranslated = mcpTools()
-  .map((t) => t.name)
-  .filter((n) => !MCP_TOOL_ES[n]?.title || !MCP_TOOL_ES[n]?.description);
-if (untranslated.length) {
-  console.error(`\nMCP tools with no Spanish copy for /es/mcp (${untranslated.length}):\n`);
-  for (const n of untranslated) console.error(`  ${n}`);
-  console.error("\nAdd an entry to MCP_TOOL_ES in src/mcp/server.js (title + description).\n");
-  process.exit(1);
-}
-// The reverse: a renamed or removed tool leaves an orphan entry that no page
-// will ever render, which reads as coverage that isn't there.
-const toolNames = new Set(mcpTools().map((t) => t.name));
-const orphans = Object.keys(MCP_TOOL_ES).filter((n) => !toolNames.has(n));
-if (orphans.length) {
-  console.error(`\nMCP_TOOL_ES entries with no matching tool (${orphans.length}):\n`);
-  for (const n of orphans) console.error(`  ${n}`);
-  console.error("\nA tool was renamed or removed. Update MCP_TOOL_ES in src/mcp/server.js.\n");
-  process.exit(1);
-}
-
 if (failures.length) {
   console.error(`\nUnresolved references in ${failures.length} render path(s):\n`);
   for (const f of failures) {
