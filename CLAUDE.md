@@ -142,7 +142,10 @@ violate:
 - A **second workflow**, `.github/workflows/claude.yml`, runs the `@claude`
   assistant (`anthropics/claude-code-action@v1`, auth via the
   `CLAUDE_CODE_OAUTH_TOKEN` repo secret — unrelated to the Cloudflare
-  tokens). Deliberately unconstrained on tools: bare `Bash`, no turn cap.
+  tokens). Runs on a GitHub-hosted runner, **not** through the Claude Code
+  session's GitHub proxy — none of the GraphQL/repo-scoping/credential-
+  substitution restrictions in `docs/ops/github-security.md` apply to it.
+  Deliberately unconstrained on tools: bare `Bash`, no turn cap.
   **`allowed_bots` is unset and must stay that way** — a cloud session's
   comments already trigger it as `reloru` (the bot badge in the UI is
   `performed_via_github_app`, not the actor), unset is what prevents a
