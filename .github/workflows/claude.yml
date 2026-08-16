@@ -1,0 +1,89 @@
+name: Claude
+
+# Mention the trigger phrase (default "@claude") in an issue, an issue comment,
+# a PR review, or a PR review comment and Claude picks up the whole thread as
+# context and does what it was asked.
+#
+# Deliberately unconstrained on our end (owner policy, 2026-08-15): no
+# --max-turns cap, no --disallowedTools, no restricted Bash allowlist. The
+# intent is "do what we ask," so the tool surface is opened rather than
+# curated. Narrow it here if that ever stops being the intent.
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+  pull_request_review:
+    types: [submitted]
+  issues:
+    types: [opened, assigned, labeled]
+
+# NOTE: deliberately no `if:` guard filtering on the trigger phrase.
+#
+# The usual pattern short-circuits with `contains(github.event.comment.body,
+# '@claude')` to save runner minutes. GitHub expressions have no toLower(), and
+# contains() IS case-sensitive, so that guard silently drops "@Claude" — the
+# exact spelling a human is most likely to type at the start of a sentence.
+# A dropped trigger looks identical to a broken workflow, so the guard is
+# omitted and the action does its own (case-insensitive) trigger detection.
+# The cost is a runner that starts and exits early on non-matching comments.
+
+jobs:
+  claude:
+    name: Claude
+    runs-on: ubuntu-latest
+
+    # Wide by design — Claude opens branches and PRs, comments, and reads CI.
+    # `contents: write` is what lets it push a branch; it still cannot push to
+    # `main`, which is protected by new-relo-main-ruleset (PR mandatory,
+    # linear history, both required checks) — see docs/ops/ci-cd.md. That
+    # ruleset, not this token, is the backstop on production.
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      actions: read
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # Full history so Claude can read context, diff against main, and
+          # rebase/merge without a shallow-clone surprise.
+          fetch-depth: 0
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+
+          # Humans: the action already allows anyone with WRITE access to the
+          # repo, which covers the owner. No allowlist needed for that.
+          #
+          # Bots: bot-authored comments are rejected by default, so this is
+          # what lets a Claude Code cloud session (which comments under a bot
+          # identity) fire the workflow. "*" allows every bot rather than
+          # naming one, since the exact bot login differs by which credential
+          # path posted the comment.
+          #
+          # What this does and does not expose, stated plainly: a random
+          # internet user CANNOT use this, because they cannot make a bot
+          # comment on this repo — only Apps already installed on
+          # reloru/new-relo can. The real surface is those installed Apps
+          # (Dependabot, CodeQL, Claude). Replace with an explicit list
+          # (e.g. "claude[bot],github-actions[bot]") to shrink it.
+          allowed_bots: "*"
+
+          # Lets Claude read CI: get_ci_status, get_workflow_run_details,
+          # download_job_log. Pairs with `actions: read` above — both are
+          # required, one grants the token scope and one turns the tools on.
+          additional_permissions: |
+            actions: read
+
+          # Full standard toolset. Bare `Bash` (no parenthesised command
+          # filter) permits any shell command, which is the point here.
+          #
+          # To go further still, swap the whole --allowedTools line for
+          # `--dangerously-skip-permissions`, which bypasses the permission
+          # layer outright instead of enumerating it.
+          claude_args: |
+            --allowedTools "Bash,Read,Write,Edit,NotebookEdit,Glob,Grep,WebFetch,WebSearch,TodoWrite,Task"

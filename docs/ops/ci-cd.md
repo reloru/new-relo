@@ -1,7 +1,10 @@
 # CI / GitHub Actions
 
-Current expected state of `.github/workflows/deploy.yml` and the branch-merge
-gates it feeds. Overwritten in place — no history; see `docs/README.md`.
+Current expected state of the repo's two workflows —
+`.github/workflows/deploy.yml` (CI + production deploy) and
+`.github/workflows/claude.yml` (the `@claude` assistant) — and the
+branch-merge gates the first one feeds. Overwritten in place — no history;
+see `docs/README.md`.
 
 ## The three jobs
 
@@ -115,6 +118,64 @@ hangs; `| head -20` is fine. Redirect to a file, or use `tail`.
   Node the steps themselves use.
 - Repo secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` are set at
   the repository level — same token as used by the manual deploy path.
+
+## `claude.yml` — the `@claude` assistant workflow
+
+Separate workflow, `anthropics/claude-code-action@v1`. Mentioning the
+trigger phrase (default `@claude`) in an issue, an issue comment, a PR
+review, or a PR review comment hands Claude the thread as context and it
+does what it was asked — commenting back, or pushing a branch and opening
+a PR.
+
+Auth is `secrets.CLAUDE_CODE_OAUTH_TOKEN` (repo secret, owner-configured).
+That is a **different credential from `CLOUDFLARE_API_TOKEN`** and grants
+nothing on Cloudflare; a compromise there costs a Claude quota, not the
+site.
+
+**Deliberately unconstrained** (owner policy, 2026-08-15): no `--max-turns`
+cap, no `--disallowedTools`, and bare `Bash` in `--allowedTools` (no
+parenthesised command filter), so any shell command is permitted. The
+intent is "do what we ask," so the tool surface is opened rather than
+curated. `--dangerously-skip-permissions` is the further step if even the
+enumerated allowlist becomes the thing in the way.
+
+Three things worth knowing before changing it:
+
+- **Who can fire it.** Humans need **write access** to the repo — that is
+  the action's own default and it is what covers the owner; there is no
+  human allowlist to maintain. Bot-authored comments are rejected by
+  default, so `allowed_bots: "*"` is what lets a Claude Code cloud session
+  fire it, since those comments post under a bot identity. Note this does
+  **not** open the repo to the public despite it being a public repo: an
+  arbitrary internet user cannot make a bot comment here — only Apps
+  already installed on `reloru/new-relo` can (Dependabot, CodeQL, Claude).
+  Naming those explicitly instead of `"*"` shrinks the surface.
+- **A `GITHUB_TOKEN`-authored comment cannot re-fire it, ever.** GitHub's
+  documented rule: "Events triggered by the `GITHUB_TOKEN` will not create
+  a new workflow run" (recursion prevention; `workflow_dispatch` and
+  `repository_dispatch` are the exceptions). So Claude-inside-this-workflow
+  writing `@claude` in a comment is inert, and `allowed_bots` does not
+  override it — that is a platform rule, not a config gap. A cloud
+  session's comments are unaffected, because they carry a *different*
+  installation token than this workflow's `GITHUB_TOKEN`.
+- **No `if:` trigger-phrase guard, on purpose.** The common pattern gates
+  the job with `contains(github.event.comment.body, '@claude')`. GitHub
+  expressions have no `toLower()` and `contains()` is case-sensitive, so
+  that guard silently drops `@Claude` — the spelling a human most often
+  types at the start of a sentence, and a dropped trigger is
+  indistinguishable from a broken workflow. The action does its own
+  case-insensitive detection, so the guard is omitted and a runner starts
+  (then exits early) on non-matching comments. Do not "optimize" it back
+  in without handling case.
+
+`permissions:` is `contents: write`, `pull-requests: write`,
+`issues: write`, `actions: read`, `id-token: write`. `contents: write` is
+what lets Claude push a branch; it still **cannot** push to `main`, which
+`new-relo-main-ruleset` protects (PR mandatory, linear history, both
+required checks). That ruleset — not this token's scope — is the backstop
+on production. `actions: read` pairs with `additional_permissions:
+actions: read`: one grants the token scope, the other enables the CI-reading
+tools (`get_ci_status`, `get_workflow_run_details`, `download_job_log`).
 
 ## Branch workflow after a squash-merge
 
