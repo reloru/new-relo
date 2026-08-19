@@ -5,7 +5,7 @@
 // src/router.js and the cron is src/cron.js.
 //
 // fetch():     dispatch, then stamp every response with the security headers
-//              and — for the 38 content paths — the canonical Link header.
+//              and — for the 40 content paths — the canonical Link header.
 // scheduled(): refresh the cron-owned KV keys.
 
 import { SITE } from "./config.js";
