@@ -80,17 +80,41 @@ them by *bytes*, never by reading the toggles. Email obfuscation in particular
 would corrupt the `"email"` field in the homepage JSON-LD, so re-check it if
 structured data ever looks wrong.
 
-## HSTS
+## HSTS and the preload list
 
 `max-age=63072000` with `includeSubDomains`, set at the zone edge *and* by the
 Worker (`src/index.js`); Cloudflare de-dupes to a single header.
 
-If HSTS preload is ever turned on, the Worker's own header string must carry
-`preload` too — otherwise whichever copy survives de-duplication may lack the
-directive and hstspreload.org will reject the submission. Confirm with
-`curl -sI https://crosbynews.com/ | grep -i strict` before submitting. Preload is
-close to irreversible: removal takes months to reach released browsers, and it
-commits every present and future subdomain to HTTPS permanently.
+**Which copy survives de-duplication is not documented by Cloudflare, and could
+not be determined by observation while the two agreed byte-for-byte.** The Worker
+now sends `preload` and the zone (by default) does not, so the live header
+answers it directly:
+
+```bash
+curl -sI https://crosbynews.com/ | grep -i strict-transport
+```
+
+`preload` present → the Worker's header wins. Absent → the zone's does, and the
+zone-level Preload switch must be turned on for the directive to ship at all.
+
+Two things about `preload` that are easy to get wrong:
+
+- **It is a consent marker, not a behaviour.** No browser acts on the word. What
+  browsers act on is a list compiled into the binary. The directive is therefore
+  inert on its own, and safe to ship before any decision is final.
+- **Cloudflare does not submit the domain for you.** The list is maintained by
+  the Chromium project at hstspreload.org and ingested by Firefox, Safari and
+  Edge; submission there is a separate manual step. Cloudflare's Preload switch
+  only adds the same word to the header.
+
+Do not submit lightly. Removal means getting off a list baked into shipped
+browser binaries and waiting out release cycles — months — and acceptance
+permanently commits every present and future subdomain to HTTPS.
+
+Also note the zone's HSTS dialog offers a **max-age dropdown that can be blank**
+(`Select…`) while the zone already serves a longer value. Saving that form without
+explicitly choosing a duration risks lowering `max-age`; preload requires at least
+one year.
 
 ## Certificate Transparency Monitoring
 

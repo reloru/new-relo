@@ -37,6 +37,10 @@ crosbynews.com. Overwritten in place — no history; see `docs/README.md`.
   Certificates → HSTS: `max-age=63072000; includeSubDomains`, no preload)
   so the header lands on edge-generated responses too — notably the `www`
   → apex 301, which the Worker never sees (the redirect rule runs before
-  it) and so can't stamp HSTS on. The Worker ALSO sets the same HSTS on
-  its own (apex) responses; Cloudflare de-dupes, leaving a single header.
+  it) and so can't stamp HSTS on. The Worker ALSO sets HSTS on its own
+  (apex) responses; Cloudflare de-dupes, leaving a single header.
   Zone/dashboard config, not wrangler.jsonc.
+  The Worker's copy carries `preload` and the zone's does not, so the live
+  header now reveals which one survives de-duplication — see
+  `docs/ops/cloudflare-zone.md`. The directive is inert until the domain is
+  submitted to hstspreload.org, which Cloudflare does **not** do for you.
