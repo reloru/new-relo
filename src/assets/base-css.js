@@ -35,8 +35,12 @@ export const BASE_CSS = `
     .topbar nav .lang { order:1; }
     .topbar nav .nav-menu { order:2; }
     .nav-menu { display:block; position:relative; }
-    /* A real 44px tap target for the hamburger, comfortably clear of Español. */
-    .nav-menu summary { display:flex; align-items:center; justify-content:center; cursor:pointer; list-style:none; font-size:1.5rem; line-height:1; opacity:0.95; color:#fff; width:2.2rem; height:2.2rem; margin-right:-0.4rem; }
+    /* A real 44px tap target for the hamburger, comfortably clear of Español.
+       2.75rem, NOT 2.2rem: there is no root font-size override, so 1rem is the
+       browser default 16px and 2.2rem rendered 35px — under Apple's 44pt
+       minimum, 15px from the Español button, and a genuine source of mis-taps.
+       Keep this in rem and keep it >= 2.75. */
+    .nav-menu summary { display:flex; align-items:center; justify-content:center; cursor:pointer; list-style:none; font-size:1.5rem; line-height:1; opacity:0.95; color:#fff; width:2.75rem; height:2.75rem; margin-right:-0.4rem; }
     .nav-menu summary::-webkit-details-marker { display:none; }
     .nav-links { display:none; }
     .nav-menu[open] .nav-links { display:flex; flex-direction:column; position:absolute; right:0; top:calc(100% + 0.5rem); background:var(--blue); padding:0.7rem 1.1rem 0.9rem; border-radius:10px; z-index:10; gap:0.15rem; min-width:13rem; box-shadow:0 6px 16px rgba(0,0,0,0.35); }

@@ -296,6 +296,17 @@ datacenter IPs, so `scripts/fetch-news.mjs` runs out-of-band on a Claude
 routine and writes straight to the WEATHER KV `news` key. The Worker only
 reads it (`loadNews()` is read-only, no cron involvement).
 
+## Analytics — there is none
+**No analytics script ships, and the CSP allows no third-party script origin at
+all.** Cloudflare Web Analytics was auto-injected at the zone edge (never in this
+repo) until it was deleted 2026-08-19. Two traps, both in
+`docs/ops/analytics.md`: the beacon is **invisible to a default-UA `curl`**
+(Cloudflare only injects it for browser-looking requests, so check with a real
+browser UA + HTML `Accept`), and `/privacy` + `/about` state "no third-party
+analytics scripts" in BOTH languages — that claim and the CSP are one change, so
+adding any vendor means editing `src/pages/privacy.js`, `src/pages/about.js` and
+`contentSecurityPolicy()` together.
+
 ## DNS-AID, MCP Registry, Email auth
 Three more `docs/ops/` topics, none of which live in the Worker — all lives
 in Cloudflare DNS / external registries:

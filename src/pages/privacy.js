@@ -42,7 +42,8 @@ export const PRIVACY = {
     {
       h: "Analytics",
       p: [
-        "Page visits are counted anonymously and in aggregate — without cookies, without fingerprinting, and without anything that identifies you or follows you across other sites.",
+        "There are none. crosbynews.com runs no analytics script — nothing loads in your browser to count, profile, or report your visit, and no third-party analytics service is used.",
+        "Cloudflare, which serves the site, keeps aggregate server-side request logs as part of delivering the page, the way any web host does. That is not something this site adds to your browser, and it carries no analytics identifier.",
       ],
     },
     {
@@ -87,7 +88,8 @@ export const PRIVACY_ES = {
     {
       h: "Analítica",
       p: [
-        "Las visitas se cuentan de forma anónima y agregada, sin cookies, sin huellas digitales (fingerprinting) y sin nada que te identifique o te siga por otros sitios.",
+        "No hay ninguna. crosbynews.com no ejecuta ningún script de analítica: nada se carga en tu navegador para contar, perfilar ni informar tu visita, y no se usa ningún servicio de analítica de terceros.",
+        "Cloudflare, que sirve el sitio, conserva registros agregados de solicitudes del lado del servidor como parte de entregar la página, igual que cualquier proveedor de alojamiento. Eso no es algo que este sitio agregue a tu navegador y no lleva ningún identificador de analítica.",
       ],
     },
     {

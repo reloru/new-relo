@@ -14,7 +14,7 @@
 // Registered from HOME_SCRIPT (its CSP hash recomputes automatically).
 export const SW_SCRIPT = `// crosbynews.com service worker - offline cache of storm-critical pages
 // plus severe-alert Web Push (empty wake-up + local composition).
-var CACHE = "crosby-v2";
+var CACHE = "crosby-v3";
 var PRECACHE = ["/", "/alerts", "/es", "/es/alerts", "/manifest.json", "/favicon.svg"];
 // Warning events that earn a push (life-threatening; warnings only, never
 // watches/advisories - avoids alert fatigue). Kept in sync with the Worker's
@@ -66,9 +66,34 @@ self.addEventListener("fetch", function (e) {
     return;
   }
 
-  // Precached assets (favicon, manifest): cache first, network fallback.
+  // Precached assets (favicon, manifest): stale-while-revalidate. Serve the
+  // cached copy immediately - still instant, still works offline - but always
+  // kick off a background fetch that refreshes it for next time.
+  //
+  // Plain cache-first was a trap here. The pages in PRECACHE never reach this
+  // branch (navigations return above), but /manifest.json and /favicon.svg do,
+  // and cache-first has no expiry: an installed PWA would keep the manifest it
+  // downloaded at install FOREVER - wrong name, icons, theme colour or
+  // start_url - and the only thing that ever cleared it was bumping CACHE.
+  // That failure is silent and invisible on a fresh device, so it would only
+  // ever be found by the one user who already installed the app.
   if (PRECACHE.indexOf(url.pathname) !== -1) {
-    e.respondWith(caches.match(req, { ignoreVary: true }).then(function (hit) { return hit || fetch(req); }));
+    e.respondWith(
+      caches.match(req, { ignoreVary: true }).then(function (hit) {
+        var fresh = fetch(req).then(function (res) {
+          if (res && res.ok) {
+            var copy = res.clone();
+            caches.open(CACHE).then(function (c) { c.put(req, copy); });
+          }
+          return res;
+        });
+        // Offline with nothing cached is the only case that can reject, and
+        // respondWith needs that rejection to surface as a normal failure.
+        if (!hit) return fresh;
+        e.waitUntil(fresh.catch(function () {}));
+        return hit;
+      })
+    );
   }
 });
 

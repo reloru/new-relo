@@ -22,11 +22,17 @@ decomposition reunited.
 Static, from the `PRIVACY` object. Sections cover:
 
 - No cookies, no trackers, no accounts, no personal data collected
-- What request logging exists and what it is used for
 - Third-party data sources — requests go to *us*, and we fetch upstream
   server-side, so the visitor's browser never contacts NWS, EPA, USGS, TranStar
   or the rest
-- Analytics posture
+- Analytics posture — **there is no analytics script at all.** Cloudflare Web
+  Analytics was auto-injected at the zone edge until 2026-08-19, when the site
+  was deleted; the CSP no longer allows `static.cloudflareinsights.com` or
+  `cloudflareinsights.com`. The section says so, and names Cloudflare's ordinary
+  server-side request logging as the one thing that remains. Full detail in
+  `docs/ops/analytics.md`. Adding analytics back means changing this section, the
+  matching `/about` block, and the CSP together — the claim and the code must
+  move as one
 - **Push notifications** — only an anonymous push subscription is stored, no
   message content travels through it, and it is deletable at any time
 
@@ -53,7 +59,9 @@ message content is transmitted, which is exactly what the policy claims.
 
 ## CSP
 
-No inline script.
+No inline script. As of 2026-08-19 the sitewide policy allows **no third-party
+script origin at all** — the `static.cloudflareinsights.com` / `cloudflareinsights.com`
+allowances were removed when Web Analytics was deleted at the zone.
 
 ## Locale
 

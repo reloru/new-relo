@@ -12,8 +12,10 @@ is at its flakiest exactly when the site matters most.
 
 ## Cache version
 
-`CACHE = "crosby-v2"`. **Bump it when changing this script's behavior** — the
-`activate` handler sweeps every cache whose name is not the current one.
+`CACHE = "crosby-v3"`. **Bump it when changing this script's behavior** — the
+`activate` handler sweeps every cache whose name is not the current one. Bumped
+from `crosby-v2` on 2026-08-19 with the revalidation change below, which also
+swept the manifest/favicon copies that had been frozen since install.
 
 `PRECACHE`: `/`, `/alerts`, `/es`, `/es/alerts`, `/manifest.json`,
 `/favicon.svg` — the storm-critical set.
@@ -24,7 +26,16 @@ is at its flakiest exactly when the site matters most.
   query-less response is cached as it goes (query-ful URLs are skipped so
   variants cannot bloat the cache). Offline, it falls back to the cached copy, or
   to the language hub (`/es` for `/es/*`, else `/`).
-- **Precached assets:** cache-first, network fallback.
+- **Precached assets:** **stale-while-revalidate** — the cached copy is served
+  immediately (still instant, still offline-proof) and a background fetch
+  refreshes it for next time. Never revert this to plain cache-first. Navigations
+  return from the branch above and never reach here, so the only paths this
+  actually serves are `/manifest.json` and `/favicon.svg` — and cache-first has
+  no expiry, so an installed PWA kept the manifest it downloaded at install
+  forever (wrong name, icons, theme colour or `start_url`), with a `CACHE` bump
+  the only escape. Silent, and invisible on a fresh device because only
+  already-installed clients are affected. `scripts/test-sw-revalidate.mjs` is the
+  regression gate; it reports `v1,v1,v1` against the old cache-first code.
 - Non-GET and cross-origin requests are ignored.
 
 ## The `ignoreVary` gotcha

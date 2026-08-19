@@ -28,4 +28,13 @@ The web app manifest. Makes the site installable and names the PWA.
 
 ## Precached
 
-`/manifest.json` is in the service worker's `PRECACHE` list.
+`/manifest.json` is in the service worker's `PRECACHE` list, served
+**stale-while-revalidate**: an installed client gets the cached copy instantly
+and a background fetch refreshes it for the next load.
+
+This used to be plain cache-first, which meant an edit here **never reached an
+already-installed PWA** — no expiry, no revalidation, and only a `CACHE` bump in
+`src/assets/sw-script.js` could dislodge it. Fixed 2026-08-19; `CACHE` went to
+`crosby-v3` in the same change so the frozen copies were swept. Editing this file
+no longer requires a `CACHE` bump, but it still takes one extra load to appear —
+the first load after a change serves the stale copy by design.
