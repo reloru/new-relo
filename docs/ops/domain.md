@@ -40,7 +40,9 @@ crosbynews.com. Overwritten in place — no history; see `docs/README.md`.
   it) and so can't stamp HSTS on. The Worker ALSO sets HSTS on its own
   (apex) responses; Cloudflare de-dupes, leaving a single header.
   Zone/dashboard config, not wrangler.jsonc.
-  The Worker's copy carries `preload` and the zone's does not, so the live
-  header now reveals which one survives de-duplication — see
-  `docs/ops/cloudflare-zone.md`. The directive is inert until the domain is
-  submitted to hstspreload.org, which Cloudflare does **not** do for you.
+  **The zone's copy wins** — measured 2026-08-19 with the Worker sending
+  `preload` and the zone not: the directive never appeared, on any route.
+  So the Worker's HSTS line is a fallback for "zone HSTS switched off", not
+  the live value; change HSTS at the zone. Details in
+  `docs/ops/cloudflare-zone.md`. Preload also needs a manual submission to
+  hstspreload.org, which Cloudflare does **not** do for you.
