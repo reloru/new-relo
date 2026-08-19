@@ -307,6 +307,17 @@ analytics scripts" in BOTH languages — that claim and the CSP are one change, 
 adding any vendor means editing `src/pages/privacy.js`, `src/pages/about.js` and
 `contentSecurityPolicy()` together.
 
+## Cloudflare zone gotchas
+**Cloudflare can rewrite a response after the Worker returns it, and nothing in
+this repo can see that.** It injected an analytics tracker into every page for
+months while `/privacy` claimed otherwise. Two rules from
+`docs/ops/cloudflare-zone.md`: audit the edge by **bytes with a real browser UA
+and an HTML `Accept` header** (a default-UA `curl` sees nothing — that is what
+hid it), and **never delete the `_acme-challenge` TXT records** — they look like
+issuance leftovers but are the certificate packs' DCV proof, so removing them
+kills renewal silently, weeks later. That file records consequences only, not
+the zone's current security posture: this repo is public.
+
 ## DNS-AID, MCP Registry, Email auth
 Three more `docs/ops/` topics, none of which live in the Worker — all lives
 in Cloudflare DNS / external registries:

@@ -36,9 +36,15 @@ method. `/mcp` does: `GET /mcp` is a human explainer page (`pages/mcp.md`),
 The parallel tree for operational config that isn't a page or an endpoint —
 CI/CD, GitHub repo/branch-protection settings, domain/DNS attachment,
 DNS-AID, the MCP Registry listing, email auth (SPF/DKIM/DMARC), analytics
-(there is none — `analytics.md` records why and how it was removed), and the
+(there is none — `analytics.md` records why and how it was removed), the
+Cloudflare zone's load-bearing quirks (`cloudflare-zone.md`), and the
 out-of-band news pipeline. Same no-history rule as `pages/`/`endpoints/`:
 one topic, one file, current state only.
+
+`cloudflare-zone.md` is the one exception to "current state": it deliberately
+records **consequences, not configuration**. This repo is public, and a summary
+of which protections are active is free reconnaissance — so that file says what
+would break if a setting changed, and leaves current state to the API.
 
 This exists so `CLAUDE.md` doesn't have to carry the full detail on things
 that are true regardless of which page or route touches them — CLAUDE.md
