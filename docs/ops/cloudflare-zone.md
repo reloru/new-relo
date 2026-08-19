@@ -85,17 +85,26 @@ structured data ever looks wrong.
 `max-age=63072000` with `includeSubDomains`, set at the zone edge *and* by the
 Worker (`src/index.js`); Cloudflare de-dupes to a single header.
 
-**Which copy survives de-duplication is not documented by Cloudflare, and could
-not be determined by observation while the two agreed byte-for-byte.** The Worker
-now sends `preload` and the zone (by default) does not, so the live header
-answers it directly:
+**The zone's copy wins. The Worker's `strict-transport-security` line is
+overwritten at the edge and never reaches a browser.**
+
+Measured 2026-08-19, after deploying a Worker header carrying `preload` while the
+zone setting had preload off. Across 18 samples of `/`, plus `/alerts`, plus the
+`www` → apex 301, the live header was `max-age=63072000; includeSubDomains` every
+time — the zone's value, never the Worker's:
 
 ```bash
 curl -sI https://crosbynews.com/ | grep -i strict-transport
 ```
 
-`preload` present → the Worker's header wins. Absent → the zone's does, and the
-zone-level Preload switch must be turned on for the directive to ship at all.
+Two consequences:
+
+- **Editing the HSTS string in `src/index.js` does nothing while the zone setting
+  is enabled.** Anyone changing it and expecting an effect will be misled. Keep
+  the line — it is the fallback if zone HSTS is ever switched off — but change
+  HSTS at the zone.
+- **Preload requires the zone-level Preload switch.** Adding `preload` in the
+  Worker was necessary groundwork but is not sufficient on its own.
 
 Two things about `preload` that are easy to get wrong:
 
