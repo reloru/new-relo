@@ -264,11 +264,17 @@ export async function sha256Base64(str) {
   return btoa(bin);
 }
 
-// Content-Security-Policy. Scripts are limited to same-origin, the one inline
-// homepage block (allow-listed by its exact hash), and Cloudflare Web Analytics,
-// whose beacon.min.js (static.cloudflareinsights.com) Cloudflare injects into
-// browser responses and which reports to cloudflareinsights.com. 'unsafe-inline'
-// is a backward-compat fallback only — browsers that honour the hash ignore it.
+// Content-Security-Policy. Scripts are limited to same-origin and the inline
+// blocks allow-listed by their exact hashes — no third-party script origin is
+// permitted at all. Cloudflare Web Analytics used to be the one exception: its
+// beacon.min.js (static.cloudflareinsights.com) was injected at the edge, not by
+// this Worker, and reported to cloudflareinsights.com. That site was deleted on
+// 2026-08-19, so the allowances are gone and the policy now matches the "no
+// third-party analytics scripts" claim on /privacy and /about. Adding any
+// analytics vendor means widening script-src AND connect-src here and correcting
+// both pages in both languages — see docs/ops/analytics.md.
+// 'unsafe-inline' is a backward-compat fallback only — browsers that honour the
+// hash ignore it.
 // Inline <style> blocks/attributes still need 'unsafe-inline' on style-src.
 // Computed once per isolate and cached.
 let CSP_CACHE = null;
@@ -284,8 +290,8 @@ export async function contentSecurityPolicy() {
       "frame-ancestors 'self'",
       "img-src 'self' data:",
       "style-src 'self' 'unsafe-inline'",
-      `script-src 'self' 'unsafe-inline' 'sha256-${scriptHash}' 'sha256-${pushHash}' 'sha256-${newsAdminHash}' https://static.cloudflareinsights.com`,
-      "connect-src 'self' https://cloudflareinsights.com",
+      `script-src 'self' 'unsafe-inline' 'sha256-${scriptHash}' 'sha256-${pushHash}' 'sha256-${newsAdminHash}'`,
+      "connect-src 'self'",
       "form-action 'self'",
     ].join("; ");
   }

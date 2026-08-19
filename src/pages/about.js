@@ -44,7 +44,7 @@ export const ABOUT = {
       h: "Privacy",
       p: [
         "No cookies, no ads, no trackers, no personal data. crosbynews.com doesn't set cookies, show ads, or run third-party tracking or advertising networks, and it never asks for or collects personal information about you.",
-        "Page visits are counted anonymously and in aggregate — without cookies, without fingerprinting, and without anything that identifies you or follows you across other sites.",
+        "There is no analytics script either — nothing loads in your browser to count, profile, or report your visit.",
       ],
       links: [{ href: "/privacy", label: "Full privacy policy", note: "no cookies, ads, trackers, or personal data" }],
     },
@@ -104,7 +104,7 @@ export const ABOUT_ES = {
       h: "Privacidad",
       p: [
         "Sin cookies, sin anuncios, sin rastreadores, sin datos personales. crosbynews.com no usa cookies, no muestra anuncios ni ejecuta redes de rastreo o publicidad de terceros, y nunca pide ni recopila información personal sobre ti.",
-        "Las visitas se cuentan de forma anónima y agregada, sin cookies, sin huellas digitales (fingerprinting) y sin nada que te identifique o te siga por otros sitios.",
+        "Tampoco hay ningún script de analítica: nada se carga en tu navegador para contar, perfilar ni informar tu visita.",
       ],
       links: [{ href: "/es/privacy", label: "Política de privacidad completa", note: "sin cookies, anuncios, rastreadores ni datos personales" }],
     },
