@@ -125,6 +125,48 @@ Also note the zone's HSTS dialog offers a **max-age dropdown that can be blank**
 explicitly choosing a duration risks lowering `max-age`; preload requires at least
 one year.
 
+## CAA — do not narrow it, and do not "clean up" the extra entries
+
+CAA records restrict which certificate authorities may issue for the domain. Added
+2026-08-19; before that any publicly-trusted CA could issue.
+
+**Two CAs are load-bearing and must always be permitted**: `pki.goog` (Google
+Trust Services — the advanced pack and the backup) and `letsencrypt.org` (the
+universal pack). Removing either breaks renewal.
+
+**`issuewild` entries are mandatory**, not optional garnish: the zone's
+certificate covers `*.crosbynews.com`, and a CAA set with only `issue` blocks
+wildcard issuance.
+
+**Cloudflare silently adds more CAs than you write.** Nine records were created by
+hand; **thirteen** publish. Cloudflare backfilled `comodoca.com` and
+`digicert.com` on its own — these do not appear in the dashboard and are visible
+only over DNS. They are correct. Do not delete them as cruft; they exist so a
+Cloudflare CA rotation does not break issuance. (This automatic backfill is
+documented as *not* applying to Advanced Certificate Manager. This zone is Free
+plan with no ACM subscription, so it does apply here — if ACM is ever purchased,
+re-check that the backfill still covers the CAs in use.)
+
+**Never follow the common scanner advice** to "restrict the issue tag to your
+actual certificate provider." Cloudflare rotates among several partner CAs, and
+its own documentation says the list "is not exhaustive, and other CAs might be
+added or removed for operational reasons." Narrowing to the CA currently issuing
+is the exact change that kills renewal weeks later.
+
+Verify over DNS, never from the dashboard, and confirm both load-bearing CAs
+survive any edit:
+
+```bash
+curl -s 'https://dns.google/resolve?name=crosbynews.com&type=CAA' \
+  | python3 -c "import json,sys; [print(a['data']) for a in json.load(sys.stdin).get('Answer',[])]"
+```
+
+The `iodef` entry points at `security@crosbynews.com` — already published in
+`/.well-known/security.txt`, so it adds no new address to public DNS, and
+delivery to the owner's mailbox was verified before it was set. A conforming CA
+reports blocked issuance attempts there, which is the warning that a CAA edit has
+broken renewal *before* the certificate expires.
+
 ## Certificate Transparency Monitoring
 
 Emails whenever any CA issues a certificate for the domain — the only signal that
