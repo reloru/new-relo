@@ -22,8 +22,10 @@ Upcoming district events grouped by month, plus one-tap subscribe links.
 
 ## Data
 
-Cron + KV, key `calendar`, cron-owned, throttled to ~6h — it changes rarely, and
-unlike Google News the Worker **can** reach `crosbyisd.org`.
+Cron + KV, key `calendar`, cron-owned, throttled to ~24h — it changes rarely
+(this is not the mechanism for same-day closure announcements; those aren't
+published to this calendar feed at all), and unlike Google News the Worker
+**can** reach `crosbyisd.org`.
 
 `fetchCalendar()` reads the district's combined "All Calendars" iCal feed
 (`feedID=BB92BE3D…`), which is the union of every campus. A tiny hand-rolled

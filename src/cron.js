@@ -5,8 +5,10 @@
 // is written out-of-band by scripts/fetch-news.mjs.
 //
 // Cadences differ on purpose: weather/water/fishing/traffic every tick (they
-// move fast), tropics ~1h, pollen ~2h (one count per weekday morning),
-// calendar ~6h.
+// move fast), tropics ~1h June-November (Atlantic hurricane season) and ~24h
+// the rest of the year, pollen only on weekday mornings once that day's count
+// has posted (HHD publishes one count per weekday — polling more often buys
+// nothing), and calendar ~24h (Crosby ISD's calendar changes rarely).
 //
 // Every branch that actually FETCHES records its outcome through the recorder,
 // written once at the end to the `cron_status` key — the only place
@@ -17,7 +19,7 @@
 // there, which is what lets /api/health report when the data on the page
 // actually changed rather than when it was last rewritten.
 
-import { KV_KEY } from "./config.js";
+import { KV_KEY, TZ } from "./config.js";
 import { fetchWeather } from "./features/weather.js";
 import { fetchCalendar, CALENDAR_KV_KEY } from "./features/calendar.js";
 import { fetchWater, WATER_KV_KEY } from "./features/water.js";
@@ -25,6 +27,7 @@ import { fetchFishing, FISHING_KV_KEY } from "./features/fishing.js";
 import { fetchTropics, TROPICS_KV_KEY } from "./features/tropics.js";
 import { fetchTraffic, TRAFFIC_KV_KEY } from "./features/traffic.js";
 import { fetchPollen, POLLEN_KV_KEY } from "./features/pollen.js";
+import { ctDateStr } from "./features/air.js";
 import { pushSevereAlerts } from "./push.js";
 import { cronRunRecorder, recordCronRun } from "./api/health.js";
 
@@ -49,13 +52,16 @@ export async function scheduled(event, env, ctx) {
       console.error("Cron weather refresh failed:", e && e.stack);
       run.failed("weather", e);
     }
-    // Refresh the Crosby ISD school calendar at most ~every 6h (it changes
-    // rarely and the Worker CAN reach crosbyisd.org). Independent try/catch so a
-    // calendar hiccup never affects the weather refresh above.
+    // Refresh the Crosby ISD school calendar at most ~every 24h — it changes
+    // rarely (a handful of new events a month, not per day) and the Worker CAN
+    // reach crosbyisd.org. This is NOT how same-day closure announcements would
+    // reach users: those aren't published to this calendar feed at all, so
+    // there's nothing here for a tighter cadence to catch sooner. Independent
+    // try/catch so a calendar hiccup never affects the weather refresh above.
     try {
       const cur = await env.WEATHER.get(CALENDAR_KV_KEY, "json");
       const age = cur?.updated ? Date.now() - new Date(cur.updated).getTime() : Infinity;
-      if (!cur || !Array.isArray(cur.events) || age > 6 * 3600 * 1000) {
+      if (!cur || !Array.isArray(cur.events) || age > 24 * 3600 * 1000) {
         await env.WEATHER.put(CALENDAR_KV_KEY, JSON.stringify(await fetchCalendar()));
         run.ok("calendar");
       }
@@ -83,13 +89,21 @@ export async function scheduled(event, env, ctx) {
       console.error("Cron fishing refresh failed:", e && e.stack);
       run.failed("fishing", e);
     }
-    // Refresh the Atlantic tropical outlook at most ~hourly (NHC advisories
-    // update every 2-6h). fetchTropics() throws on failure, so a transient
-    // NHC outage skips the write and the last snapshot survives.
+    // Refresh the Atlantic tropical outlook at most ~hourly during hurricane
+    // season (June-November, Central time, when NHC advisories update every
+    // 2-6h) and at most ~daily the rest of the year (NHC issues far fewer
+    // outlooks off-season, so hourly polling buys nothing then). Month is
+    // read in Central time, not UTC, so a late-night UTC rollover can't flip
+    // the season boundary for a Central-time site. fetchTropics() throws on
+    // failure, so a transient NHC outage skips the write and the last
+    // snapshot survives.
     try {
       const cur = await env.WEATHER.get(TROPICS_KV_KEY, "json");
       const age = cur?.updated ? Date.now() - new Date(cur.updated).getTime() : Infinity;
-      if (!cur || !Array.isArray(cur.storms) || age > 3600 * 1000) {
+      const month = new Date().toLocaleDateString("en-US", { timeZone: TZ, month: "short" });
+      const inSeason = ["Jun", "Jul", "Aug", "Sep", "Oct", "Nov"].includes(month);
+      const threshold = inSeason ? 3600 * 1000 : 24 * 3600 * 1000;
+      if (!cur || !Array.isArray(cur.storms) || age > threshold) {
         await env.WEATHER.put(TROPICS_KV_KEY, JSON.stringify(await fetchTropics()));
         run.ok("tropics");
       }
@@ -108,16 +122,22 @@ export async function scheduled(event, env, ctx) {
       console.error("Cron traffic refresh failed:", e && e.stack);
       run.failed("traffic", e);
     }
-    // Refresh the pollen & mold count at most ~every 2h — HHD publishes one
-    // count per weekday morning, so this catches a new count within a couple
-    // of hours without hammering a city Drupal site. fetchPollen() throws on
-    // failure OR an unparseable layout, so the last good count survives.
+    // Refresh the pollen & mold count on weekday mornings only — HHD publishes
+    // exactly one count per weekday, so a flat age threshold is the wrong
+    // mechanism (it can't tell "still waiting on today's count" from "already
+    // have it"). Skip the block entirely on Sat/Sun (Central time); on
+    // weekdays, only fetch if the cached entry's countDate isn't today's date
+    // yet. fetchPollen() throws on failure OR an unparseable layout, so the
+    // last good count survives.
     try {
-      const cur = await env.WEATHER.get(POLLEN_KV_KEY, "json");
-      const age = cur?.updated ? Date.now() - new Date(cur.updated).getTime() : Infinity;
-      if (!cur || !cur.groups || !cur.countDate || age > 2 * 3600 * 1000) {
-        await env.WEATHER.put(POLLEN_KV_KEY, JSON.stringify(await fetchPollen()));
-        run.ok("pollen");
+      const weekday = new Date().toLocaleDateString("en-US", { timeZone: TZ, weekday: "short" });
+      if (weekday !== "Sat" && weekday !== "Sun") {
+        const cur = await env.WEATHER.get(POLLEN_KV_KEY, "json");
+        const today = ctDateStr(Date.now());
+        if (!cur || !cur.groups || !cur.countDate || cur.countDate !== today) {
+          await env.WEATHER.put(POLLEN_KV_KEY, JSON.stringify(await fetchPollen()));
+          run.ok("pollen");
+        }
       }
     } catch (e) {
       console.error("Cron pollen refresh failed:", e && e.stack);

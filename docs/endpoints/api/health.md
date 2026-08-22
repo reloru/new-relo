@@ -141,10 +141,13 @@ which would read as "just now".
 
 ## `lastAttempt` is an attempt, not a tick
 
-Three feeds are throttled — `calendar` ~6h, `tropics` ~1h, `pollen` ~2h — so
-most cron ticks skip them. A skipped tick is **not** an attempt: it records
-nothing, and `recordCronRun()` carries the previous attempt forward. "The last
-time it tried" would be worthless if a tick that did nothing reset it.
+Three feeds are throttled — `calendar` ~24h, `tropics` ~1h June–November
+(Atlantic hurricane season) and ~24h the rest of the year, `pollen` skipped on
+Sat/Sun and otherwise attempted only once the cached count is no longer
+today's — so most cron ticks skip them. A skipped tick is **not** an attempt:
+it records nothing, and `recordCronRun()` carries the previous attempt
+forward. "The last time it tried" would be worthless if a tick that did
+nothing reset it.
 
 `news` reports `lastAttempt: null, ok: null` permanently. Google News blocks
 Worker IPs, so that key is written out-of-band by a Claude routine; nothing in
