@@ -77,8 +77,8 @@ Every page is content-negotiated — send `Accept: text/markdown` (or add
 - **OpenAPI 3.1** — [`/openapi.json`](https://crosbynews.com/openapi.json)
 - **MCP server** (Streamable HTTP) — `https://crosbynews.com/mcp`, with tools
   `get_current_conditions`, `get_forecast`, `get_alerts`, `get_tropical_outlook`,
-  `get_air_quality`, `get_pollen`, `get_river_levels`, `get_fishing`, `get_traffic`,
-  `get_crosby_news`, `get_school_events`, `get_emergency_contacts`, and
+  `get_air_quality`, `get_pollen`, `get_burn_ban`, `get_river_levels`, `get_fishing`,
+  `get_traffic`, `get_crosby_news`, `get_school_events`, `get_emergency_contacts`, and
   `get_radar` (a live radar image, inline).
   Discovery card at
   [`/.well-known/mcp/server-card.json`](https://crosbynews.com/.well-known/mcp/server-card.json).

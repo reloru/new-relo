@@ -57,7 +57,7 @@ export const DEVELOPERS = {
     {
       h: "MCP server",
       p: [
-        "A stateless Model Context Protocol server (Streamable HTTP, JSON-RPC) exposes the data as callable tools — get_current_conditions, get_forecast, get_alerts, get_tropical_outlook, get_pollen, get_air_quality, get_river_levels, get_fishing, get_traffic, get_crosby_news, get_school_events, get_emergency_contacts, and get_radar (a live radar image, inline) — plus a crosby_briefing prompt and readable resources.",
+        "A stateless Model Context Protocol server (Streamable HTTP, JSON-RPC) exposes the data as callable tools — get_current_conditions, get_forecast, get_alerts, get_tropical_outlook, get_pollen, get_burn_ban, get_air_quality, get_river_levels, get_fishing, get_traffic, get_crosby_news, get_school_events, get_emergency_contacts, and get_radar (a live radar image, inline) — plus a crosby_briefing prompt and readable resources.",
         "Connect from Claude Code: claude mcp add --transport http crosbynews https://crosbynews.com/mcp",
       ],
       links: [
@@ -140,7 +140,7 @@ export const DEVELOPERS_ES = {
     {
       h: "Servidor MCP",
       p: [
-        "Un servidor del Protocolo de Contexto de Modelo sin estado (Streamable HTTP, JSON-RPC) expone los datos como herramientas invocables — get_current_conditions, get_forecast, get_alerts, get_tropical_outlook, get_pollen, get_air_quality, get_river_levels, get_fishing, get_traffic, get_crosby_news, get_school_events, get_emergency_contacts y get_radar (una imagen de radar en vivo, en línea) — además de un prompt crosby_briefing y recursos legibles.",
+        "Un servidor del Protocolo de Contexto de Modelo sin estado (Streamable HTTP, JSON-RPC) expone los datos como herramientas invocables — get_current_conditions, get_forecast, get_alerts, get_tropical_outlook, get_pollen, get_burn_ban, get_air_quality, get_river_levels, get_fishing, get_traffic, get_crosby_news, get_school_events, get_emergency_contacts y get_radar (una imagen de radar en vivo, en línea) — además de un prompt crosby_briefing y recursos legibles.",
         "Conéctate desde Claude Code: claude mcp add --transport http crosbynews https://crosbynews.com/mcp",
       ],
       links: [

@@ -27,6 +27,7 @@ import { loadTropics, tropicsStormLine, apiTropics } from "../features/tropics.j
 import { loadTraffic, apiTraffic } from "../features/traffic.js";
 import { loadPollen, pollenCatRank, pollenGroupLabel, pollenDateLabel,
          POLLEN_GROUPS, apiPollen } from "../features/pollen.js";
+import { loadBurnBan, apiBurnBan } from "../features/burnban.js";
 import { loadNews, newsDate, apiNews } from "../features/news.js";
 import { loadCalendar, upcomingEvents, calTime, apiCalendar } from "../features/calendar.js";
 import { EMERGENCY } from "../pages/emergency.js";
@@ -45,7 +46,7 @@ export const MCP_SUPPORTED_VERSIONS = ["2025-03-26", "2025-06-18"];
 // Version moves in lockstep with `server.json`'s registry version on any
 // tool-set change — they drifted apart (1.2.0 vs 1.4.0) when `get_air_quality`
 // and `get_fishing` shipped without a bump, so both now carry the same number.
-export const MCP_SERVER_INFO = { name: "crosbynews-weather", version: "1.5.0", title: "Crosby, TX Weather" };
+export const MCP_SERVER_INFO = { name: "crosbynews-weather", version: "1.6.0", title: "Crosby, TX Weather" };
 export const MCP_CORS = {
   "access-control-allow-origin": "*",
   "access-control-allow-methods": "POST, OPTIONS",
@@ -212,6 +213,26 @@ export function mcpTools() {
           species: { type: "object", description: "Per-group list of the types counted above zero, as the lab names them." },
         },
         required: ["source", "groups"],
+      },
+      annotations: MCP_READ_ONLY,
+    },
+    {
+      name: "get_burn_ban",
+      title: "Burn ban status",
+      description:
+        "Current outdoor-burning ban status for Harris County, TX (which includes Crosby) from the Texas A&M Forest Service. Countywide only — TFS has no sub-county resolution, so this is never a Crosby-specific status.",
+      inputSchema: { type: "object", properties: {}, additionalProperties: false },
+      outputSchema: {
+        type: "object",
+        properties: {
+          county: { type: "string", description: 'Always "Harris".' },
+          source: { type: "string" },
+          status: { type: ["string", "null"], description: '"Yes" = ban in effect, "No" = no active ban, null = status unavailable from the last check.' },
+          startDate: { type: ["string", "null"], description: "ISO date-time the current ban took effect; null when there is no active ban." },
+          lastChecked: isoStamp,
+          officialUrl: { type: "string" },
+        },
+        required: ["county", "source"],
       },
       annotations: MCP_READ_ONLY,
     },
@@ -845,6 +866,17 @@ export async function mcpCallTool(name, args, env) {
     const text = parts.length
       ? `${parts.join(" · ")} — measured count for ${pollenDateLabel(payload.countDate, "en")} by the Houston Health Department (National Allergy Bureau station; new counts publish weekday mornings). Details: ${SITE}/pollen`
       : `The pollen and mold count is temporarily unavailable. Official source: ${payload.officialUrl}`;
+    return { content: [{ type: "text", text }], structuredContent: payload };
+  }
+  if (name === "get_burn_ban") {
+    const burnban = await loadBurnBan(env);
+    const payload = apiBurnBan(burnban);
+    const text =
+      payload.status === "Yes"
+        ? `Burn ban in effect for Harris County, TX (which includes Crosby)${payload.startDate ? `, in effect since ${fullTime(payload.startDate, "en")}` : ""}. No outdoor burning is allowed anywhere in the county. Official page: ${payload.officialUrl}`
+        : payload.status === "No"
+          ? `No burn ban in Harris County, TX right now. Official page: ${payload.officialUrl}`
+          : `Burn ban status is temporarily unavailable. Official page: ${payload.officialUrl}`;
     return { content: [{ type: "text", text }], structuredContent: payload };
   }
   if (name === "get_air_quality") {
