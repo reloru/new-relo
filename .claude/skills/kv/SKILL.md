@@ -1,7 +1,7 @@
 ---
 name: kv
-description: Inspect and (carefully) edit the production WEATHER KV namespace — the cache behind crosbynews.com. Always uses `--remote` so it reads real production state, not local miniflare. Knows the eight content keys, `weather` + `calendar` + `water` + `fishing` + `tropics` + `pollen` + `traffic` (cron-owned) and `news` (routine-owned). Use to check cache freshness or debug /news, /calendar, /water, /fishing, /tropics, /pollen, /traffic, and the weather pages.
-argument-hint: "[list | get <key> | put <key> <json> | delete <key>]  (key = weather | calendar | water | fishing | tropics | pollen | traffic | news)"
+description: Inspect and (carefully) edit the production WEATHER KV namespace — the cache behind crosbynews.com. Always uses `--remote` so it reads real production state, not local miniflare. Knows the nine content keys, `weather` + `calendar` + `water` + `fishing` + `tropics` + `pollen` + `traffic` + `burnban` (cron-owned) and `news` (routine-owned). Use to check cache freshness or debug /news, /calendar, /water, /fishing, /tropics, /pollen, /traffic, /burn-ban, and the weather pages.
+argument-hint: "[list | get <key> | put <key> <json> | delete <key>]  (key = weather | calendar | water | fishing | tropics | pollen | traffic | burnban | news)"
 allowed-tools: Bash(npx wrangler kv key list *), Bash(npx wrangler kv key get *)
 ---
 
@@ -31,7 +31,7 @@ genuinely cold local cache, delete the state:
 rm -rf .wrangler/state          # next `wrangler dev` starts truly empty
 ```
 
-## The eight content keys (different owners, different risk)
+## The nine content keys (different owners, different risk)
 - **`weather`** — NWS forecast + active alerts, shape
   `{ updated, place, periods, hourly, alerts }` (`hourly` is the array
   `loadWeather()` checks to decide the cache is fresh). Written by the cron
@@ -64,6 +64,11 @@ rm -rf .wrangler/state          # next `wrangler dev` starts truly empty
   weekdays only when the cached `countDate` isn't today's date yet — HHD
   publishes one count per weekday morning, so this is "have we got today's
   count" rather than a flat age throttle; cold-warms on read. Self-heals. Low risk.
+- **`burnban`** — Harris County outdoor-burning ban status from the Texas A&M
+  Forest Service, shape `{ updated, status, startDate }` (`loadBurnBan()`
+  checks `status` is `"Yes"` or `"No"`; `startDate` is ISO or null). Written by
+  the same cron, throttled ~12h (TFS's feed updates roughly daily, on a county
+  judge's order rather than a schedule); cold-warms on read. Self-heals. Low risk.
 - **`traffic`** — Crosby-corridor road incidents + lane closures from Houston
   TranStar's public RSS feeds, shape `{ updated, incidents, closures }`
   (`loadTraffic()` checks that `incidents` is PRESENT — either side is `null`
@@ -119,6 +124,7 @@ CI=1 npx wrangler kv key get fishing  --binding WEATHER --remote | python3 -m js
 CI=1 npx wrangler kv key get tropics  --binding WEATHER --remote | python3 -m json.tool | head -40
 CI=1 npx wrangler kv key get pollen   --binding WEATHER --remote | python3 -m json.tool | head -40
 CI=1 npx wrangler kv key get traffic  --binding WEATHER --remote | python3 -m json.tool | head -40
+CI=1 npx wrangler kv key get burnban  --binding WEATHER --remote | python3 -m json.tool | head -40
 CI=1 npx wrangler kv key get news     --binding WEATHER --remote | python3 -m json.tool | head -40
 ```
 For freshness, read the `updated` field rather than eyeballing the blob.
@@ -133,11 +139,11 @@ until the routine reruns.
 npx wrangler kv key put    <key> '<json>' --binding WEATHER --remote
 npx wrangler kv key delete <key>          --binding WEATHER --remote
 ```
-- Deleting `weather`, `calendar`, `water`, `fishing`, `tropics`, `pollen`, or
-  `traffic` is recoverable (next request/cron re-warms it).
+- Deleting `weather`, `calendar`, `water`, `fishing`, `tropics`, `pollen`,
+  `traffic`, or `burnban` is recoverable (next request/cron re-warms it).
 - To repopulate `news` properly, re-run the pipeline instead of hand-writing it:
   `CLOUDFLARE_API_TOKEN=... CLOUDFLARE_ACCOUNT_ID=... node scripts/fetch-news.mjs`.
 
 ## Default (no args)
 List the keys, then report the `updated` / freshness of `weather`, `calendar`,
-`water`, `fishing`, `tropics`, `pollen`, `traffic`, and `news`.
+`water`, `fishing`, `tropics`, `pollen`, `traffic`, `burnban`, and `news`.

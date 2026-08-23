@@ -27,7 +27,7 @@ job. Report a mixed sample as "still propagating", never as a failure.
 
 ## 1. Routes return 200 — **both languages, every page**
 
-**Sweep all 20 content pages in BOTH languages. Not a spot-check.** Roughly half
+**Sweep all 21 content pages in BOTH languages. Not a spot-check.** Roughly half
 the site's render branches never execute under `lang="en"`, so an English-only
 pass proves nothing about `/es`. This is not hypothetical: `/es/hourly` served a
 502 in production across two deploys because `features/hourly.js` referenced
@@ -36,14 +36,14 @@ pass proves nothing about `/es`. This is not hypothetical: `/es/hourly` served a
 
 English pages: `/`, `/weather`, `/hourly`, `/radar`, `/alerts`, `/water`,
 `/fishing`, `/tropics`, `/pollen`, `/air`, `/traffic`, `/news`, `/calendar`,
-`/emergency`, `/about`, `/developers`, `/privacy`, `/contact`, `/sitemap`, `/mcp`.
+`/burn-ban`, `/emergency`, `/about`, `/developers`, `/privacy`, `/contact`, `/sitemap`, `/mcp`.
 
-Spanish: the same 20 under `/es` — `/es`, `/es/weather`, … `/es/sitemap`,
+Spanish: the same 21 under `/es` — `/es`, `/es/weather`, … `/es/sitemap`,
 `/es/mcp`. (`/es` is the hub, not `/es/`.)
 
 Non-page routes: `/robots.txt`, `/sitemap.xml`, `/llms.txt`,
 `/api/weather`, `/api/health`, `/api/news`, `/api/calendar`, `/api/water`,
-`/api/fishing`, `/api/tropics`, `/api/pollen`, `/api/air`, `/api/traffic`,
+`/api/fishing`, `/api/tropics`, `/api/pollen`, `/api/burn-ban`, `/api/air`, `/api/traffic`,
 `/alerts.xml`, `/news.xml`, `/badge.svg`,
 `/manifest.json`, `/icon.svg`, `/sw.js`, `/favicon.svg`, `/favicon.ico`,
 `/apple-touch-icon.png`, `/radar-image`,
@@ -90,14 +90,15 @@ Report anything off:
   this first: it explains every other field at once.
 - `hoursSinceAttempt` large for `weather`/`water`/`fishing`/`traffic` (every
   tick, so expect ≤0.25) means that feed stopped being attempted.
-  `calendar`/`tropics`/`pollen` are throttled (~6h/~1h/~2h), so lagging is
+  `calendar` (~24h), `tropics` (~1h in season / ~24h off-season), `pollen`
+  (weekday mornings only), and `burnban` (~12h) are throttled, so lagging is
   normal for them; `news` is `null` by design (written out-of-band).
 - **`hoursSinceChange` >> `hoursSinceAttempt`** — the important one. Refreshes
   are succeeding while the content sits frozen, which is exactly how `/pollen`
   served a three-day-old count with every other signal green. There is no single
   threshold; judge it against how often that feed's data genuinely moves — hours
-  for weather/water/traffic, a day for pollen, longer for calendar and a quiet
-  tropics basin. `news` legitimately goes quiet in a small town.
+  for weather/water/traffic, a day for pollen and burn-ban status, longer for
+  calendar and a quiet tropics basin. `news` legitimately goes quiet in a small town.
 
 **Also assert each page is substantive, not just 200.** A page that renders but
 lost its data reads as healthy on status alone:

@@ -37,6 +37,7 @@ import { FISHING_KV_KEY } from "../features/fishing.js";
 import { TROPICS_KV_KEY } from "../features/tropics.js";
 import { TRAFFIC_KV_KEY } from "../features/traffic.js";
 import { POLLEN_KV_KEY } from "../features/pollen.js";
+import { BURNBAN_KV_KEY } from "../features/burnban.js";
 import { NEWS_KV_KEY } from "../features/news.js";
 
 // Written by the cron at the end of every tick (see recordCronRun), read here.
@@ -53,6 +54,7 @@ export const FEEDS = [
   { name: "tropics", kvKey: TROPICS_KV_KEY },
   { name: "pollen", kvKey: POLLEN_KV_KEY },
   { name: "calendar", kvKey: CALENDAR_KV_KEY },
+  { name: "burnban", kvKey: BURNBAN_KV_KEY },
   // The one key the cron does not write: Google News blocks Worker IPs, so a
   // Claude routine writes it out-of-band. Nothing records a fetch ATTEMPT for
   // it, so `lastAttempt`/`ok` stay null — but its content is fingerprinted like

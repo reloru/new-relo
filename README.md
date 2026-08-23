@@ -38,6 +38,9 @@ with no framework and no runtime dependencies.
   nearby communities.
 - **[School Calendar](https://crosbynews.com/calendar)** — Crosby ISD calendar
   (holidays, early-release, testing, athletics) with one-tap subscribe links.
+- **[Burn Ban Status](https://crosbynews.com/burn-ban)** — the current outdoor-
+  burning ban status for Harris County, TX (which includes Crosby) from the
+  Texas A&M Forest Service, countywide only.
 - **[Emergency](https://crosbynews.com/emergency)** — emergency numbers, alert
   channels, flood tools, and hurricane-prep resources for NE Harris County.
 - **[About](https://crosbynews.com/about)** — what the site is and where the
@@ -64,6 +67,7 @@ Every page is content-negotiated — send `Accept: text/markdown` (or add
   [`/api/tropics`](https://crosbynews.com/api/tropics),
   [`/api/air`](https://crosbynews.com/api/air),
   [`/api/pollen`](https://crosbynews.com/api/pollen),
+  [`/api/burn-ban`](https://crosbynews.com/api/burn-ban),
   [`/api/traffic`](https://crosbynews.com/api/traffic),
   [`/api/fishing`](https://crosbynews.com/api/fishing), and
   [`/api/health`](https://crosbynews.com/api/health) (site liveness, when each
@@ -98,13 +102,14 @@ claude mcp add --transport http crosbynews https://crosbynews.com/mcp
   gauges, fishing-water conditions and road incidents on every tick — and, on a
   slower cadence, the tropical outlook (~1h June–November hurricane season,
   ~24h the rest of the year), the pollen count (weekday mornings only, once
-  that day's count posts) and the school calendar (~24h). Local news is the
-  exception: it is written out-of-band, because Google News blocks Worker IPs.
+  that day's count posts), the burn-ban status (~12h) and the school calendar
+  (~24h). Local news is the exception: it is written out-of-band, because
+  Google News blocks Worker IPs.
 - Data: U.S. National Weather Service (public domain), NOAA NWPS and NHC,
   EPA (UV), EPA/AirNow (measured air quality, Open-Meteo modeled fallback),
-  the Houston Health Department (pollen & mold), the U.S. Geological Survey
-  (fishing-water conditions), Houston TranStar (traffic), Crosby ISD, and
-  Google News.
+  the Houston Health Department (pollen & mold), the Texas A&M Forest Service
+  (burn-ban status), the U.S. Geological Survey (fishing-water conditions),
+  Houston TranStar (traffic), Crosby ISD, and Google News.
 
 ## Develop
 

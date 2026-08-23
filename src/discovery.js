@@ -34,6 +34,7 @@ crosbynews.com is an independent weather and news site for Crosby, TX (northeast
 - [News](${SITE}/news): Recent local headlines about Crosby, TX and nearby communities, filtered for relevance.
 - [Roads & Traffic](${SITE}/traffic): Live traffic incidents and scheduled lane closures for US-90, FM-2100, FM-1942, and the Crosby stretch of IH-10 East, from Houston TranStar, with links to the live traffic cameras.
 - [School Calendar](${SITE}/calendar): Upcoming Crosby ISD school calendar events (first day, holidays, no-school/early-release days, testing, athletics) rendered from the district's public iCal feed, plus one-tap subscribe links.
+- [Burn Ban Status](${SITE}/burn-ban): Current outdoor-burning ban status for Harris County, TX (which includes Crosby) from the Texas A&M Forest Service — countywide only, no sub-county resolution.
 - [Emergency Resources](${SITE}/emergency): Emergency contacts for Crosby, TX — 911 and non-emergency numbers, power outage and gas leak reporting, the CAER industrial-incident line, live flood and road conditions, evacuation-zone lookup, shelters, and disaster assistance.
 - [About](${SITE}/about): What this site is, where its data comes from, how often it updates, and how it's built.
 - [Developers & Agents](${SITE}/developers): The public JSON API, OpenAPI spec, MCP server, RSS feeds, agent skills, and Markdown views — all in one place, no authentication.
@@ -58,6 +59,7 @@ Every page supports \`Accept: text/markdown\` (or \`?format=md\`) for a clean ma
 - Tropics API: \`GET ${SITE}/api/tropics\` — active Atlantic tropical cyclones from the NOAA NHC (JSON; empty storms array = quiet basin).
 - Traffic API: \`GET ${SITE}/api/traffic\` — incidents and lane closures on Crosby's roads from Houston TranStar (JSON; empty arrays = quiet roads).
 - Pollen API: \`GET ${SITE}/api/pollen\` — the Houston Health Department's measured daily pollen and mold count (JSON; weekday mornings).
+- Burn ban API: \`GET ${SITE}/api/burn-ban\` — Harris County's current outdoor-burning ban status from the Texas A&M Forest Service (JSON; countywide only).
 - OpenAPI spec: \`${SITE}/openapi.json\`
 - MCP server (Streamable HTTP): \`${SITE}/mcp\` — tools: \`get_current_conditions\`, \`get_forecast\`, \`get_alerts\`, \`get_tropical_outlook\`, \`get_pollen\`, \`get_air_quality\`, \`get_river_levels\`, \`get_fishing\`, \`get_traffic\`, \`get_crosby_news\`, \`get_school_events\`, \`get_emergency_contacts\`, \`get_radar\`
 - MCP server card: \`${SITE}/.well-known/mcp/server-card.json\`
@@ -149,6 +151,7 @@ export function sitemapXml() {
     { path: "/news", changefreq: "daily", priority: "0.6" },
     { path: "/traffic", changefreq: "hourly", priority: "0.6" },
     { path: "/calendar", changefreq: "daily", priority: "0.6" },
+    { path: "/burn-ban", changefreq: "daily", priority: "0.5" },
     { path: "/emergency", changefreq: "monthly", priority: "0.5" },
     { path: "/about", changefreq: "monthly", priority: "0.5" },
     { path: "/developers", changefreq: "monthly", priority: "0.4" },
