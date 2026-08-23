@@ -29,9 +29,11 @@ briefing mentions pollen (Heavy or worse).
 
 ## Data
 
-Cron + KV, key `pollen`, cron-owned, throttled to ~2h. HHD publishes one count
-per weekday morning, so ~2h catches a new count without hammering a city Drupal
-site.
+Cron + KV, key `pollen`, cron-owned. HHD publishes exactly one count per
+weekday morning, so the gate isn't a flat age threshold: the cron skips the
+block entirely on Sat/Sun (Central time), and on weekdays fetches only when
+the cached entry's `countDate` isn't today's Central-time date yet — "have we
+got today's count," not "how long has it been."
 
 There is **no API**. `fetchPollen()` scrapes `houstonhealth.org`: the index page
 (`/services/pollen-mold`) lists per-date count pages with slug dates

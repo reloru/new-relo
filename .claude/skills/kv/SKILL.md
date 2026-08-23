@@ -41,8 +41,9 @@ rm -rf .wrangler/state          # next `wrangler dev` starts truly empty
 - **`calendar`** — Crosby ISD school calendar, shape
   `{ updated, events: [{ summary, location, start, allDay, end }] }` (`events`
   is the array `loadCalendar()` checks for freshness). Written by the same cron
-  (throttled to ~6h) and warmed by `loadCalendar()` on a cold cache. Like
-  `weather`, a bad/deleted value self-heals on the next cron or request. Low risk.
+  (throttled to ~24h — Crosby ISD's calendar changes rarely) and warmed by
+  `loadCalendar()` on a cold cache. Like `weather`, a bad/deleted value
+  self-heals on the next cron or request. Low risk.
 - **`water`** — river/bayou gauges, shape `{ updated, gauges: [...] }` (`gauges`
   is what `loadWater()` checks). Written by the same cron every tick; cold-warms
   on read. Self-heals like `weather`. Low risk.
@@ -53,12 +54,16 @@ rm -rf .wrangler/state          # next `wrangler dev` starts truly empty
 - **`tropics`** — Atlantic tropical outlook from NHC CurrentStorms.json, shape
   `{ updated, storms: [...] }` (`storms` is what `loadTropics()` checks; an
   empty array is the normal quiet-basin state, NOT an error). Written by the
-  same cron throttled ~1h; cold-warms on read. Self-heals. Low risk.
+  same cron, throttled ~1h June-November (Atlantic hurricane season, Central
+  time) and ~24h the rest of the year; cold-warms on read. Self-heals. Low risk.
 - **`pollen`** — the Houston Health Department's measured daily pollen & mold
   count, shape `{ updated, countDate, url, groups: {tree,weed,grass,mold},
   species }` (`loadPollen()` checks `groups` + `countDate`; `countDate` is the
   CT calendar day the count is for — weekends carry Friday's, that's normal).
-  Written by the same cron throttled ~2h; cold-warms on read. Self-heals. Low risk.
+  Written by the same cron, skipped entirely on Sat/Sun (Central time) and on
+  weekdays only when the cached `countDate` isn't today's date yet — HHD
+  publishes one count per weekday morning, so this is "have we got today's
+  count" rather than a flat age throttle; cold-warms on read. Self-heals. Low risk.
 - **`traffic`** — Crosby-corridor road incidents + lane closures from Houston
   TranStar's public RSS feeds, shape `{ updated, incidents, closures }`
   (`loadTraffic()` checks that `incidents` is PRESENT — either side is `null`

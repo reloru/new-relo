@@ -36,9 +36,11 @@ upstream and guessing it would put a wrong number on a hurricane page.
 
 ## Data
 
-Cron + KV, key `tropics`, cron-owned, throttled to ~hourly (NHC advisories update
-every 2–6h). `fetchTropics()` reads NOAA NHC's `CurrentStorms.json`, filtered to
-the Atlantic basin — storm ids beginning `al`, since Pacific storms do not
+Cron + KV, key `tropics`, cron-owned, throttled to ~hourly during Atlantic
+hurricane season (June–November, Central time — NHC advisories update every
+2–6h then) and ~24h the rest of the year (NHC issues far fewer outlooks
+off-season). `fetchTropics()` reads NOAA NHC's `CurrentStorms.json`, filtered
+to the Atlantic basin — storm ids beginning `al`, since Pacific storms do not
 threaten Crosby.
 
 It **throws on failure**, so a transient NHC outage never wipes the last
