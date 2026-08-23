@@ -61,7 +61,7 @@ Every page supports \`Accept: text/markdown\` (or \`?format=md\`) for a clean ma
 - Pollen API: \`GET ${SITE}/api/pollen\` — the Houston Health Department's measured daily pollen and mold count (JSON; weekday mornings).
 - Burn ban API: \`GET ${SITE}/api/burn-ban\` — Harris County's current outdoor-burning ban status from the Texas A&M Forest Service (JSON; countywide only).
 - OpenAPI spec: \`${SITE}/openapi.json\`
-- MCP server (Streamable HTTP): \`${SITE}/mcp\` — tools: \`get_current_conditions\`, \`get_forecast\`, \`get_alerts\`, \`get_tropical_outlook\`, \`get_pollen\`, \`get_air_quality\`, \`get_river_levels\`, \`get_fishing\`, \`get_traffic\`, \`get_crosby_news\`, \`get_school_events\`, \`get_emergency_contacts\`, \`get_radar\`
+- MCP server (Streamable HTTP): \`${SITE}/mcp\` — tools: \`get_current_conditions\`, \`get_forecast\`, \`get_alerts\`, \`get_tropical_outlook\`, \`get_pollen\`, \`get_burn_ban\`, \`get_air_quality\`, \`get_river_levels\`, \`get_fishing\`, \`get_traffic\`, \`get_crosby_news\`, \`get_school_events\`, \`get_emergency_contacts\`, \`get_radar\`
 - MCP server card: \`${SITE}/.well-known/mcp/server-card.json\`
 
 ## Data policy
@@ -238,6 +238,9 @@ MCP server (Streamable HTTP, JSON-RPC):
   from the NOAA NHC (JSON); MCP tool: get_tropical_outlook
 - GET https://crosbynews.com/api/pollen - measured daily pollen and mold count
   from the Houston Health Department (JSON); MCP tool: get_pollen
+- GET https://crosbynews.com/api/burn-ban - Harris County's current outdoor-
+  burning ban status from the Texas A&M Forest Service (JSON; countywide
+  only); MCP tool: get_burn_ban
 - GET https://crosbynews.com/api/air - measured US AQI for the Houston metro
   area incl. Crosby (EPA/AirNow, JSON); MCP tool: get_air_quality
 - GET https://crosbynews.com/api/traffic - Crosby-corridor road incidents and
