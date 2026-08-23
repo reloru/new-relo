@@ -156,7 +156,7 @@ export function renderDaily(periods, lang) {
   </section>`;
 }
 
-export function renderHtml(data, lang) {
+export function renderHtml(data, lang, burnban) {
   const hasAlerts = (data.alerts ?? []).length > 0;
   return `<!DOCTYPE html>
 <html lang="${T(lang, "en", "es-MX")}">
@@ -225,6 +225,7 @@ ${topbar("/weather", lang)}
   ${renderHourly((data.hourly ?? []).slice(0, 12), lang)}
   ${renderDaily(data.periods ?? [], lang)}
   <p class="lead"><a href="${lang === "es" ? "/es/hourly" : "/hourly"}">${T(lang, "Full 48-hour hourly forecast", "Pronóstico por hora de 48 horas")}</a> &middot; <a href="${lang === "es" ? "/es/radar" : "/radar"}">${T(lang, "Radar", "Radar")}</a> &middot; <a href="${lang === "es" ? "/es/water" : "/water"}">${T(lang, "Water levels", "Niveles de agua")}</a></p>
+  ${burnban?.status === "Yes" ? `<p class="lead">&#128293; ${T(lang, "Harris County burn ban in effect.", "Prohibición de quemas vigente en el condado de Harris.")} <a href="${lang === "es" ? "/es/burn-ban" : "/burn-ban"}">${T(lang, "Details", "Detalles")} &rarr;</a></p>` : ""}
 </main>
 ${footer({ page: "/weather", lang, source: T(lang, `Data from the U.S. National Weather Service (<a href="https://weather.gov">weather.gov</a>).`, `Datos del Servicio Meteorológico Nacional de EE. UU. (<a href="https://weather.gov">weather.gov</a>).`), data })}
 <script>${HOME_SCRIPT}</script>
@@ -234,7 +235,7 @@ ${footer({ page: "/weather", lang, source: T(lang, `Data from the U.S. National 
 
 // Markdown rendering of the same data, served when an agent sends
 // `Accept: text/markdown` (or ?format=md).
-export function renderMarkdown(data, lang) {
+export function renderMarkdown(data, lang, burnban) {
   const cell = (s) => String(s ?? "").replace(/\|/g, "/").replace(/\s*\n\s*/g, " ");
   const now = currentHourly(data);
   const lead = data.periods?.[0];
@@ -242,6 +243,7 @@ export function renderMarkdown(data, lang) {
   out.push(`# ${T(lang, `${data.place || "Crosby, TX"} Weather`, `Clima en ${data.place || "Crosby, TX"}`)}`, "");
   out.push(`_${T(lang, "Updated", "Actualizado")} ${fullTime(data.updated, lang)} CT — ${T(lang, "source: U.S. National Weather Service (weather.gov)", "fuente: Servicio Meteorológico Nacional de EE. UU. (weather.gov)")}_`, "");
   if (lang === "es") out.push("_Las condiciones se traducen al español; las descripciones detalladas y las alertas se muestran en inglés oficial del NWS._", "");
+  if (burnban?.status === "Yes") out.push(`**🔥 ${T(lang, "Harris County burn ban in effect.", "Prohibición de quemas vigente en el condado de Harris.")}** [${T(lang, "Details", "Detalles")}](${canonicalFor("/burn-ban", lang)})`, "");
 
   if (now) {
     const feels = feelsLikeF(now);

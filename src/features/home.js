@@ -47,6 +47,16 @@ export function hubWaterSummary(water, lang) {
   return { cls: "w-normal", label: T(lang, "All normal", "Todo normal"), detail: T(lang, "No area gauges at flood stage", "Ningún medidor del área en etapa de inundación") };
 }
 
+// Same hub-water badge language as hubWaterSummary — w-moderate (the same
+// red-orange the Alerts card already uses for "active") when a ban is in
+// effect, w-normal (green) when not, and the shared unstyled/muted fallback
+// when the last check didn't come back with a recognized status.
+export function hubBurnBanSummary(burnban, lang) {
+  if (burnban?.status === "Yes") return { cls: "w-moderate", label: T(lang, "Active", "Activa"), detail: T(lang, "Harris County — countywide, no sub-county resolution", "Condado de Harris — aplica a todo el condado") };
+  if (burnban?.status === "No") return { cls: "w-normal", label: T(lang, "None", "Ninguna"), detail: "" };
+  return { cls: "w-unknown", label: T(lang, "Unavailable", "No disponible"), detail: T(lang, "Burn ban data temporarily unavailable", "Datos de prohibición de quemas no disponibles temporalmente") };
+}
+
 // Compass abbreviations spelled out for the hero's plain-language wind line
 // ("8 mph from the southeast"). Same 16-point set NWS uses.
 export const DIR_WORDS_EN = { N: "north", NNE: "north-northeast", NE: "northeast", ENE: "east-northeast", E: "east", ESE: "east-southeast", SE: "southeast", SSE: "south-southeast", S: "south", SSW: "south-southwest", SW: "southwest", WSW: "west-southwest", W: "west", WNW: "west-northwest", NW: "northwest", NNW: "north-northwest" };
@@ -117,6 +127,20 @@ export function hubTropicsBanner(tropics, lang) {
     <p class="tb-title">&#127744; ${storms.length === 1 ? T(lang, "Tropical system in the Atlantic", "Sistema tropical en el Atlántico") : T(lang, `${storms.length} tropical systems in the Atlantic`, `${storms.length} sistemas tropicales en el Atlántico`)}</p>
     <p class="tb-detail">${esc(list)}</p>
     <p class="tb-link">${T(lang, "Track them", "Seguirlos")} &rarr;</p>
+  </a>`;
+}
+
+// Homepage teaser for an active Harris County burn ban — same treatment as
+// hubTropicsBanner (self-hides when there's nothing to say), in the burn-ban
+// orange already established on the /burn-ban page's status panel rather than
+// a new color.
+export function hubBurnBanBanner(burnban, lang) {
+  if (burnban?.status !== "Yes") return "";
+  const bUrl = lang === "es" ? "/es/burn-ban" : "/burn-ban";
+  return `<a class="burnban-banner" href="${bUrl}">
+    <p class="bb-title">&#128293; ${T(lang, "Burn ban in effect for Harris County", "Prohibición de quemas vigente en el condado de Harris")}</p>
+    <p class="bb-detail">${T(lang, "No outdoor burning allowed countywide.", "No se permite quemar al aire libre en todo el condado.")}</p>
+    <p class="bb-link">${T(lang, "Details", "Detalles")} &rarr;</p>
   </a>`;
 }
 
@@ -261,7 +285,7 @@ export function glanceExplainers(lang, aqi) {
   return items.map(([q, a]) => `<details class="about"><summary>&#9432; ${q}</summary><p>${a}</p></details>`).join("");
 }
 
-export function homeHtml(weather, water, news, cal, tropics, lang) {
+export function homeHtml(weather, water, news, cal, tropics, burnban, lang) {
   const now = currentHourly(weather);
   const feels = now ? feelsLikeF(now) : null;
   const alerts = weather.alerts ?? [];
@@ -322,6 +346,8 @@ export function homeHtml(weather, water, news, cal, tropics, lang) {
   const glanceSrc = glanceSourceLine(weather, lang);
   const alertsUpdated = weather.updated ? `${T(lang, "Updated", "Actualizado")} ${esc(clockTime(weather.updated, lang))}` : "";
   const waterUpdated = water.updated ? `${T(lang, "Updated", "Actualizado")} ${esc(clockTime(water.updated, lang))}` : "";
+  const bb = hubBurnBanSummary(burnban, lang);
+  const bbUpdated = burnban?.updated ? `${T(lang, "Checked", "Verificado")} ${esc(clockTime(burnban.updated, lang))}` : "";
   const alertTypes = [...new Set(alerts.map((a) => a.event))];
   const cards = `<div class="hub-grid">
       ${glanceTodayRows || glanceNowRows ? `<section class="hub-card">
@@ -348,6 +374,12 @@ export function homeHtml(weather, water, news, cal, tropics, lang) {
         <p class="hub-water ${ws.cls}"><span class="hub-water-badge">${esc(ws.label)}</span></p>
         ${WATER_FLOOD_CATS.some((c) => ws.cls === waterCatClass(c)) || ws.cls === "w-unknown" ? `<p class="hub-water-detail">${esc(ws.detail)}</p>` : ""}
         ${waterUpdated ? `<p class="hub-stamp">${waterUpdated}</p>` : ""}
+      </section>
+      <section class="hub-card">
+        <h2><a href="${lk("/burn-ban")}">${T(lang, "Burn Ban", "Prohibición de quemas")}</a></h2>
+        <p class="hub-water ${bb.cls}"><span class="hub-water-badge">${esc(bb.label)}</span></p>
+        ${bb.cls !== "w-normal" ? `<p class="hub-water-detail">${esc(bb.detail)}</p>` : ""}
+        ${bbUpdated ? `<p class="hub-stamp">${bbUpdated}</p>` : ""}
       </section>
       <section class="hub-card">
         <h2><a href="${lk("/news")}">${T(lang, "Local News", "Noticias locales")}</a></h2>
@@ -435,6 +467,11 @@ ${JSONLD_SITE}
   .tb-title { margin:0; font-weight:800; font-size:1.05rem; }
   .tb-detail { margin:0.35rem 0 0; font-size:0.9rem; opacity:0.95; }
   .tb-link { margin:0.45rem 0 0; font-size:0.88rem; font-weight:700; }
+  .burnban-banner { display:block; background:linear-gradient(135deg,#b3400d,#e2621a); color:#fff; text-decoration:none; border-radius:12px; padding:0.85rem 1.05rem; margin-top:0.8rem; }
+  .burnban-banner:hover .bb-link { text-decoration:underline; }
+  .bb-title { margin:0; font-weight:800; font-size:1.05rem; }
+  .bb-detail { margin:0.35rem 0 0; font-size:0.9rem; opacity:0.95; }
+  .bb-link { margin:0.45rem 0 0; font-size:0.88rem; font-weight:700; }
   .ab-title { margin:0; font-weight:800; font-size:1.05rem; }
   .ab-types { margin:0.3rem 0 0; padding-left:1.15rem; font-size:0.9rem; }
   .ab-headline { margin:0.35rem 0 0; font-size:0.9rem; opacity:0.95; }
@@ -460,6 +497,7 @@ ${topbar("/", lang)}
   <h1 class="visually-h1">${T(lang, "Crosby, Texas", "Crosby, Texas")}</h1>
   ${hubAlertsBanner(alerts, lang)}
   ${hubTropicsBanner(tropics, lang)}
+  ${hubBurnBanBanner(burnban, lang)}
   ${hero}
   ${cards}
 </main>
@@ -469,7 +507,7 @@ ${footer({ page: "/", lang, source: T(lang, `Weather from the U.S. National Weat
 </html>`;
 }
 
-export function homeMarkdown(weather, water, news, cal, tropics, lang) {
+export function homeMarkdown(weather, water, news, cal, tropics, burnban, lang) {
   const now = currentHourly(weather);
   const feels = now ? feelsLikeF(now) : null;
   const out = [`# ${T(lang, "Crosby, Texas", "Crosby, Texas")}`, "", `_${T(lang, "The front page for Crosby, TX — weather, water levels, local news, and school calendar.", "La página principal de Crosby, TX — clima, niveles de agua, noticias locales y calendario escolar.")}_`, ""];
@@ -488,6 +526,9 @@ export function homeMarkdown(weather, water, news, cal, tropics, lang) {
   const storms = tropics?.storms ?? [];
   if (storms.length) {
     out.push(`**🌀 ${T(lang, "Tropical activity in the Atlantic", "Actividad tropical en el Atlántico")}:** ${storms.map((s) => tropicsStormLine(s, lang)).join("; ")}. [${T(lang, "Track them", "Seguirlos")}](${canonicalFor("/tropics", lang)})`, "");
+  }
+  if (burnban?.status === "Yes") {
+    out.push(`**🔥 ${T(lang, "Harris County burn ban in effect", "Prohibición de quemas vigente en el condado de Harris")}:** ${T(lang, "No outdoor burning allowed countywide.", "No se permite quemar al aire libre en todo el condado.")} [${T(lang, "Details", "Detalles")}](${canonicalFor("/burn-ban", lang)})`, "");
   }
   const glance = todayGlance(weather, lang);
   if (glance.today.length || glance.now.length) {
@@ -511,6 +552,8 @@ export function homeMarkdown(weather, water, news, cal, tropics, lang) {
   // esc() applied at construction — waterCatLabel returns plain text, and the
   // pre-escaped detail had no literal "<" left to strip.
   out.push(`**${T(lang, "Water levels", "Niveles de agua")}:** ${ws.label}${wsNormal ? "" : ` — ${ws.detail}`}${wsStamp}. [${T(lang, "All gauges", "Todos los medidores")}](${canonicalFor("/water", lang)})`, "");
+  const bb = hubBurnBanSummary(burnban, lang);
+  out.push(`**${T(lang, "Burn ban", "Prohibición de quemas")}:** ${bb.label}${bb.cls === "w-normal" ? "" : ` — ${bb.detail}`}. [${T(lang, "Details", "Detalles")}](${canonicalFor("/burn-ban", lang)})`, "");
   const newsItems = (news.items ?? []).filter((n) => !n.crime).slice(0, 3);
   if (newsItems.length) {
     out.push("", `## ${T(lang, "Local news", "Noticias locales")}`, "");
