@@ -719,8 +719,8 @@ export async function routeRequest(request, env, ctx) {
       const accept = (request.headers.get("accept") || "").toLowerCase();
       const wantsMarkdown = accept.includes("text/markdown") || url.searchParams.get("format") === "md";
       try {
-        const { data } = await loadWeather(env);
-        const bodyText = wantsMarkdown ? alertsMarkdown(data, lang) : alertsHtml(data, lang);
+        const [{ data }, burnban] = await Promise.all([loadWeather(env), loadBurnBan(env).catch(() => ({ status: null }))]);
+        const bodyText = wantsMarkdown ? alertsMarkdown(data, lang, burnban) : alertsHtml(data, lang, burnban);
         return new Response(bodyText, {
           headers: {
             "content-type": `${wantsMarkdown ? "text/markdown" : "text/html"}; charset=utf-8`,
@@ -955,11 +955,11 @@ export async function routeRequest(request, env, ctx) {
     // the root can be a hub. Content-negotiated like every content page.
     if (page === "/weather") {
       try {
-        const { data, cache } = await loadWeather(env);
+        const [{ data, cache }, burnban] = await Promise.all([loadWeather(env), loadBurnBan(env).catch(() => ({ status: null }))]);
         const accept = (request.headers.get("accept") || "").toLowerCase();
         const wantsMarkdown = accept.includes("text/markdown") || url.searchParams.get("format") === "md";
         if (wantsMarkdown) {
-          const md = renderMarkdown(data, lang);
+          const md = renderMarkdown(data, lang, burnban);
           return new Response(md, {
             headers: {
               "content-type": "text/markdown; charset=utf-8",
@@ -971,7 +971,7 @@ export async function routeRequest(request, env, ctx) {
             },
           });
         }
-        return new Response(renderHtml(data, lang), {
+        return new Response(renderHtml(data, lang, burnban), {
           headers: { "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=300", vary: "Accept", link: linkHeader("/weather", lang), "x-cache": cache },
         });
       } catch (err) {
@@ -985,16 +985,17 @@ export async function routeRequest(request, env, ctx) {
     }
 
     try {
-      // The hub summarizes every section, so it loads all five datasets — in
+      // The hub summarizes every section, so it loads all six datasets — in
       // parallel, so one slow source can't serially block the front page. Each
       // loader self-heals on a cold cache; a rejected one shouldn't blank the
       // whole page, so failures degrade to an empty shape.
-      const [wRes, water, news, cal, tropics] = await Promise.all([
+      const [wRes, water, news, cal, tropics, burnban] = await Promise.all([
         loadWeather(env).catch(() => ({ data: { hourly: [], periods: [], alerts: [], updated: null }, cache: "miss-warmfail" })),
         loadWater(env).catch(() => ({ gauges: [] })),
         loadNews(env).catch(() => ({ items: [] })),
         loadCalendar(env).catch(() => ({ events: [] })),
         loadTropics(env).catch(() => ({ storms: [] })),
+        loadBurnBan(env).catch(() => ({ status: null })),
       ]);
       const weather = wRes.data;
 
@@ -1002,7 +1003,7 @@ export async function routeRequest(request, env, ctx) {
       const wantsMarkdown = accept.includes("text/markdown") || url.searchParams.get("format") === "md";
 
       if (wantsMarkdown) {
-        const md = homeMarkdown(weather, water, news, cal, tropics, lang);
+        const md = homeMarkdown(weather, water, news, cal, tropics, burnban, lang);
         return new Response(md, {
           headers: {
             "content-type": "text/markdown; charset=utf-8",
@@ -1015,7 +1016,7 @@ export async function routeRequest(request, env, ctx) {
         });
       }
 
-      return new Response(homeHtml(weather, water, news, cal, tropics, lang), {
+      return new Response(homeHtml(weather, water, news, cal, tropics, burnban, lang), {
         headers: {
           "content-type": "text/html; charset=utf-8",
           "cache-control": "public, max-age=300",

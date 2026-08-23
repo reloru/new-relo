@@ -36,7 +36,7 @@ export const ALERT_GUIDE_ES = [
   { event: "Heat Advisory / Excessive Heat Warning (Advertencia de calor)", what: "Calor y humedad peligrosos, frecuentes en el verano de la costa del Golfo.", do: "Hidrátate, limita el esfuerzo al mediodía, revisa a tus vecinos y nunca dejes a nadie en un auto estacionado." },
 ];
 
-export function alertsHtml(data, lang) {
+export function alertsHtml(data, lang, burnban) {
   const alerts = data.alerts ?? [];
   // The page's dominant message is the current status: a big reassuring green
   // panel when all-clear, or the active alerts when there are any. Alert event
@@ -140,6 +140,7 @@ ${topbar("/alerts", lang)}
   <h1>${T(lang, "Crosby, TX Weather Alerts", "Alertas meteorológicas de Crosby, TX")}</h1>
   ${status}
   <p class="intro"><a href="${lang === "es" ? "/es/weather" : "/weather"}">&larr; ${T(lang, "Back to the forecast", "Volver al pronóstico")}</a> &middot; <a href="${lang === "es" ? "/es/radar" : "/radar"}">Radar</a> &middot; <a href="${lang === "es" ? "/es/emergency" : "/emergency"}"><strong>${T(lang, "Emergency resources", "Recursos de emergencia")}</strong></a> &middot; ${T(lang, `Official source: <a href="https://www.weather.gov/hgx/">NWS Houston/Galveston</a>. In an emergency, call 911.`, `Fuente oficial: <a href="https://www.weather.gov/hgx/">NWS Houston/Galveston</a>. En una emergencia, llama al 911.`)}</p>
+  ${burnban?.status === "Yes" ? `<p class="intro">&#128293; ${T(lang, "Harris County burn ban in effect.", "Prohibición de quemas vigente en el condado de Harris.")} <a href="${lang === "es" ? "/es/burn-ban" : "/burn-ban"}">${T(lang, "Details", "Detalles")} &rarr;</a></p>` : ""}
 
   <section class="push-optin" id="push-optin" hidden aria-label="${T(lang, "Severe weather alerts on this device", "Alertas de clima severo en este dispositivo")}"
     data-sub="${T(lang, "Turn on severe alerts", "Activar alertas severas")}"
@@ -166,9 +167,12 @@ ${footer({ page: "/alerts", lang, source: T(lang, `Data from the U.S. National W
 </html>`;
 }
 
-export function alertsMarkdown(data, lang) {
+export function alertsMarkdown(data, lang, burnban) {
   const alerts = data.alerts ?? [];
   const out = [`# ${T(lang, "Crosby, TX Weather Alerts", "Alertas meteorológicas de Crosby, TX")}`, "", `_${T(lang, `Active NWS alerts for Crosby, Texas. Updated ${fullTime(data.updated)} CT.`, `Alertas activas del NWS para Crosby, Texas. Actualizado ${fullTime(data.updated, lang)} CT.`)}_`, ""];
+  if (burnban?.status === "Yes") {
+    out.push(`**🔥 ${T(lang, "Harris County burn ban in effect.", "Prohibición de quemas vigente en el condado de Harris.")}** [${T(lang, "Details", "Detalles")}](${canonicalFor("/burn-ban", lang)})`, "");
+  }
   out.push(T(lang, "## Active alerts", "## Alertas activas"));
   if (alerts.length) {
     for (const a of alerts) {
