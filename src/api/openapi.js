@@ -20,7 +20,7 @@ export function apiCatalog() {
     status: [{ href: `${SITE}/api/health`, type: "application/json" }],
   });
   return {
-    linkset: [entry("/api/weather", "/"), entry("/api/news", "/news"), entry("/api/calendar", "/calendar"), entry("/api/water", "/water"), entry("/api/fishing", "/fishing"), entry("/api/tropics", "/tropics"), entry("/api/pollen", "/pollen"), entry("/api/air", "/air"), entry("/api/traffic", "/traffic")],
+    linkset: [entry("/api/weather", "/"), entry("/api/news", "/news"), entry("/api/calendar", "/calendar"), entry("/api/water", "/water"), entry("/api/fishing", "/fishing"), entry("/api/tropics", "/tropics"), entry("/api/pollen", "/pollen"), entry("/api/burn-ban", "/burn-ban"), entry("/api/air", "/air"), entry("/api/traffic", "/traffic")],
   };
 }
 
@@ -164,6 +164,18 @@ export function openApiSpec() {
       },
     },
   };
+  const BurnBan = {
+    type: "object",
+    description: "Countywide outdoor-burning ban status for Harris County, TX (which includes Crosby) from the Texas A&M Forest Service. Countywide only — TFS has no sub-county resolution.",
+    properties: {
+      county: { type: "string", description: 'Always "Harris".' },
+      source: { type: "string" },
+      status: { type: ["string", "null"], enum: ["Yes", "No", null], description: '"Yes" = ban in effect, "No" = no active ban, null = status unavailable from the last check.' },
+      startDate: { type: ["string", "null"], format: "date-time", description: "When the current ban took effect; null when there is no active ban." },
+      lastChecked: { type: ["string", "null"], format: "date-time", description: "When we last checked TFS's feed." },
+      officialUrl: { type: "string", format: "uri", description: "The Texas A&M Forest Service's official burn-ban tracker." },
+    },
+  };
   const FishingStation = {
     type: "object",
     properties: {
@@ -202,9 +214,9 @@ export function openApiSpec() {
     openapi: "3.1.0",
     info: {
       title: "crosbynews.com API",
-      version: "1.5.0",
+      version: "1.6.0",
       description:
-        "Crosby, Texas community data: current conditions, hourly and 7-day forecast, active alerts, the EPA UV index, and a measured air-quality index (EPA/AirNow monitors, with an Open-Meteo modeled fallback) from the U.S. National Weather Service, EPA/AirNow, and Open-Meteo; river/bayou flood levels; the Atlantic tropical outlook; the Houston Health Department's measured daily pollen and mold count; road incidents and lane closures from Houston TranStar; recent local news headlines; and the Crosby ISD school calendar. Public, no authentication.",
+        "Crosby, Texas community data: current conditions, hourly and 7-day forecast, active alerts, the EPA UV index, and a measured air-quality index (EPA/AirNow monitors, with an Open-Meteo modeled fallback) from the U.S. National Weather Service, EPA/AirNow, and Open-Meteo; river/bayou flood levels; the Atlantic tropical outlook; the Houston Health Department's measured daily pollen and mold count; the Harris County burn-ban status from the Texas A&M Forest Service; road incidents and lane closures from Houston TranStar; recent local news headlines; and the Crosby ISD school calendar. Public, no authentication.",
       contact: { url: `${SITE}/` },
       license: { name: "Public domain (NWS source data)", url: "https://www.weather.gov/disclaimer" },
     },
@@ -317,6 +329,21 @@ export function openApiSpec() {
               content: { "application/json": { schema: { $ref: "#/components/schemas/Pollen" } } },
             },
             "502": { description: "Pollen data unavailable" },
+          },
+        },
+      },
+      "/api/burn-ban": {
+        get: {
+          operationId: "getBurnBan",
+          summary: "Harris County, TX outdoor-burning ban status from the Texas A&M Forest Service",
+          parameters: [{ $ref: "#/components/parameters/IfNoneMatch" }],
+          responses: {
+            "304": { $ref: "#/components/responses/NotModified" },
+            "200": {
+              description: "Countywide burn-ban status. Countywide only — no sub-county resolution.",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/BurnBan" } } },
+            },
+            "502": { description: "Burn ban data unavailable" },
           },
         },
       },
@@ -473,6 +500,7 @@ export function openApiSpec() {
           },
         },
         Storm,
+        BurnBan,
         Pollen: {
           type: "object",
           properties: {

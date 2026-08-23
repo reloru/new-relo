@@ -36,6 +36,7 @@ import { loadFishing, fishingHtml, fishingMarkdown, apiFishing } from "./feature
 import { loadTropics, tropicsHtml, tropicsMarkdown, apiTropics } from "./features/tropics.js";
 import { loadTraffic, trafficHtml, trafficMarkdown, apiTraffic } from "./features/traffic.js";
 import { loadPollen, pollenHtml, pollenMarkdown, apiPollen } from "./features/pollen.js";
+import { loadBurnBan, burnbanHtml, burnbanMarkdown, apiBurnBan } from "./features/burnban.js";
 import { homeHtml, homeMarkdown, renderError } from "./features/home.js";
 import { MCP_CORS, mcpHandle, mcpJson, rpcError, mcpServerCard, mcpInfoHtml, mcpInfoMarkdown } from "./mcp/server.js";
 import { apiCatalog, openApiSpec } from "./api/openapi.js";
@@ -503,6 +504,25 @@ export async function routeRequest(request, env, ctx) {
       }
     }
 
+    // Harris County burn-ban status as JSON — same cron-owned KV data as
+    // /burn-ban. Countywide only, no sub-county resolution.
+    if (path === "/api/burn-ban") {
+      try {
+        const data = await loadBurnBan(env);
+        return conditional(request, `${data.status ?? "none"}|${data.updated ?? "none"}`, () => JSON.stringify(apiBurnBan(data)), {
+          "content-type": "application/json; charset=utf-8",
+          "access-control-allow-origin": "*",
+          "cache-control": "public, max-age=1800",
+          link: `<${SITE}/openapi.json>; rel="service-desc"; type="application/json"`,
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ error: "unavailable", message: err && err.message }), {
+          status: 502,
+          headers: { "content-type": "application/json; charset=utf-8", "access-control-allow-origin": "*" },
+        });
+      }
+    }
+
     // Air quality as JSON — the measured AQI from the weather cache (AirNow /
     // Open-Meteo fallback). ETag keys on the weather refresh stamp.
     if (path === "/api/air") {
@@ -831,6 +851,26 @@ export async function routeRequest(request, env, ctx) {
         });
       } catch (err) {
         return new Response(renderError(err, "the Houston Health Department"), { status: 502, headers: { "content-type": "text/html; charset=utf-8" } });
+      }
+    }
+
+    // Harris County burn-ban status — cron + KV like /tropics; countywide
+    // status from the Texas A&M Forest Service.
+    if (page === "/burn-ban") {
+      const accept = (request.headers.get("accept") || "").toLowerCase();
+      const wantsMarkdown = accept.includes("text/markdown") || url.searchParams.get("format") === "md";
+      try {
+        const data = await loadBurnBan(env);
+        const bodyText = wantsMarkdown ? burnbanMarkdown(data, lang) : burnbanHtml(data, lang);
+        return new Response(bodyText, {
+          headers: {
+            "content-type": `${wantsMarkdown ? "text/markdown" : "text/html"}; charset=utf-8`,
+            "cache-control": "public, max-age=1800",
+            vary: "Accept",
+          },
+        });
+      } catch (err) {
+        return new Response(renderError(err, "the Texas A&M Forest Service"), { status: 502, headers: { "content-type": "text/html; charset=utf-8" } });
       }
     }
 

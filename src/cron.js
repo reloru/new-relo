@@ -8,7 +8,8 @@
 // move fast), tropics ~1h June-November (Atlantic hurricane season) and ~24h
 // the rest of the year, pollen only on weekday mornings once that day's count
 // has posted (HHD publishes one count per weekday — polling more often buys
-// nothing), and calendar ~24h (Crosby ISD's calendar changes rarely).
+// nothing), calendar ~24h (Crosby ISD's calendar changes rarely), and
+// burnban ~12h (TFS updates roughly daily, not on a schedule).
 //
 // Every branch that actually FETCHES records its outcome through the recorder,
 // written once at the end to the `cron_status` key — the only place
@@ -27,6 +28,7 @@ import { fetchFishing, FISHING_KV_KEY } from "./features/fishing.js";
 import { fetchTropics, TROPICS_KV_KEY } from "./features/tropics.js";
 import { fetchTraffic, TRAFFIC_KV_KEY } from "./features/traffic.js";
 import { fetchPollen, POLLEN_KV_KEY } from "./features/pollen.js";
+import { fetchBurnBan, BURNBAN_KV_KEY } from "./features/burnban.js";
 import { ctDateStr } from "./features/air.js";
 import { pushSevereAlerts } from "./push.js";
 import { cronRunRecorder, recordCronRun } from "./api/health.js";
@@ -142,6 +144,23 @@ export async function scheduled(event, env, ctx) {
     } catch (e) {
       console.error("Cron pollen refresh failed:", e && e.stack);
       run.failed("pollen", e);
+    }
+    // Refresh the Harris County burn-ban status at most ~every 12h — TFS's feed
+    // updates roughly daily (a county judge's order, not a schedule), so a flat
+    // 12h gate catches a change within half a day without hammering the feed.
+    // fetchBurnBan() throws on failure, an error-shaped body, or an
+    // unrecognized status, so a transient TFS outage skips the write and the
+    // last good status survives.
+    try {
+      const cur = await env.WEATHER.get(BURNBAN_KV_KEY, "json");
+      const age = cur?.updated ? Date.now() - new Date(cur.updated).getTime() : Infinity;
+      if (!cur || (cur.status !== "Yes" && cur.status !== "No") || age > 12 * 3600 * 1000) {
+        await env.WEATHER.put(BURNBAN_KV_KEY, JSON.stringify(await fetchBurnBan()));
+        run.ok("burnban");
+      }
+    } catch (e) {
+      console.error("Cron burnban refresh failed:", e && e.stack);
+      run.failed("burnban", e);
     }
     // Last, so a failure here can never affect the refreshes it describes.
     await recordCronRun(env, run);

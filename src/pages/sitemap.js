@@ -77,6 +77,7 @@ ${topbar("/sitemap", lang)}
       ${lk("/news", t("News", "Noticias"), t("Local headlines about Crosby, TX and nearby communities.", "Titulares locales sobre Crosby, TX y comunidades cercanas."))}
       ${lk("/traffic", t("Roads &amp; Traffic", "Caminos y tráfico"), t("Incidents and lane closures on US-90, FM-2100, and IH-10 East, with live cameras.", "Incidentes y cierres de carriles en US-90, FM-2100 e IH-10 East, con cámaras en vivo."))}
       ${lk("/calendar", t("School Calendar", "Calendario escolar"), t("Upcoming Crosby ISD school calendar events.", "Próximos eventos del calendario escolar de Crosby ISD."))}
+      ${lk("/burn-ban", t("Burn Ban Status", "Estado de la prohibición de quemas"), t("Current Harris County outdoor-burning ban status from the Texas A&amp;M Forest Service.", "Estado actual de la prohibición de quemas al aire libre del condado de Harris, según el Servicio Forestal de Texas A&amp;M."))}
       ${lk("/emergency", t("Emergency Resources", "Recursos de emergencia"), t("911 and non-emergency numbers, outages, flooding, shelters, and disaster help.", "El 911 y números que no son de emergencia, apagones, inundaciones, refugios y ayuda por desastre."))}
     </ul>
   </section>
@@ -102,6 +103,7 @@ ${topbar("/sitemap", lang)}
       ${extLk("/api/calendar", t("School Calendar API", "API del calendario escolar"), t("JSON: upcoming Crosby ISD events.", "JSON: próximos eventos de Crosby ISD."))}
       ${extLk("/api/traffic", t("Traffic API", "API de tráfico"), t("JSON: incidents and lane closures on Crosby's roads.", "JSON: incidentes y cierres de carriles en los caminos de Crosby."))}
       ${extLk("/api/pollen", t("Pollen API", "API de polen"), t("JSON: the measured daily pollen and mold count.", "JSON: el conteo diario medido de polen y moho."))}
+      ${extLk("/api/burn-ban", t("Burn Ban API", "API de prohibición de quemas"), t("JSON: Harris County's outdoor-burning ban status.", "JSON: el estado de la prohibición de quemas al aire libre del condado de Harris."))}
       ${extLk("/api/air", t("Air Quality API", "API de calidad del aire"), t("JSON: the measured AQI + per-pollutant breakdown.", "JSON: el AQI medido + desglose por contaminante."))}
       ${extLk("/api/health", t("Health Check", "Estado del servicio"), t("Refresh attempts and when each feed's data last changed.", "Intentos de actualización y cuándo cambiaron los datos de cada fuente."))}
       ${extLk("/openapi.json", "OpenAPI 3.1", t("Machine-readable API description.", "Descripción de la API legible por máquinas."))}
@@ -155,6 +157,7 @@ export function sitemapPageMarkdown(lang) {
     lk("/news", t("News", "Noticias"), t("Local headlines.", "Titulares locales.")),
     lk("/traffic", t("Roads & Traffic", "Caminos y tráfico"), t("Incidents, lane closures, cameras.", "Incidentes, cierres de carriles, cámaras.")),
     lk("/calendar", t("School Calendar", "Calendario escolar"), t("Crosby ISD events.", "Eventos de Crosby ISD.")),
+    lk("/burn-ban", t("Burn Ban Status", "Estado de la prohibición de quemas"), t("Harris County outdoor-burning ban status.", "Estado de la prohibición de quemas del condado de Harris.")),
     lk("/emergency", t("Emergency Resources", "Recursos de emergencia"), t("911, outages, flooding, shelters, disaster help.", "911, apagones, inundaciones, refugios, ayuda por desastre.")),
     "",
     `## ${t("About & Policies", "Acerca de y políticas")}`,
@@ -174,6 +177,7 @@ export function sitemapPageMarkdown(lang) {
     extLk("/api/calendar", t("School Calendar API", "API del calendario escolar"), "JSON"),
     extLk("/api/traffic", t("Traffic API", "API de tráfico"), "JSON"),
     extLk("/api/pollen", t("Pollen API", "API de polen"), "JSON"),
+    extLk("/api/burn-ban", t("Burn Ban API", "API de prohibición de quemas"), "JSON"),
     extLk("/api/air", t("Air Quality API", "API de calidad del aire"), "JSON"),
     extLk("/api/health", t("Health", "Estado"), t("Refresh attempts and data-change times.", "Intentos de actualización y cambios de datos.")),
     extLk("/openapi.json", "OpenAPI 3.1", t("API spec.", "Especificación de la API.")),

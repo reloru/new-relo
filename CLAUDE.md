@@ -100,7 +100,7 @@ directory name becomes the `/command`. Current skills:
 - `/deploy` — syntax-check every file under `src/`, surface branch/working-tree
   state, `npx wrangler deploy`, then verify the live site.
 - `/kv` — inspect/edit the production `WEATHER` KV namespace, always with
-  `--remote` (the KV gotcha below). Knows all eight content keys; read commands
+  `--remote` (the KV gotcha below). Knows all nine content keys; read commands
   are pre-authorized, put/delete are not.
 
 ## Deploy
@@ -345,9 +345,9 @@ in Cloudflare DNS / external registries:
   a "fresh" `wrangler dev` is NOT a cold cache — it replays whatever the last
   local run warmed, however many days ago. `rm -rf .wrangler/state` for a
   genuinely cold start.
-- The WEATHER namespace holds eight content keys: `weather`, `calendar`, `water`,
-  `fishing`, `tropics`, `pollen`, and `traffic` (all cron-owned) and `news`
-  (routine-owned, Worker-read-only). Full key ownership/cadence table lives in
+- The WEATHER namespace holds nine content keys: `weather`, `calendar`, `water`,
+  `fishing`, `tropics`, `pollen`, `traffic`, and `burnban` (all cron-owned) and
+  `news` (routine-owned, Worker-read-only). Full key ownership/cadence table lives in
   `/kv`'s SKILL.md. The cron also writes `cron_status` every tick (what
   `/api/health` serves) and the Web Push state (`push_notified`, `push:*`) —
   don't hand-edit either; deleting `push_notified` would re-notify every
