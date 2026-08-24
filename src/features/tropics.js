@@ -68,14 +68,29 @@ export const TWO_URL = "https://www.nhc.noaa.gov/xml/TWOAT.xml";
 
 // "* Formation chance through 7 days...medium...60 percent." — also
 // "...low...near 0 percent." in a quiet outlook, hence the optional "near".
-const TWO_CHANCE_RE = /Formation chance through\s+(48\s*hours|7\s*days)\s*\.{2,}\s*([a-z ]+?)\s*\.{2,}\s*(?:near\s+)?(\d{1,3})\s*percent/i;
+//
+// The category is `[a-z]+(?: [a-z]+)*`, NOT `[a-z ]+?`, and that is a ReDoS
+// fix rather than a style choice: `[a-z ]` includes a space and so does the
+// `\s*` beside it, so on a line that ultimately fails to match, the engine can
+// split a run of spaces between the two in quadratically many ways. This form
+// cannot end on a space, so no boundary is ambiguous and the match is linear.
+// Every other adjacency here pairs disjoint character sets (\s vs literal dot,
+// dot vs letter, digit vs \s).
+const TWO_CHANCE_RE = /Formation chance through\s+(48\s*hours|7\s*days)\s*\.{2,}\s*([a-z]+(?: [a-z]+)*)\s*\.{2,}\s*(?:near\s+)?(\d{1,3})\s*percent/i;
 
 // A disturbance heading: "Central Subtropical Atlantic (AL95):", sometimes
 // enumerated ("1. Near the Cabo Verde Islands:"). The basin header
 // ("For the North Atlantic...Caribbean Sea and the Gulf of America:") also
 // ends in a colon, so it is excluded explicitly, as is anything carrying the
 // "..." NHC uses in that header.
-const TWO_HEADING_RE = /^(?:\d+\.\s*)?([^.*][^:]{2,89}?)\s*(?:\((AL\d{2})\))?\s*:$/;
+//
+// The invest number is pulled out AFTERWARDS rather than as an optional group
+// inside this pattern. Written as `([^:]{2,89}?)\s*(?:\((AL\d{2})\))?\s*:`
+// the lazy capture and the `\s*` beside it both match whitespace, which is
+// quadratic backtracking on a non-matching line (CodeQL flags it, correctly).
+// `[^:]` against a literal `:` is disjoint, so this form is linear.
+const TWO_HEADING_RE = /^(?:\d+\.\s*)?([^.*][^:]{2,119}):$/;
+const TWO_INVEST_RE = /\((AL\d{2})\)$/;
 
 export function parseTwoDisturbances(text) {
   const lines = String(text).split("\n").map((l) => l.trim());
@@ -116,7 +131,15 @@ export function parseTwoDisturbances(text) {
       cur = null;
       continue;
     }
-    cur = { area, id: heading[2] ?? null, chance48: null, category48: null, chance7: null, category7: null };
+    const invest = area.match(TWO_INVEST_RE);
+    cur = {
+      area: invest ? area.slice(0, invest.index).trim() : area,
+      id: invest ? invest[1] : null,
+      chance48: null,
+      category48: null,
+      chance7: null,
+      category7: null,
+    };
     found.push(cur);
   }
   // A heading with no formation chance under it is not a disturbance — this

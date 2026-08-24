@@ -214,6 +214,38 @@ console.log("\ntwoTextFromRss — no bulletin returns null (so the fetch throws)
 check("empty document", twoTextFromRss(""), null);
 check("envelope with only boilerplate", twoTextFromRss(`<rss><channel><description>NOAA logo</description></channel></rss>`), null);
 
+// Both patterns here originally paired a whitespace-matching capture with an
+// adjacent `\s*` — `([a-z ]+?)\s*` and `([^:]{2,89}?)\s*` — so on a line that
+// ultimately fails to match, the engine could split a run of spaces between
+// the two in quadratically many ways. CodeQL flagged it (high severity) and
+// was right: the old chance pattern took 17ms at 200 spaces and 1424ms at
+// 1600. This Worker has a CPU limit and the input is upstream text we do not
+// control, so the fix was to make every adjacency pair disjoint character
+// sets. A "readability" rewrite back toward `[a-z ]+?` reintroduces it, and
+// nothing else in CI would notice.
+console.log("\nparseTwoDisturbances — pathological input stays linear (ReDoS guard):\n");
+// Sizes are capped at 1600 deliberately. The regression takes ~1.4s there and
+// grows ~8x per doubling, so a bigger input would make a reintroduced ReDoS
+// HANG this job instead of failing it — a red build that never finishes is
+// worse than a red build. 1600 is comfortably past the 500ms budget while
+// still returning promptly.
+const budgetMs = 500;
+let worst = 0;
+for (const n of [400, 800, 1600]) {
+  const evil = [
+    "x",
+    "",
+    `Formation chance through 48 hours...${" ".repeat(n)}!`,
+    "",
+    `${"a".repeat(n)}${" ".repeat(n)}:`,
+    "",
+  ].join("\n");
+  const t0 = Date.now();
+  parseTwoDisturbances(evil);
+  worst = Math.max(worst, Date.now() - t0);
+}
+checkThat(`${worst}ms worst case across 400/800/1600-space inputs (budget ${budgetMs}ms)`, worst < budgetMs);
+
 console.log(
   failed === 0
     ? "\nTWO parsing OK — disturbances are found when NHC lists them, and never invented when it doesn't.\n"
