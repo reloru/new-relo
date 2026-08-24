@@ -24,6 +24,12 @@ Crosby) from the Texas A&M Forest Service.
 | "Frequently asked questions" (5 `<details>`) | `burnbanFaq(lang)` |
 | "Resources" section | `burnbanResources(lang)` |
 
+The Resources list renders as **rows, not bullets** (`.links` / `.link-note`):
+the label carries the colour and weight, the note sits under it in `--muted`,
+and a `--line` rule separates each entry. As `label &mdash; note` on one
+0.92rem line it was eight identically-coloured links stacked with nothing
+between them — unscannable, and the first thing a reader reported.
+
 `burnbanLead` / `burnbanChecklist` / `burnbanFaq` / `burnbanResources` are **shared content
 objects**: the HTML and Markdown renderers both consume them, per the
 site-wide one-object-per-page rule, so the two representations cannot drift.

@@ -505,7 +505,7 @@ export function burnbanHtml(data, lang, weather) {
     .join("\n");
 
   const resources = burnbanResources(lang)
-    .map((r) => `      <li><a href="${esc(r.path ? lk(r.path) : r.url)}">${esc(r.label)}</a> &mdash; ${esc(r.note)}</li>`)
+    .map((r) => `      <li><a href="${esc(r.path ? lk(r.path) : r.url)}">${esc(r.label)}</a><span class="link-note">${esc(r.note)}</span></li>`)
     .join("\n");
 
   return `<!DOCTYPE html>
@@ -539,7 +539,7 @@ ${JSONLD_SITE}
   .fw { margin-top:1.4rem; }
   .fw h2 { font-size:1.15rem; margin:0 0 0.3rem; }
   .fw-alert { margin:0.4rem 0; padding:0.6rem 0.8rem; background:#fff4f3; border-left:5px solid #c0392b; border-radius:8px; font-weight:700; font-size:0.95rem; }
-  .fw-alert a { color:var(--accent); }
+  .fw-alert a { color:var(--link); }
   @media (prefers-color-scheme: dark) { .fw-alert { background:#2a1715; } }
   .fw-note { margin:0.5rem 0 0; font-size:0.9rem; font-weight:600; color:var(--ink); }
   .peek { list-style:none; margin:0.4rem 0 0; padding:0; }
@@ -556,7 +556,7 @@ ${JSONLD_SITE}
   .check li { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:0.65rem 0.85rem; }
   .check h3 { margin:0 0 0.2rem; font-size:0.98rem; }
   .check p { margin:0; font-size:0.9rem; color:var(--muted); line-height:1.5; }
-  .check a { color:var(--accent); white-space:nowrap; }
+  .check a { color:var(--link); white-space:nowrap; }
   /* Bordered so it reads as something you can open. Unstyled <details> gave
      no affordance beyond the marker and people missed that these expand. */
   .faq { margin-top:0.5rem; font-size:0.95rem; background:var(--card); border:1px solid var(--line); border-radius:10px; padding:0.6rem 0.85rem; }
@@ -565,8 +565,15 @@ ${JSONLD_SITE}
   .faq p { margin:0.4rem 0 0.1rem; color:var(--muted); line-height:1.55; }
   .res { margin-top:1.6rem; }
   .res h2 { font-size:1.15rem; }
-  .links { margin:0.5rem 0 0; padding-left:1.1rem; }
-  .links li { margin:0.45rem 0; font-size:0.92rem; line-height:1.5; }
+  /* Rows, not bullets. As "link &mdash; note" on one 0.92rem line this was eight
+     same-coloured links stacked with nothing between them — no way to scan for
+     the one you wanted. The label now carries the colour and the weight, the
+     note drops to --muted underneath it, and a rule separates each row. */
+  .links { list-style:none; margin:0.7rem 0 0; padding:0; }
+  .links li { padding:0.7rem 0; border-top:1px solid var(--line); }
+  .links li:first-child { border-top:none; padding-top:0.2rem; }
+  .links a { font-weight:600; font-size:1rem; }
+  .link-note { display:block; margin-top:0.2rem; font-size:0.88rem; line-height:1.45; color:var(--muted); }
   .guide { margin-top:1.6rem; }
   .guide h2 { font-size:1.15rem; }
   .guide p { font-size:0.95rem; line-height:1.55; }

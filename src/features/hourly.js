@@ -90,7 +90,7 @@ ${JSONLD_SITE}
   .cond { display:flex; align-items:center; gap:0.45rem; }
   .cond img { flex:none; }
   .num { text-align:right; white-space:nowrap; }
-  .wet { color:var(--accent); font-weight:700; }
+  .wet { color:var(--link); font-weight:700; }
   .wind { color:var(--muted); white-space:nowrap; }
   /* "(88°)" feels-like inline in the Temp cell is a phone-only rendering. */
   .feels-inline { display:none; }

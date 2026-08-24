@@ -54,7 +54,31 @@ see `docs/README.md`.
   so far found a new way to be wrong. **The two-language sweep is the
   point** — roughly half the site's render branches never execute under
   `lang="en"`, which is why `/hourly` was fine while `/es/hourly` was down.
-- **Deploy** (`cloudflare/wrangler-action@v3`) — runs on push to `main`
+- **Four content/behaviour checks**, all inside the required `Syntax check`
+  job, all pure node with no install. Each exists because its failure mode is
+  a **cheerful green**: the code runs, the page returns 200, and only the
+  output is wrong. `Check /api/health` (`scripts/test-health.mjs`) — a broken
+  health check still answers 200, so this drives the real recorder against a
+  stubbed KV, centrally that re-storing identical content must not move
+  `dataChangedAt`. `Check pollen index parsing`
+  (`scripts/test-pollen-parse.mjs`) — when an HHD URL-shape change makes a
+  matcher stop matching, an older slug still parses and health still reports
+  fresh while the count silently stops advancing. `Check burn-ban logic`
+  (`scripts/test-burnban-history.mjs`) — both derived lines on `/burn-ban`
+  fail by writing a well-formed FALSE sentence. `Check entity decoding`
+  (`scripts/test-decode-entities.mjs`) — decoding Google News titles in
+  stages lets one stage's output be rescanned by the next, turning
+  `&amp;lt;script&amp;gt;` into a live `<script>` in markdown, which is
+  emitted unescaped.
+- **Check colour contrast** (`node scripts/test-contrast.mjs`) — same job,
+  same reason, added 2026-08-24. Parses the palette out of `BASE_CSS` itself
+  (not a copy, which could drift and pass anyway) and measures `--link`,
+  `--ink`, `--muted` and white-on-`--btn` against `--bg`/`--card` in **both
+  themes**, plus a sweep failing any new `color:var(--accent)`. `--accent` is
+  a decoration token at 3.6–4.3:1 — under WCAG AA — and had been carrying
+  body text sitewide until a reader reported `/burn-ban`'s link list as
+  "blue on blue".
+- **Deploy** (`cloudflare/wrangler-action@v4`) — runs on push to `main`
   only, after BOTH checks pass (`needs: [check, build]`). Has a
   `concurrency: { group: deploy-production, cancel-in-progress: false }`
   guard so two quick squash-merges deploy in order instead of racing

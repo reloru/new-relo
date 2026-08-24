@@ -257,11 +257,11 @@ ${jsonldEvents(events, lang)}
   .subscribe h2 { margin:0 0 0.4rem; font-size:1.1rem; }
   .subscribe p { margin:0.45rem 0; }
   .sub-btns { display:flex; flex-wrap:wrap; gap:0.5rem; margin:0.6rem 0; }
-  .sub-btn { display:inline-block; background:var(--accent); color:#fff; text-decoration:none; padding:0.45rem 0.85rem; border-radius:8px; font-weight:600; font-size:0.9rem; }
-  .sub-btn.alt { background:transparent; color:var(--accent); border:1px solid var(--accent); }
+  .sub-btn { display:inline-block; background:var(--btn); color:#fff; text-decoration:none; padding:0.45rem 0.85rem; border-radius:8px; font-weight:600; font-size:0.9rem; }
+  .sub-btn.alt { background:transparent; color:var(--link); border:1px solid var(--link); }
   .cal-note { font-size:0.88rem; color:var(--muted); }
   .campus-list { display:flex; flex-wrap:wrap; gap:0.35rem 0.9rem; padding:0; margin:0.3rem 0 0; list-style:none; font-size:0.9rem; }
-  .campus-list a { color:var(--accent); }
+  .campus-list a { color:var(--link); }
   .disclaimer { margin-top:1.4rem; font-size:0.8rem; color:var(--muted); border-top:1px solid var(--line); padding-top:0.7rem; }
 </style>
 </head>

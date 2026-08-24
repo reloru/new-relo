@@ -81,6 +81,15 @@ jobs:
       # hole with nothing failing. Pure node, no install.
       - name: Check entity decoding
         run: node scripts/test-decode-entities.mjs
+      # A contrast regression is invisible to every other gate: nothing throws,
+      # the render check passes, the page returns 200, and it looks fine to
+      # whoever changed it — it is only unreadable for the people who need it
+      # most. `--accent` sat below WCAG AA on all four surfaces for the life of
+      # the site until a human squinted at /burn-ban. This measures the palette
+      # tokens in BOTH themes and fails if `--accent` (decoration: gradients,
+      # badge fills, large numerals) creeps back onto body text. Pure node.
+      - name: Check colour contrast
+        run: node scripts/test-contrast.mjs
 
   # Build gate: parse wrangler.jsonc and bundle the Worker without uploading.
   # Catches config/bundling errors and the compat-date/wrangler-pin coupling

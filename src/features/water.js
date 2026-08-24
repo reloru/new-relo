@@ -232,7 +232,7 @@ ${JSONLD_SITE}
   .w-minor { border-left-color:#e8720c; } .w-minor .gauge-badge { background:#c85a08; }
   .w-moderate { border-left-color:#d44230; } .w-moderate .gauge-badge { background:#b5301f; }
   .w-major { border-left-color:#8e2ec2; } .w-major .gauge-badge { background:#6f1fa0; }
-  .w-monitored { border-left-color:var(--accent); } .w-monitored .gauge-badge { background:var(--accent); }
+  .w-monitored { border-left-color:var(--accent); } .w-monitored .gauge-badge { background:var(--btn); }
   .intro { color:var(--muted); margin:0.6rem 0 0; }
   .safety { margin-top:1.4rem; font-size:0.85rem; color:var(--muted); border-top:1px solid var(--line); padding-top:0.8rem; }
 </style>

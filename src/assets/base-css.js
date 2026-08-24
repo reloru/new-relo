@@ -1,8 +1,16 @@
 // Shared CSS used by every HTML page (weather + about), so styling can't drift.
 export const BASE_CSS = `
-  :root { color-scheme: light dark; --blue:#0b3d61; --accent:#2c7fb8; --sun:#f5b301; --bg:#eef2f6; --card:#fff; --ink:#16222e; --muted:#5a6b7b; --line:#d8dee5; }
+  /* --accent is a DECORATION colour: gradients, large display numerals, badge
+     fills. It is NOT readable as body text — #2c7fb8 measures 3.6-4.3:1 against
+     the four surfaces, under the 4.5:1 WCAG AA needs, and white on it is 4.3:1.
+     Two separate tokens carry the readable jobs, so --accent can stay bright:
+       --link  text links and other small coloured text (AA on bg AND card)
+       --btn   a surface that carries WHITE text (AA in BOTH themes, which is
+               why it does NOT flip: a light --btn would break its own label)
+     Anything a reader has to READ uses one of those two. */
+  :root { color-scheme: light dark; --blue:#0b3d61; --accent:#2c7fb8; --link:#256d9e; --btn:#256d9e; --sun:#f5b301; --bg:#eef2f6; --card:#fff; --ink:#16222e; --muted:#5a6b7b; --line:#d8dee5; }
   @media (prefers-color-scheme: dark) {
-    :root { --bg:#0f1620; --card:#1a2430; --ink:#e6ebf1; --muted:#94a3b2; --line:#2a3744; }
+    :root { --bg:#0f1620; --card:#1a2430; --ink:#e6ebf1; --muted:#94a3b2; --line:#2a3744; --link:#5eb3e4; }
   }
   * { box-sizing: border-box; }
   body { margin:0; font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; line-height:1.5; background:var(--bg); color:var(--ink); }
@@ -50,6 +58,12 @@ export const BASE_CSS = `
     .nav-menu[open] .nav-links .nav-group-label { display:block; font-size:0.66rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:rgba(255,255,255,0.5); margin:0.55rem 0 0.05rem; padding-top:0.5rem; border-top:1px solid rgba(255,255,255,0.14); }
   }
   main { max-width:920px; margin:0 auto; padding:1rem; }
+  /* Every in-content link, including the ones no page styles explicitly — those
+     used to fall through to the UA default (#0000EE light / #9E9EFF dark), which
+     on this blue-grey background read as blue-on-blue. One class selector beats
+     this, so anchors that carry their own colour (.hub-cta on a gradient,
+     .alert-banner, .hub-card h2 a) are unaffected. */
+  main a { color:var(--link); }
   h2 { font-size:1.1rem; margin:1.4rem 0 0.6rem; }
   .none { color:var(--muted); font-style:italic; }
   footer { max-width:920px; margin:1rem auto; padding:0 1rem 2rem; font-size:0.8rem; color:var(--muted); text-align:center; }

@@ -195,7 +195,7 @@ ${JSONLD_SITE}
   .hour-time { font-size:0.8rem; color:var(--muted); }
   .hour-temp { font-weight:700; }
   .hour-pop { font-size:0.75rem; color:var(--muted); }
-  .hour-pop.wet { color:var(--accent); font-weight:700; }
+  .hour-pop.wet { color:var(--link); font-weight:700; }
 
   .periods { display:grid; gap:0.75rem; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); }
   .period { background:var(--card); border-radius:12px; padding:0.85rem 1rem; box-shadow:0 1px 3px rgba(0,0,0,0.07); }

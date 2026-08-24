@@ -124,11 +124,11 @@ ${JSONLD_SITE}
   .ref { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:0.7rem 0.9rem; }
   .ref h3 { margin:0 0 0.35rem; font-size:0.98rem; color:var(--muted); font-weight:700; }
   .ref-line { margin:0.25rem 0; font-size:0.85rem; }
-  .ref-label { display:inline-block; min-width:3.1rem; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.04em; font-weight:700; color:var(--accent); }
+  .ref-label { display:inline-block; min-width:3.1rem; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.04em; font-weight:700; color:var(--link); }
   .intro { color:var(--muted); margin:0.6rem 0 0; }
   .push-optin { margin-top:1rem; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:0.9rem 1.1rem; }
   .push-optin .push-desc { margin:0 0 0.6rem; font-size:0.95rem; }
-  .push-btn { font:inherit; font-weight:700; color:#fff; background:var(--accent); border:none; border-radius:8px; padding:0.55rem 1rem; cursor:pointer; }
+  .push-btn { font:inherit; font-weight:700; color:#fff; background:var(--btn); border:none; border-radius:8px; padding:0.55rem 1rem; cursor:pointer; }
   .push-btn:hover { filter:brightness(1.07); }
   .push-btn:disabled { opacity:0.6; cursor:default; }
   .push-status { margin:0.5rem 0 0; font-size:0.85rem; color:var(--muted); }
