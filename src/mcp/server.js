@@ -23,7 +23,7 @@ import { llmsTxt, CROSBY_WEATHER_SKILL } from "../discovery.js";
 import { loadWeather } from "../features/weather.js";
 import { loadWater, waterState, waterCatLabel, WATER_FLOOD_CATS, apiWater } from "../features/water.js";
 import { loadFishing, apiFishing } from "../features/fishing.js";
-import { loadTropics, tropicsStormLine, apiTropics } from "../features/tropics.js";
+import { loadTropics, tropicsStormLine, tropicsDisturbanceLine, tropicsWatchAreas, apiTropics } from "../features/tropics.js";
 import { loadTraffic, apiTraffic } from "../features/traffic.js";
 import { loadPollen, pollenCatRank, pollenGroupLabel, pollenDateLabel,
          POLLEN_GROUPS, apiPollen } from "../features/pollen.js";
@@ -46,7 +46,7 @@ export const MCP_SUPPORTED_VERSIONS = ["2025-03-26", "2025-06-18"];
 // Version moves in lockstep with `server.json`'s registry version on any
 // tool-set change — they drifted apart (1.2.0 vs 1.4.0) when `get_air_quality`
 // and `get_fishing` shipped without a bump, so both now carry the same number.
-export const MCP_SERVER_INFO = { name: "crosbynews-weather", version: "1.6.0", title: "Crosby, TX Weather" };
+export const MCP_SERVER_INFO = { name: "crosbynews-weather", version: "1.7.0", title: "Crosby, TX Weather" };
 export const MCP_CORS = {
   "access-control-allow-origin": "*",
   "access-control-allow-methods": "POST, OPTIONS",
@@ -155,7 +155,7 @@ export function mcpTools() {
       name: "get_tropical_outlook",
       title: "Atlantic tropical outlook",
       description:
-        "Active Atlantic tropical cyclones from the NOAA National Hurricane Center — the systems that matter to Crosby, TX in hurricane season (June–November). Returns an explicit all-clear when the basin is quiet.",
+        "Active Atlantic tropical cyclones from the NOAA National Hurricane Center, AND the areas it is watching for development that do not have names yet, with their formation chances. Covers hurricane season (June–November) for Crosby, TX. Returns an explicit all-clear only when there are neither — a quiet CurrentStorms list does not by itself mean a quiet basin.",
       inputSchema: { type: "object", properties: {}, additionalProperties: false },
       outputSchema: {
         type: "object",
@@ -163,9 +163,26 @@ export function mcpTools() {
           basin: { type: "string" },
           source: { type: "string" },
           updated: isoStamp,
+          outlookIssued: isoStamp,
+          disturbances: {
+            type: ["array", "null"],
+            description:
+              "Areas the NHC is watching for development but has NOT named — the shaded areas on its graphical outlook. `null` means the outlook could not be read; `[]` means the NHC is watching nothing. Do not conflate the two, and do not report a formation chance as a storm or as a forecast track.",
+            items: {
+              type: "object",
+              properties: {
+                area: { type: "string", description: "NHC's own name for the area, in official English." },
+                id: { type: ["string", "null"], description: 'Invest number when assigned, e.g. "AL95".' },
+                chance48Percent: { type: ["integer", "null"] },
+                chance48Category: { type: ["string", "null"], description: "low / medium / high, NHC's own wording." },
+                chance7DayPercent: { type: ["integer", "null"] },
+                chance7DayCategory: { type: ["string", "null"] },
+              },
+            },
+          },
           storms: {
             type: "array",
-            description: "Empty when the basin is quiet — the normal state most of the year.",
+            description: "Named/numbered cyclones only. Empty is common and does NOT imply nothing is brewing — check `disturbances` too.",
             items: {
               type: "object",
               properties: {
@@ -536,7 +553,7 @@ export async function mcpGetPrompt(name, env) {
     loadNews(env),
     loadCalendar(env),
     loadWater(env).catch(() => ({ gauges: [] })),
-    loadTropics(env).catch(() => ({ storms: [] })),
+    loadTropics(env).catch(() => ({ storms: [], disturbances: null })),
     loadTraffic(env).catch(() => ({ incidents: null, closures: null })),
     loadPollen(env).catch(() => ({ groups: {} })),
   ]);
@@ -568,6 +585,14 @@ export async function mcpGetPrompt(name, env) {
     );
   const storms = tropics.storms ?? [];
   if (storms.length) lines.push(`ACTIVE ATLANTIC TROPICAL SYSTEMS: ${storms.map((s) => tropicsStormLine(s, "en")).join("; ")}. Details: ${SITE}/tropics`);
+  // Areas NHC is watching but has not named. Reported separately from storms
+  // and never merged into them: "60% chance of forming" is not a storm, and an
+  // agent relaying it as one would overstate the situation.
+  const watching = tropicsWatchAreas(tropics);
+  if (!storms.length && watching.length)
+    lines.push(
+      `ATLANTIC AREAS BEING WATCHED FOR DEVELOPMENT (no named storm): ${watching.map((d) => tropicsDisturbanceLine(d, "en")).join("; ")}. A formation chance is not a forecast track. Details: ${SITE}/tropics`
+    );
   const roadIncidents = traffic.incidents ?? [];
   if (roadIncidents.length)
     lines.push(
@@ -824,18 +849,35 @@ export async function mcpCallTool(name, args, env) {
   if (name === "get_tropical_outlook") {
     const tropics = await loadTropics(env);
     const payload = apiTropics(tropics);
-    const text = payload.storms.length
-      ? payload.storms
-          .map((s) => {
-            const bits = [];
-            if (s.windMph != null) bits.push(`${s.windMph} mph winds`);
-            if (s.pressureMb != null) bits.push(`${s.pressureMb} mb`);
-            if (s.lat != null && s.lon != null) bits.push(`near ${Math.abs(s.lat)}°${s.lat < 0 ? "S" : "N"} ${Math.abs(s.lon)}°${s.lon < 0 ? "W" : "E"}`);
-            if (s.movementDirection) bits.push(`moving ${s.movementDirection}`);
-            return `- ${s.classificationLabel} ${s.name}${bits.length ? ` — ${bits.join(", ")}` : ""} (advisory: ${s.advisoryUrl})`;
-          })
-          .join("\n")
-      : "No active tropical systems in the Atlantic basin — all clear. (Hurricane season runs June–November; Crosby's local threat is inland rain flooding, not surge.)";
+    const stormText = payload.storms
+      .map((s) => {
+        const bits = [];
+        if (s.windMph != null) bits.push(`${s.windMph} mph winds`);
+        if (s.pressureMb != null) bits.push(`${s.pressureMb} mb`);
+        if (s.lat != null && s.lon != null) bits.push(`near ${Math.abs(s.lat)}°${s.lat < 0 ? "S" : "N"} ${Math.abs(s.lon)}°${s.lon < 0 ? "W" : "E"}`);
+        if (s.movementDirection) bits.push(`moving ${s.movementDirection}`);
+        return `- ${s.classificationLabel} ${s.name}${bits.length ? ` — ${bits.join(", ")}` : ""} (advisory: ${s.advisoryUrl})`;
+      })
+      .join("\n");
+    // The all-clear is only stated when BOTH lists are empty. An agent reading
+    // an empty `storms` and announcing "all clear" is precisely the mistake
+    // this page made to a human reader on 2026-08-24.
+    const dzText =
+      payload.disturbances === null
+        ? "The NHC tropical outlook could not be read, so whether anything is being watched is UNKNOWN — do not report an all-clear."
+        : payload.disturbances.length
+          ? `Areas being watched for development (not named storms):\n${payload.disturbances
+              .map((d) => {
+                const w = [];
+                if (d.chance48Percent != null) w.push(`${d.chance48Percent}% in 48h`);
+                if (d.chance7DayPercent != null) w.push(`${d.chance7DayPercent}% in 7 days`);
+                return `- ${d.area}${d.id ? ` (${d.id})` : ""}${w.length ? ` — ${w.join(", ")} chance of forming` : ""}`;
+              })
+              .join("\n")}\nA formation chance is not a forecast track.`
+          : "";
+    const text =
+      [stormText ? `Active Atlantic systems:\n${stormText}` : "", dzText].filter(Boolean).join("\n\n") ||
+      "No active tropical systems in the Atlantic basin and no areas under watch for development — all clear. (Hurricane season runs June–November; Crosby's local threat is inland rain flooding, not surge.)";
     return { content: [{ type: "text", text }], structuredContent: payload };
   }
   if (name === "get_traffic") {

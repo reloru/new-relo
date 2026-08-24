@@ -90,6 +90,15 @@ jobs:
       # badge fills, large numerals) creeps back onto body text. Pure node.
       - name: Check colour contrast
         run: node scripts/test-contrast.mjs
+      # The NHC Tropical Weather Outlook is forecaster PROSE, not JSON, and it
+      # fails the way scrapes fail: by quietly returning fewer areas than the
+      # bulletin contains. An empty list is indistinguishable from a quiet
+      # basin. That gap shipped — on 2026-08-24 /tropics showed a green
+      # "Nothing active in the Atlantic" while NHC watched two areas at 50%
+      # and 60%, because CurrentStorms.json lists only NAMED cyclones and we
+      # read nothing else. Pinned against real bulletins. Pure node.
+      - name: Check tropical outlook parsing
+        run: node scripts/test-two-parse.mjs
 
   # Build gate: parse wrangler.jsonc and bundle the Worker without uploading.
   # Catches config/bundling errors and the compat-date/wrangler-pin coupling

@@ -20,7 +20,7 @@ import { topbar, footer } from "../chrome.js";
 import { JSONLD_SITE, OG_COMMON } from "../seo.js";
 import { uvPeakToday, uvCategory, aqiCategory, aqiSourceNote } from "./air.js";
 import { waterCatLabel, waterCatClass, WATER_FLOOD_CATS, WATER_CAT_ORDER } from "./water.js";
-import { tropicsStormLine } from "./tropics.js";
+import { tropicsStormLine, tropicsDisturbanceLine, tropicsWatchPeak, tropicsWatchAreas } from "./tropics.js";
 import { newsList } from "./news.js";
 import { upcomingEvents, translateEvent } from "./calendar.js";
 
@@ -120,13 +120,27 @@ export function hubAlertsBanner(alerts, lang) {
 // basin is watch-this news, not act-now news (act-now arrives as NWS alerts).
 export function hubTropicsBanner(tropics, lang) {
   const storms = tropics?.storms ?? [];
-  if (!storms.length) return "";
   const tUrl = lang === "es" ? "/es/tropics" : "/tropics";
-  const list = storms.map((s) => tropicsStormLine(s, lang)).join(" · ");
-  return `<a class="tropics-banner" href="${tUrl}">
+  if (storms.length) {
+    const list = storms.map((s) => tropicsStormLine(s, lang)).join(" · ");
+    return `<a class="tropics-banner" href="${tUrl}">
     <p class="tb-title">&#127744; ${storms.length === 1 ? T(lang, "Tropical system in the Atlantic", "Sistema tropical en el Atlántico") : T(lang, `${storms.length} tropical systems in the Atlantic`, `${storms.length} sistemas tropicales en el Atlántico`)}</p>
     <p class="tb-detail">${esc(list)}</p>
     <p class="tb-link">${T(lang, "Track them", "Seguirlos")} &rarr;</p>
+  </a>`;
+  }
+  // No named storm, but NHC may still be watching areas for development. The
+  // front page surfaces those only at MEDIUM or better (>=40% over 7 days):
+  // every wave off Africa spends a few days at 10-20%, and a homepage banner
+  // for each one is noise that teaches people to ignore the banner. The
+  // /tropics page lists them all regardless.
+  const watching = tropicsWatchAreas(tropics);
+  if (!watching.length) return "";
+  const peak = tropicsWatchPeak(watching);
+  return `<a class="tropics-banner tropics-watch" href="${tUrl}">
+    <p class="tb-title">&#128064; ${watching.length === 1 ? T(lang, "An area of the Atlantic is being watched", "Una zona del Atlántico bajo vigilancia") : T(lang, `${watching.length} areas of the Atlantic are being watched`, `${watching.length} zonas del Atlántico bajo vigilancia`)}</p>
+    <p class="tb-detail">${esc(watching.map((d) => tropicsDisturbanceLine(d, lang)).join(" · "))}</p>
+    <p class="tb-link">${T(lang, `No named storm yet${peak != null ? ` — up to ${peak}% chance of forming` : ""}`, `Aún sin tormenta con nombre${peak != null ? ` — hasta ${peak}% de probabilidad de formarse` : ""}`)} &rarr;</p>
   </a>`;
 }
 
@@ -464,6 +478,9 @@ ${JSONLD_SITE}
   .alert-banner:hover .ab-link { text-decoration:underline; }
   .tropics-banner { display:block; background:linear-gradient(135deg,#6f1fa0,#8e2ec2); color:#fff; text-decoration:none; border-radius:12px; padding:0.85rem 1.05rem; margin-top:0.8rem; }
   .tropics-banner:hover .tb-link { text-decoration:underline; }
+  /* Amber for a watch area, matching /tropics' own watch panel — visually
+     quieter than the purple named-storm banner, because it is quieter news. */
+  .tropics-banner.tropics-watch { background:linear-gradient(135deg,#8a4a00,#a86412); }
   .tb-title { margin:0; font-weight:800; font-size:1.05rem; }
   .tb-detail { margin:0.35rem 0 0; font-size:0.9rem; opacity:0.95; }
   .tb-link { margin:0.45rem 0 0; font-size:0.88rem; font-weight:700; }
@@ -526,6 +543,13 @@ export function homeMarkdown(weather, water, news, cal, tropics, burnban, lang) 
   const storms = tropics?.storms ?? [];
   if (storms.length) {
     out.push(`**🌀 ${T(lang, "Tropical activity in the Atlantic", "Actividad tropical en el Atlántico")}:** ${storms.map((s) => tropicsStormLine(s, lang)).join("; ")}. [${T(lang, "Track them", "Seguirlos")}](${canonicalFor("/tropics", lang)})`, "");
+  } else {
+    // Same >=40% gate as the HTML banner, from the same helper, so the two
+    // representations of the front page cannot disagree about what is worth
+    // mentioning.
+    const watching = tropicsWatchAreas(tropics);
+    if (watching.length)
+      out.push(`**👀 ${T(lang, "Being watched in the Atlantic", "Bajo vigilancia en el Atlántico")}:** ${watching.map((d) => tropicsDisturbanceLine(d, lang)).join("; ")}. ${T(lang, "No named storm yet.", "Aún sin tormenta con nombre.")} [${T(lang, "Details", "Detalles")}](${canonicalFor("/tropics", lang)})`, "");
   }
   if (burnban?.status === "Yes") {
     out.push(`**🔥 ${T(lang, "Harris County burn ban in effect", "Prohibición de quemas vigente en el condado de Harris")}:** ${T(lang, "No outdoor burning allowed countywide.", "No se permite quemar al aire libre en todo el condado.")} [${T(lang, "Details", "Detalles")}](${canonicalFor("/burn-ban", lang)})`, "");

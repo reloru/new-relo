@@ -28,7 +28,7 @@ crosbynews.com is an independent weather and news site for Crosby, TX (northeast
 - [Alerts](${SITE}/alerts): Active NWS weather alerts for Crosby, TX plus a plain-language severe-weather guide.
 - [Water Levels](${SITE}/water): Live river and bayou levels with NWS flood stages for Cedar Bayou, the San Jacinto River, Luce Bayou and other waters that flood the Crosby / NE Harris County area.
 - [Fishing Conditions](${SITE}/fishing): Live USGS water conditions — temperature, dissolved oxygen, pH, and clarity — for the waters people fish near Crosby: Lake Houston, the San Jacinto River forks, the Trinity River, and nearby bayous.
-- [Tropics](${SITE}/tropics): Active Atlantic tropical storms and hurricanes from the NOAA National Hurricane Center, plus what hurricane season means for Crosby — shows an all-clear when the basin is quiet.
+- [Tropics](${SITE}/tropics): Active Atlantic tropical storms and hurricanes from the NOAA National Hurricane Center, the areas it is watching for development with their formation chances, plus what hurricane season means for Crosby — an all-clear only when there are neither.
 - [Pollen & Mold](${SITE}/pollen): The Houston Health Department's measured daily pollen and mold count (tree, weed, and grass pollen plus mold spores, National Allergy Bureau scale) with the species actually counted — a real measurement, published weekday mornings, regionally valid for Crosby.
 - [Air Quality](${SITE}/air): Measured US Air Quality Index (AQI) for the Houston-Galveston-Brazoria reporting area that includes Crosby, from EPA/AirNow monitors, with a per-pollutant breakdown and health guidance (Open-Meteo modeled fallback when AirNow isn't reporting).
 - [News](${SITE}/news): Recent local headlines about Crosby, TX and nearby communities, filtered for relevance.
@@ -56,7 +56,7 @@ Every page supports \`Accept: text/markdown\` (or \`?format=md\`) for a clean ma
 - School calendar API: \`GET ${SITE}/api/calendar\` — upcoming Crosby ISD events (JSON).
 - Water levels API: \`GET ${SITE}/api/water\` — river/bayou stage + NWS flood stages (JSON).
 - Fishing API: \`GET ${SITE}/api/fishing\` — USGS water conditions (temperature, dissolved oxygen, pH, turbidity) for the waters people fish near Crosby (JSON).
-- Tropics API: \`GET ${SITE}/api/tropics\` — active Atlantic tropical cyclones from the NOAA NHC (JSON; empty storms array = quiet basin).
+- Tropics API: \`GET ${SITE}/api/tropics\` — active Atlantic tropical cyclones from the NOAA NHC, plus unnamed areas under watch with formation chances (JSON; an empty storms array alone does NOT mean a quiet basin — read \`disturbances\` too, where null means the outlook was unreadable).
 - Traffic API: \`GET ${SITE}/api/traffic\` — incidents and lane closures on Crosby's roads from Houston TranStar (JSON; empty arrays = quiet roads).
 - Pollen API: \`GET ${SITE}/api/pollen\` — the Houston Health Department's measured daily pollen and mold count (JSON; weekday mornings).
 - Burn ban API: \`GET ${SITE}/api/burn-ban\` — Harris County's current outdoor-burning ban status from the Texas A&M Forest Service (JSON; countywide only).
@@ -235,7 +235,8 @@ MCP server (Streamable HTTP, JSON-RPC):
 - GET https://crosbynews.com/api/water - river/bayou levels with NWS flood
   stages for the Crosby area (JSON); MCP tool: get_river_levels
 - GET https://crosbynews.com/api/tropics - active Atlantic tropical cyclones
-  from the NOAA NHC (JSON); MCP tool: get_tropical_outlook
+  from the NOAA NHC, plus unnamed areas under watch and their formation
+  chances (JSON); MCP tool: get_tropical_outlook
 - GET https://crosbynews.com/api/pollen - measured daily pollen and mold count
   from the Houston Health Department (JSON); MCP tool: get_pollen
 - GET https://crosbynews.com/api/burn-ban - Harris County's current outdoor-
