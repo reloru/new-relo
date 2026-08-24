@@ -65,8 +65,15 @@ rm -rf .wrangler/state          # next `wrangler dev` starts truly empty
   publishes one count per weekday morning, so this is "have we got today's
   count" rather than a flat age throttle; cold-warms on read. Self-heals. Low risk.
 - **`burnban`** — Harris County outdoor-burning ban status from the Texas A&M
-  Forest Service, shape `{ updated, status, startDate }` (`loadBurnBan()`
-  checks `status` is `"Yes"` or `"No"`; `startDate` is ISO or null). Written by
+  Forest Service, shape `{ updated, status, startDate, statusSince,
+  trackingSince }` (`loadBurnBan()` checks `status` is `"Yes"` or `"No"`;
+  `startDate` is ISO or null). **Don't hand-write `statusSince` /
+  `trackingSince`** — `trackingSince` is the first observation ever and never
+  moves, `statusSince` moves only on a real status flip, and when they are
+  EQUAL the page says "unchanged since we began tracking" rather than claiming
+  a transition. Faking them makes /burn-ban assert a ban ended on a day it
+  did not. Deleting the key is safe: the next cron reseeds both to now, which
+  reads honestly as "no observed history yet". Written by
   the same cron, throttled ~12h (TFS's feed updates roughly daily, on a county
   judge's order rather than a schedule); cold-warms on read. Self-heals. Low risk.
 - **`traffic`** — Crosby-corridor road incidents + lane closures from Houston
