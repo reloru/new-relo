@@ -211,7 +211,16 @@ canonicalization runs via a single Cloudflare Redirect rule
   the full list and throttle intervals). `fetch()` serves the cache and falls
   back to a live fetch + warm on a cold cache.
 - Styling: an inline `<style>` block in the rendered HTML — no build step,
-  no static assets.
+  no static assets. **Three blue tokens, and they are not interchangeable:**
+  `--accent` is **decoration only** (gradients, badge fills, large display
+  numerals) — it measures 3.6–4.3:1 on the four surfaces, below WCAG AA, so it
+  must never carry body text; `--link` is coloured text and flips per theme;
+  `--btn` is a surface under white text and deliberately does **not** flip (a
+  light `--btn` would fail its own label). `main a` in `BASE_CSS` colours every
+  in-content link, so an anchor needs a rule only to opt *out* (`.hub-cta`,
+  `.alert-banner`). `scripts/test-contrast.mjs` enforces all of this in CI as
+  **"Check colour contrast"** — it measures the real tokens out of `BASE_CSS`
+  and fails on any new `color:var(--accent)`.
 - Chrome: `topbar(current, lang)` renders the site header, with a
   visually-hidden skip-to-content link (`.skip-link`) targeting
   `<main id="main">` on every page. ≤920px collapses nav into a CSS-only

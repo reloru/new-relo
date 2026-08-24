@@ -254,7 +254,7 @@ ${JSONLD_SITE}
   .f-good { border-left-color:#2eb86a; } .f-good .fbadge { background:#1f8b4c; }
   .f-fair { border-left-color:#e0a800; } .f-fair .fbadge { background:#b8860b; }
   .f-low { border-left-color:#d44230; } .f-low .fbadge { background:#b5301f; }
-  .f-level { border-left-color:var(--accent); } .f-level .fbadge { background:var(--accent); }
+  .f-level { border-left-color:var(--accent); } .f-level .fbadge { background:var(--btn); }
   .fguide { margin-top:1.6rem; background:var(--card); border-radius:12px; padding:0.9rem 1.1rem; box-shadow:0 1px 3px rgba(0,0,0,0.07); }
   .fguide h2 { font-size:1.05rem; margin:0 0 0.3rem; }
   .fguide p, .fguide ul { font-size:0.88rem; color:var(--muted); line-height:1.55; margin:0.3rem 0 0; }

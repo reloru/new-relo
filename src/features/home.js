@@ -432,19 +432,19 @@ ${JSONLD_SITE}
   .hub-card { background:var(--card); border-radius:12px; padding:0.9rem 1.05rem; box-shadow:0 1px 3px rgba(0,0,0,0.07); }
   .hub-card h2 { margin:0 0 0.5rem; font-size:1.05rem; }
   .hub-card h2 a { color:var(--ink); text-decoration:none; }
-  .hub-card h2 a:hover { color:var(--accent); }
+  .hub-card h2 a:hover { color:var(--link); }
   .peek { list-style:none; margin:0; padding:0; }
   .peek li { display:flex; justify-content:space-between; gap:0.6rem; padding:0.28rem 0; border-bottom:1px solid var(--line); font-size:0.9rem; }
   .peek li:last-child { border-bottom:none; }
   .pk-label { color:var(--muted); flex:none; }
   .pk-val { text-align:right; }
   .hub-links { margin:0.55rem 0 0; font-size:0.85rem; color:var(--muted); }
-  .hub-links a { color:var(--accent); text-decoration:none; }
+  .hub-links a { color:var(--link); text-decoration:none; }
   .hub-news { list-style:none; margin:0; padding:0; }
   .hub-news li { padding:0.3rem 0; border-bottom:1px solid var(--line); font-size:0.9rem; }
   .hub-news li:last-child { border-bottom:none; }
   .hub-news a { color:var(--ink); text-decoration:none; }
-  .hub-news a:hover { color:var(--accent); text-decoration:underline; }
+  .hub-news a:hover { color:var(--link); text-decoration:underline; }
   .hub-water { margin:0.3rem 0 0.4rem; }
   .hub-water-badge { display:inline-block; font-size:0.9rem; font-weight:800; padding:0.3rem 0.7rem; border-radius:999px; color:#fff; background:var(--muted); }
   .hub-water.w-normal .hub-water-badge { background:#1f8b4c; }
@@ -477,7 +477,7 @@ ${JSONLD_SITE}
   .ab-headline { margin:0.35rem 0 0; font-size:0.9rem; opacity:0.95; }
   .ab-link { margin:0.45rem 0 0; font-size:0.88rem; font-weight:700; }
   .about { margin-top:0.45rem; font-size:0.85rem; }
-  .about summary { cursor:pointer; color:var(--accent); list-style:none; }
+  .about summary { cursor:pointer; color:var(--link); list-style:none; }
   .about summary::-webkit-details-marker { display:none; }
   .about p { margin:0.3rem 0 0.2rem; color:var(--muted); }
   .alerts { display:grid; gap:0.6rem; margin-top:0.8rem; }
