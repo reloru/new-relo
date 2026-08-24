@@ -18,14 +18,13 @@ Crosby) from the Texas A&M Forest Service.
 |---|---|
 | Status panel — green "no ban" / orange "ban in effect" / gray "status unavailable" | `burnban` KV |
 | Status-history line directly under the panel | `burnbanSince(data, lang)` |
-| Safety caveat, shown **only on the all-clear** — "a county ban is not the only thing that decides whether you can burn" | static |
 | "Right now in Crosby" fire-weather strip — wind/gusts/humidity/rain chance, plus any Red Flag Warning or Fire Weather Watch | `burnbanFireWeather(weather, lang)` from the `weather` KV |
-| "Before you burn" checklist (6 items) | `burnbanChecklist(lang)` |
+| "Before you burn" — a lead paragraph, then the 6-item checklist | `burnbanLead(data, lang)` + `burnbanChecklist(lang)` |
 | "What a burn ban means" evergreen guide — issuing authority, unincorporated scope, Class C penalty, TFS-is-not-the-authority | static |
-| "Common questions" FAQ (4 `<details>`) | `burnbanFaq(lang)` |
-| Related-links row | `burnbanRelated(lang)` |
+| "Frequently asked questions" (5 `<details>`) | `burnbanFaq(lang)` |
+| "Resources" section | `burnbanResources(lang)` |
 
-`burnbanChecklist` / `burnbanFaq` / `burnbanRelated` are **shared content
+`burnbanLead` / `burnbanChecklist` / `burnbanFaq` / `burnbanResources` are **shared content
 objects**: the HTML and Markdown renderers both consume them, per the
 site-wide one-object-per-page rule, so the two representations cannot drift.
 Each entry carries either a `path` (an English internal path each renderer
@@ -37,16 +36,31 @@ absolute external `url`.
 This page is a search landing page for "is there a burn ban," so the green
 panel is the most misreadable element on the site. Two claims must not blur:
 
-- **"No ban" ≠ "you may burn."** Texas prohibits outdoor burning statewide
-  (30 TAC 111.201) and then allows specific exceptions; the county's status is
-  one condition among several. The caveat paragraph under the green panel
-  exists solely to say this.
+- **"No ban" ≠ "you may burn."** Texas has rules that always apply — about
+  what may be burned and when — so the county's status is one condition among
+  several. `burnbanLead()` exists solely to say this, and it heads the
+  checklist rather than floating under the status panel (as a boxed callout
+  there it read as a detached cut-out and left the checklist looking
+  unrelated).
+
+  **Phrasing trap:** an earlier version said Texas "restricts outdoor burning
+  statewide whether or not a ban is in effect." Readers took that as a
+  standing never-burn-anything order. "Texas has its own rules about what
+  you're allowed to burn and when" is the same fact without the false
+  implication. Don't regress it.
+
+- **Everyday words only.** This page is read mid-decision by people who are
+  not lawyers. "The order in force is what controls", "permitted under",
+  "the material is allowed" — all replaced. Checklist headings are
+  instructions ("Make sure…", "Check…"), not noun labels.
 - **Household trash is effectively never burnable in Crosby.** The
   domestic-waste exception applies only where local government does **not**
   provide garbage collection. Crosby has collection. The page's first version
   listed "trash burning" as an example of what a *ban* prohibits, which
   implied it was fine the rest of the year — **do not reintroduce that
-  framing.**
+  framing.** This now lives in the FAQ ("Can you burn trash in Crosby?")
+  rather than the checklist: squeezed into a checklist item it referenced
+  "that exception" before defining it, which read as gibberish.
 - **Scope is the unincorporated county.** A Harris County ban is issued by the
   county judge / Commissioners Court and covers unincorporated Harris County —
   where Crosby is. Cities inside the county set their own rules, so "anywhere
@@ -117,6 +131,13 @@ our checks" rather than claiming the hour a county order actually changed.
 | `BURNBAN_OFFICIAL_URL` | `tfsweb.tamu.edu/…/burn-bans-and-information/` | TFS statewide tracker — the data source, **not** the issuing authority |
 | `BURNBAN_COUNTY_URL` | `hcfmo.net/Resources/Wildfire-Burn-Bans` | Harris County Fire Marshal — the local authority and the order's exceptions |
 | `BURNBAN_STATE_RULES_URL` | `tceq.texas.gov/goto/rg-049` | TCEQ "Outdoor Burning in Texas" (RG-049) — the statewide rules |
+| `BURNBAN_MAP_URL` | `tfsfrp.tamu.edu/wildfires/DecBan.png` | TFS statewide burn-ban map |
+| `BURNBAN_DROUGHT_URL` | `droughtmonitor.unl.edu/…?fips_48201` | US Drought Monitor, Harris County |
+
+The last two are **linked, never embedded.** Embedding either would need an
+origin proxy (the CSP allows no external image host) *and* would trigger the
+Drought Monitor's reproduction-attribution requirement — too much cost for a
+statewide graphic on a county page. Linking incurs neither.
 
 All three were verified to return 200 when the page shipped. A dead link on a
 safety page is a real defect — recheck them when touching this section.
