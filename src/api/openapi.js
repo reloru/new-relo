@@ -221,7 +221,7 @@ export function openApiSpec() {
     openapi: "3.1.0",
     info: {
       title: "crosbynews.com API",
-      version: "1.6.0",
+      version: "1.7.0",
       description:
         "Crosby, Texas community data: current conditions, hourly and 7-day forecast, active alerts, the EPA UV index, and a measured air-quality index (EPA/AirNow monitors, with an Open-Meteo modeled fallback) from the U.S. National Weather Service, EPA/AirNow, and Open-Meteo; river/bayou flood levels; the Atlantic tropical outlook; the Houston Health Department's measured daily pollen and mold count; the Harris County burn-ban status from the Texas A&M Forest Service; road incidents and lane closures from Houston TranStar; recent local news headlines; and the Crosby ISD school calendar. Public, no authentication.",
       contact: { url: `${SITE}/` },
@@ -503,7 +503,23 @@ export function openApiSpec() {
             basin: { type: "string" },
             source: { type: "string" },
             updated: { type: ["string", "null"], format: "date-time" },
-            storms: { type: "array", items: { $ref: "#/components/schemas/Storm" } },
+            storms: { type: "array", items: { $ref: "#/components/schemas/Storm" }, description: "Named/numbered cyclones only. Empty does NOT imply a quiet basin — check `disturbances`." },
+            outlookIssued: { type: ["string", "null"], format: "date-time", description: "When the NHC issued the Tropical Weather Outlook these disturbances come from." },
+            disturbances: {
+              type: ["array", "null"],
+              description: "Areas the NHC is watching for development but has not named. `null` means the outlook could not be read; `[]` means nothing is being watched.",
+              items: {
+                type: "object",
+                properties: {
+                  area: { type: "string" },
+                  id: { type: ["string", "null"], description: 'Invest number when assigned, e.g. "AL95".' },
+                  chance48Percent: { type: ["integer", "null"] },
+                  chance48Category: { type: ["string", "null"] },
+                  chance7DayPercent: { type: ["integer", "null"] },
+                  chance7DayCategory: { type: ["string", "null"] },
+                },
+              },
+            },
           },
         },
         Storm,

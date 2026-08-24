@@ -24,7 +24,8 @@ with no framework and no runtime dependencies.
 - **[Fishing](https://crosbynews.com/fishing)** — live USGS water conditions
   (temperature, dissolved oxygen, pH, clarity) for the waters people fish near
   Crosby: Lake Houston, the San Jacinto forks, the Trinity River, and nearby bayous.
-- **[Tropics](https://crosbynews.com/tropics)** — the Atlantic tropical outlook
+- **[Tropics](https://crosbynews.com/tropics)** — the Atlantic tropical outlook:
+  named storms plus the areas NHC is watching for development
   from the National Hurricane Center.
 - **[Air Quality](https://crosbynews.com/air)** — the measured U.S. Air Quality
   Index for the Houston-Galveston-Brazoria area (which includes Crosby) from

@@ -49,6 +49,118 @@ export function degToCompass(deg) {
   return pts[Math.round((((d % 360) + 360) % 360) / 22.5) % 16];
 }
 
+// NHC's Tropical Weather Outlook, which is a SEPARATE product from
+// CurrentStorms.json and the reason this file grew a second fetch.
+//
+// CurrentStorms.json lists named/numbered cyclones only. Areas NHC is watching
+// for development — the shaded blobs with formation percentages on the
+// graphical outlook — appear ONLY in the TWO. On 2026-08-24 that gap showed
+// its teeth: NHC was tracking AL95 (50%) and AL96 at 60% over 7 days while
+// this page rendered a green "Nothing active in the Atlantic", because in our
+// data model nothing WAS active. Literally true, read as "nothing to watch",
+// during peak season, on a hurricane page. Same failure shape as a burn-ban
+// page saying "no ban".
+//
+// The TWO is free-form forecaster prose with no JSON form, so it is parsed
+// like the pollen scrape — permissively, and pinned by a test against real
+// bulletins (scripts/test-two-parse.mjs).
+export const TWO_URL = "https://www.nhc.noaa.gov/xml/TWOAT.xml";
+
+// "* Formation chance through 7 days...medium...60 percent." — also
+// "...low...near 0 percent." in a quiet outlook, hence the optional "near".
+const TWO_CHANCE_RE = /Formation chance through\s+(48\s*hours|7\s*days)\s*\.{2,}\s*([a-z ]+?)\s*\.{2,}\s*(?:near\s+)?(\d{1,3})\s*percent/i;
+
+// A disturbance heading: "Central Subtropical Atlantic (AL95):", sometimes
+// enumerated ("1. Near the Cabo Verde Islands:"). The basin header
+// ("For the North Atlantic...Caribbean Sea and the Gulf of America:") also
+// ends in a colon, so it is excluded explicitly, as is anything carrying the
+// "..." NHC uses in that header.
+const TWO_HEADING_RE = /^(?:\d+\.\s*)?([^.*][^:]{2,89}?)\s*(?:\((AL\d{2})\))?\s*:$/;
+
+export function parseTwoDisturbances(text) {
+  const lines = String(text).split("\n").map((l) => l.trim());
+  const found = [];
+  let cur = null;
+  let prevBlank = true;
+  for (const line of lines) {
+    if (!line) {
+      prevBlank = true;
+      continue;
+    }
+    const chance = line.match(TWO_CHANCE_RE);
+    if (chance) {
+      // A percentage with no heading above it belongs to nothing — drop it
+      // rather than inventing an area for it.
+      if (cur) {
+        const pct = Number(chance[3]);
+        const category = chance[2].trim().toLowerCase();
+        if (/48/.test(chance[1])) {
+          cur.chance48 = pct;
+          cur.category48 = category;
+        } else {
+          cur.chance7 = pct;
+          cur.category7 = category;
+        }
+      }
+      prevBlank = false;
+      continue;
+    }
+    // A heading is ALWAYS preceded by a blank line in a TWO bulletin, and
+    // requiring that is what keeps a prose sentence that happens to end in a
+    // colon from stealing the percentages that follow it.
+    const heading = prevBlank ? line.match(TWO_HEADING_RE) : null;
+    prevBlank = false;
+    if (!heading) continue;
+    const area = heading[1].trim();
+    if (/^For the\b/i.test(area) || area.includes("...")) {
+      cur = null;
+      continue;
+    }
+    cur = { area, id: heading[2] ?? null, chance48: null, category48: null, chance7: null, category7: null };
+    found.push(cur);
+  }
+  // A heading with no formation chance under it is not a disturbance — this
+  // is what makes a quiet outlook ("Tropical cyclone formation is not expected
+  // during the next 7 days.") parse to an empty list rather than to noise.
+  return found.filter((d) => d.chance48 != null || d.chance7 != null);
+}
+
+// Pull the outlook bulletin out of the RSS envelope. The forecast text lives in
+// a CDATA <description> with <br /> line breaks; the channel's own description
+// ("National Hurricane Center - Atlantic Tropical Weather Outlook") and the
+// NOAA logo item are decoys, so the block is chosen by CONTENT.
+export function twoTextFromRss(xml) {
+  const blocks = [...String(xml).matchAll(/<description>([\s\S]*?)<\/description>/g)].map((m) => m[1]);
+  const raw = blocks.find((b) => /Tropical Weather Outlook/i.test(b) && /NWS National Hurricane Center|Formation chance|not expected/i.test(b));
+  if (!raw) return null;
+  return raw
+    .replace(/^\s*<!\[CDATA\[/, "")
+    .replace(/\]\]>\s*$/, "")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#0?39;|&apos;/g, "'")
+    .replace(/&amp;/g, "&")
+    .replace(/\r/g, "");
+}
+
+// Fetch the outlook. Returns [] for a genuinely quiet basin and THROWS on a
+// non-200 or an unparseable envelope, so fetchTropics() can tell "NHC says
+// nothing is brewing" apart from "we failed to read NHC" — collapsing those
+// two into an empty list is exactly how a page starts lying quietly.
+export async function fetchTwoDisturbances() {
+  const res = await fetch(TWO_URL, { headers: { "User-Agent": "crosbynews.com", Accept: "application/xml" } });
+  if (!res.ok) throw new Error(`NHC outlook request failed: ${res.status} ${res.statusText}`);
+  const xml = await res.text();
+  const text = twoTextFromRss(xml);
+  if (!text) throw new Error("NHC outlook had no recognizable bulletin");
+  const issued = [...xml.matchAll(/<pubDate>([^<]+)<\/pubDate>/g)].map((m) => m[1].trim()).pop() ?? null;
+  const at = issued ? new Date(issued) : null;
+  return { disturbances: parseTwoDisturbances(text), outlookIssued: at && !Number.isNaN(at.getTime()) ? at.toISOString() : null };
+}
+
 // Fetch active Atlantic systems. Throws on failure so the cron
 // aborts-without-writing and the last snapshot survives (the water pattern).
 // An empty storms array is a normal, meaningful result — quiet basin.
@@ -72,7 +184,11 @@ export async function fetchTropics() {
       lastUpdate: s.lastUpdate || null,
       advisoryUrl: s.publicAdvisory?.url || "https://www.nhc.noaa.gov/",
     }));
-  return { updated: new Date().toISOString(), storms };
+  // The outlook is fetched in the SAME call so one KV write carries both, and
+  // a failure to read it throws rather than writing `disturbances: []` — an
+  // empty list has to mean "NHC is watching nothing", never "we couldn't ask".
+  const outlook = await fetchTwoDisturbances();
+  return { updated: new Date().toISOString(), storms, ...outlook };
 }
 
 // Read the cached outlook, self-healing on a cold/malformed entry and
@@ -84,13 +200,19 @@ export async function loadTropics(env) {
   } catch (e) {
     console.error("KV tropics parse failed:", e && e.stack);
   }
-  if (!data || !Array.isArray(data.storms)) {
+  // `!Array.isArray(data.disturbances)` also catches entries written before the
+  // outlook shipped, so a legacy snapshot cold-warms into the new shape instead
+  // of rendering as "nothing being watched" — which would be the same silent
+  // false-negative this feature exists to remove.
+  if (!data || !Array.isArray(data.storms) || !Array.isArray(data.disturbances)) {
     try {
       data = await fetchTropics();
       await env.WEATHER.put(TROPICS_KV_KEY, JSON.stringify(data));
     } catch (e) {
       console.error("tropics cold fetch failed:", e && e.stack);
-      data = { updated: null, storms: [] };
+      // `disturbances: null` (not []) so the renderers can say "outlook
+      // unavailable" rather than asserting a quiet basin we never confirmed.
+      data = { updated: null, storms: [], disturbances: null, outlookIssued: null };
     }
   }
   return data;
@@ -103,6 +225,49 @@ export function tropicsStormLine(s, lang) {
   return `${tropicsClassLabel(s.classification, lang)} ${s.name}${mph != null ? ` — ${mph} mph` : ""}`;
 }
 
+// Formation-chance categories, hand-translated like every other piece of live
+// third-party vocabulary on this site. The forecaster PROSE stays in NHC's
+// official English (see the note the page renders) — only these fixed labels
+// and our own copy are translated.
+export const TWO_CATEGORY = {
+  low: ["low", "baja"],
+  medium: ["medium", "media"],
+  high: ["high", "alta"],
+};
+export function twoCategoryLabel(cat, lang) {
+  const pair = TWO_CATEGORY[String(cat || "").toLowerCase()];
+  return pair ? T(lang, pair[0], pair[1]) : String(cat || "");
+}
+
+// The highest 7-day formation chance NHC currently gives any area, or null
+// when there is nothing being watched. `null` disturbances (the outlook could
+// not be read) also returns null — callers must not treat that as "quiet".
+export function tropicsWatchPeak(disturbances) {
+  if (!Array.isArray(disturbances) || !disturbances.length) return null;
+  const vals = disturbances.map((d) => (Number.isFinite(d?.chance7) ? d.chance7 : Number.isFinite(d?.chance48) ? d.chance48 : null)).filter((v) => v != null);
+  return vals.length ? Math.max(...vals) : null;
+}
+
+// The areas worth putting on the FRONT page: medium chance or better over 7
+// days. Every tropical wave off Africa spends a day or two at 10-20%, and a
+// homepage banner for each one is noise that teaches people to ignore the
+// banner — so the gate lives here, in one place, shared by the HTML hub and
+// its markdown twin. /tropics itself lists every area regardless.
+export const TROPICS_WATCH_MIN_PCT = 40;
+export function tropicsWatchAreas(tropics) {
+  const dz = Array.isArray(tropics?.disturbances) ? tropics.disturbances : [];
+  return dz.filter((d) => Number.isFinite(d?.chance7) && d.chance7 >= TROPICS_WATCH_MIN_PCT);
+}
+
+// "Eastern Tropical Atlantic (AL96) — 60% in 7 days". Shared by the page, the
+// hub banner, markdown and MCP so the four cannot drift.
+export function tropicsDisturbanceLine(d, lang) {
+  const pct = Number.isFinite(d?.chance7) ? d.chance7 : d?.chance48;
+  const window = Number.isFinite(d?.chance7) ? T(lang, "in 7 days", "en 7 días") : T(lang, "in 48 hours", "en 48 horas");
+  const id = d?.id ? ` (${d.id})` : "";
+  return `${d?.area ?? ""}${id}${Number.isFinite(pct) ? ` — ${pct}% ${window}` : ""}`;
+}
+
 // JSON shape served at /api/tropics — the same NHC data behind /tropics.
 // An empty `storms` array is the normal quiet-basin state, not an error.
 export function apiTropics(data) {
@@ -110,6 +275,21 @@ export function apiTropics(data) {
     basin: "Atlantic",
     source: "NOAA National Hurricane Center (nhc.noaa.gov)",
     updated: data.updated ?? null,
+    // Areas NHC is watching for development but has not yet named. `null`
+    // means the outlook could not be read — distinct from [], which means NHC
+    // is watching nothing. A consumer that conflates them reports a quiet
+    // basin during an outage.
+    outlookIssued: data.outlookIssued ?? null,
+    disturbances: Array.isArray(data.disturbances)
+      ? data.disturbances.map((d) => ({
+          area: d.area,
+          id: d.id,
+          chance48Percent: d.chance48,
+          chance48Category: d.category48,
+          chance7DayPercent: d.chance7,
+          chance7DayCategory: d.category7,
+        }))
+      : null,
     storms: (data.storms ?? []).map((s) => ({
       id: s.id,
       name: s.name,
@@ -132,8 +312,8 @@ export function tropicsHtml(data, lang) {
   const title = T(lang, "Atlantic Tropical Weather", "Tiempo tropical del Atlántico");
   const desc = T(
     lang,
-    "Active Atlantic tropical storms and hurricanes from the National Hurricane Center, plus what hurricane season means for Crosby, TX. Quiet-basin friendly: shows nothing scary when nothing is happening.",
-    "Tormentas tropicales y huracanes activos del Atlántico según el Centro Nacional de Huracanes, y qué significa la temporada de huracanes para Crosby, TX."
+    "Active Atlantic tropical storms and hurricanes from the National Hurricane Center, the areas it is watching for development, and what hurricane season means for Crosby, TX. Quiet-basin friendly: shows nothing scary when nothing is happening.",
+    "Tormentas tropicales y huracanes activos del Atlántico según el Centro Nacional de Huracanes, las zonas que vigila por posible desarrollo, y qué significa la temporada de huracanes para Crosby, TX."
   );
   const cards = storms
     .map((s) => {
@@ -154,9 +334,64 @@ export function tropicsHtml(data, lang) {
     })
     .join("\n");
 
+  // THREE states, not two. The old binary said "nothing active" whenever
+  // CurrentStorms.json was empty, which is how a green all-clear ended up on
+  // the page while NHC was watching two areas at 50% and 60%.
+  const disturbances = Array.isArray(data.disturbances) ? data.disturbances : null;
+  const peak = tropicsWatchPeak(disturbances);
+  const panel = (cls, icon, title, sub) =>
+    `<div class="status ${cls}" role="status"><span class="status-icon">${icon}</span><div><p class="status-title">${title}</p><p class="status-sub">${sub}</p></div></div>`;
+
   const status = storms.length
-    ? `<div class="status status-storm" role="status"><span class="status-icon">&#127744;</span><div><p class="status-title">${storms.length === 1 ? esc(tropicsStormLine(storms[0], lang)) : T(lang, `${storms.length} active systems in the Atlantic`, `${storms.length} sistemas activos en el Atlántico`)}</p><p class="status-sub">${T(lang, "Details below. For what it means locally, watch official guidance and the alerts page.", "Detalles abajo. Para saber qué significa localmente, sigue la guía oficial y la página de alertas.")}</p></div></div>`
-    : `<div class="status status-ok" role="status"><span class="status-icon">&#10004;</span><div><p class="status-title">${T(lang, "Nothing active in the Atlantic", "Nada activo en el Atlántico")}</p><p class="status-sub">${T(lang, "The National Hurricane Center is tracking no active tropical systems in the Atlantic basin right now. This page rechecks about every hour.", "El Centro Nacional de Huracanes no está siguiendo ningún sistema tropical activo en la cuenca del Atlántico en este momento. Esta página se actualiza aproximadamente cada hora.")}</p></div></div>`;
+    ? panel(
+        "status-storm",
+        "&#127744;",
+        storms.length === 1 ? esc(tropicsStormLine(storms[0], lang)) : T(lang, `${storms.length} active systems in the Atlantic`, `${storms.length} sistemas activos en el Atlántico`),
+        T(lang, "Details below. For what it means locally, watch official guidance and the alerts page.", "Detalles abajo. Para saber qué significa localmente, sigue la guía oficial y la página de alertas.")
+      )
+    : disturbances === null
+      ? // The outlook could not be read. We have NOT confirmed a quiet basin,
+        // so we must not draw the green panel that says we have.
+        panel(
+          "status-unknown",
+          "&#8212;",
+          T(lang, "Outlook unavailable", "Perspectiva no disponible"),
+          T(lang, "We could not read the National Hurricane Center's tropical outlook just now, so this page cannot confirm whether anything is being watched. Check the NHC directly.", "No pudimos leer la perspectiva tropical del Centro Nacional de Huracanes en este momento, así que esta página no puede confirmar si hay algo bajo vigilancia. Consulta el NHC directamente.")
+        )
+      : disturbances.length
+        ? panel(
+            "status-watch",
+            "&#128064;",
+            disturbances.length === 1
+              ? T(lang, "1 area being watched for development", "1 zona bajo vigilancia por posible desarrollo")
+              : T(lang, `${disturbances.length} areas being watched for development`, `${disturbances.length} zonas bajo vigilancia por posible desarrollo`),
+            T(
+              lang,
+              `No named storms right now. The National Hurricane Center gives ${peak != null ? `the most likely of these a ${peak}% chance` : "these a chance"} of forming a tropical cyclone within 7 days. A chance of forming is not a forecast track \u2014 it says nothing yet about where a system would go.`,
+              `No hay tormentas con nombre en este momento. El Centro Nacional de Huracanes da ${peak != null ? `a la m\u00e1s probable un ${peak}% de probabilidad` : "a estas una probabilidad"} de formar un cicl\u00f3n tropical en 7 d\u00edas. Una probabilidad de formaci\u00f3n no es una trayectoria pronosticada \u2014 todav\u00eda no dice nada sobre ad\u00f3nde ir\u00eda un sistema.`
+            )
+          )
+        : panel(
+            "status-ok",
+            "&#10004;",
+            T(lang, "Nothing active in the Atlantic", "Nada activo en el Atlántico"),
+            T(lang, "The National Hurricane Center has no named storms and no areas under watch for development in the Atlantic basin right now. This page rechecks about every hour.", "El Centro Nacional de Huracanes no tiene tormentas con nombre ni zonas bajo vigilancia por posible desarrollo en la cuenca del Atlántico en este momento. Esta página se actualiza aproximadamente cada hora.")
+          );
+
+  // The watch cards. Deliberately NOT styled like the storm cards: an area at
+  // 40% is not a storm, and giving it the same visual weight would overstate
+  // it on a page people read when they are already anxious.
+  const watchCards = (disturbances ?? [])
+    .map((d) => {
+      const rows = [];
+      if (Number.isFinite(d.chance48)) rows.push(`<li><span class="pk-label">${T(lang, "Next 48 hours", "Próximas 48 horas")}</span><span class="pk-val">${d.chance48}%${d.category48 ? ` <span class="dz-cat">(${esc(twoCategoryLabel(d.category48, lang))})</span>` : ""}</span></li>`);
+      if (Number.isFinite(d.chance7)) rows.push(`<li><span class="pk-label">${T(lang, "Next 7 days", "Próximos 7 días")}</span><span class="pk-val">${d.chance7}%${d.category7 ? ` <span class="dz-cat">(${esc(twoCategoryLabel(d.category7, lang))})</span>` : ""}</span></li>`);
+      return `      <article class="dz">
+        <h3>${esc(d.area)}${d.id ? ` <span class="dz-id">${esc(d.id)}</span>` : ""}</h3>
+        <ul class="peek">${rows.join("")}</ul>
+      </article>`;
+    })
+    .join("\n");
 
   return `<!DOCTYPE html>
 <html lang="${T(lang, "en", "es-MX")}">
@@ -184,6 +419,18 @@ ${JSONLD_SITE}
   .status-sub { margin:0.35rem 0 0; font-size:0.98rem; opacity:0.95; }
   .status-ok { background:linear-gradient(135deg,#1f8b4c,#2eb86a); }
   .status-storm { background:linear-gradient(135deg,#6f1fa0,#8e2ec2); }
+  /* Amber, not red: an area at 40% is something to be aware of, not a threat.
+     Both stops clear 4.5:1 against the white text (6.86 and 4.67), which the
+     older panel gradients on this site do not. */
+  .status-watch { background:linear-gradient(135deg,#8a4a00,#a86412); }
+  .status-unknown { background:linear-gradient(135deg,#5b6470,#7a8494); }
+  .watch { display:grid; gap:0.7rem; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); margin-top:0.9rem; }
+  .dz { background:var(--card); border-radius:12px; padding:0.75rem 0.9rem; box-shadow:0 1px 3px rgba(0,0,0,0.07); border-left:5px solid #a86412; }
+  .dz h3 { margin:0 0 0.35rem; font-size:1rem; }
+  .dz-id { font-size:0.78rem; font-weight:700; color:var(--muted); letter-spacing:0.03em; }
+  .dz-cat { color:var(--muted); font-weight:400; }
+  .two-note { margin:0.9rem 0 0; font-size:0.9rem; line-height:1.55; }
+  .two-prose { margin:0.5rem 0 0; font-size:0.9rem; line-height:1.55; color:var(--muted); white-space:pre-line; }
   .storms { display:grid; gap:0.7rem; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); margin-top:1rem; }
   .storm { background:var(--card); border-radius:12px; padding:0.85rem 1rem; box-shadow:0 1px 3px rgba(0,0,0,0.07); border-left:5px solid #8e2ec2; }
   .storm-head h2 { margin:0 0 0.4rem; font-size:1.05rem; }
@@ -205,9 +452,16 @@ ${JSONLD_SITE}
 ${topbar("/tropics", lang)}
 <main id="main">
   <h1>${esc(title)}</h1>
-  <p class="intro">${T(lang, "Active Atlantic tropical systems from the National Hurricane Center, checked about every hour. Storm advisories and names stay in NHC's official English.", "Sistemas tropicales activos del Atlántico según el Centro Nacional de Huracanes, consultados aproximadamente cada hora. Los avisos y nombres de tormentas se muestran en el inglés oficial del NHC.")}${data.updated ? ` ${T(lang, "Updated", "Actualizado")} ${esc(fullTime(data.updated, lang))} CT.` : ""}</p>
+  <p class="intro">${T(lang, "Active Atlantic tropical systems from the National Hurricane Center, plus the areas it is watching for development, checked about every hour. Storm advisories and names stay in NHC's official English.", "Sistemas tropicales activos del Atlántico según el Centro Nacional de Huracanes, además de las zonas que vigila por posible desarrollo, consultados aproximadamente cada hora. Los avisos y nombres de tormentas se muestran en el inglés oficial del NHC.")}${data.updated ? ` ${T(lang, "Updated", "Actualizado")} ${esc(fullTime(data.updated, lang))} CT.` : ""}</p>
   ${status}
   ${storms.length ? `<div class="storms">\n${cards}\n  </div>` : ""}
+  ${watchCards ? `<section>
+    <h2>${T(lang, "Areas being watched", "Zonas bajo vigilancia")}</h2>
+    <p class="two-note">${T(lang, "The National Hurricane Center tracks these for possible development before they get a name. A percentage is the chance a tropical cyclone forms at all \u2014 not a track, and not a statement that it would reach Texas.", "El Centro Nacional de Huracanes les da seguimiento por posible desarrollo antes de que reciban un nombre. Un porcentaje es la probabilidad de que se forme un cicl\u00f3n tropical \u2014 no una trayectoria, ni una afirmaci\u00f3n de que llegar\u00eda a Texas.")}</p>
+    <div class="watch">
+${watchCards}
+    </div>
+  </section>` : ""}
   <section class="guide" data-nosnippet>
     <h2>${T(lang, "Hurricane season and Crosby", "La temporada de huracanes y Crosby")}</h2>
     <p>${T(
@@ -238,7 +492,7 @@ export function tropicsMarkdown(data, lang) {
   const out = [
     `# ${T(lang, "Atlantic Tropical Weather", "Tiempo tropical del Atlántico")}`,
     "",
-    `_${T(lang, "Active Atlantic systems from the NOAA National Hurricane Center.", "Sistemas activos del Atlántico según el Centro Nacional de Huracanes de NOAA.")}${data.updated ? ` ${T(lang, "Updated", "Actualizado")} ${fullTime(data.updated, lang)} CT.` : ""}_`,
+    `_${T(lang, "Active Atlantic systems and areas under watch from the NOAA National Hurricane Center.", "Sistemas activos y zonas bajo vigilancia según el Centro Nacional de Huracanes de NOAA.")}${data.updated ? ` ${T(lang, "Updated", "Actualizado")} ${fullTime(data.updated, lang)} CT.` : ""}_`,
     "",
   ];
   if (storms.length) {
@@ -252,8 +506,31 @@ export function tropicsMarkdown(data, lang) {
       if (compass) out.push(`- ${T(lang, "Moving", "Movimiento")}: ${translateDir(compass, lang)}`);
       out.push(`- ${T(lang, "Official advisory", "Aviso oficial")}: ${s.advisoryUrl}`, "");
     }
-  } else {
-    out.push(T(lang, "Nothing active in the Atlantic basin right now. ✓", "Nada activo en la cuenca del Atlántico en este momento. ✓"), "");
+  }
+  // Mirrors the HTML three-way exactly (one content model, two renderings):
+  // named storms, then areas under watch, then a confirmed-quiet basin, and
+  // "unavailable" kept distinct from "quiet".
+  const dz = Array.isArray(data.disturbances) ? data.disturbances : null;
+  if (dz === null) {
+    out.push(T(lang, "The NHC tropical outlook could not be read just now, so this page cannot confirm whether anything is being watched. Check nhc.noaa.gov directly.", "No se pudo leer la perspectiva tropical del NHC en este momento, así que esta página no puede confirmar si hay algo bajo vigilancia. Consulta nhc.noaa.gov directamente."), "");
+  } else if (dz.length) {
+    out.push(`## ${T(lang, "Areas being watched", "Zonas bajo vigilancia")}`, "");
+    out.push(
+      T(
+        lang,
+        "Tracked by the NHC for possible development before they are named. A percentage is the chance a tropical cyclone forms at all — not a track, and not a statement that it would reach Texas.",
+        "Seguidas por el NHC por posible desarrollo antes de recibir nombre. Un porcentaje es la probabilidad de que se forme un ciclón tropical — no una trayectoria, ni una afirmación de que llegaría a Texas."
+      ),
+      ""
+    );
+    for (const d of dz) {
+      out.push(`- **${d.area}${d.id ? ` (${d.id})` : ""}**`);
+      if (Number.isFinite(d.chance48)) out.push(`  - ${T(lang, "Next 48 hours", "Próximas 48 horas")}: ${d.chance48}%${d.category48 ? ` (${twoCategoryLabel(d.category48, lang)})` : ""}`);
+      if (Number.isFinite(d.chance7)) out.push(`  - ${T(lang, "Next 7 days", "Próximos 7 días")}: ${d.chance7}%${d.category7 ? ` (${twoCategoryLabel(d.category7, lang)})` : ""}`);
+    }
+    out.push("");
+  } else if (!storms.length) {
+    out.push(T(lang, "No named storms and no areas under watch for development in the Atlantic basin right now. ✓", "No hay tormentas con nombre ni zonas bajo vigilancia por posible desarrollo en la cuenca del Atlántico en este momento. ✓"), "");
   }
   out.push(
     `## ${T(lang, "Hurricane season and Crosby", "La temporada de huracanes y Crosby")}`,

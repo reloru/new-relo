@@ -51,11 +51,19 @@ rm -rf .wrangler/state          # next `wrangler dev` starts truly empty
   shape `{ updated, stations: [{ id, params:{tempC,do,ph,turb,gageFt}, observed }] }`
   (`stations` is what `loadFishing()` checks). Written by the same cron every
   tick; cold-warms on read. Self-heals like `water`. Low risk.
-- **`tropics`** — Atlantic tropical outlook from NHC CurrentStorms.json, shape
-  `{ updated, storms: [...] }` (`storms` is what `loadTropics()` checks; an
-  empty array is the normal quiet-basin state, NOT an error). Written by the
-  same cron, throttled ~1h June-November (Atlantic hurricane season, Central
-  time) and ~24h the rest of the year; cold-warms on read. Self-heals. Low risk.
+- **`tropics`** — Atlantic tropical outlook from **two** NHC products, shape
+  `{ updated, storms: [...], disturbances: [...] | null, outlookIssued }`.
+  `storms` is NHC CurrentStorms.json (named cyclones only); `disturbances` is
+  the Tropical Weather Outlook (areas being watched, with formation chances).
+  `loadTropics()` checks BOTH are arrays and cold-warms otherwise, which is
+  what migrates pre-2026-08 entries that carry no `disturbances`. An empty
+  `storms` is the normal quiet-basin state, NOT an error — but on its own it is
+  not an all-clear, which is the bug this shape exists to prevent.
+  **`disturbances: null` means the outlook could not be read and is NOT the
+  same as `[]`** (nothing being watched); hand-editing one into the other makes
+  the page assert a quiet basin nobody confirmed. Written by the same cron,
+  throttled ~1h June-November (Atlantic hurricane season, Central time) and
+  ~24h the rest of the year; cold-warms on read. Self-heals. Low risk.
 - **`pollen`** — the Houston Health Department's measured daily pollen & mold
   count, shape `{ updated, countDate, url, groups: {tree,weed,grass,mold},
   species }` (`loadPollen()` checks `groups` + `countDate`; `countDate` is the
