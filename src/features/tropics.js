@@ -69,14 +69,16 @@ export const TWO_URL = "https://www.nhc.noaa.gov/xml/TWOAT.xml";
 // "* Formation chance through 7 days...medium...60 percent." — also
 // "...low...near 0 percent." in a quiet outlook, hence the optional "near".
 //
-// The category is `[a-z]+(?: [a-z]+)*`, NOT `[a-z ]+?`, and that is a ReDoS
-// fix rather than a style choice: `[a-z ]` includes a space and so does the
-// `\s*` beside it, so on a line that ultimately fails to match, the engine can
-// split a run of spaces between the two in quadratically many ways. This form
-// cannot end on a space, so no boundary is ambiguous and the match is linear.
-// Every other adjacency here pairs disjoint character sets (\s vs literal dot,
-// dot vs letter, digit vs \s).
-const TWO_CHANCE_RE = /Formation chance through\s+(48\s*hours|7\s*days)\s*\.{2,}\s*([a-z]+(?: [a-z]+)*)\s*\.{2,}\s*(?:near\s+)?(\d{1,3})\s*percent/i;
+// The category is captured as `[^.]+` between the two dot runs, and that is a
+// ReDoS fix rather than a style choice. The original `([a-z ]+?)\s*` paired a
+// space-matching capture with a space-matching `\s*`, so on a line that
+// ultimately fails to match, the engine could split a run of spaces between
+// the two in quadratically many ways — 17ms at 200 spaces, 1424ms at 1600.
+// `[^.]` against a literal dot is disjoint, so there is no ambiguous boundary
+// and no nested quantifier at all; surrounding spaces are removed with trim()
+// where the value is read. Every other adjacency here also pairs disjoint sets
+// (\s vs dot, dot vs non-dot, digit vs \s).
+const TWO_CHANCE_RE = /Formation chance through\s+(48\s*hours|7\s*days)\s*\.{2,}([^.]+)\.{2,}\s*(?:near\s+)?(\d{1,3})\s*percent/i;
 
 // A disturbance heading: "Central Subtropical Atlantic (AL95):", sometimes
 // enumerated ("1. Near the Cabo Verde Islands:"). The basin header
@@ -89,7 +91,12 @@ const TWO_CHANCE_RE = /Formation chance through\s+(48\s*hours|7\s*days)\s*\.{2,}
 // the lazy capture and the `\s*` beside it both match whitespace, which is
 // quadratic backtracking on a non-matching line (CodeQL flags it, correctly).
 // `[^:]` against a literal `:` is disjoint, so this form is linear.
-const TWO_HEADING_RE = /^(?:\d+\.\s*)?([^.*][^:]{2,119}):$/;
+//
+// The leading class excludes `\s` for the same reason: it sits directly after
+// the optional enumerator's `\s*`, and `[^.*]` would otherwise match a space
+// too, making that boundary ambiguous. Lines are trimmed before they get here,
+// so a heading never begins with whitespace and nothing is lost.
+const TWO_HEADING_RE = /^(?:\d+\.\s*)?([^.*\s][^:]{2,119}):$/;
 const TWO_INVEST_RE = /\((AL\d{2})\)$/;
 
 export function parseTwoDisturbances(text) {
@@ -153,7 +160,23 @@ export function parseTwoDisturbances(text) {
 // ("National Hurricane Center - Atlantic Tropical Weather Outlook") and the
 // NOAA logo item are decoys, so the block is chosen by CONTENT.
 export function twoTextFromRss(xml) {
-  const blocks = [...String(xml).matchAll(/<description>([\s\S]*?)<\/description>/g)].map((m) => m[1]);
+  // Scanned with indexOf rather than /<description>([\s\S]*?)<\/description>/g:
+  // `[\s\S]` matches `<` too, so the lazy capture and the closing tag overlap,
+  // and the input is an upstream document we do not control. indexOf is linear
+  // by construction and there is nothing here a regex was buying.
+  const s = String(xml);
+  const OPEN = "<description>";
+  const CLOSE = "</description>";
+  const blocks = [];
+  for (let i = 0; ; ) {
+    const open = s.indexOf(OPEN, i);
+    if (open === -1) break;
+    const start = open + OPEN.length;
+    const close = s.indexOf(CLOSE, start);
+    if (close === -1) break;
+    blocks.push(s.slice(start, close));
+    i = close + CLOSE.length;
+  }
   const raw = blocks.find((b) => /Tropical Weather Outlook/i.test(b) && /NWS National Hurricane Center|Formation chance|not expected/i.test(b));
   if (!raw) return null;
   return raw
