@@ -10,7 +10,12 @@
 //
 // So the assertions below are mostly about what the page must NOT say.
 
-import { burnbanHistory, burnbanSince } from "../src/features/burnban.js";
+// The second half covers burnbanFireWeather, whose invariant is different but
+// equally silent in failure: it is allowed to say "not permitted" and must
+// NEVER say "permitted". A positive verdict there would read as legal
+// permission to light a fire, which no weather feed can actually grant.
+
+import { burnbanHistory, burnbanSince, burnbanFireWeather } from "../src/features/burnban.js";
 
 let failed = 0;
 const check = (label, actual, expected) => {
@@ -93,9 +98,63 @@ for (const lang of ["en", "es"]) {
   checkThat(`cold start -> history -> sentence invents no transition (${lang})`, line !== "" && !NEVER.test(line));
 }
 
+console.log("\nburnbanFireWeather — negative verdicts only:\n");
+
+// Minimal NWS-shaped hourly period. currentHourly() picks the period covering
+// now, so the window has to straddle this instant.
+const wx = (over = {}, alerts = []) => ({
+  updated: T2,
+  alerts,
+  hourly: [
+    {
+      startTime: new Date(Date.now() - 6e5).toISOString(),
+      endTime: new Date(Date.now() + 3e6).toISOString(),
+      windSpeed: "10 mph",
+      windDirection: "SE",
+      relativeHumidity: { value: 55 },
+      probabilityOfPrecipitation: { value: 20 },
+      ...over,
+    },
+  ],
+});
+
+check("no weather at all hides the strip", burnbanFireWeather(null, "en"), null);
+check("an empty cache hides the strip", burnbanFireWeather({ hourly: [], alerts: [] }, "en"), null);
+
+checkThat("ordinary conditions produce NO verdict", burnbanFireWeather(wx(), "en").windNote === "");
+checkThat("calm wind is flagged as below the minimum", /below the 6 mph minimum/.test(burnbanFireWeather(wx({ windSpeed: "3 mph" }), "en").windNote));
+checkThat("strong wind is flagged as above the maximum", /above the 23 mph maximum/.test(burnbanFireWeather(wx({ windSpeed: "30 mph" }), "en").windNote));
+checkThat("gusts over the limit are flagged", /Gusts are above/.test(burnbanFireWeather(wx({ windGust: "35 mph" }), "en").windNote));
+
+// A range that straddles a boundary is NOT a verdict either way — flagging
+// "5 to 10 mph" as too calm would be wrong half the time.
+checkThat("a straddling wind range stays silent", burnbanFireWeather(wx({ windSpeed: "5 to 10 mph" }), "en").windNote === "");
+
+const rf = burnbanFireWeather(wx({}, [{ event: "Red Flag Warning" }, { event: "Heat Advisory" }]), "en");
+checkThat("a Red Flag Warning is surfaced", rf.alerts.includes("Red Flag Warning"));
+checkThat("...and unrelated alerts are not", !rf.alerts.includes("Heat Advisory"));
+checkThat("a Fire Weather Watch is surfaced", burnbanFireWeather(wx({}, [{ event: "Fire Weather Watch" }]), "en").alerts.length === 1);
+
+// THE invariant. Sweep every string this function can emit, across both
+// languages and a spread of conditions, for anything a reader could take as
+// permission to burn.
+const PERMISSION = /\b(allowed|permitted|you may burn|safe to burn|ok to burn|go ahead|permitido|puedes quemar|es seguro)\b/i;
+let leaked = null;
+for (const lang of ["en", "es"]) {
+  for (const over of [{}, { windSpeed: "3 mph" }, { windSpeed: "30 mph" }, { windSpeed: "5 to 10 mph" }, { windGust: "35 mph" }]) {
+    const r = burnbanFireWeather(wx(over, [{ event: "Red Flag Warning" }]), lang);
+    for (const s of [r.windNote, ...r.rows.flat(), ...r.alerts]) {
+      // "allows/allowed" appearing inside a NEGATIVE sentence ("above the
+      // maximum Texas allows") is fine; a bare affirmative is not.
+      if (PERMISSION.test(s) && !/above the|below the|supera|por debajo/.test(s)) leaked = `${lang}: ${s}`;
+    }
+  }
+}
+check("no output ever reads as permission to burn", leaked, null);
+
 console.log(
   failed === 0
-    ? "\nBurn-ban history OK — statusSince is only claimed as a transition once one was actually observed.\n"
+    ? "\nBurn-ban logic OK — statusSince is only claimed as a transition once observed, and fire weather only ever says no.\n"
     : `\n${failed} check(s) FAILED\n`
 );
 process.exit(failed === 0 ? 0 : 1);

@@ -860,8 +860,14 @@ export async function routeRequest(request, env, ctx) {
       const accept = (request.headers.get("accept") || "").toLowerCase();
       const wantsMarkdown = accept.includes("text/markdown") || url.searchParams.get("format") === "md";
       try {
-        const data = await loadBurnBan(env);
-        const bodyText = wantsMarkdown ? burnbanMarkdown(data, lang) : burnbanHtml(data, lang);
+        // Weather rides along failure-tolerant: it only ever ADDS the
+        // "right now" strip, so a weather-cache hiccup must degrade this page
+        // to its county-status form rather than 502 it.
+        const [data, wx] = await Promise.all([
+          loadBurnBan(env),
+          loadWeather(env).then((r) => r.data).catch(() => null),
+        ]);
+        const bodyText = wantsMarkdown ? burnbanMarkdown(data, lang, wx) : burnbanHtml(data, lang, wx);
         return new Response(bodyText, {
           headers: {
             "content-type": `${wantsMarkdown ? "text/markdown" : "text/html"}; charset=utf-8`,
