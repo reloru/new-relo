@@ -61,60 +61,66 @@ export const BURNBAN_STATE_RULES_URL = "https://www.tceq.texas.gov/goto/rg-049";
 // What actually has to line up before lighting an outdoor fire near Crosby.
 // Ordered so the county status (this page's own subject) comes first and the
 // things people forget come last.
+//
+// Headings are written as INSTRUCTIONS ("Make sure...", "Check..."), not as
+// noun labels. "The material is allowed" reads like an assertion the site is
+// making on the reader's behalf; "Know what you're allowed to burn" reads
+// like the task it actually is. Keep everyday words — no "in force",
+// "controls", "permitted under", or anything else nobody says out loud.
 export function burnbanChecklist(lang) {
   return [
     {
-      h: T(lang, "No county burn ban", "Sin prohibición del condado"),
+      h: T(lang, "Make sure there's no county burn ban", "Asegúrate de que no haya prohibición del condado"),
       p: T(
         lang,
-        "The status above covers unincorporated Harris County, which is where Crosby is.",
-        "El estado de arriba cubre el condado de Harris no incorporado, que es donde está Crosby."
+        "The status at the top of this page covers unincorporated Harris County, which is where Crosby is.",
+        "El estado al inicio de esta página cubre el condado de Harris no incorporado, que es donde está Crosby."
       ),
     },
     {
-      h: T(lang, "No fire-weather alert", "Sin alerta de clima de incendios"),
+      h: T(lang, "Check for a Red Flag Warning", "Revisa si hay una alerta de bandera roja"),
       p: T(
         lang,
-        "Check for an active Red Flag Warning or Fire Weather Watch first.",
-        "Primero revisa si hay una Alerta de Bandera Roja (Red Flag Warning) o una Vigilancia de Clima de Incendios (Fire Weather Watch) activa."
+        "A Red Flag Warning or Fire Weather Watch means fire spreads dangerously fast that day. Any active one shows in the conditions above, and on our alerts page with everything else the National Weather Service has out for Crosby.",
+        "Una alerta de bandera roja (Red Flag Warning) o una vigilancia de clima de incendios (Fire Weather Watch) significa que ese día el fuego se propaga peligrosamente rápido. Si hay alguna activa aparece en las condiciones de arriba, y en nuestra página de alertas junto con todo lo demás que el Servicio Meteorológico Nacional tenga vigente para Crosby."
       ),
       path: "/alerts",
-      label: T(lang, "Active alerts", "Alertas activas"),
+      label: T(lang, "See all active alerts", "Ver todas las alertas activas"),
     },
     {
-      h: T(lang, "Conditions allow it", "Las condiciones lo permiten"),
+      h: T(lang, "Check the wind and the time of day", "Revisa el viento y la hora del día"),
       p: T(
         lang,
-        "Texas allows burning only when the wind is between 6 and 23 mph, and only from one hour after sunrise to one hour before sunset.",
+        "Texas only allows burning when the wind is between 6 and 23 mph, and only from an hour after sunrise to an hour before sunset.",
         "Texas solo permite quemar cuando el viento está entre 6 y 23 mph, y únicamente desde una hora después del amanecer hasta una hora antes del atardecer."
       ),
       path: "/weather",
       label: T(lang, "Current conditions", "Condiciones actuales"),
     },
     {
-      h: T(lang, "The material is allowed", "El material está permitido"),
+      h: T(lang, "Know what you're allowed to burn", "Infórmate sobre qué puedes quemar"),
       p: T(
         lang,
-        "Never burn plastics, tires or rubber, treated lumber, construction debris, chemicals, or heavy oils. Household trash generally can't be burned in Crosby either — that exception is only for places without garbage collection, and Crosby has it.",
-        "Nunca quemes plásticos, llantas o hule, madera tratada, escombros de construcción, químicos ni aceites pesados. La basura doméstica tampoco se puede quemar en Crosby — esa excepción es solo para lugares sin recolección de basura, y Crosby sí la tiene."
+        "Never burn plastics, tires or rubber, treated lumber, construction debris, chemicals, or heavy oils. Burning household trash is a separate question — see below.",
+        "Nunca quemes plásticos, llantas o hule, madera tratada, escombros de construcción, químicos ni aceites pesados. Quemar basura doméstica es un tema aparte — míralo más abajo."
       ),
       url: BURNBAN_STATE_RULES_URL,
       label: T(lang, "Texas outdoor burning rules", "Reglas de quemas al aire libre de Texas"),
     },
     {
-      h: T(lang, "You can control it", "Puedes controlarlo"),
+      h: T(lang, "Make sure you can control the fire", "Asegúrate de poder controlar el fuego"),
       p: T(
         lang,
-        "Someone stays with the fire until it is completely out, water and hand tools are within reach, and the fire is at least 300 feet from homes on neighboring property.",
-        "Alguien se queda con el fuego hasta que se apague por completo, hay agua y herramientas al alcance, y el fuego está al menos a 300 pies de casas en propiedades vecinas."
+        "Someone stays with the fire until it is completely out, water and hand tools are within reach, and the fire is at least 300 feet from your neighbors' homes.",
+        "Alguien se queda con el fuego hasta que se apague por completo, hay agua y herramientas al alcance, y el fuego está al menos a 300 pies de las casas de tus vecinos."
       ),
     },
     {
-      h: T(lang, "Local restrictions allow it", "Las restricciones locales lo permiten"),
+      h: T(lang, "Check for local restrictions", "Revisa las restricciones locales"),
       p: T(
         lang,
-        "An HOA, subdivision, or deed restriction can prohibit burning even when the county has no ban.",
-        "Una asociación de vecinos (HOA), un fraccionamiento o una restricción de escritura puede prohibir las quemas aunque el condado no tenga prohibición."
+        "An HOA, subdivision, or deed restriction can prohibit burning even when the county hasn't.",
+        "Una asociación de vecinos (HOA), un fraccionamiento o una restricción de escritura puede prohibir las quemas aunque el condado no lo haya hecho."
       ),
     },
   ];
@@ -129,24 +135,32 @@ export function burnbanFaq(lang) {
       q: T(lang, "Does “no burn ban” mean I can burn anything?", "¿«Sin prohibición» significa que puedo quemar lo que sea?"),
       a: T(
         lang,
-        "No. Texas prohibits outdoor burning statewide and then allows specific exceptions, so the county's ban status is only one of the conditions that has to line up. The checklist above is the short version.",
-        "No. Texas prohíbe las quemas al aire libre en todo el estado y luego permite excepciones específicas, así que el estado del condado es solo una de las condiciones que deben cumplirse. La lista de arriba es la versión corta."
+        "No. Texas has its own rules about what you can burn and when, and they apply whether or not the county has a ban in place. Whether the county has banned burning is just one of the things that has to line up — the checklist above covers the rest.",
+        "No. Texas tiene sus propias reglas sobre qué puedes quemar y cuándo, y aplican haya o no una prohibición del condado. Que el condado haya prohibido quemar es solo una de las cosas que deben cumplirse — la lista de arriba cubre las demás."
+      ),
+    },
+    {
+      q: T(lang, "Can you burn trash in Crosby?", "¿Se puede quemar basura en Crosby?"),
+      a: T(
+        lang,
+        "Almost never. Texas lets people burn household trash only where the local government doesn't pick up garbage, and Crosby has collection — so that exception doesn't cover most homes here. Put it out for pickup instead. This is true whether or not there's a burn ban.",
+        "Casi nunca. Texas permite quemar basura doméstica solo donde el gobierno local no recoge la basura, y en Crosby sí hay recolección — así que esa excepción no cubre a la mayoría de las casas de aquí. Mejor sácala para que la recojan. Esto aplica haya o no una prohibición de quemas."
       ),
     },
     {
       q: T(lang, "Is there a separate Crosby burn ban?", "¿Existe una prohibición de quemas propia de Crosby?"),
       a: T(
         lang,
-        "No. Crosby is unincorporated, so Harris County's order is the one that applies here — there is no separate Crosby ban and no separate Crosby status to look up. HOA and deed restrictions are a different matter and can still apply.",
-        "No. Crosby no está incorporado, así que la orden del condado de Harris es la que aplica aquí — no hay una prohibición ni un estado separado para Crosby. Las restricciones de HOA y de escritura son otra cosa y sí pueden aplicar."
+        "No. Crosby is unincorporated, so Harris County's ban is the one that applies here — there is no separate Crosby ban and no separate Crosby status to look up. HOA and deed restrictions are a different matter and can still apply.",
+        "No. Crosby no está incorporado, así que la prohibición del condado de Harris es la que aplica aquí — no hay una prohibición ni un estado separado para Crosby. Las restricciones de HOA y de escritura son otra cosa y sí pueden aplicar."
       ),
     },
     {
       q: T(lang, "What about grills, fire pits, and cooking fires?", "¿Y las parrillas, fogatas y fuegos para cocinar?"),
       a: T(
         lang,
-        "Each county order sets its own exceptions, so the order in force is what controls. Harris County's recent bans have continued to allow non-commercial cooking such as backyard barbecues, approved ceremonial fires, and fires kept inside an enclosure that contains all flames and sparks.",
-        "Cada orden del condado establece sus propias excepciones, así que la orden vigente es la que manda. Las prohibiciones recientes del condado de Harris han seguido permitiendo cocinar sin fines comerciales, como asados en el patio, fogatas ceremoniales aprobadas y fuegos dentro de un recipiente que contenga todas las llamas y chispas."
+        "Every county writes its ban a little differently, so the exceptions depend on the one currently in place. Harris County's recent bans have still allowed backyard cooking like barbecues, approved ceremonial fires, and fires kept fully inside something that holds in the flames and sparks.",
+        "Cada condado redacta su prohibición un poco distinto, así que las excepciones dependen de la que esté vigente. Las prohibiciones recientes del condado de Harris han seguido permitiendo cocinar en el patio, como asados, fogatas ceremoniales aprobadas y fuegos dentro de algo que contenga por completo las llamas y las chispas."
       ),
     },
     {
@@ -229,15 +243,84 @@ export function burnbanFireWeather(weather, lang) {
   return { rows, alerts, windNote };
 }
 
-// The row of onward links, shared by both renderers.
-export function burnbanRelated(lang) {
+// The paragraph that opens the "Before you burn" section. It HEADS that
+// section rather than floating under the status panel, where it read as a
+// detached cut-out and left the checklist it refers to looking unrelated.
+//
+// Wording note: an earlier version said Texas "restricts outdoor burning
+// statewide whether or not a ban is in effect", which people read as a
+// standing never-burn-anything order. Texas has RULES that always apply —
+// about what you may burn and when — which is a different claim. Keep it that
+// way. `<strong>` is the only markup allowed here; the Markdown view swaps it
+// for `**`, so anything richer would leak tags into the text rendering.
+export function burnbanLead(data, lang) {
+  return data?.status === "Yes"
+    ? T(
+        lang,
+        "<strong>A burn ban is in effect, so outdoor burning is off the table right now.</strong> When it lifts, here's what to check before you light anything.",
+        "<strong>Hay una prohibición de quemas vigente, así que por ahora no se puede quemar al aire libre.</strong> Cuando se levante, esto es lo que debes revisar antes de encender algo."
+      )
+    : T(
+        lang,
+        "<strong>No burn ban doesn't automatically mean you can burn.</strong> Texas has its own rules about what you're allowed to burn and when, and those apply even when the county hasn't issued a ban. The day's weather matters too. Here's what to check first.",
+        "<strong>Que no haya prohibición no significa automáticamente que puedas quemar.</strong> Texas tiene sus propias reglas sobre qué puedes quemar y cuándo, y aplican aunque el condado no haya emitido una prohibición. El clima del día también importa. Esto es lo que debes revisar primero."
+      );
+}
+
+// The statewide burn-ban map and the drought map are LINKED, never embedded.
+// Embedding either would need an origin proxy (the CSP allows no external
+// image host) and would also pull in the Drought Monitor's reproduction
+// attribution requirement — neither of which is worth it for a graphic that
+// is statewide on a Harris-County page.
+export const BURNBAN_MAP_URL = "https://tfsfrp.tamu.edu/wildfires/DecBan.png";
+export const BURNBAN_DROUGHT_URL = "https://droughtmonitor.unl.edu/CurrentMap/StateDroughtMonitor.aspx?fips_48201";
+
+// A findable resources list rather than a run-on row of links: this is a page
+// people arrive at mid-decision, and the official sources are the thing they
+// most often need to leave for. Ours first (they're one click and already
+// local), then the authorities, then the reference maps.
+export function burnbanResources(lang) {
   return [
-    { path: "/weather", label: T(lang, "Weather", "Clima") },
-    { path: "/alerts", label: T(lang, "Active alerts", "Alertas activas") },
-    { path: "/emergency", label: T(lang, "Emergency resources", "Recursos de emergencia") },
-    { url: BURNBAN_COUNTY_URL, label: T(lang, "Harris County Fire Marshal", "Jefe de Bomberos del Condado de Harris") },
-    { url: BURNBAN_STATE_RULES_URL, label: T(lang, "Texas outdoor burning rules", "Reglas de quemas de Texas") },
-    { url: BURNBAN_OFFICIAL_URL, label: T(lang, "Texas A&M Forest Service", "Servicio Forestal de Texas A&M") },
+    {
+      path: "/alerts",
+      label: T(lang, "Crosby weather alerts", "Alertas meteorológicas de Crosby"),
+      note: T(lang, "Red Flag Warnings and every other active NWS alert for Crosby.", "Alertas de bandera roja y todas las demás alertas activas del NWS para Crosby."),
+    },
+    {
+      path: "/weather",
+      label: T(lang, "Crosby conditions and forecast", "Condiciones y pronóstico de Crosby"),
+      note: T(lang, "Wind, humidity, and the rest of today's weather.", "Viento, humedad y el resto del clima de hoy."),
+    },
+    {
+      path: "/emergency",
+      label: T(lang, "Emergency resources", "Recursos de emergencia"),
+      note: T(lang, "Who to call, including for a fire that gets away from you.", "A quién llamar, incluso si un fuego se sale de control."),
+    },
+    {
+      url: BURNBAN_COUNTY_URL,
+      label: T(lang, "Harris County Fire Marshal — burn bans", "Jefe de Bomberos del Condado de Harris — prohibiciones"),
+      note: T(lang, "The local authority: the ban itself and its exceptions.", "La autoridad local: la prohibición y sus excepciones."),
+    },
+    {
+      url: BURNBAN_STATE_RULES_URL,
+      label: T(lang, "TCEQ — Outdoor Burning in Texas", "TCEQ — Quemas al aire libre en Texas"),
+      note: T(lang, "The statewide rules on what may be burned, and when.", "Las reglas estatales sobre qué se puede quemar y cuándo."),
+    },
+    {
+      url: BURNBAN_OFFICIAL_URL,
+      label: T(lang, "Texas A&M Forest Service — burn bans", "Servicio Forestal de Texas A&M — prohibiciones"),
+      note: T(lang, "Where this page's status comes from.", "De donde proviene el estado de esta página."),
+    },
+    {
+      url: BURNBAN_MAP_URL,
+      label: T(lang, "Texas burn ban map", "Mapa de prohibiciones de Texas"),
+      note: T(lang, "Every county's current status, statewide.", "El estado actual de cada condado, en todo el estado."),
+    },
+    {
+      url: BURNBAN_DROUGHT_URL,
+      label: T(lang, "Drought conditions for Harris County", "Condiciones de sequía del condado de Harris"),
+      note: T(lang, "Drought is what drives counties to issue a ban in the first place.", "La sequía es lo que lleva a los condados a emitir una prohibición."),
+    },
   ];
 }
 
@@ -394,16 +477,7 @@ export function burnbanHtml(data, lang, weather) {
   const since = burnbanSince(data, lang);
   const sinceLine = since ? `<p class="since">${esc(since)}</p>` : "";
 
-  // Shown only on the all-clear. A green panel reading "no burn ban" is the
-  // single most misreadable thing on this page — this is the sentence that
-  // stops it from being taken as permission.
-  const caveat = data.status === "No"
-    ? `<p class="note">${T(
-        lang,
-        "<strong>A county ban is not the only thing that decides whether you can burn.</strong> Texas restricts outdoor burning statewide whether or not a ban is in effect, and the day's wind and conditions matter as much as the county's status. Run through the checklist before you light anything.",
-        "<strong>Una prohibición del condado no es lo único que determina si puedes quemar.</strong> Texas restringe las quemas al aire libre en todo el estado haya o no una prohibición vigente, y el viento y las condiciones del día importan tanto como el estado del condado. Revisa la lista antes de encender algo."
-      )}</p>`
-    : "";
+  const lead = burnbanLead(data, lang);
 
   // Sits between the county status and the checklist: it is the live input to
   // checklist items 2 and 3, and it keeps the page worth reloading on a day
@@ -430,9 +504,9 @@ export function burnbanHtml(data, lang, weather) {
     .map((f) => `      <details class="faq"><summary>${esc(f.q)}</summary><p>${esc(f.a)}</p></details>`)
     .join("\n");
 
-  const related = burnbanRelated(lang)
-    .map((r) => `<a href="${esc(r.path ? lk(r.path) : r.url)}">${esc(r.label)}</a>`)
-    .join(" &middot; ");
+  const resources = burnbanResources(lang)
+    .map((r) => `      <li><a href="${esc(r.path ? lk(r.path) : r.url)}">${esc(r.label)}</a> &mdash; ${esc(r.note)}</li>`)
+    .join("\n");
 
   return `<!DOCTYPE html>
 <html lang="${T(lang, "en", "es-MX")}">
@@ -474,17 +548,25 @@ ${JSONLD_SITE}
   .pk-label { color:var(--muted); flex:none; }
   .pk-val { text-align:right; }
   .since { margin:0.55rem 0 0; font-size:0.92rem; font-weight:600; color:var(--ink); }
-  .note { margin:0.9rem 0 0; padding:0.85rem 1.05rem; background:var(--card); border-left:5px solid #e2621a; border-radius:10px; font-size:0.95rem; line-height:1.55; }
+  /* Deliberately NOT a boxed callout: as a bordered card under the status
+     panel this read as a detached cut-out, and the checklist it introduces
+     looked unrelated. It is the section's opening paragraph now. */
+  .lead-note { margin:0.3rem 0 0.2rem; font-size:0.98rem; line-height:1.6; }
   .check { list-style:none; margin:0.7rem 0 0; padding:0; display:grid; gap:0.5rem; }
   .check li { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:0.65rem 0.85rem; }
   .check h3 { margin:0 0 0.2rem; font-size:0.98rem; }
   .check p { margin:0; font-size:0.9rem; color:var(--muted); line-height:1.5; }
   .check a { color:var(--accent); white-space:nowrap; }
-  .faq { margin-top:0.45rem; font-size:0.95rem; }
+  /* Bordered so it reads as something you can open. Unstyled <details> gave
+     no affordance beyond the marker and people missed that these expand. */
+  .faq { margin-top:0.5rem; font-size:0.95rem; background:var(--card); border:1px solid var(--line); border-radius:10px; padding:0.6rem 0.85rem; }
   .faq summary { cursor:pointer; font-weight:600; }
-  .faq p { margin:0.4rem 0 0.7rem; color:var(--muted); line-height:1.55; }
-  .rel { margin:1.4rem 0 0; font-size:0.9rem; color:var(--muted); }
-  .rel a { color:var(--accent); }
+  .faq[open] summary { margin-bottom:0.2rem; }
+  .faq p { margin:0.4rem 0 0.1rem; color:var(--muted); line-height:1.55; }
+  .res { margin-top:1.6rem; }
+  .res h2 { font-size:1.15rem; }
+  .links { margin:0.5rem 0 0; padding-left:1.1rem; }
+  .links li { margin:0.45rem 0; font-size:0.92rem; line-height:1.5; }
   .guide { margin-top:1.6rem; }
   .guide h2 { font-size:1.15rem; }
   .guide p { font-size:0.95rem; line-height:1.55; }
@@ -497,13 +579,15 @@ ${topbar("/burn-ban", lang)}
   <p class="intro">${T(lang, "Whether an outdoor-burning ban is in effect for unincorporated Harris County, TX — which includes Crosby — from the Texas A&M Forest Service, rechecked about every 12 hours.", "Si hay una prohibición de quemas al aire libre vigente para el condado de Harris, TX no incorporado — que incluye a Crosby — según el Servicio Forestal de Texas A&M, revisado aproximadamente cada 12 horas.")}${data.updated ? ` ${T(lang, "Checked", "Verificado")} ${esc(fullTime(data.updated, lang))} CT.` : ""}</p>
   ${status}
   ${sinceLine}
-  ${caveat}
   ${fwBlock}
-  <section data-nosnippet>
+  <section>
     <h2>${T(lang, "Before you burn", "Antes de quemar")}</h2>
-    <ul class="check">
+    <p class="lead-note">${lead}</p>
+    <div data-nosnippet>
+      <ul class="check">
 ${checklist}
-    </ul>
+      </ul>
+    </div>
   </section>
   <section class="guide" data-nosnippet>
     <h2>${T(lang, "What a burn ban means", "Qué significa una prohibición de quemas")}</h2>
@@ -514,13 +598,18 @@ ${checklist}
     )}</p>
     <p>${T(
       lang,
-      "This page tracks the Texas A&M Forest Service's statewide burn-ban map, which counties report to. TFS is not the issuing authority and says so itself, so for the order in force, its exact exceptions, and any local notice, go to the Harris County Fire Marshal's Office.",
-      "Esta página sigue el mapa estatal de prohibiciones de quemas del Servicio Forestal de Texas A&M, al que reportan los condados. TFS no es la autoridad que emite la orden y así lo aclara, por lo que para la orden vigente, sus excepciones exactas y cualquier aviso local, acude a la Oficina del Jefe de Bomberos del Condado de Harris."
+      "This page follows the Texas A&M Forest Service's statewide burn-ban map, which counties report to. TFS doesn't issue the ban and says so itself, so if you need the exact wording, the exceptions, or any local notice, go to the Harris County Fire Marshal's Office.",
+      "Esta página sigue el mapa estatal de prohibiciones de quemas del Servicio Forestal de Texas A&M, al que reportan los condados. TFS no emite la prohibición y así lo aclara, así que si necesitas el texto exacto, las excepciones o algún aviso local, acude a la Oficina del Jefe de Bomberos del Condado de Harris."
     )}</p>
-    <h2>${T(lang, "Common questions", "Preguntas frecuentes")}</h2>
+    <h2>${T(lang, "Frequently asked questions", "Preguntas frecuentes")}</h2>
 ${faq}
   </section>
-  <p class="rel">${related}</p>
+  <section class="res">
+    <h2>${T(lang, "Resources", "Recursos")}</h2>
+    <ul class="links">
+${resources}
+    </ul>
+  </section>
 </main>
 ${footer({ page: "/burn-ban", lang, source: T(lang, `Burn ban data from the <a href="https://tfsweb.tamu.edu/">Texas A&amp;M Forest Service</a>.`, `Datos de prohibición de quemas del <a href="https://tfsweb.tamu.edu/">Servicio Forestal de Texas A&amp;M</a>.`) })}
 </body>
@@ -538,6 +627,7 @@ export function burnbanMarkdown(data, lang, weather) {
   // One shared renderer for the status-history sentence, so the HTML and
   // Markdown views cannot disagree about what we can honestly claim.
   const since = burnbanSince(data, lang);
+  const lead = burnbanLead(data, lang);
   if (!known) {
     out.push(T(lang, "Status unavailable from the last check. Check with the Harris County Fire Marshal's Office (linked below).", "Estado no disponible en la última verificación. Consulta con la Oficina del Jefe de Bomberos del Condado de Harris (enlace abajo)."), "");
   } else if (data.status === "Yes") {
@@ -548,12 +638,6 @@ export function burnbanMarkdown(data, lang, weather) {
   } else {
     out.push(
       `${T(lang, "**No burn ban in Harris County right now.** ✓", "**Sin prohibición de quemas en el condado de Harris en este momento.** ✓")}${since ? ` ${since}` : ""}`,
-      "",
-      T(
-        lang,
-        "A county ban is not the only thing that decides whether you can burn. Texas restricts outdoor burning statewide whether or not a ban is in effect, and the day's wind and conditions matter as much as the county's status.",
-        "Una prohibición del condado no es lo único que determina si puedes quemar. Texas restringe las quemas al aire libre en todo el estado haya o no una prohibición vigente, y el viento y las condiciones del día importan tanto como el estado del condado."
-      ),
       ""
     );
   }
@@ -565,7 +649,9 @@ export function burnbanMarkdown(data, lang, weather) {
     if (fw.windNote) out.push("", `**${fw.windNote}**`);
     out.push("");
   }
-  out.push(`## ${T(lang, "Before you burn", "Antes de quemar")}`, "");
+  // Same lead paragraph the HTML view opens this section with — one source,
+  // so the two can't drift.
+  out.push(`## ${T(lang, "Before you burn", "Antes de quemar")}`, "", lead.replace(/<\/?strong>/g, "**"), "");
   for (const c of burnbanChecklist(lang)) {
     const href = c.path ? canonicalFor(c.path, lang) : c.url;
     out.push(`- **${c.h}** — ${c.p}${href ? ` [${c.label}](${href})` : ""}`);
@@ -580,15 +666,18 @@ export function burnbanMarkdown(data, lang, weather) {
       "Una prohibición de quemas es una orden del juez del condado o de la Corte de Comisionados que suspende las quemas al aire libre cuando la sequía y las condiciones del combustible elevan el riesgo de incendios forestales. En el condado de Harris cubre las áreas no incorporadas — donde está Crosby — mientras que las ciudades dentro del condado fijan sus propias reglas. Violarla es un delito menor clase C, con una multa de hasta $500."
     ),
     "",
-    `## ${T(lang, "Common questions", "Preguntas frecuentes")}`,
+    `## ${T(lang, "Frequently asked questions", "Preguntas frecuentes")}`,
     ""
   );
   for (const f of burnbanFaq(lang)) out.push(`### ${f.q}`, "", f.a, "");
+  out.push(`## ${T(lang, "Resources", "Recursos")}`, "");
+  for (const r of burnbanResources(lang)) {
+    out.push(`- [${r.label}](${r.path ? canonicalFor(r.path, lang) : r.url}) — ${r.note}`);
+  }
   out.push(
+    "",
     "---",
-    `${T(lang, "Source: Texas A&M Forest Service (tfsweb.tamu.edu), which tracks what counties report — it is not the issuing authority.", "Fuente: Servicio Forestal de Texas A&M (tfsweb.tamu.edu), que sigue lo que reportan los condados — no es la autoridad que emite la orden.")} · ${burnbanRelated(lang)
-      .map((r) => `[${r.label}](${r.path ? canonicalFor(r.path, lang) : r.url})`)
-      .join(" · ")} · [crosbynews.com](${canonicalFor("/", lang)})`
+    `${T(lang, "Source: Texas A&M Forest Service (tfsweb.tamu.edu), which tracks what counties report — it is not the issuing authority.", "Fuente: Servicio Forestal de Texas A&M (tfsweb.tamu.edu), que sigue lo que reportan los condados — no es la autoridad que emite la orden.")} · [crosbynews.com](${canonicalFor("/", lang)})`
   );
   return out.join("\n");
 }
