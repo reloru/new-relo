@@ -49,18 +49,33 @@ places**, because HHD changes the shape of these URLs without notice:
   `…-july-31-2026` and, from 2026-08-03, `…-august-52026`
 - the index href match is **case-insensitive** — HHD serves this section as both
   `/services/…` and `/Services/…`, mixing the two on a single index page
+- the month name may be **full or abbreviated** — HHD served
+  `…-friday-august-212026` and `…-monday-aug-242026` in the same week, from the
+  same index. `pollenMonth()` resolves it by **unique prefix** (three characters
+  is the shortest unambiguous prefix across all twelve months), so `sept` and any
+  other truncation resolve too. An ambiguous or too-short prefix returns **no
+  date** rather than a guessed month: a wrong date would present a stale count as
+  current, which is worse than showing none.
 
-Neither strictness fails loudly. The fetch still succeeds, an older count still
+None of these strictnesses fails loudly. The fetch still succeeds, an older count still
 parses, and the page keeps rendering a real but **frozen** count. Both patterns
 were strict until 2026-08-05, and between them they hid three days of published
-counts while `/pollen` showed July 31 as though nothing were wrong. Let
+counts while `/pollen` showed July 31 as though nothing were wrong. The month
+name repeated the pattern on 2026-08-24: the exact-name lookup dropped Monday's
+abbreviated slug, so the index's newest entry was invisible and `/pollen` served
+Friday's count into Monday evening with `/api/health` reporting the feed `ok`.
+**Every one of these was found by a human noticing a date, not by a check.** Let
 `parsePollenCount` be the strict gate — it is the one that can distinguish a
 real layout change from a cosmetic URL change.
 
 `pollenNewestFromIndex()` is split out of `fetchPollen()` and takes no network,
 so the selection is pinned offline by **`scripts/test-pollen-parse.mjs`** in the
-required `Syntax check` job: both URL formats, both path casings, the greedy
-day/year split on the joined form, and newest-wins regardless of page order.
+required `Syntax check` job: both URL formats, both path casings, full and
+abbreviated month names, the greedy day/year split on the joined form,
+ambiguous prefixes yielding no date, and newest-wins regardless of page order.
+The composed `pollenNewestFromIndex` assertions are the load-bearing ones —
+fixing `pollenSlugDate` alone still looks correct, because the entries that do
+parse yield a real, correctly-labelled count that is merely days old.
 Fixing only one of the two matchers still yields a wrong-but-plausible answer
 (Aug 3 rather than Aug 5), which is why the test asserts the composed result and
 not just the date parser.
