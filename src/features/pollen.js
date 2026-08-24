@@ -42,19 +42,40 @@ export const POLLEN_INDEX_PATH = "/services/pollen-mold";
 
 export const POLLEN_MONTHS = { january: 1, february: 2, march: 3, april: 4, may: 5, june: 6, july: 7, august: 8, september: 9, october: 10, november: 11, december: 12 };
 
+// HHD writes the month name whichever way it feels like — the same week served
+// "...-friday-august-212026" and "...-monday-aug-242026". An exact-name lookup
+// silently dropped the abbreviated day, so the index's NEWEST entry became
+// unparseable and /pollen quietly kept serving Friday's count into Monday
+// evening with /api/health still reporting the feed ok.
+//
+// Resolved by unique prefix rather than by listing abbreviations: three letters
+// is the shortest unambiguous prefix across all twelve months, so this also
+// absorbs "sept" and any other truncation without another silent miss. The
+// uniqueness check is what keeps it honest — an ambiguous prefix returns null
+// (no date) rather than guessing a month, because a WRONG date here would make
+// a stale count look current, which is worse than no count at all.
+export function pollenMonth(name) {
+  const n = String(name).toLowerCase();
+  if (POLLEN_MONTHS[n]) return POLLEN_MONTHS[n];
+  if (n.length < 3) return null;
+  const hits = Object.keys(POLLEN_MONTHS).filter((m) => m.startsWith(n));
+  return hits.length === 1 ? POLLEN_MONTHS[hits[0]] : null;
+}
+
 // "/services/pollen-mold/houston-pollen-mold-count-thursday-july-16-2026"
 // → "2026-07-16" (null when the slug doesn't carry a parseable date).
 //
 // HHD publishes the day and year BOTH ways, and both must keep parsing:
 // "...-july-31-2026" and, from 2026-08-03, "...-august-52026" with no
-// separator. The day-year hyphen is therefore optional. The `\d{1,2}` stays
+// separator. The month is likewise full OR abbreviated ("aug", "sept") —
+// see pollenMonth. The day-year hyphen is therefore optional. The `\d{1,2}` stays
 // greedy so a two-digit day still wins ("122026" → day 12, year 2026); on a
 // one-digit day it backtracks to 1 because `\d{4}` cannot otherwise be
 // satisfied ("52026" → day 5, year 2026).
 export function pollenSlugDate(slug) {
   const m = String(slug).match(/-([a-z]+)-(\d{1,2})-?(\d{4})[^\d]*$/i);
   if (!m) return null;
-  const mo = POLLEN_MONTHS[m[1].toLowerCase()];
+  const mo = pollenMonth(m[1]);
   if (!mo) return null;
   return `${m[3]}-${String(mo).padStart(2, "0")}-${String(Number(m[2])).padStart(2, "0")}`;
 }
