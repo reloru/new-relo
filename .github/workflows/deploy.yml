@@ -59,13 +59,18 @@ jobs:
       # for three days in Aug 2026. Pins both URL formats and both path casings.
       - name: Check pollen index parsing
         run: node scripts/test-pollen-parse.mjs
-      # /burn-ban tells people whether they may legally light a fire, and its
-      # status-history line fails by writing a SENTENCE THAT READS FINE AND IS
-      # FALSE: render statusSince without comparing it to trackingSince and a
-      # freshly-seeded feed claims "no ban since <date>", which reads as "a ban
-      # ended that day". Nothing throws and the page looks healthy, so neither
-      # `node --check` nor the render check can see it. Pure node, no install.
-      - name: Check burn-ban status history
+      # /burn-ban tells people whether they may legally light a fire, and both
+      # of its derived lines fail by producing a SENTENCE THAT READS FINE AND
+      # IS FALSE — nothing throws, the page looks healthy, and neither
+      # `node --check` nor the render check can see it:
+      #   * status history: render statusSince without comparing it to
+      #     trackingSince and a freshly-seeded feed claims "no ban since
+      #     <date>", which reads as "a ban ended that day".
+      #   * fire weather: that block may only ever say conditions are NOT
+      #     permitted. A positive verdict reads as legal permission to burn,
+      #     which no weather feed can grant.
+      # Pure node, no install.
+      - name: Check burn-ban logic
         run: node scripts/test-burnban-history.mjs
       # decodeEntities() decodes Google News titles, and titles reach markdown
       # UNESCAPED (home.js emits `- [${n.title}](${n.link})`), so the Worker's

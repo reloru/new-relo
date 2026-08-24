@@ -28,8 +28,9 @@
 // the never-burn material list) are the real requirements in 30 TAC 111.219,
 // not general advice. Check the rule before editing any of those numbers.
 
-import { T, canonicalFor, hreflangTags, esPath } from "../i18n.js";
+import { T, canonicalFor, hreflangTags, esPath, translateDir } from "../i18n.js";
 import { esc, fmt, fullTime } from "../lib/format.js";
+import { pop, currentHourly } from "../lib/derived.js";
 import { BASE_CSS } from "../assets/base-css.js";
 import { topbar, footer } from "../chrome.js";
 import { JSONLD_SITE, OG_COMMON } from "../seo.js";
@@ -157,6 +158,75 @@ export function burnbanFaq(lang) {
       ),
     },
   ];
+}
+
+// NWS event names that mean "conditions are dangerous for fire". Matched
+// against the alert's `event` only — the free-form body stays untouched
+// official English and is never parsed for meaning.
+export const FIRE_WEATHER_RE = /red flag warning|fire weather watch|extreme fire danger/i;
+
+// Live fire-weather context for the burn-ban page, from the same NWS cache
+// every weather page uses.
+//
+// ASYMMETRIC BY DESIGN, and this is the whole point: this block may tell a
+// reader that something is NOT permitted — wind outside the 6–23 mph window
+// the state rule requires, or an active Red Flag Warning — but it must NEVER
+// signal that burning IS permitted. "Wind is fine" would be read as
+// permission, and legality here depends on the county order, the material,
+// the time of day, and local restrictions that no weather feed can see.
+// Only ever add negative signals to this function.
+//
+// Returns null when there is nothing to say, so the strip self-hides rather
+// than rendering an empty shell — and a weather-cache failure degrades the
+// burn-ban page to exactly what it was before this existed.
+export function burnbanFireWeather(weather, lang) {
+  const now = currentHourly(weather);
+  const alerts = (weather?.alerts ?? [])
+    .filter((a) => FIRE_WEATHER_RE.test(String(a?.event ?? "")))
+    // Event names are official NWS text and stay in English in both languages,
+    // the same policy the alerts page follows.
+    .map((a) => String(a.event));
+  if (!now && !alerts.length) return null;
+
+  const rows = [];
+  const nums = (s) => (String(s ?? "").match(/\d+/g) ?? []).map(Number);
+  const windNums = nums(now?.windSpeed);
+  const gustNums = nums(now?.windGust);
+
+  if (now?.windSpeed) {
+    const dir = now.windDirection ? ` ${translateDir(now.windDirection, lang)}` : "";
+    rows.push([T(lang, "Wind", "Viento"), `${now.windSpeed}${dir}`]);
+  }
+  if (gustNums.length) rows.push([T(lang, "Gusts", "Rachas"), `${Math.max(...gustNums)} mph`]);
+  const rh = now?.relativeHumidity?.value;
+  if (typeof rh === "number") rows.push([T(lang, "Humidity", "Humedad"), `${Math.round(rh)}%`]);
+  if (now) rows.push([T(lang, "Rain chance", "Prob. de lluvia"), `${pop(now)}%`]);
+
+  // The only verdicts allowed, both negative. A range that straddles a
+  // boundary ("5 to 10 mph") deliberately produces NO note — we flag it only
+  // when the whole range is outside what the rule permits.
+  let windNote = "";
+  if (windNums.length && Math.max(...windNums) < 6) {
+    windNote = T(
+      lang,
+      "Wind is below the 6 mph minimum Texas requires for outdoor burning.",
+      "El viento está por debajo del mínimo de 6 mph que Texas exige para quemar al aire libre."
+    );
+  } else if (windNums.length && Math.min(...windNums) > 23) {
+    windNote = T(
+      lang,
+      "Wind is above the 23 mph maximum Texas allows for outdoor burning.",
+      "El viento supera el máximo de 23 mph que Texas permite para quemar al aire libre."
+    );
+  } else if (gustNums.length && Math.max(...gustNums) > 23) {
+    windNote = T(
+      lang,
+      "Gusts are above the 23 mph maximum Texas allows for outdoor burning.",
+      "Las rachas superan el máximo de 23 mph que Texas permite para quemar al aire libre."
+    );
+  }
+
+  return { rows, alerts, windNote };
 }
 
 // The row of onward links, shared by both renderers.
@@ -303,7 +373,7 @@ export function apiBurnBan(data) {
   };
 }
 
-export function burnbanHtml(data, lang) {
+export function burnbanHtml(data, lang, weather) {
   const title = T(lang, "Harris County Burn Ban Status", "Estado de la prohibición de quemas del condado de Harris");
   const desc = T(
     lang,
@@ -333,6 +403,19 @@ export function burnbanHtml(data, lang) {
         "<strong>A county ban is not the only thing that decides whether you can burn.</strong> Texas restricts outdoor burning statewide whether or not a ban is in effect, and the day's wind and conditions matter as much as the county's status. Run through the checklist before you light anything.",
         "<strong>Una prohibición del condado no es lo único que determina si puedes quemar.</strong> Texas restringe las quemas al aire libre en todo el estado haya o no una prohibición vigente, y el viento y las condiciones del día importan tanto como el estado del condado. Revisa la lista antes de encender algo."
       )}</p>`
+    : "";
+
+  // Sits between the county status and the checklist: it is the live input to
+  // checklist items 2 and 3, and it keeps the page worth reloading on a day
+  // when the county status hasn't moved.
+  const fw = burnbanFireWeather(weather, lang);
+  const fwBlock = fw
+    ? `<section class="fw">
+    <h2>${T(lang, "Right now in Crosby", "Ahora mismo en Crosby")}</h2>
+    ${fw.alerts.length ? `<p class="fw-alert">&#9888;&#65039; ${esc(fw.alerts.join(" · "))} &mdash; <a href="${lk("/alerts")}">${T(lang, "see alerts", "ver alertas")}</a></p>` : ""}
+    ${fw.rows.length ? `<ul class="peek">${fw.rows.map(([k, v]) => `<li><span class="pk-label">${esc(k)}</span><span class="pk-val">${esc(v)}</span></li>`).join("")}</ul>` : ""}
+    ${fw.windNote ? `<p class="fw-note">${esc(fw.windNote)}</p>` : ""}
+  </section>`
     : "";
 
   const checklist = burnbanChecklist(lang)
@@ -379,6 +462,17 @@ ${JSONLD_SITE}
   .status-ban { background:linear-gradient(135deg,#b3400d,#e2621a); }
   .status-unknown { background:linear-gradient(135deg,#5b6470,#7a8494); }
   .intro { color:var(--muted); margin:0.6rem 0 0; }
+  .fw { margin-top:1.4rem; }
+  .fw h2 { font-size:1.15rem; margin:0 0 0.3rem; }
+  .fw-alert { margin:0.4rem 0; padding:0.6rem 0.8rem; background:#fff4f3; border-left:5px solid #c0392b; border-radius:8px; font-weight:700; font-size:0.95rem; }
+  .fw-alert a { color:var(--accent); }
+  @media (prefers-color-scheme: dark) { .fw-alert { background:#2a1715; } }
+  .fw-note { margin:0.5rem 0 0; font-size:0.9rem; font-weight:600; color:var(--ink); }
+  .peek { list-style:none; margin:0.4rem 0 0; padding:0; }
+  .peek li { display:flex; justify-content:space-between; gap:0.6rem; padding:0.28rem 0; border-bottom:1px solid var(--line); font-size:0.9rem; }
+  .peek li:last-child { border-bottom:none; }
+  .pk-label { color:var(--muted); flex:none; }
+  .pk-val { text-align:right; }
   .since { margin:0.55rem 0 0; font-size:0.92rem; font-weight:600; color:var(--ink); }
   .note { margin:0.9rem 0 0; padding:0.85rem 1.05rem; background:var(--card); border-left:5px solid #e2621a; border-radius:10px; font-size:0.95rem; line-height:1.55; }
   .check { list-style:none; margin:0.7rem 0 0; padding:0; display:grid; gap:0.5rem; }
@@ -404,6 +498,7 @@ ${topbar("/burn-ban", lang)}
   ${status}
   ${sinceLine}
   ${caveat}
+  ${fwBlock}
   <section data-nosnippet>
     <h2>${T(lang, "Before you burn", "Antes de quemar")}</h2>
     <ul class="check">
@@ -432,7 +527,7 @@ ${footer({ page: "/burn-ban", lang, source: T(lang, `Burn ban data from the <a h
 </html>`;
 }
 
-export function burnbanMarkdown(data, lang) {
+export function burnbanMarkdown(data, lang, weather) {
   const known = data.status === "Yes" || data.status === "No";
   const out = [
     `# ${T(lang, "Harris County Burn Ban Status", "Estado de la prohibición de quemas del condado de Harris")}`,
@@ -461,6 +556,14 @@ export function burnbanMarkdown(data, lang) {
       ),
       ""
     );
+  }
+  const fw = burnbanFireWeather(weather, lang);
+  if (fw) {
+    out.push(`## ${T(lang, "Right now in Crosby", "Ahora mismo en Crosby")}`, "");
+    if (fw.alerts.length) out.push(`**⚠️ ${fw.alerts.join(" · ")}** — [${T(lang, "see alerts", "ver alertas")}](${canonicalFor("/alerts", lang)})`, "");
+    for (const [k, v] of fw.rows) out.push(`- ${k}: ${v}`);
+    if (fw.windNote) out.push("", `**${fw.windNote}**`);
+    out.push("");
   }
   out.push(`## ${T(lang, "Before you burn", "Antes de quemar")}`, "");
   for (const c of burnbanChecklist(lang)) {

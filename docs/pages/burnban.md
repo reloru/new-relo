@@ -19,6 +19,7 @@ Crosby) from the Texas A&M Forest Service.
 | Status panel — green "no ban" / orange "ban in effect" / gray "status unavailable" | `burnban` KV |
 | Status-history line directly under the panel | `burnbanSince(data, lang)` |
 | Safety caveat, shown **only on the all-clear** — "a county ban is not the only thing that decides whether you can burn" | static |
+| "Right now in Crosby" fire-weather strip — wind/gusts/humidity/rain chance, plus any Red Flag Warning or Fire Weather Watch | `burnbanFireWeather(weather, lang)` from the `weather` KV |
 | "Before you burn" checklist (6 items) | `burnbanChecklist(lang)` |
 | "What a burn ban means" evergreen guide — issuing authority, unincorporated scope, Class C penalty, TFS-is-not-the-authority | static |
 | "Common questions" FAQ (4 `<details>`) | `burnbanFaq(lang)` |
@@ -78,9 +79,33 @@ people use to decide whether to light a fire. An active ban prefers TFS's own
 `startDate`, which is authoritative rather than inferred from our polling.
 
 `scripts/test-burnban-history.mjs` pins this (wired into CI as **"Check
-burn-ban status history"**). Its assertions are mostly about what the page
+burn-ban logic"**). Its assertions are mostly about what the page
 must *not* say; it was mutation-checked by inverting the equality test, which
 turns 5 assertions red.
+
+## Fire weather — negative verdicts only
+
+`burnbanFireWeather(weather, lang)` reads the shared `weather` KV cache and is
+**asymmetric on purpose**: it may report that conditions are *not* permitted —
+wind wholly outside the 6–23 mph window, gusts over 23, an active Red Flag
+Warning or Fire Weather Watch — but it must **never** signal that burning *is*
+permitted. A positive verdict would read as legal permission, and legality
+depends on the county order, the material, the time of day, and local
+restrictions no weather feed can see. **Only add negative signals to that
+function.**
+
+A wind range that straddles a boundary ("5 to 10 mph") deliberately produces
+no verdict at all; flagging it as too calm would be wrong half the time.
+
+The same test file pins this, including a sweep of every string the function
+can emit in both languages for anything readable as permission. Both
+invariants were mutation-checked: flagging a straddling range turns 1
+assertion red, and leaking a positive verdict turns 3 red.
+
+The strip is loaded failure-tolerantly in the router — a weather-cache miss
+degrades `/burn-ban` to its county-status form rather than 502ing it, and
+`burnbanFireWeather` returns `null` (strip hidden) when there is nothing to
+say.
 
 Resolution is bounded by the refresh cadence, which is why the copy says "in
 our checks" rather than claiming the hour a county order actually changed.
