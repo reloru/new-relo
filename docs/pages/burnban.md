@@ -16,7 +16,8 @@ Crosby) from the Texas A&M Forest Service.
 
 | Block | Source |
 |---|---|
-| Status panel — green "no ban" / orange "ban in effect" (with the effective date) / gray "status unavailable" | `burnban` KV |
+| Status panel — green "no ban" / orange "ban in effect" / gray "status unavailable" | `burnban` KV |
+| Status-history line directly under the panel | `burnbanSince(data, lang)` |
 | Safety caveat, shown **only on the all-clear** — "a county ban is not the only thing that decides whether you can burn" | static |
 | "Before you burn" checklist (6 items) | `burnbanChecklist(lang)` |
 | "What a burn ban means" evergreen guide — issuing authority, unincorporated scope, Class C penalty, TFS-is-not-the-authority | static |
@@ -54,6 +55,35 @@ The concrete numbers in the checklist (wind 6–23 mph, one hour after sunrise
 to one hour before sunset, 300 ft from neighbouring structures, the never-burn
 material list) are the actual requirements of **30 TAC 111.219**, not general
 advice. Verify against the rule before editing any of them.
+
+## Status history — two stamps, and why
+
+The KV entry carries **two** history stamps, and conflating them makes the
+page assert something false:
+
+| Field | Meaning | Moves when |
+|---|---|---|
+| `trackingSince` | first observation ever recorded | never |
+| `statusSince` | first observation of the **current** status | only on a real status flip |
+
+`burnbanHistory(prev, next)` (pure, shared by the cron and `loadBurnBan`'s
+cold-warm) carries them forward; **`burnbanSince(data, lang)` is the only
+thing allowed to turn them into a sentence.**
+
+The trap: when the two are **equal**, no change has ever been witnessed, so
+the honest line is *"No ban in any check since we began tracking on X"*.
+Rendering `statusSince` directly would instead say *"No ban reported since
+X"*, which a reader takes as **"a ban ended on X"** — invented, on a page
+people use to decide whether to light a fire. An active ban prefers TFS's own
+`startDate`, which is authoritative rather than inferred from our polling.
+
+`scripts/test-burnban-history.mjs` pins this (wired into CI as **"Check
+burn-ban status history"**). Its assertions are mostly about what the page
+must *not* say; it was mutation-checked by inverting the equality test, which
+turns 5 assertions red.
+
+Resolution is bounded by the refresh cadence, which is why the copy says "in
+our checks" rather than claiming the hour a county order actually changed.
 
 ## Official sources linked
 

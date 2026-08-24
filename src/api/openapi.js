@@ -171,7 +171,14 @@ export function openApiSpec() {
       county: { type: "string", description: 'Always "Harris".' },
       source: { type: "string" },
       status: { type: ["string", "null"], enum: ["Yes", "No", null], description: '"Yes" = ban in effect, "No" = no active ban, null = status unavailable from the last check.' },
-      startDate: { type: ["string", "null"], format: "date-time", description: "When the current ban took effect; null when there is no active ban." },
+      startDate: { type: ["string", "null"], format: "date-time", description: "When the current ban took effect, as reported by TFS; null when there is no active ban." },
+      statusSince: {
+        type: ["string", "null"],
+        format: "date-time",
+        description:
+          "When the CURRENT status was first observed by this site. Read it against `trackingSince`: when the two are EQUAL no status change has ever been witnessed, so this is simply when observation began and must not be presented as a transition date. When `statusSince` is later than `trackingSince`, a real change was observed, to within the refresh cadence.",
+      },
+      trackingSince: { type: ["string", "null"], format: "date-time", description: "The first observation ever recorded for this feed." },
       lastChecked: { type: ["string", "null"], format: "date-time", description: "When we last checked TFS's feed." },
       officialUrl: { type: "string", format: "uri", description: "The Texas A&M Forest Service's official burn-ban tracker." },
     },

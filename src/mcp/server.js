@@ -27,7 +27,7 @@ import { loadTropics, tropicsStormLine, apiTropics } from "../features/tropics.j
 import { loadTraffic, apiTraffic } from "../features/traffic.js";
 import { loadPollen, pollenCatRank, pollenGroupLabel, pollenDateLabel,
          POLLEN_GROUPS, apiPollen } from "../features/pollen.js";
-import { loadBurnBan, apiBurnBan } from "../features/burnban.js";
+import { loadBurnBan, apiBurnBan, burnbanSince } from "../features/burnban.js";
 import { loadNews, newsDate, apiNews } from "../features/news.js";
 import { loadCalendar, upcomingEvents, calTime, apiCalendar } from "../features/calendar.js";
 import { EMERGENCY } from "../pages/emergency.js";
@@ -228,7 +228,9 @@ export function mcpTools() {
           county: { type: "string", description: 'Always "Harris".' },
           source: { type: "string" },
           status: { type: ["string", "null"], description: '"Yes" = ban in effect, "No" = no active ban, null = status unavailable from the last check.' },
-          startDate: { type: ["string", "null"], description: "ISO date-time the current ban took effect; null when there is no active ban." },
+          startDate: { type: ["string", "null"], description: "ISO date-time the current ban took effect, as reported by TFS; null when there is no active ban." },
+          statusSince: { type: ["string", "null"], description: "When the CURRENT status was first observed. Equal to trackingSince means no change has ever been witnessed — it is when observation began, NOT a transition date." },
+          trackingSince: { type: ["string", "null"], description: "The first observation ever recorded for this feed." },
           lastChecked: isoStamp,
           officialUrl: { type: "string" },
         },
@@ -871,11 +873,17 @@ export async function mcpCallTool(name, args, env) {
   if (name === "get_burn_ban") {
     const burnban = await loadBurnBan(env);
     const payload = apiBurnBan(burnban);
+    // Scope matters here as much as on the page: a Harris County ban covers
+    // the UNINCORPORATED county (where Crosby is), not every city in it.
+    // burnbanSince() supplies the history clause, and is the only thing
+    // allowed to turn statusSince into a sentence — see its comment.
+    const since = burnbanSince(burnban, "en");
+    const tail = `${since ? ` ${since}` : ""} A county ban is not the only thing that governs outdoor burning: Texas restricts it statewide regardless. Official page: ${payload.officialUrl}`;
     const text =
       payload.status === "Yes"
-        ? `Burn ban in effect for Harris County, TX (which includes Crosby)${payload.startDate ? `, in effect since ${fullTime(payload.startDate, "en")}` : ""}. No outdoor burning is allowed anywhere in the county. Official page: ${payload.officialUrl}`
+        ? `Burn ban in effect: outdoor burning is prohibited in unincorporated Harris County, TX, which includes Crosby.${tail}`
         : payload.status === "No"
-          ? `No burn ban in Harris County, TX right now. Official page: ${payload.officialUrl}`
+          ? `No burn ban in Harris County, TX right now.${tail}`
           : `Burn ban status is temporarily unavailable. Official page: ${payload.officialUrl}`;
     return { content: [{ type: "text", text }], structuredContent: payload };
   }

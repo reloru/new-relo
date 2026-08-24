@@ -28,7 +28,7 @@ import { fetchFishing, FISHING_KV_KEY } from "./features/fishing.js";
 import { fetchTropics, TROPICS_KV_KEY } from "./features/tropics.js";
 import { fetchTraffic, TRAFFIC_KV_KEY } from "./features/traffic.js";
 import { fetchPollen, POLLEN_KV_KEY } from "./features/pollen.js";
-import { fetchBurnBan, BURNBAN_KV_KEY } from "./features/burnban.js";
+import { fetchBurnBan, burnbanHistory, BURNBAN_KV_KEY } from "./features/burnban.js";
 import { ctDateStr } from "./features/air.js";
 import { pushSevereAlerts } from "./push.js";
 import { cronRunRecorder, recordCronRun } from "./api/health.js";
@@ -155,7 +155,10 @@ export async function scheduled(event, env, ctx) {
       const cur = await env.WEATHER.get(BURNBAN_KV_KEY, "json");
       const age = cur?.updated ? Date.now() - new Date(cur.updated).getTime() : Infinity;
       if (!cur || (cur.status !== "Yes" && cur.status !== "No") || age > 12 * 3600 * 1000) {
-        await env.WEATHER.put(BURNBAN_KV_KEY, JSON.stringify(await fetchBurnBan()));
+        // burnbanHistory carries the status-history stamps forward off the
+        // PREVIOUS entry, so the write has to be built from `cur` — a bare
+        // fetchBurnBan() result would reset "since when" on every refresh.
+        await env.WEATHER.put(BURNBAN_KV_KEY, JSON.stringify(burnbanHistory(cur, await fetchBurnBan())));
         run.ok("burnban");
       }
     } catch (e) {

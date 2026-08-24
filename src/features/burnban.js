@@ -192,6 +192,35 @@ export async function fetchBurnBan() {
   return { updated: new Date().toISOString(), status, startDate };
 }
 
+// Merge a fresh observation onto the previous cached entry, carrying the
+// status-history stamps forward. Pure and separate from the fetch so the cron
+// and the cold-warm path share one definition (and so it is testable without
+// a network or a KV).
+//
+// Two DIFFERENT stamps, and conflating them would make the page lie:
+//
+//   trackingSince — the first observation we ever recorded. Never moves.
+//   statusSince   — the first observation of the CURRENT status. Moves only
+//                   when the status actually flips.
+//
+// When they are equal we have never witnessed a change, so all we can honestly
+// say is "unchanged for as long as we have been looking" — NOT "no ban since
+// <date>", which would imply a ban ended that day. `burnbanSince()` below is
+// what encodes that distinction; don't render statusSince without it.
+//
+// Entries written before this shipped have neither stamp. Feeding such an
+// entry through here yields statusSince === trackingSince === now, i.e. "no
+// observed history yet", which is the correct and honest degradation.
+export function burnbanHistory(prev, next) {
+  const prevStatus = prev?.status === "Yes" || prev?.status === "No" ? prev.status : null;
+  return {
+    ...next,
+    // Carried forward only when the status is genuinely unchanged.
+    statusSince: prevStatus === next.status && prev?.statusSince ? prev.statusSince : next.updated,
+    trackingSince: prev?.trackingSince ?? next.updated,
+  };
+}
+
 // Read the cached status, self-healing on a cold/malformed entry and
 // degrading to an unknown-status shape on total failure (mirrors loadTropics).
 export async function loadBurnBan(env) {
@@ -203,14 +232,54 @@ export async function loadBurnBan(env) {
   }
   if (!data || (data.status !== "Yes" && data.status !== "No")) {
     try {
-      data = await fetchBurnBan();
-      await env.WEATHER.put(BURNBAN_KV_KEY, JSON.stringify(data));
+      // The unusable entry is still passed as `prev`: a malformed value can
+      // legitimately carry a trackingSince worth preserving, and
+      // burnbanHistory ignores its status.
+      const warmed = burnbanHistory(data, await fetchBurnBan());
+      await env.WEATHER.put(BURNBAN_KV_KEY, JSON.stringify(warmed));
+      data = warmed;
     } catch (e) {
       console.error("burnban cold fetch failed:", e && e.stack);
-      data = { updated: null, status: null, startDate: null };
+      data = { updated: null, status: null, startDate: null, statusSince: null, trackingSince: null };
     }
   }
   return data;
+}
+
+// The one-line status-history sentence, or "" when we can't say anything
+// honest. This is the whole point of tracking two stamps:
+//
+//   * An active ban prefers TFS's own startDate — that is authoritative, not
+//     an inference from our polling.
+//   * "No ban" only claims a date when we ACTUALLY WITNESSED the change
+//     (statusSince > trackingSince). Otherwise it says "since we began
+//     tracking", because "no ban since <date>" would otherwise read as "a ban
+//     ended that day" when really that is just when we started looking.
+//
+// Resolution is bounded by the refresh cadence, so the wording says "in our
+// checks" rather than asserting the exact hour a county order changed.
+export function burnbanSince(data, lang) {
+  if (data?.status !== "Yes" && data?.status !== "No") return "";
+  const d = (iso) => fmt(iso, { dateStyle: "long" }, lang);
+  if (data.status === "Yes") {
+    if (data.startDate) return T(lang, `In effect since ${d(data.startDate)}.`, `Vigente desde el ${d(data.startDate)}.`);
+    if (data.statusSince && data.statusSince !== data.trackingSince) {
+      return T(lang, `First seen in our checks on ${d(data.statusSince)}.`, `Visto por primera vez en nuestras verificaciones el ${d(data.statusSince)}.`);
+    }
+    return "";
+  }
+  if (!data.statusSince) return "";
+  return data.statusSince === data.trackingSince
+    ? T(
+        lang,
+        `No ban in any check since we began tracking on ${d(data.trackingSince)}.`,
+        `Sin prohibición en ninguna verificación desde que empezamos a monitorear el ${d(data.trackingSince)}.`
+      )
+    : T(
+        lang,
+        `No ban reported in our checks since ${d(data.statusSince)}.`,
+        `Sin prohibición reportada en nuestras verificaciones desde el ${d(data.statusSince)}.`
+      );
 }
 
 // JSON shape served at /api/burn-ban. `lastChecked` names the same instant
@@ -224,6 +293,11 @@ export function apiBurnBan(data) {
     source: "Texas A&M Forest Service (tfsweb.tamu.edu)",
     status: data.status ?? null,
     startDate: data.startDate ?? null,
+    // When we FIRST OBSERVED the current status. Read it against
+    // trackingSince: equal values mean we have never witnessed a change, so
+    // this is just when we started looking — not a transition date.
+    statusSince: data.statusSince ?? null,
+    trackingSince: data.trackingSince ?? null,
     lastChecked: data.updated ?? null,
     officialUrl: BURNBAN_OFFICIAL_URL,
   };
@@ -242,8 +316,13 @@ export function burnbanHtml(data, lang) {
   const status = !known
     ? `<div class="status status-unknown" role="status"><span class="status-icon">&#10067;</span><div><p class="status-title">${T(lang, "Status unavailable", "Estado no disponible")}</p><p class="status-sub">${T(lang, "The Texas A&M Forest Service feed didn't return a status on the last check. Check with the Harris County Fire Marshal's Office below.", "El feed del Servicio Forestal de Texas A&M no devolvió un estado en la última verificación. Consulta con la Oficina del Jefe de Bomberos del Condado de Harris abajo.")}</p></div></div>`
     : data.status === "Yes"
-      ? `<div class="status status-ban" role="status"><span class="status-icon">&#128293;</span><div><p class="status-title">${T(lang, "Burn ban in effect", "Prohibición de quemas vigente")}</p><p class="status-sub">${T(lang, "Outdoor burning is prohibited in unincorporated Harris County, which includes Crosby.", "Está prohibido quemar al aire libre en el condado de Harris no incorporado, que incluye a Crosby.")}${data.startDate ? ` ${T(lang, "In effect since", "Vigente desde")} ${esc(fmt(data.startDate, { dateStyle: "long" }, lang))}.` : ""}</p></div></div>`
+      ? `<div class="status status-ban" role="status"><span class="status-icon">&#128293;</span><div><p class="status-title">${T(lang, "Burn ban in effect", "Prohibición de quemas vigente")}</p><p class="status-sub">${T(lang, "Outdoor burning is prohibited in unincorporated Harris County, which includes Crosby.", "Está prohibido quemar al aire libre en el condado de Harris no incorporado, que incluye a Crosby.")}</p></div></div>`
       : `<div class="status status-ok" role="status"><span class="status-icon">&#10004;</span><div><p class="status-title">${T(lang, "No burn ban in Harris County", "Sin prohibición de quemas en el condado de Harris")}</p><p class="status-sub">${T(lang, "The Texas A&M Forest Service is not reporting an active outdoor-burning ban for Harris County right now.", "El Servicio Forestal de Texas A&M no reporta una prohibición de quemas activa para el condado de Harris en este momento.")}</p></div></div>`;
+
+  // Sits directly under the status panel: "how long has this been true" is a
+  // trust signal in a way "we checked at 12:25 AM" is not.
+  const since = burnbanSince(data, lang);
+  const sinceLine = since ? `<p class="since">${esc(since)}</p>` : "";
 
   // Shown only on the all-clear. A green panel reading "no burn ban" is the
   // single most misreadable thing on this page — this is the sentence that
@@ -300,6 +379,7 @@ ${JSONLD_SITE}
   .status-ban { background:linear-gradient(135deg,#b3400d,#e2621a); }
   .status-unknown { background:linear-gradient(135deg,#5b6470,#7a8494); }
   .intro { color:var(--muted); margin:0.6rem 0 0; }
+  .since { margin:0.55rem 0 0; font-size:0.92rem; font-weight:600; color:var(--ink); }
   .note { margin:0.9rem 0 0; padding:0.85rem 1.05rem; background:var(--card); border-left:5px solid #e2621a; border-radius:10px; font-size:0.95rem; line-height:1.55; }
   .check { list-style:none; margin:0.7rem 0 0; padding:0; display:grid; gap:0.5rem; }
   .check li { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:0.65rem 0.85rem; }
@@ -322,6 +402,7 @@ ${topbar("/burn-ban", lang)}
   <h1>${esc(title)}</h1>
   <p class="intro">${T(lang, "Whether an outdoor-burning ban is in effect for unincorporated Harris County, TX — which includes Crosby — from the Texas A&M Forest Service, rechecked about every 12 hours.", "Si hay una prohibición de quemas al aire libre vigente para el condado de Harris, TX no incorporado — que incluye a Crosby — según el Servicio Forestal de Texas A&M, revisado aproximadamente cada 12 horas.")}${data.updated ? ` ${T(lang, "Checked", "Verificado")} ${esc(fullTime(data.updated, lang))} CT.` : ""}</p>
   ${status}
+  ${sinceLine}
   ${caveat}
   <section data-nosnippet>
     <h2>${T(lang, "Before you burn", "Antes de quemar")}</h2>
@@ -359,16 +440,19 @@ export function burnbanMarkdown(data, lang) {
     `_${T(lang, "Outdoor-burning ban status for unincorporated Harris County, TX — which includes Crosby — from the Texas A&M Forest Service, rechecked about every 12 hours.", "Estado de la prohibición de quemas al aire libre para el condado de Harris, TX no incorporado — que incluye a Crosby — según el Servicio Forestal de Texas A&M, revisado aproximadamente cada 12 horas.")}${data.updated ? ` ${T(lang, "Checked", "Verificado")} ${fullTime(data.updated, lang)} CT.` : ""}_`,
     "",
   ];
+  // One shared renderer for the status-history sentence, so the HTML and
+  // Markdown views cannot disagree about what we can honestly claim.
+  const since = burnbanSince(data, lang);
   if (!known) {
     out.push(T(lang, "Status unavailable from the last check. Check with the Harris County Fire Marshal's Office (linked below).", "Estado no disponible en la última verificación. Consulta con la Oficina del Jefe de Bomberos del Condado de Harris (enlace abajo)."), "");
   } else if (data.status === "Yes") {
     out.push(
-      `${T(lang, "**Burn ban in effect.** Outdoor burning is prohibited in unincorporated Harris County, which includes Crosby.", "**Prohibición de quemas vigente.** Está prohibido quemar al aire libre en el condado de Harris no incorporado, que incluye a Crosby.")}${data.startDate ? ` ${T(lang, "In effect since", "Vigente desde")} ${fmt(data.startDate, { dateStyle: "long" }, lang)}.` : ""}`,
+      `${T(lang, "**Burn ban in effect.** Outdoor burning is prohibited in unincorporated Harris County, which includes Crosby.", "**Prohibición de quemas vigente.** Está prohibido quemar al aire libre en el condado de Harris no incorporado, que incluye a Crosby.")}${since ? ` ${since}` : ""}`,
       ""
     );
   } else {
     out.push(
-      T(lang, "**No burn ban in Harris County right now.** ✓", "**Sin prohibición de quemas en el condado de Harris en este momento.** ✓"),
+      `${T(lang, "**No burn ban in Harris County right now.** ✓", "**Sin prohibición de quemas en el condado de Harris en este momento.** ✓")}${since ? ` ${since}` : ""}`,
       "",
       T(
         lang,
