@@ -99,6 +99,19 @@ const TWO_CHANCE_RE = /Formation chance through\s+(48\s*hours|7\s*days)\s*\.{2,}
 const TWO_HEADING_RE = /^(?:\d+\.\s*)?([^.*\s][^:]{2,119}):$/;
 const TWO_INVEST_RE = /\((AL\d{2})\)$/;
 
+// NHC area names are place names: "Central Subtropical Atlantic", "Near the
+// Cabo Verde Islands", "Offshore of the Carolinas". Anything outside that
+// shape is not a place name, so it is dropped rather than escaped — escaping
+// is per-renderer and this string has four consumers, one of which (markdown)
+// has no escaper at all.
+export function safeAreaName(raw) {
+  return String(raw)
+    .replace(/[^\p{L}\p{N} '.,\-\/()]/gu, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 120);
+}
+
 export function parseTwoDisturbances(text) {
   const lines = String(text).split("\n").map((l) => l.trim());
   const found = [];
@@ -140,7 +153,12 @@ export function parseTwoDisturbances(text) {
     }
     const invest = area.match(TWO_INVEST_RE);
     cur = {
-      area: invest ? area.slice(0, invest.index).trim() : area,
+      // Sanitised at the PARSE boundary, not per-renderer. `area` reaches HTML
+      // (escaped), markdown (NOT escaped — `- **${d.area}**`), the MCP text
+      // block and the JSON API, and only the first of those is protected by
+      // esc(). Constraining it once here covers all four. NHC area names are
+      // plain English place names, so this allowlist loses nothing real.
+      area: safeAreaName(invest ? area.slice(0, invest.index) : area),
       id: invest ? invest[1] : null,
       chance48: null,
       category48: null,
@@ -153,6 +171,26 @@ export function parseTwoDisturbances(text) {
   // is what makes a quiet outlook ("Tropical cyclone formation is not expected
   // during the next 7 days.") parse to an empty list rather than to noise.
   return found.filter((d) => d.chance48 != null || d.chance7 != null);
+}
+
+// Remove markup until the string stops changing. A single pass is what CodeQL
+// calls "incomplete multi-character sanitization": stripping `<a<b>c>` once can
+// leave text that is itself markup. Each pass strictly shortens the string, so
+// the loop is bounded by its length.
+function stripTags(text) {
+  let out = String(text);
+  for (let prev = null; prev !== out; ) {
+    prev = out;
+    out = out.replace(/<[^>]*>/g, "");
+  }
+  return out;
+}
+
+// ONE pass, output never rescanned — see the comment in twoTextFromRss for why
+// a `.replace().replace()` chain is not equivalent.
+const TWO_ENTITIES = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", "#39": "'", "#039": "'", nbsp: " " };
+function decodeEntitiesOnce(text) {
+  return String(text).replace(/&(#0?39|amp|lt|gt|quot|apos|nbsp);/gi, (m, name) => TWO_ENTITIES[name.toLowerCase()] ?? m);
 }
 
 // Pull the outlook bulletin out of the RSS envelope. The forecast text lives in
@@ -179,17 +217,23 @@ export function twoTextFromRss(xml) {
   }
   const raw = blocks.find((b) => /Tropical Weather Outlook/i.test(b) && /NWS National Hurricane Center|Formation chance|not expected/i.test(b));
   if (!raw) return null;
-  return raw
-    .replace(/^\s*<!\[CDATA\[/, "")
-    .replace(/\]\]>\s*$/, "")
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<[^>]+>/g, "")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#0?39;|&apos;/g, "'")
-    .replace(/&amp;/g, "&")
-    .replace(/\r/g, "");
+  let out = raw.replace(/^\s*<!\[CDATA\[/, "").replace(/\]\]>\s*$/, "");
+  out = out.replace(/<br\s*\/?>/gi, "\n");
+  out = stripTags(out);
+  // Decode AFTER the first strip and BEFORE the second. A single `.replace`
+  // chain (&lt; then &gt; then &amp;) is a staged decode: each stage rescans
+  // the previous stage's output, so `&amp;lt;script&amp;gt;` becomes a live
+  // `<script>`. That exact bug already bit this repo once in the news pipeline
+  // (scripts/test-decode-entities.mjs). decodeEntitiesOnce is a single pass
+  // whose output is never rescanned.
+  out = decodeEntitiesOnce(out);
+  // ...and strip again, because anything that DECODED into markup has only
+  // now become markup.
+  out = stripTags(out);
+  // A TWO bulletin is plain text. No angle bracket in it is meaningful, and a
+  // dangling `<script` (no `>`) survives tag-stripping by construction, so the
+  // residue goes.
+  return out.replace(/[<>]/g, "").replace(/\r/g, "");
 }
 
 // Fetch the outlook. Returns [] for a genuinely quiet basin and THROWS on a

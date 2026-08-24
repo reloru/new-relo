@@ -16,7 +16,7 @@
 //
 // Run: node scripts/test-two-parse.mjs
 
-import { parseTwoDisturbances, twoTextFromRss } from "../src/features/tropics.js";
+import { parseTwoDisturbances, twoTextFromRss, safeAreaName, tropicsMarkdown, tropicsHtml } from "../src/features/tropics.js";
 
 let failed = 0;
 const check = (label, actual, expected) => {
@@ -213,6 +213,69 @@ check("end to end: the right 7-day chance", fromRss[0]?.chance7, 50);
 console.log("\ntwoTextFromRss — no bulletin returns null (so the fetch throws):\n");
 check("empty document", twoTextFromRss(""), null);
 check("envelope with only boilerplate", twoTextFromRss(`<rss><channel><description>NOAA logo</description></channel></rss>`), null);
+
+// Injection. CodeQL flagged the original tag-strip as "incomplete
+// multi-character sanitization" and it was right, though not for the reason
+// first assumed: the chain decoded entities in STAGES after stripping tags
+// (`&lt;` then `&gt;` then `&amp;`), so `&lt;script&gt;` sailed through the
+// strip as inert text and was then decoded into live markup. Verified before
+// the fix: `/tropics?format=md` emitted `- **Bermuda <script>alert(1)</script>
+// Area**`. HTML was safe because esc() covers it; markdown has no escaper at
+// all, which is the same asymmetry that bit the news pipeline.
+//
+// Two layers now: a single-pass decode between two strip-to-fixpoint passes,
+// and safeAreaName() at the PARSE boundary — because `area` reaches four
+// consumers (HTML, markdown, the MCP text block, the JSON API) and only one of
+// them escapes anything.
+console.log("\nparseTwoDisturbances — no bulletin can inject markup into any renderer:\n");
+
+const bulletin = (payload) =>
+  `<rss><channel><item><description><![CDATA[Tropical Weather Outlook<br />NWS National Hurricane Center Miami FL<br /><br />For the North Atlantic...Caribbean Sea:<br /><br />${payload} Area:<br />prose<br />* Formation chance through 7 days...high...90 percent.<br /><br />$$]]></description></item></channel></rss>`;
+
+// Every page carries a legitimate `<script type="application/ld+json">` for
+// its structured data, so the HTML assertion counts against a CLEAN render
+// rather than looking for the substring — an assertion that trips on the
+// page's own JSON-LD proves nothing and would pass even with a real hole
+// somewhere else.
+const CLEAN = { updated: null, storms: [], disturbances: [] };
+const baselineScripts = (tropicsHtml(CLEAN, "en").match(/<script/gi) ?? []).length;
+
+for (const [label, payload] of [
+  ["entity-encoded script", "Bermuda &lt;script&gt;alert(1)&lt;/script&gt;"],
+  ["double-encoded script", "Bermuda &amp;lt;script&amp;gt;alert(1)&amp;lt;/script&amp;gt;"],
+  ["nested tags that re-form on one strip pass", "Bermuda <scr<x>ipt>alert(1)"],
+  ["dangling tag with no closing bracket", "Bermuda <script"],
+  ["numeric character references", "Bermuda &#60;script&#62;"],
+  ["markdown link-break injection", "Bermuda ](javascript:alert(1))[x"],
+]) {
+  const dz = parseTwoDisturbances(twoTextFromRss(bulletin(payload)));
+  const data = { updated: null, storms: [], disturbances: dz };
+  const md = tropicsMarkdown(data, "en");
+  const html = tropicsHtml(data, "en");
+  const area = dz[0]?.area ?? "";
+
+  const areaClean = !/[<>]/.test(area) && !/javascript:/i.test(area);
+  const mdClean = !/<script|javascript:/i.test(md);
+  const htmlClean = (html.match(/<script/gi) ?? []).length === baselineScripts && !/javascript:/i.test(html);
+
+  checkThat(`${label} — area carries no markup`, areaClean);
+  checkThat(`${label} — markdown ships none (it has no escaper)`, mdClean);
+  checkThat(`${label} — HTML adds no script tag beyond its own JSON-LD`, htmlClean);
+}
+
+// The allowlist itself: real NHC names must survive it untouched, or the
+// sanitiser would be quietly corrupting the data it protects.
+console.log("\nsafeAreaName — real NHC place names pass through unchanged:\n");
+for (const name of [
+  "Central Subtropical Atlantic",
+  "Eastern Tropical Atlantic",
+  "Near the Southeastern United States",
+  "Offshore of the Carolinas",
+  "Gulf of America",
+  "Near the Cabo Verde Islands",
+]) {
+  check(`"${name}"`, safeAreaName(name), name);
+}
 
 // Both patterns here originally paired a whitespace-matching capture with an
 // adjacent `\s*` — `([a-z ]+?)\s*` and `([^:]{2,89}?)\s*` — so on a line that
