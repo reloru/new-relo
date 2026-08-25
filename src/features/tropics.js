@@ -69,14 +69,16 @@ export const TWO_URL = "https://www.nhc.noaa.gov/xml/TWOAT.xml";
 // "* Formation chance through 7 days...medium...60 percent." — also
 // "...low...near 0 percent." in a quiet outlook, hence the optional "near".
 //
-// The category is `[a-z]+(?: [a-z]+)*`, NOT `[a-z ]+?`, and that is a ReDoS
-// fix rather than a style choice: `[a-z ]` includes a space and so does the
-// `\s*` beside it, so on a line that ultimately fails to match, the engine can
-// split a run of spaces between the two in quadratically many ways. This form
-// cannot end on a space, so no boundary is ambiguous and the match is linear.
-// Every other adjacency here pairs disjoint character sets (\s vs literal dot,
-// dot vs letter, digit vs \s).
-const TWO_CHANCE_RE = /Formation chance through\s+(48\s*hours|7\s*days)\s*\.{2,}\s*([a-z]+(?: [a-z]+)*)\s*\.{2,}\s*(?:near\s+)?(\d{1,3})\s*percent/i;
+// The category is captured as `[^.]+` between the two dot runs, and that is a
+// ReDoS fix rather than a style choice. The original `([a-z ]+?)\s*` paired a
+// space-matching capture with a space-matching `\s*`, so on a line that
+// ultimately fails to match, the engine could split a run of spaces between
+// the two in quadratically many ways — 17ms at 200 spaces, 1424ms at 1600.
+// `[^.]` against a literal dot is disjoint, so there is no ambiguous boundary
+// and no nested quantifier at all; surrounding spaces are removed with trim()
+// where the value is read. Every other adjacency here also pairs disjoint sets
+// (\s vs dot, dot vs non-dot, digit vs \s).
+const TWO_CHANCE_RE = /Formation chance through\s+(48\s*hours|7\s*days)\s*\.{2,}([^.]+)\.{2,}\s*(?:near\s+)?(\d{1,3})\s*percent/i;
 
 // A disturbance heading: "Central Subtropical Atlantic (AL95):", sometimes
 // enumerated ("1. Near the Cabo Verde Islands:"). The basin header
@@ -89,8 +91,26 @@ const TWO_CHANCE_RE = /Formation chance through\s+(48\s*hours|7\s*days)\s*\.{2,}
 // the lazy capture and the `\s*` beside it both match whitespace, which is
 // quadratic backtracking on a non-matching line (CodeQL flags it, correctly).
 // `[^:]` against a literal `:` is disjoint, so this form is linear.
-const TWO_HEADING_RE = /^(?:\d+\.\s*)?([^.*][^:]{2,119}):$/;
+//
+// The leading class excludes `\s` for the same reason: it sits directly after
+// the optional enumerator's `\s*`, and `[^.*]` would otherwise match a space
+// too, making that boundary ambiguous. Lines are trimmed before they get here,
+// so a heading never begins with whitespace and nothing is lost.
+const TWO_HEADING_RE = /^(?:\d+\.\s*)?([^.*\s][^:]{2,119}):$/;
 const TWO_INVEST_RE = /\((AL\d{2})\)$/;
+
+// NHC area names are place names: "Central Subtropical Atlantic", "Near the
+// Cabo Verde Islands", "Offshore of the Carolinas". Anything outside that
+// shape is not a place name, so it is dropped rather than escaped — escaping
+// is per-renderer and this string has four consumers, one of which (markdown)
+// has no escaper at all.
+export function safeAreaName(raw) {
+  return String(raw)
+    .replace(/[^\p{L}\p{N} '.,\-\/()]/gu, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 120);
+}
 
 export function parseTwoDisturbances(text) {
   const lines = String(text).split("\n").map((l) => l.trim());
@@ -133,7 +153,12 @@ export function parseTwoDisturbances(text) {
     }
     const invest = area.match(TWO_INVEST_RE);
     cur = {
-      area: invest ? area.slice(0, invest.index).trim() : area,
+      // Sanitised at the PARSE boundary, not per-renderer. `area` reaches HTML
+      // (escaped), markdown (NOT escaped — `- **${d.area}**`), the MCP text
+      // block and the JSON API, and only the first of those is protected by
+      // esc(). Constraining it once here covers all four. NHC area names are
+      // plain English place names, so this allowlist loses nothing real.
+      area: safeAreaName(invest ? area.slice(0, invest.index) : area),
       id: invest ? invest[1] : null,
       chance48: null,
       category48: null,
@@ -148,25 +173,67 @@ export function parseTwoDisturbances(text) {
   return found.filter((d) => d.chance48 != null || d.chance7 != null);
 }
 
+// Remove markup until the string stops changing. A single pass is what CodeQL
+// calls "incomplete multi-character sanitization": stripping `<a<b>c>` once can
+// leave text that is itself markup. Each pass strictly shortens the string, so
+// the loop is bounded by its length.
+function stripTags(text) {
+  let out = String(text);
+  for (let prev = null; prev !== out; ) {
+    prev = out;
+    out = out.replace(/<[^>]*>/g, "");
+  }
+  return out;
+}
+
+// ONE pass, output never rescanned — see the comment in twoTextFromRss for why
+// a `.replace().replace()` chain is not equivalent.
+const TWO_ENTITIES = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", "#39": "'", "#039": "'", nbsp: " " };
+function decodeEntitiesOnce(text) {
+  return String(text).replace(/&(#0?39|amp|lt|gt|quot|apos|nbsp);/gi, (m, name) => TWO_ENTITIES[name.toLowerCase()] ?? m);
+}
+
 // Pull the outlook bulletin out of the RSS envelope. The forecast text lives in
 // a CDATA <description> with <br /> line breaks; the channel's own description
 // ("National Hurricane Center - Atlantic Tropical Weather Outlook") and the
 // NOAA logo item are decoys, so the block is chosen by CONTENT.
 export function twoTextFromRss(xml) {
-  const blocks = [...String(xml).matchAll(/<description>([\s\S]*?)<\/description>/g)].map((m) => m[1]);
+  // Scanned with indexOf rather than /<description>([\s\S]*?)<\/description>/g:
+  // `[\s\S]` matches `<` too, so the lazy capture and the closing tag overlap,
+  // and the input is an upstream document we do not control. indexOf is linear
+  // by construction and there is nothing here a regex was buying.
+  const s = String(xml);
+  const OPEN = "<description>";
+  const CLOSE = "</description>";
+  const blocks = [];
+  for (let i = 0; ; ) {
+    const open = s.indexOf(OPEN, i);
+    if (open === -1) break;
+    const start = open + OPEN.length;
+    const close = s.indexOf(CLOSE, start);
+    if (close === -1) break;
+    blocks.push(s.slice(start, close));
+    i = close + CLOSE.length;
+  }
   const raw = blocks.find((b) => /Tropical Weather Outlook/i.test(b) && /NWS National Hurricane Center|Formation chance|not expected/i.test(b));
   if (!raw) return null;
-  return raw
-    .replace(/^\s*<!\[CDATA\[/, "")
-    .replace(/\]\]>\s*$/, "")
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<[^>]+>/g, "")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#0?39;|&apos;/g, "'")
-    .replace(/&amp;/g, "&")
-    .replace(/\r/g, "");
+  let out = raw.replace(/^\s*<!\[CDATA\[/, "").replace(/\]\]>\s*$/, "");
+  out = out.replace(/<br\s*\/?>/gi, "\n");
+  out = stripTags(out);
+  // Decode AFTER the first strip and BEFORE the second. A single `.replace`
+  // chain (&lt; then &gt; then &amp;) is a staged decode: each stage rescans
+  // the previous stage's output, so `&amp;lt;script&amp;gt;` becomes a live
+  // `<script>`. That exact bug already bit this repo once in the news pipeline
+  // (scripts/test-decode-entities.mjs). decodeEntitiesOnce is a single pass
+  // whose output is never rescanned.
+  out = decodeEntitiesOnce(out);
+  // ...and strip again, because anything that DECODED into markup has only
+  // now become markup.
+  out = stripTags(out);
+  // A TWO bulletin is plain text. No angle bracket in it is meaningful, and a
+  // dangling `<script` (no `>`) survives tag-stripping by construction, so the
+  // residue goes.
+  return out.replace(/[<>]/g, "").replace(/\r/g, "");
 }
 
 // Fetch the outlook. Returns [] for a genuinely quiet basin and THROWS on a
@@ -197,7 +264,9 @@ export async function fetchTropics() {
     .filter((s) => String(s.id || "").toLowerCase().startsWith("al"))
     .map((s) => ({
       id: s.id,
-      name: s.name,
+      // Same boundary sanitation as area names: tropicsStormLine() puts this
+      // straight into markdown, which esc() does not cover.
+      name: safeAreaName(s.name),
       classification: String(s.classification || "").toUpperCase(),
       intensityKt: Number.isFinite(Number(s.intensity)) ? Number(s.intensity) : null,
       pressureMb: Number.isFinite(Number(s.pressure)) ? Number(s.pressure) : null,
@@ -207,11 +276,24 @@ export async function fetchTropics() {
       lastUpdate: s.lastUpdate || null,
       advisoryUrl: s.publicAdvisory?.url || "https://www.nhc.noaa.gov/",
     }));
+  // Storms in the OTHER basins, kept as names only. This page is Atlantic-only
+  // on purpose, but a reader who checks nhc.noaa.gov sees "...ISELLE NEAR
+  // HURRICANE STRENGTH..." and then a Crosby page that mentions nothing, and
+  // reasonably concludes the site is broken. It happened. Naming them closes
+  // that loop in a way a generic "Atlantic only" disclaimer cannot: the reader
+  // can match the name they just saw.
+  //
+  // Names go through safeAreaName for the same reason area names do — they
+  // reach markdown, which has no escaper.
+  const otherBasins = (json.activeStorms ?? [])
+    .filter((s) => !String(s.id || "").toLowerCase().startsWith("al"))
+    .map((s) => safeAreaName(s.name))
+    .filter(Boolean);
   // The outlook is fetched in the SAME call so one KV write carries both, and
   // a failure to read it throws rather than writing `disturbances: []` — an
   // empty list has to mean "NHC is watching nothing", never "we couldn't ask".
   const outlook = await fetchTwoDisturbances();
-  return { updated: new Date().toISOString(), storms, ...outlook };
+  return { updated: new Date().toISOString(), storms, otherBasins, ...outlook };
 }
 
 // Read the cached outlook, self-healing on a cold/malformed entry and
@@ -269,6 +351,33 @@ export function tropicsWatchPeak(disturbances) {
   if (!Array.isArray(disturbances) || !disturbances.length) return null;
   const vals = disturbances.map((d) => (Number.isFinite(d?.chance7) ? d.chance7 : Number.isFinite(d?.chance48) ? d.chance48 : null)).filter((v) => v != null);
   return vals.length ? Math.max(...vals) : null;
+}
+
+// Why a storm the reader just saw on nhc.noaa.gov is not on this page. Shared
+// by both renderers so they cannot drift.
+export function tropicsBasinNote(data, lang) {
+  const others = Array.isArray(data?.otherBasins) ? data.otherBasins.filter(Boolean) : [];
+  const scope = T(
+    lang,
+    "Only Atlantic systems appear here.",
+    "Aquí solo aparecen los sistemas del Atlántico."
+  );
+  const why = T(
+    lang,
+    "Pacific storms form on the other side of Mexico and do not reach Crosby.",
+    "Las tormentas del Pacífico se forman al otro lado de México y no llegan a Crosby."
+  );
+  // No splicing/lower-casing tricks here: "Pacific" is a proper noun and an
+  // earlier version produced "pacific storms form on the other side...".
+  // Each branch is a whole sentence.
+  if (!others.length) {
+    return `${scope} ${T(lang, "The National Hurricane Center also tracks the Pacific.", "El Centro Nacional de Huracanes también sigue el Pacífico.")} ${why}`;
+  }
+  const list =
+    others.length === 1
+      ? others[0]
+      : `${others.slice(0, -1).join(", ")} ${T(lang, "and", "y")} ${others[others.length - 1]}`;
+  return `${scope} ${T(lang, `The National Hurricane Center is also tracking ${list} in the Pacific.`, `El Centro Nacional de Huracanes también está siguiendo a ${list} en el Pacífico.`)} ${why}`;
 }
 
 // The areas worth putting on the FRONT page: medium chance or better over 7
@@ -453,6 +562,10 @@ ${JSONLD_SITE}
   .dz-id { font-size:0.78rem; font-weight:700; color:var(--muted); letter-spacing:0.03em; }
   .dz-cat { color:var(--muted); font-weight:400; }
   .two-note { margin:0.9rem 0 0; font-size:0.9rem; line-height:1.55; }
+  /* Directly under the status panel, because that is where a reader who just
+     saw a Pacific storm on nhc.noaa.gov looks for it. Muted: it is context,
+     not news. */
+  .basin-note { margin:0.6rem 0 0; font-size:0.86rem; line-height:1.5; color:var(--muted); }
   .two-prose { margin:0.5rem 0 0; font-size:0.9rem; line-height:1.55; color:var(--muted); white-space:pre-line; }
   .storms { display:grid; gap:0.7rem; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); margin-top:1rem; }
   .storm { background:var(--card); border-radius:12px; padding:0.85rem 1rem; box-shadow:0 1px 3px rgba(0,0,0,0.07); border-left:5px solid #8e2ec2; }
@@ -477,6 +590,7 @@ ${topbar("/tropics", lang)}
   <h1>${esc(title)}</h1>
   <p class="intro">${T(lang, "Active Atlantic tropical systems from the National Hurricane Center, plus the areas it is watching for development, checked about every hour. Storm advisories and names stay in NHC's official English.", "Sistemas tropicales activos del Atlántico según el Centro Nacional de Huracanes, además de las zonas que vigila por posible desarrollo, consultados aproximadamente cada hora. Los avisos y nombres de tormentas se muestran en el inglés oficial del NHC.")}${data.updated ? ` ${T(lang, "Updated", "Actualizado")} ${esc(fullTime(data.updated, lang))} CT.` : ""}</p>
   ${status}
+  <p class="basin-note">${esc(tropicsBasinNote(data, lang))}</p>
   ${storms.length ? `<div class="storms">\n${cards}\n  </div>` : ""}
   ${watchCards ? `<section>
     <h2>${T(lang, "Areas being watched", "Zonas bajo vigilancia")}</h2>
@@ -533,6 +647,7 @@ export function tropicsMarkdown(data, lang) {
   // Mirrors the HTML three-way exactly (one content model, two renderings):
   // named storms, then areas under watch, then a confirmed-quiet basin, and
   // "unavailable" kept distinct from "quiet".
+  out.push(`_${tropicsBasinNote(data, lang)}_`, "");
   const dz = Array.isArray(data.disturbances) ? data.disturbances : null;
   if (dz === null) {
     out.push(T(lang, "The NHC tropical outlook could not be read just now, so this page cannot confirm whether anything is being watched. Check nhc.noaa.gov directly.", "No se pudo leer la perspectiva tropical del NHC en este momento, así que esta página no puede confirmar si hay algo bajo vigilancia. Consulta nhc.noaa.gov directamente."), "");
