@@ -35,6 +35,7 @@ basin.
 |---|---|
 | Violet storm cards — classification + name, winds (mph), pressure (mb), position, movement direction, official advisory link | `tropics` KV |
 | Amber watch cards — area name, invest id, 48-hour and 7-day formation chance + category | `tropics.disturbances` |
+| Muted basin note under the status panel — why a Pacific storm the reader just saw is not here | `tropicsBasinNote()` from `tropics.otherBasins` |
 | Evergreen "hurricane season and Crosby" guide — inland rain flooding is the local threat, not surge; watch vs warning; links to NHC, `/alerts`, `/water`, `/emergency` | static |
 
 A formation chance is **not a forecast track**, and both the panel and the
@@ -49,6 +50,42 @@ labels. Winds are converted from NHC's **knots** (`intensity`) with
 advisory rounding. Movement is shown as a **compass direction only**
 (`degToCompass`), because `movementSpeed`'s unit is not clearly documented
 upstream and guessing it would put a wrong number on a hurricane page.
+
+## Atlantic only — and saying so
+
+`/tropics` shows Atlantic systems and nothing else: `fetchTropics()` keeps only
+storm ids beginning `al`, because Pacific storms form on the far side of Mexico
+and do not reach Crosby.
+
+That filter is right, but its **silence** was not. On 2026-08-24 NHC's front
+page led with "…ISELLE NEAR HURRICANE STRENGTH…" — an Eastern Pacific storm
+(`ep092026`, 19.2°N 118.0°W) — while this page said nothing about it, and the
+site owner reasonably read that as a fault. All four active systems that day
+were Pacific (`ep`/`cp`); the Atlantic had zero named storms.
+
+`tropicsBasinNote(data, lang)` renders one muted line under the status panel
+saying so, and **names** the other-basin storms when there are any:
+
+> Only Atlantic systems appear here. The National Hurricane Center is also
+> tracking Iselle and Ten-E in the Pacific. Pacific storms form on the other
+> side of Mexico and do not reach Crosby.
+
+Naming them is the point — a generic "Atlantic only" disclaimer still leaves
+the reader to work out which basin the name they just read belongs to. The
+names come from the same `CurrentStorms.json` fetch (`otherBasins`), so this
+costs no extra request. A KV entry written before this shipped has no
+`otherBasins` and falls back to the un-named form, which is a complete
+sentence; it self-heals on the next cron write.
+
+**Do not lower-case the splice.** An earlier draft built the no-storms branch
+by lower-casing the first letter of the trailing clause and shipped "pacific
+storms form on the other side of Mexico". Each branch is a whole sentence, and
+the test sweeps both languages for a lower-cased proper noun.
+
+One nuance kept OUT of the page copy: East Pacific remnants can occasionally
+push moisture into Texas after crossing Mexico. That arrives as an ordinary NWS
+rain forecast or flood alert — already carried on `/weather` and `/alerts` —
+not as a tropical threat, and saying so here would undercut the line's purpose.
 
 ## Two NHC products, and why one was not enough
 
@@ -76,6 +113,22 @@ against real bulletins. Two structural rules do the work:
 - **A heading with no formation chance under it is not a disturbance.** NHC
   writes `Special Feature:` sections and similar; kept, they render as an area
   with null percentages that NHC never assigned.
+
+### Untrusted upstream text
+
+Everything parsed out of the bulletin is **sanitised at the parse boundary**,
+not in a renderer, because `area` and storm `name` each reach four consumers —
+HTML (escaped by `esc()`), Markdown (**no escaper at all**), the MCP text
+block, and the JSON API. Fixing one renderer would leave three.
+
+`safeAreaName()` holds them to a place-name allowlist, and `twoTextFromRss()`
+strips tags to a fixpoint, decodes entities in a **single pass**, strips again,
+then drops residual angle brackets. The staged `.replace().replace()` decode
+that shipped first let `&lt;script&gt;` through the strip as inert text and
+then decoded it into live markup — `/tropics?format=md` emitted a working
+`<script>` tag. That is the same asymmetry that produced
+`scripts/test-decode-entities.mjs` in the news pipeline; six payloads are
+pinned against it here.
 
 `twoTextFromRss()` picks the bulletin **by content**, not position — the channel
 description and a "NOAA logo" item both appear before the real one, so taking

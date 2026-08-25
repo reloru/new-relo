@@ -264,7 +264,9 @@ export async function fetchTropics() {
     .filter((s) => String(s.id || "").toLowerCase().startsWith("al"))
     .map((s) => ({
       id: s.id,
-      name: s.name,
+      // Same boundary sanitation as area names: tropicsStormLine() puts this
+      // straight into markdown, which esc() does not cover.
+      name: safeAreaName(s.name),
       classification: String(s.classification || "").toUpperCase(),
       intensityKt: Number.isFinite(Number(s.intensity)) ? Number(s.intensity) : null,
       pressureMb: Number.isFinite(Number(s.pressure)) ? Number(s.pressure) : null,
@@ -274,11 +276,24 @@ export async function fetchTropics() {
       lastUpdate: s.lastUpdate || null,
       advisoryUrl: s.publicAdvisory?.url || "https://www.nhc.noaa.gov/",
     }));
+  // Storms in the OTHER basins, kept as names only. This page is Atlantic-only
+  // on purpose, but a reader who checks nhc.noaa.gov sees "...ISELLE NEAR
+  // HURRICANE STRENGTH..." and then a Crosby page that mentions nothing, and
+  // reasonably concludes the site is broken. It happened. Naming them closes
+  // that loop in a way a generic "Atlantic only" disclaimer cannot: the reader
+  // can match the name they just saw.
+  //
+  // Names go through safeAreaName for the same reason area names do — they
+  // reach markdown, which has no escaper.
+  const otherBasins = (json.activeStorms ?? [])
+    .filter((s) => !String(s.id || "").toLowerCase().startsWith("al"))
+    .map((s) => safeAreaName(s.name))
+    .filter(Boolean);
   // The outlook is fetched in the SAME call so one KV write carries both, and
   // a failure to read it throws rather than writing `disturbances: []` — an
   // empty list has to mean "NHC is watching nothing", never "we couldn't ask".
   const outlook = await fetchTwoDisturbances();
-  return { updated: new Date().toISOString(), storms, ...outlook };
+  return { updated: new Date().toISOString(), storms, otherBasins, ...outlook };
 }
 
 // Read the cached outlook, self-healing on a cold/malformed entry and
@@ -336,6 +351,33 @@ export function tropicsWatchPeak(disturbances) {
   if (!Array.isArray(disturbances) || !disturbances.length) return null;
   const vals = disturbances.map((d) => (Number.isFinite(d?.chance7) ? d.chance7 : Number.isFinite(d?.chance48) ? d.chance48 : null)).filter((v) => v != null);
   return vals.length ? Math.max(...vals) : null;
+}
+
+// Why a storm the reader just saw on nhc.noaa.gov is not on this page. Shared
+// by both renderers so they cannot drift.
+export function tropicsBasinNote(data, lang) {
+  const others = Array.isArray(data?.otherBasins) ? data.otherBasins.filter(Boolean) : [];
+  const scope = T(
+    lang,
+    "Only Atlantic systems appear here.",
+    "Aquí solo aparecen los sistemas del Atlántico."
+  );
+  const why = T(
+    lang,
+    "Pacific storms form on the other side of Mexico and do not reach Crosby.",
+    "Las tormentas del Pacífico se forman al otro lado de México y no llegan a Crosby."
+  );
+  // No splicing/lower-casing tricks here: "Pacific" is a proper noun and an
+  // earlier version produced "pacific storms form on the other side...".
+  // Each branch is a whole sentence.
+  if (!others.length) {
+    return `${scope} ${T(lang, "The National Hurricane Center also tracks the Pacific.", "El Centro Nacional de Huracanes también sigue el Pacífico.")} ${why}`;
+  }
+  const list =
+    others.length === 1
+      ? others[0]
+      : `${others.slice(0, -1).join(", ")} ${T(lang, "and", "y")} ${others[others.length - 1]}`;
+  return `${scope} ${T(lang, `The National Hurricane Center is also tracking ${list} in the Pacific.`, `El Centro Nacional de Huracanes también está siguiendo a ${list} en el Pacífico.`)} ${why}`;
 }
 
 // The areas worth putting on the FRONT page: medium chance or better over 7
@@ -520,6 +562,10 @@ ${JSONLD_SITE}
   .dz-id { font-size:0.78rem; font-weight:700; color:var(--muted); letter-spacing:0.03em; }
   .dz-cat { color:var(--muted); font-weight:400; }
   .two-note { margin:0.9rem 0 0; font-size:0.9rem; line-height:1.55; }
+  /* Directly under the status panel, because that is where a reader who just
+     saw a Pacific storm on nhc.noaa.gov looks for it. Muted: it is context,
+     not news. */
+  .basin-note { margin:0.6rem 0 0; font-size:0.86rem; line-height:1.5; color:var(--muted); }
   .two-prose { margin:0.5rem 0 0; font-size:0.9rem; line-height:1.55; color:var(--muted); white-space:pre-line; }
   .storms { display:grid; gap:0.7rem; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); margin-top:1rem; }
   .storm { background:var(--card); border-radius:12px; padding:0.85rem 1rem; box-shadow:0 1px 3px rgba(0,0,0,0.07); border-left:5px solid #8e2ec2; }
@@ -544,6 +590,7 @@ ${topbar("/tropics", lang)}
   <h1>${esc(title)}</h1>
   <p class="intro">${T(lang, "Active Atlantic tropical systems from the National Hurricane Center, plus the areas it is watching for development, checked about every hour. Storm advisories and names stay in NHC's official English.", "Sistemas tropicales activos del Atlántico según el Centro Nacional de Huracanes, además de las zonas que vigila por posible desarrollo, consultados aproximadamente cada hora. Los avisos y nombres de tormentas se muestran en el inglés oficial del NHC.")}${data.updated ? ` ${T(lang, "Updated", "Actualizado")} ${esc(fullTime(data.updated, lang))} CT.` : ""}</p>
   ${status}
+  <p class="basin-note">${esc(tropicsBasinNote(data, lang))}</p>
   ${storms.length ? `<div class="storms">\n${cards}\n  </div>` : ""}
   ${watchCards ? `<section>
     <h2>${T(lang, "Areas being watched", "Zonas bajo vigilancia")}</h2>
@@ -600,6 +647,7 @@ export function tropicsMarkdown(data, lang) {
   // Mirrors the HTML three-way exactly (one content model, two renderings):
   // named storms, then areas under watch, then a confirmed-quiet basin, and
   // "unavailable" kept distinct from "quiet".
+  out.push(`_${tropicsBasinNote(data, lang)}_`, "");
   const dz = Array.isArray(data.disturbances) ? data.disturbances : null;
   if (dz === null) {
     out.push(T(lang, "The NHC tropical outlook could not be read just now, so this page cannot confirm whether anything is being watched. Check nhc.noaa.gov directly.", "No se pudo leer la perspectiva tropical del NHC en este momento, así que esta página no puede confirmar si hay algo bajo vigilancia. Consulta nhc.noaa.gov directamente."), "");

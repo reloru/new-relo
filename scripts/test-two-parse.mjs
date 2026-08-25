@@ -16,7 +16,7 @@
 //
 // Run: node scripts/test-two-parse.mjs
 
-import { parseTwoDisturbances, twoTextFromRss, safeAreaName, tropicsMarkdown, tropicsHtml } from "../src/features/tropics.js";
+import { parseTwoDisturbances, twoTextFromRss, safeAreaName, tropicsMarkdown, tropicsHtml, tropicsBasinNote } from "../src/features/tropics.js";
 
 let failed = 0;
 const check = (label, actual, expected) => {
@@ -213,6 +213,38 @@ check("end to end: the right 7-day chance", fromRss[0]?.chance7, 50);
 console.log("\ntwoTextFromRss — no bulletin returns null (so the fetch throws):\n");
 check("empty document", twoTextFromRss(""), null);
 check("envelope with only boilerplate", twoTextFromRss(`<rss><channel><description>NOAA logo</description></channel></rss>`), null);
+
+// The basin note. /tropics is Atlantic-only by design, but a reader who checks
+// nhc.noaa.gov sees "...ISELLE NEAR HURRICANE STRENGTH..." and then a Crosby
+// page that mentions nothing, and concludes the site is broken. It happened.
+// Naming the other-basin storms is what closes that loop — a generic
+// "Atlantic only" disclaimer still leaves the reader to work out which basin
+// the name they just read belongs to.
+console.log("\ntropicsBasinNote — explains the storm the reader just saw elsewhere:\n");
+for (const lang of ["en", "es"]) {
+  const named = tropicsBasinNote({ otherBasins: ["Iselle", "Ten-E"] }, lang);
+  checkThat(`${lang}: names the Pacific storms`, named.includes("Iselle") && named.includes("Ten-E"));
+  checkThat(`${lang}: says they do not reach Crosby`, /Crosby/.test(named));
+
+  // Absent field = a KV entry written before this shipped. It must still say
+  // something sensible rather than "undefined" or an empty sentence.
+  const legacy = tropicsBasinNote({}, lang);
+  checkThat(`${lang}: a legacy entry still reads as a sentence`, legacy.length > 40 && !/undefined|null/.test(legacy));
+  checkThat(`${lang}: ...and names nobody it cannot name`, !/tracking\s+in/.test(legacy));
+
+  // Proper nouns. An earlier version lower-cased the first letter of a spliced
+  // clause and shipped "pacific storms form on the other side of Mexico".
+  for (const data of [{ otherBasins: [] }, {}, { otherBasins: ["Iselle"] }]) {
+    const t = tropicsBasinNote(data, lang);
+    checkThat(`${lang}: no lower-cased proper noun (${(data.otherBasins ?? ["absent"]).length})`, !/\b(pacific|atlantic|mexico|crosby|pac\u00edfico|atl\u00e1ntico|m\u00e9xico)\b/.test(t));
+  }
+}
+
+// Storm names reach markdown unescaped via tropicsStormLine, the same hole the
+// area names had, so they are sanitised at the same boundary.
+console.log("\nsafeAreaName — also guards storm names (they reach markdown too):\n");
+check("a hostile storm name is stripped", safeAreaName("<script>alert(1)</script>"), "scriptalert(1)/script");
+check("a real storm name is untouched", safeAreaName("Ten-E"), "Ten-E");
 
 // Injection. CodeQL flagged the original tag-strip as "incomplete
 // multi-character sanitization" and it was right, though not for the reason
