@@ -13,6 +13,7 @@ import { T, canonicalFor, hreflangTags, translateConditions, translatePeriodName
 import { esc, nl2br, iconUrl, fullTime, clockTime, hourLabel } from "../lib/format.js";
 import { pop, feelsLikeRawF, feelsLikeF, currentHourly, sunTimesForCtDate } from "../lib/derived.js";
 import { BASE_CSS } from "../assets/base-css.js";
+import { alertsBanner, ALERT_BANNER_CSS } from "./alerts.js";
 import { HOME_SCRIPT } from "../assets/client-scripts.js";
 import { topbar, footer } from "../chrome.js";
 import { JSONLD_SITE, OG_COMMON } from "../seo.js";
@@ -70,23 +71,6 @@ export async function fetchWeather(env) {
     uv,
     aqi,
   };
-}
-
-export function renderAlerts(alerts, lang) {
-  if (!alerts.length) return "";
-  const cards = alerts
-    .map(
-      (a) => `
-      <article class="alert">
-        <h3>&#9888; ${esc(a.event)}</h3>
-        ${a.headline ? `<p class="headline">${esc(a.headline)}</p>` : ""}
-        ${a.description ? `<p>${nl2br(a.description)}</p>` : ""}
-        ${a.instruction ? `<p class="instruction"><strong>${T(lang, "What to do:", "Qué hacer:")}</strong> ${nl2br(a.instruction)}</p>` : ""}
-        ${a.expires ? `<p class="meta">${T(lang, "In effect until", "Vigente hasta")} ${esc(fullTime(a.expires, lang))}</p>` : ""}
-      </article>`
-    )
-    .join("");
-  return `<section class="alerts" aria-label="${T(lang, "Active weather alerts", "Alertas meteorológicas activas")}">${cards}</section>`;
 }
 
 export function renderHero(data, lang) {
@@ -178,6 +162,7 @@ ${JSONLD_SITE}
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="alternate icon" href="/favicon.ico">
 <style>${BASE_CSS}
+  ${ALERT_BANNER_CSS}
   .hero { display:flex; align-items:center; gap:1rem; background:linear-gradient(135deg,var(--blue),var(--accent)); color:#fff; border-radius:16px; padding:1.1rem 1.3rem; margin-top:0.5rem; }
   .hero-h1 { margin:0 0 0.15rem; font-size:1rem; font-weight:600; opacity:0.9; letter-spacing:0.01em; }
   .hero-icon { border-radius:12px; background:rgba(255,255,255,0.12); flex:none; }
@@ -207,19 +192,12 @@ ${JSONLD_SITE}
   .period .meta { margin:0.2rem 0; font-size:0.82rem; color:var(--muted); }
   .period .detail { margin:0.5rem 0 0; font-size:0.9rem; }
 
-  .alerts { display:grid; gap:0.6rem; margin-top:0.5rem; }
-  .alert { background:#fff4f3; border-left:5px solid #c0392b; border-radius:10px; padding:0.8rem 1rem; }
-  .alert h3 { margin:0 0 0.3rem; color:#a3271b; }
-  .alert .headline { font-weight:700; }
-  .alert .instruction { background:rgba(255,255,255,0.65); border-radius:6px; padding:0.5rem 0.7rem; }
-  .alert .meta { font-size:0.8rem; color:var(--muted); }
-  @media (prefers-color-scheme: dark) { .alert { background:#2a1715; } .alert .instruction { background:rgba(0,0,0,0.25); } }
 </style>
 </head>
 <body>
 ${topbar("/weather", lang)}
 <main id="main">
-  ${renderAlerts(data.alerts ?? [], lang)}
+  ${alertsBanner(data.alerts ?? [], lang)}
   ${renderHero(data, lang)}
   ${lang === "es" ? `<p class="lead nws-note">${ES_NWS_NOTE}</p>` : ""}
   ${renderHourly((data.hourly ?? []).slice(0, 12), lang)}
@@ -263,6 +241,7 @@ export function renderMarkdown(data, lang, burnban) {
       out.push(`- **${a.event}**${a.headline ? ` — ${a.headline}` : ""}${a.expires ? ` (${T(lang, "until", "hasta")} ${fullTime(a.expires, lang)} CT)` : ""}`);
       if (a.instruction) out.push(`  - ${T(lang, "What to do:", "Qué hacer:")} ${cell(a.instruction)}`);
     }
+    out.push("", `${T(lang, "Full official text:", "Texto oficial completo:")} ${canonicalFor("/alerts", lang)}`);
   } else {
     out.push(T(lang, "None.", "Ninguna."));
   }

@@ -23,6 +23,18 @@ bare "no alerts" page is thin content).
 | Evergreen severe-weather guide (`ALERT_GUIDE` / `ALERT_GUIDE_ES`) — watch vs warning, what each product means, what to do | static |
 | RSS discovery link | `/alerts.xml` |
 
+This module also **owns the compact banner other pages show** —
+`alertsBanner()` plus `ALERT_BANNER_CSS`, `alertRank` and `alertSummaryLine`.
+It lived in `home.js` as `hubAlertsBanner` while the hub was its only caller;
+once `/weather` needed it too, a weather page importing the hub's component was
+backwards, and alerts are this module's domain. Both callers share one function
+and one CSS constant so they cannot drift, and the banner is deliberately the
+same red as this page's status panel — a reader who follows the link should
+land somewhere that looks like where they came from.
+
+**This page is the only place full alert products render.** Everywhere else
+gets count + worst type + one summary line and a link here.
+
 ## Push opt-in
 
 Progressive enhancement, driven by `PUSH_CLIENT_SCRIPT`. Stays hidden when the
