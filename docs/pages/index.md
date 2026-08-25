@@ -18,7 +18,7 @@ nav restructure.
 | Block | Source |
 |---|---|
 | Hero — "Currently in Crosby, Texas" eyebrow, temp, condition, feels-like, wind spelled out via `dirWord()`, rain chance, NWS `detailedForecast` as the summary, `Updated` stamp | `weather` KV via `loadWeather` — current hour from `currentHourly(data)`, never `hourly[0]` |
-| Alerts banner — progressive disclosure: hidden when quiet, compact red banner with count + condensed types + `alertSummaryLine()` for 1–3, count + highest-severity type only for 4+ | `weather` KV `alerts`, ranked by `ALERT_SEVERITY_RANK` |
+| Alerts banner (`alertsBanner()`, **now in `src/features/alerts.js`**) — progressive disclosure: hidden when quiet, compact red banner with count + condensed types + `alertSummaryLine()` for 1–3, count + highest-severity type only for 4+ | `weather` KV `alerts`, ranked by `ALERT_SEVERITY_RANK` |
 | Tropics strip (`hubTropicsBanner`) — violet, self-hides when the basin is quiet | `tropics` KV |
 | Today at a Glance (`todayGlance` → `{today, now}`) — day outlook (High, Low, Feels like, Rain chance, UV index, Wind, Gusts), then a "Right now" sub-heading over Humidity, Dew point, Air quality | `weather` KV, incl. the folded-in `uv` and `aqi` objects |
 | Glance explainers (`glanceExplainers`) — native `<details>`, one per metric, each leading with what/when | static copy + `aqiSourceNote()` for the air-quality one |
@@ -45,7 +45,11 @@ heading and in each metric's explainer. Rationale:
 `docs/investigations/2026-07-10-today-at-a-glance.md`.
 
 **Never render whole alert products here.** One Special Weather Statement once
-ate 80% of the mobile page. Full products render only on `/alerts` and
+ate 80% of the mobile page. **`/weather` was the last page still breaking this
+rule** — it rendered full alert articles above its own hero until 2026-08-25,
+so a severe-weather day pushed the forecast off the first screen exactly when
+it was worth reading. It now uses the same `alertsBanner()`. Full products
+render only on `/alerts` and
 `/weather`.
 
 ## Data

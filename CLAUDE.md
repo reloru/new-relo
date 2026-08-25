@@ -52,6 +52,18 @@ of tooling specifics.
   (no human available to answer synchronously). When genuinely blocked on a
   decision only the user can make, don't retry the tool — lay out the
   tradeoffs in your response text and end the turn.
+- **A backgrounded command's trailing cleanup fires against a file it has
+  never seen.** Mutation-checking a test by editing a source file and restoring
+  it in a trailing `cp /tmp/x.bak src/...` is safe only while the command runs
+  to completion in the foreground. On 2026-08-25 one such check hung on a
+  deliberately pathological ReDoS input, the harness moved it to the
+  background, and it fired its restore minutes later over a file that had since
+  gained two merged PRs' worth of work — reverting 163 lines of
+  `src/features/tropics.js` into an unrelated commit and to production.
+  `git status` was clean because the overwrite landed before `git add -A`, so
+  nothing looked wrong; **the diff stat was the only tell.** Restore from
+  **git**, not a `/tmp` copy (`git checkout -- <file>`), and read
+  `git show --stat HEAD` before pushing a commit that touched several files.
 - **`.claude/skills/*/SKILL.md` files drift independently of CLAUDE.md** —
   nothing forces them to be touched when a feature ships (`/kv`'s SKILL.md
   once went two feature-cycles describing three keys after a fourth shipped).

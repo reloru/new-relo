@@ -17,7 +17,7 @@ home, and every sub-page's back-link ("← Back to the forecast") points here.
 
 | Block | Source |
 |---|---|
-| Active alerts (`renderAlerts`) — full NWS products, headline + description + instruction | `weather` KV `alerts` |
+| Active alerts — compact `alertsBanner()` (count, worst type, one summary line) linking to `/alerts` | `weather` KV `alerts` |
 | Hero (`renderHero`) — temp, condition, feels-like, wind, humidity, dew point, UV (gated to UV > 0), air quality with source tag, sunrise/sunset | `weather` KV; current hour from `currentHourly(data)` |
 | Spanish-only NWS note (`ES_NWS_NOTE`) | static |
 | 12-hour strip (`renderHourly`) | `weather.hourly.slice(0, 12)` |

@@ -21,6 +21,7 @@ import { JSONLD_SITE, OG_COMMON } from "../seo.js";
 import { uvPeakToday, uvCategory, aqiCategory, aqiSourceNote } from "./air.js";
 import { waterCatLabel, waterCatClass, WATER_FLOOD_CATS, WATER_CAT_ORDER } from "./water.js";
 import { tropicsStormLine, tropicsDisturbanceLine, tropicsWatchPeak, tropicsWatchAreas } from "./tropics.js";
+import { alertsBanner, ALERT_BANNER_CSS, alertRank, alertSummaryLine } from "./alerts.js";
 import { newsList } from "./news.js";
 import { upcomingEvents, translateEvent } from "./calendar.js";
 
@@ -62,57 +63,6 @@ export function hubBurnBanSummary(burnban, lang) {
 export const DIR_WORDS_EN = { N: "north", NNE: "north-northeast", NE: "northeast", ENE: "east-northeast", E: "east", ESE: "east-southeast", SE: "southeast", SSE: "south-southeast", S: "south", SSW: "south-southwest", SW: "southwest", WSW: "west-southwest", W: "west", WNW: "west-northwest", NW: "northwest", NNW: "north-northwest" };
 export const DIR_WORDS_ES = { N: "norte", NNE: "nornoreste", NE: "noreste", ENE: "estenoreste", E: "este", ESE: "estesureste", SE: "sureste", SSE: "sursureste", S: "sur", SSW: "sursuroeste", SW: "suroeste", WSW: "oestesuroeste", W: "oeste", WNW: "oestenoroeste", NW: "noroeste", NNW: "nornoroeste" };
 export const dirWord = (dir, lang) => (lang === "es" ? DIR_WORDS_ES : DIR_WORDS_EN)[dir] || dir || "";
-
-// NWS alert severity, worst-first, for picking the banner's primary alert.
-export const ALERT_SEVERITY_RANK = { Extreme: 4, Severe: 3, Moderate: 2, Minor: 1 };
-export const alertRank = (a) => ALERT_SEVERITY_RANK[a?.severity] ?? 0;
-
-// One short verbatim-NWS line summarizing an alert: the first line of the
-// description when it reads like a title (SWS products lead with one, e.g.
-// "Dangerous Heat Likely Through Holiday Weekend"), else the NWS headline,
-// truncated. Display-only; the full official text lives on /alerts.
-export function alertSummaryLine(a) {
-  const first = String(a?.description || "").split(/\n/).map((s) => s.trim()).find(Boolean) || "";
-  // Only use the first line when it reads like a title — warning products
-  // start with "* WHAT..." / "..." section markup, which is not a summary.
-  const line = first && first.length <= 110 && !/^[.*]/.test(first) ? first : String(a?.headline || "");
-  return line.length > 110 ? line.slice(0, 109).trimEnd() + "…" : line;
-}
-
-// Progressive disclosure for alerts on the hub (full products live on
-// /alerts): nothing when quiet; a compact banner with count, condensed
-// type list, and the primary alert's one-line summary for 1–3 alerts; just
-// count + worst type when 4+. Alert text itself stays official NWS English.
-export function hubAlertsBanner(alerts, lang) {
-  if (!alerts.length) return "";
-  const aUrl = lang === "es" ? "/es/alerts" : "/alerts";
-  const byType = new Map();
-  for (const a of alerts) byType.set(a.event, (byType.get(a.event) || 0) + 1);
-  const primary = alerts.reduce((x, y) => (alertRank(y) > alertRank(x) ? y : x));
-  const n = alerts.length;
-  const sameType = byType.size === 1;
-  // English pluralizer good for NWS event nouns (Statement/Warning/Watch/Advisory).
-  const plural = (s) => (/y$/.test(s) ? s.replace(/y$/, "ies") : /(ch|sh|s|x)$/.test(s) ? s + "es" : s + "s");
-  const title =
-    n === 1
-      ? esc(primary.event)
-      : sameType
-        ? T(lang, `${n} Active ${esc(plural(alerts[0].event))}`, `${n} alertas activas: ${esc(alerts[0].event)}`)
-        : T(lang, `${n} Active Weather Alerts`, `${n} alertas meteorológicas activas`);
-  let body = "";
-  if (n <= 3) {
-    const types = !sameType && n > 1 ? `<ul class="ab-types">${[...byType].map(([ev, c]) => `<li>${esc(ev)}${c > 1 ? ` &times;${c}` : ""}</li>`).join("")}</ul>` : "";
-    const summary = alertSummaryLine(primary);
-    body = `${types}${summary ? `<p class="ab-headline">${esc(summary)}</p>` : ""}`;
-  } else {
-    body = `<p class="ab-headline">${T(lang, "Highest severity:", "Mayor severidad:")} ${esc(primary.event)}</p>`;
-  }
-  return `<a class="alert-banner" href="${aUrl}">
-    <p class="ab-title">&#9888;&#65039; ${title}</p>
-    ${body}
-    <p class="ab-link">${T(lang, "View all alerts", "Ver todas las alertas")} &rarr;</p>
-  </a>`;
-}
 
 // Compact tropical-activity strip for the hub — self-hides when the Atlantic
 // is quiet (most of the year), so the front page carries zero hurricane noise
@@ -474,8 +424,7 @@ ${JSONLD_SITE}
   .hub-cond-inline { font-size:1.15rem; font-weight:600; vertical-align:baseline; margin-left:0.3rem; }
   .hub-line { margin:0.22rem 0 0; font-size:0.95rem; opacity:0.95; }
   .hub-summary { margin:0.7rem 0 0; color:var(--muted); font-size:0.95rem; }
-  .alert-banner { display:block; background:linear-gradient(135deg,#a3271b,#d44230); color:#fff; text-decoration:none; border-radius:12px; padding:0.85rem 1.05rem; margin-top:0.8rem; }
-  .alert-banner:hover .ab-link { text-decoration:underline; }
+  ${ALERT_BANNER_CSS}
   .tropics-banner { display:block; background:linear-gradient(135deg,#6f1fa0,#8e2ec2); color:#fff; text-decoration:none; border-radius:12px; padding:0.85rem 1.05rem; margin-top:0.8rem; }
   .tropics-banner:hover .tb-link { text-decoration:underline; }
   /* Amber for a watch area, matching /tropics' own watch panel — visually
@@ -489,10 +438,6 @@ ${JSONLD_SITE}
   .bb-title { margin:0; font-weight:800; font-size:1.05rem; }
   .bb-detail { margin:0.35rem 0 0; font-size:0.9rem; opacity:0.95; }
   .bb-link { margin:0.45rem 0 0; font-size:0.88rem; font-weight:700; }
-  .ab-title { margin:0; font-weight:800; font-size:1.05rem; }
-  .ab-types { margin:0.3rem 0 0; padding-left:1.15rem; font-size:0.9rem; }
-  .ab-headline { margin:0.35rem 0 0; font-size:0.9rem; opacity:0.95; }
-  .ab-link { margin:0.45rem 0 0; font-size:0.88rem; font-weight:700; }
   .about { margin-top:0.45rem; font-size:0.85rem; }
   .about summary { cursor:pointer; color:var(--link); list-style:none; }
   .about summary::-webkit-details-marker { display:none; }
@@ -512,7 +457,7 @@ ${JSONLD_SITE}
 ${topbar("/", lang)}
 <main id="main">
   <h1 class="visually-h1">${T(lang, "Crosby, Texas", "Crosby, Texas")}</h1>
-  ${hubAlertsBanner(alerts, lang)}
+  ${alertsBanner(alerts, lang)}
   ${hubTropicsBanner(tropics, lang)}
   ${hubBurnBanBanner(burnban, lang)}
   ${hero}
