@@ -472,6 +472,14 @@ export function burnbanHtml(data, lang, weather) {
       ? `<div class="status status-ban" role="status"><span class="status-icon">&#128293;</span><div><p class="status-title">${T(lang, "Burn ban in effect", "Prohibición de quemas vigente")}</p><p class="status-sub">${T(lang, "Outdoor burning is prohibited in unincorporated Harris County, which includes Crosby.", "Está prohibido quemar al aire libre en el condado de Harris no incorporado, que incluye a Crosby.")}</p></div></div>`
       : `<div class="status status-ok" role="status"><span class="status-icon">&#10004;</span><div><p class="status-title">${T(lang, "No burn ban in Harris County", "Sin prohibición de quemas en el condado de Harris")}</p><p class="status-sub">${T(lang, "The Texas A&M Forest Service is not reporting an active outdoor-burning ban for Harris County right now.", "El Servicio Forestal de Texas A&M no reporta una prohibición de quemas activa para el condado de Harris en este momento.")}</p></div></div>`;
 
+  // Freshness, directly under the status panel and ahead of the history line.
+  // It used to be a trailing clause on the long intro sentence
+  // ("...rechecked about every 12 hours. Checked 1:15 AM CT.") — easy to miss
+  // on a page people read mid-decision, when "is this still true right now"
+  // is the first question. Same bold/--ink treatment as .since so the two
+  // read as one voice.
+  const checkedLine = data.updated ? `<p class="checked">${T(lang, "Checked", "Verificado")} ${esc(fullTime(data.updated, lang))} CT.</p>` : "";
+
   // Sits directly under the status panel: "how long has this been true" is a
   // trust signal in a way "we checked at 12:25 AM" is not.
   const since = burnbanSince(data, lang);
@@ -547,7 +555,8 @@ ${JSONLD_SITE}
   .peek li:last-child { border-bottom:none; }
   .pk-label { color:var(--muted); flex:none; }
   .pk-val { text-align:right; }
-  .since { margin:0.55rem 0 0; font-size:0.92rem; font-weight:600; color:var(--ink); }
+  .checked { margin:0.55rem 0 0; font-size:0.92rem; font-weight:600; color:var(--ink); }
+  .since { margin:0.3rem 0 0; font-size:0.92rem; font-weight:600; color:var(--ink); }
   /* Deliberately NOT a boxed callout: as a bordered card under the status
      panel this read as a detached cut-out, and the checklist it introduces
      looked unrelated. It is the section's opening paragraph now. */
@@ -583,8 +592,9 @@ ${JSONLD_SITE}
 ${topbar("/burn-ban", lang)}
 <main id="main">
   <h1>${esc(title)}</h1>
-  <p class="intro">${T(lang, "Whether an outdoor-burning ban is in effect for unincorporated Harris County, TX — which includes Crosby — from the Texas A&M Forest Service, rechecked about every 12 hours.", "Si hay una prohibición de quemas al aire libre vigente para el condado de Harris, TX no incorporado — que incluye a Crosby — según el Servicio Forestal de Texas A&M, revisado aproximadamente cada 12 horas.")}${data.updated ? ` ${T(lang, "Checked", "Verificado")} ${esc(fullTime(data.updated, lang))} CT.` : ""}</p>
+  <p class="intro">${T(lang, "Whether an outdoor-burning ban is in effect for unincorporated Harris County, TX — which includes Crosby — from the Texas A&M Forest Service, rechecked about every 12 hours.", "Si hay una prohibición de quemas al aire libre vigente para el condado de Harris, TX no incorporado — que incluye a Crosby — según el Servicio Forestal de Texas A&M, revisado aproximadamente cada 12 horas.")}</p>
   ${status}
+  ${checkedLine}
   ${sinceLine}
   ${fwBlock}
   <section>
@@ -628,9 +638,13 @@ export function burnbanMarkdown(data, lang, weather) {
   const out = [
     `# ${T(lang, "Harris County Burn Ban Status", "Estado de la prohibición de quemas del condado de Harris")}`,
     "",
-    `_${T(lang, "Outdoor-burning ban status for unincorporated Harris County, TX — which includes Crosby — from the Texas A&M Forest Service, rechecked about every 12 hours.", "Estado de la prohibición de quemas al aire libre para el condado de Harris, TX no incorporado — que incluye a Crosby — según el Servicio Forestal de Texas A&M, revisado aproximadamente cada 12 horas.")}${data.updated ? ` ${T(lang, "Checked", "Verificado")} ${fullTime(data.updated, lang)} CT.` : ""}_`,
+    `_${T(lang, "Outdoor-burning ban status for unincorporated Harris County, TX — which includes Crosby — from the Texas A&M Forest Service, rechecked about every 12 hours.", "Estado de la prohibición de quemas al aire libre para el condado de Harris, TX no incorporado — que incluye a Crosby — según el Servicio Forestal de Texas A&M, revisado aproximadamente cada 12 horas.")}_`,
     "",
   ];
+  // Pulled out of the intro sentence and made its own bold line, matching the
+  // HTML view — freshness was easy to miss as a trailing clause on a long
+  // sentence, on a page read mid-decision.
+  if (data.updated) out.push(`**${T(lang, "Checked", "Verificado")} ${fullTime(data.updated, lang)} CT.**`, "");
   // One shared renderer for the status-history sentence, so the HTML and
   // Markdown views cannot disagree about what we can honestly claim.
   const since = burnbanSince(data, lang);
