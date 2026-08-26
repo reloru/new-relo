@@ -159,5 +159,28 @@ line at all.
 curl -s -o /dev/null -w "%{http_code}\n" "$BASE/this-path-does-not-exist"   # expect 404
 ```
 
+## 6. Content pages are GET/HEAD only — and the two `/mcp` paths are not
+
+Content pages answer any other method with **405** and `Allow: GET, HEAD`. The
+exemptions matter more than the rule: `POST /mcp` is the JSON-RPC protocol and
+must keep working, and `POST /es/mcp` must keep answering **404**, which
+`/developers` documents in both languages. A guard that swallowed either would
+break the site's most externally depended-on route while every page still looked
+fine.
+
+```bash
+curl -s -o /dev/null -w "%{http_code} PUT /weather\n"    -X PUT    "$BASE/weather"    # 405
+curl -s -o /dev/null -w "%{http_code} DELETE /es\n"      -X DELETE "$BASE/es"         # 405
+curl -s -o /dev/null -w "%{http_code} POST /unknown\n"   -X POST   "$BASE/nope"       # 404, NOT 405
+curl -sI -X PUT "$BASE/weather" | tr -d '\r' | grep -i '^allow:'                      # allow: GET, HEAD
+# the exemptions
+curl -s -X POST "$BASE/mcp" -H 'content-type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | head -c 60                    # a tools list
+curl -s -o /dev/null -w "%{http_code} POST /es/mcp\n" -X POST "$BASE/es/mcp"          # 404
+```
+
+A 405 is still a normal response here: it carries the security headers like
+everything else, so check one if section 2 is in doubt.
+
 When everything passes, say so plainly. Otherwise list only the failures with the
 observed value next to the expected one.
