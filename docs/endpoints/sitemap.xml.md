@@ -11,7 +11,7 @@ human-readable page — see `docs/pages/sitemap.md`.
 
 ## Contents
 
-20 content pages **× 2 languages = 40 `<url>` entries**. Each carries
+21 content pages **× 2 languages = 42 `<url>` entries**. Each carries
 `changefreq`, `priority`, `xhtml:link` hreflang alternates (`en-US`, `es-MX`,
 `x-default` → English), and — for `/`, `/weather` and `/hourly` — a `<lastmod>`
 of the current date, computed at request time.

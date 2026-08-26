@@ -80,6 +80,39 @@ them by *bytes*, never by reading the toggles. Email obfuscation in particular
 would corrupt the `"email"` field in the homepage JSON-LD, so re-check it if
 structured data ever looks wrong.
 
+### Speed Brain is ON, and adds a header this repo does not set
+
+Every response carries a header the Worker never wrote:
+
+```
+speculation-rules: "/cdn-cgi/speculation"
+```
+
+`/cdn-cgi/speculation` is served by the edge, not by `routeRequest`, and returns
+a prefetch ruleset that makes visitors' browsers speculatively prefetch
+same-origin links:
+
+```json
+{"tag":"cf-speed-brain","prefetch":[{"eagerness":"conservative","source":"document",
+ "where":{"and":[{"href_matches":"/*","relative_to":"document"}]}}]}
+```
+
+Found by the 2026-08-26 audit; it had never been recorded here. What it is and
+is not:
+
+- **It does not contradict `/privacy`.** Nothing third-party is loaded, no script
+  is injected, and the HTML body is byte-identical between a real browser UA and
+  a plain `curl` (checked both ways, 26104 bytes each). The
+  no-third-party-analytics claim on `/privacy` and `/about` still holds.
+- **It does mean page views are not visits.** `conservative` eagerness fires on
+  hover/pointerdown, so the origin sees GETs for pages nobody opened. Nothing
+  reads those today, but any future traffic counting must account for it.
+- **CSP does not block it.** The ruleset is same-origin, which `script-src 'self'`
+  allows. Tightening `script-src` away from `'self'` would break it.
+
+Turning it off is a zone-dashboard action (Speed → Optimization), not something a
+session can do.
+
 ## HSTS and the preload list
 
 `max-age=63072000` with `includeSubDomains`, set at the zone edge *and* by the

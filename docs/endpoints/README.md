@@ -18,8 +18,17 @@ referrer-policy: strict-origin-when-cross-origin
 permissions-policy: geolocation=(), camera=(), microphone=(), browsing-topics=()
 ```
 
-Paths in `PAGE_PATHS` additionally get `Link: …; rel="canonical"`. **No route in
-this directory is in `PAGE_PATHS`** — including `/mcp`.
+Paths in `PAGE_PATHS` additionally get `Link: …; rel="canonical"`. Every route in
+this directory is outside `PAGE_PATHS` and gets no canonical **except `/mcp`**,
+which is in it: `PAGE_PATHS` matches on pathname, not method, so a `POST /mcp`
+JSON-RPC response carries `Link: <https://crosbynews.com/mcp>; rel="canonical"`
+too (inert for MCP clients). `/es/mcp` is in it as well, but that one is a page —
+see `docs/pages/mcp.md`.
+
+Content pages are also **GET/HEAD only**: any other method gets a 405 with
+`Allow: GET, HEAD`, stamped with the same headers as everything else. The two
+`/mcp` paths are exempt and keep the router's own method handling — `POST /mcp`
+is the protocol, and `/es/mcp` answers non-GET/HEAD with 404.
 
 HSTS is also set at the Cloudflare zone edge, so it lands on edge-generated
 responses the Worker never sees (notably the `www` → apex 301). Cloudflare
@@ -32,7 +41,7 @@ file.
 
 | File | Route(s) |
 |---|---|
-| `api/*.md` | the nine public data APIs plus `/api/health` |
+| `api/*.md` | the ten public data APIs plus `/api/health` |
 | `api/news/{delete,restore}.md` | the admin nuke endpoints |
 | `api/push/*.md` | the Web Push endpoints |
 | `mcp.md` | `POST /mcp` — the JSON-RPC transport (`GET /mcp` is `docs/pages/mcp.md`) |
@@ -58,6 +67,6 @@ structurally out of reach of it. The one exception is a page, not an endpoint:
 `OPTIONS` to any `/api/*` path gets a 204 preflight allowing `GET, OPTIONS` with
 `access-control-max-age: 86400`.
 
-The nine public data APIs, `/api/health`, `/api/push/*`, and the discovery files
+The ten public data APIs, `/api/health`, `/api/push/*`, and the discovery files
 send `access-control-allow-origin: *`. **`/api/news/delete` and
 `/api/news/restore` deliberately do not** — they are same-origin only.

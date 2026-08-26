@@ -12,8 +12,8 @@ OpenAPI 3.1 description of the public REST API.
 
 ## Documented paths
 
-All nine public data endpoints plus `/api/health`. The push and news-admin
-endpoints are deliberately absent.
+All ten public data endpoints plus `/api/health` — eleven paths. The push and
+news-admin endpoints are deliberately absent.
 
 ## Schema conventions
 

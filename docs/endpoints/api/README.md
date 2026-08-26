@@ -1,6 +1,6 @@
 # `/api/*` — shared contract
 
-The nine public data endpoints share this contract. Each endpoint's own file
+The ten public data endpoints share this contract. Each endpoint's own file
 records only what differs: its loader, its response shape, its cache TTL, and its
 conditional-GET seed.
 

@@ -21,9 +21,9 @@ Static, no data loading. Four groups:
 | Weather & Forecast | `/`, `/weather`, `/hourly`, `/radar`, `/alerts`, `/water`, `/fishing`, `/tropics`, `/pollen`, `/air` |
 | Community | `/news`, `/traffic`, `/calendar`, `/emergency` |
 | About & Policies | `/about`, `/privacy`, `/contact` |
-| Developers & Agents | `/developers`, all ten `/api/*` endpoints, `/openapi.json`, `/mcp`, the RSS feeds, `/badge.svg`, `/llms.txt`, `/.well-known/api-catalog`, `/sitemap.xml` |
+| Developers & Agents | `/developers`, all eleven `/api/*` endpoints, `/openapi.json`, `/mcp`, the RSS feeds, `/badge.svg`, `/llms.txt`, `/.well-known/api-catalog`, `/sitemap.xml` |
 
-The API entries are the nine public data endpoints plus `/api/health`. The push
+The API entries are the ten public data endpoints plus `/api/health`. The push
 and news-admin endpoints are withheld, matching `openapi.json`, the api-catalog
 and `llms.txt`.
 
