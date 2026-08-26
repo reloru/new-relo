@@ -151,9 +151,10 @@ safety page is a real defect — recheck them when touching this section.
 
 ## Data
 
-Cron + KV, key `burnban`, cron-owned, throttled to ~12h. TFS's feed updates
-roughly daily (a county judge's order, not a fixed schedule), so a flat 12h
-gate catches a change within half a day without hammering the feed.
+Cron + KV, key `burnban`, cron-owned, throttled to ~4h (was 12h; tightened
+2026-08-26 so a status change during active fire weather doesn't sit stale for
+half a day). TFS's feed updates roughly daily (a county judge's order, not a
+fixed schedule), so 4h still doesn't hammer the feed.
 
 `fetchBurnBan()` queries TFS's public ArcGIS FeatureServer
 (`gis.tfs.tamu.edu/.../EOC/BurnBan/FeatureServer/0/query`) filtered to

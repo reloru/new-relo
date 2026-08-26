@@ -3,7 +3,7 @@
 // Burn bans are COUNTYWIDE ONLY — TFS has no sub-county resolution, so this
 // page never implies anything finer-grained than "Harris County." TFS's feed
 // updates roughly daily (county judges declare/lift bans by order, not on a
-// schedule), so the cron throttles this to ~12h rather than every tick.
+// schedule), so the cron throttles this to ~4h rather than every tick.
 // Worker reachability to gis.tfs.tamu.edu was canary-verified from the
 // deployed runtime (200, real body) before this shipped.
 //
@@ -592,7 +592,7 @@ ${JSONLD_SITE}
 ${topbar("/burn-ban", lang)}
 <main id="main">
   <h1>${esc(title)}</h1>
-  <p class="intro">${T(lang, "Whether an outdoor-burning ban is in effect for unincorporated Harris County, TX — which includes Crosby — from the Texas A&M Forest Service, rechecked about every 12 hours.", "Si hay una prohibición de quemas al aire libre vigente para el condado de Harris, TX no incorporado — que incluye a Crosby — según el Servicio Forestal de Texas A&M, revisado aproximadamente cada 12 horas.")}</p>
+  <p class="intro">${T(lang, "Whether an outdoor-burning ban is in effect for unincorporated Harris County, TX — which includes Crosby — from the Texas A&M Forest Service, rechecked about every 4 hours.", "Si hay una prohibición de quemas al aire libre vigente para el condado de Harris, TX no incorporado — que incluye a Crosby — según el Servicio Forestal de Texas A&M, revisado aproximadamente cada 4 horas.")}</p>
   ${status}
   ${checkedLine}
   ${sinceLine}
@@ -638,7 +638,7 @@ export function burnbanMarkdown(data, lang, weather) {
   const out = [
     `# ${T(lang, "Harris County Burn Ban Status", "Estado de la prohibición de quemas del condado de Harris")}`,
     "",
-    `_${T(lang, "Outdoor-burning ban status for unincorporated Harris County, TX — which includes Crosby — from the Texas A&M Forest Service, rechecked about every 12 hours.", "Estado de la prohibición de quemas al aire libre para el condado de Harris, TX no incorporado — que incluye a Crosby — según el Servicio Forestal de Texas A&M, revisado aproximadamente cada 12 horas.")}_`,
+    `_${T(lang, "Outdoor-burning ban status for unincorporated Harris County, TX — which includes Crosby — from the Texas A&M Forest Service, rechecked about every 4 hours.", "Estado de la prohibición de quemas al aire libre para el condado de Harris, TX no incorporado — que incluye a Crosby — según el Servicio Forestal de Texas A&M, revisado aproximadamente cada 4 horas.")}_`,
     "",
   ];
   // Pulled out of the intro sentence and made its own bold line, matching the

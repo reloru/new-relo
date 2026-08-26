@@ -82,7 +82,7 @@ rm -rf .wrangler/state          # next `wrangler dev` starts truly empty
   a transition. Faking them makes /burn-ban assert a ban ended on a day it
   did not. Deleting the key is safe: the next cron reseeds both to now, which
   reads honestly as "no observed history yet". Written by
-  the same cron, throttled ~12h (TFS's feed updates roughly daily, on a county
+  the same cron, throttled ~4h (TFS's feed updates roughly daily, on a county
   judge's order rather than a schedule); cold-warms on read. Self-heals. Low risk.
 - **`traffic`** — Crosby-corridor road incidents + lane closures from Houston
   TranStar's public RSS feeds, shape `{ updated, incidents, closures }`
