@@ -17,7 +17,8 @@ Crosby) from the Texas A&M Forest Service.
 | Block | Source |
 |---|---|
 | Status panel — green "no ban" / orange "ban in effect" / gray "status unavailable" | `burnban` KV |
-| Status-history line directly under the panel | `burnbanSince(data, lang)` |
+| "Checked \<time\> CT." freshness line, directly under the panel | `data.updated` |
+| Status-history line, directly under the freshness line | `burnbanSince(data, lang)` |
 | "Right now in Crosby" fire-weather strip — wind/gusts/humidity/rain chance, plus any Red Flag Warning or Fire Weather Watch | `burnbanFireWeather(weather, lang)` from the `weather` KV |
 | "Before you burn" — a lead paragraph, then the 6-item checklist | `burnbanLead(data, lang)` + `burnbanChecklist(lang)` |
 | "What a burn ban means" evergreen guide — issuing authority, unincorporated scope, Class C penalty, TFS-is-not-the-authority | static |
@@ -197,6 +198,16 @@ On throw: `renderError`, 502.
 ## CSP
 
 No inline script.
+
+## Freshness — its own line, not a trailing clause
+
+`data.updated` used to render as the last clause of the long intro sentence
+("...rechecked about every 12 hours. Checked 1:15 AM CT."), where a reader
+reported missing it entirely. It's now its own bold line directly under the
+status panel, ahead of the status-history line — "is this still true right
+now" is the first question on a page read mid-decision, before "how long has
+it been true." Same `.checked`/`.since` bold/`--ink` treatment so the two read
+as one voice; HTML and Markdown carry it identically.
 
 ## Locale
 
