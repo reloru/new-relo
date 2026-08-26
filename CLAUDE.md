@@ -76,6 +76,11 @@ and does not wait for human approval at any step.
 
 - **One independent change per PR**, verified live before the next one starts,
   rather than batching several features into one.
+- **Audit findings are the exception (owner policy, set 2026-08-26): fold a
+  whole audit's findings into ONE PR, two at the most.** A site audit yields a
+  spread of small doc corrections and one or two real fixes; opening a PR per
+  finding is the wrong unit of review for them. This applies to non-critical
+  findings — anything critical still ships on its own, immediately.
 - **Implement, then verify for real** — `node --check` and the dry-run build
   must pass, and the change itself gets exercised (live `curl` after a deploy,
   `wrangler dev`, or a committed test script), not just syntax-checked.
@@ -103,7 +108,7 @@ and does not wait for human approval at any step.
 ## Repo skills (.claude/)
 Committed Claude Code skills live under `.claude/skills/<name>/SKILL.md` — the
 directory name becomes the `/command`. Current skills:
-- `/verify-site` — curl health-check of the live deploy: all 20 content pages in
+- `/verify-site` — curl health-check of the live deploy: all 21 content pages in
   **both languages** return 200 and are substantive, plus security headers,
   one-hop canonicalization, markdown negotiation, unknown-path 404. Read-only.
   The both-languages sweep matters — roughly half the render branches never
@@ -295,7 +300,7 @@ invariants that cut across pages.
   good data instead of wiping it. Key ownership and cadence are in `/kv`'s SKILL.md
   and in each page's file.
 - **Canonical `Link` headers** are added centrally in the `fetch` wrapper from
-  `PAGE_PATHS` (the 20 English content paths + their `/es` counterparts, 40
+  `PAGE_PATHS` (the 21 English content paths + their `/es` counterparts, 42
   total), so `?format=md` variants consolidate onto one URL. `/mcp` and
   `/es/mcp` are in that set, and in `sitemapXml()`. `PAGE_PATHS` matches on
   pathname, not method, so a `POST /mcp` JSON-RPC response also carries the

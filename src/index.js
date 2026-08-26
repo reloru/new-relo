@@ -5,7 +5,7 @@
 // src/router.js and the cron is src/cron.js.
 //
 // fetch():     dispatch, then stamp every response with the security headers
-//              and — for the 40 content paths — the canonical Link header.
+//              and — for the 42 content paths — the canonical Link header.
 // scheduled(): refresh the cron-owned KV keys.
 
 import { SITE } from "./config.js";
@@ -21,9 +21,28 @@ export const PAGE_PATHS = new Set([
   "/es", "/es/weather", "/es/hourly", "/es/radar", "/es/alerts", "/es/water", "/es/fishing", "/es/tropics", "/es/pollen", "/es/air", "/es/traffic", "/es/news", "/es/calendar", "/es/burn-ban", "/es/emergency", "/es/about", "/es/developers", "/es/privacy", "/es/contact", "/es/sitemap", "/es/mcp",
 ]);
 
+// The two `/mcp` paths live in PAGE_PATHS for the canonical Link header, but
+// they are NOT read-only documents and keep their own method handling in the
+// router: POST /mcp is the JSON-RPC protocol itself, and /es/mcp answers
+// anything other than GET/HEAD with a 404 that /developers documents in both
+// languages. Everything else in PAGE_PATHS is a document — see below.
+const MCP_PATHS = new Set(["/mcp", "/es/mcp"]);
+
 export default {
   async fetch(request, env, ctx) {
-    const resp = await routeRequest(request, env, ctx);
+    const { pathname } = new URL(request.url);
+    // Content pages are documents: they read KV and render, and no method other
+    // than GET/HEAD means anything to them. They used to answer PUT/DELETE/PATCH
+    // with a 200 and the full page, while /icons/* already 405ed — same site,
+    // two answers. Nothing was at risk (no page mutates state, and Cloudflare
+    // does not cache a non-GET), so this is about saying so honestly.
+    const readOnly = request.method === "GET" || request.method === "HEAD";
+    const resp = PAGE_PATHS.has(pathname) && !MCP_PATHS.has(pathname) && !readOnly
+      ? new Response("Method Not Allowed", {
+          status: 405,
+          headers: { allow: "GET, HEAD", "content-type": "text/plain; charset=utf-8" },
+        })
+      : await routeRequest(request, env, ctx);
     const r = new Response(resp.body, resp);
     // `preload` is a CONSENT MARKER, not a behaviour: no browser acts on it. What
     // browsers act on is a list compiled into the binary, maintained by the
@@ -45,7 +64,6 @@ export default {
     r.headers.set("permissions-policy", "geolocation=(), camera=(), microphone=(), browsing-topics=()");
     // Reinforce the https canonical at the HTTP layer for the content pages, so
     // ?format=md variants (and any http→https confusion) consolidate onto one URL.
-    const { pathname } = new URL(request.url);
     if (PAGE_PATHS.has(pathname)) {
       const canonical = `<${SITE}${pathname}>; rel="canonical"`;
       const existing = r.headers.get("link");

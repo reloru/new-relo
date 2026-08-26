@@ -80,8 +80,16 @@ async function jsFiles(dir) {
 const ONE_ARG_LANG = /^(about|contact|privacy|emergency|sitemapPage|developers|mcpInfo)(Html|Markdown)$/;
 // Pure discovery surfaces: no data, no language.
 const NO_ARG = /^(llmsTxt|robotsTxt|sitemapXml|openApiSpec|apiCatalog|agentSkillsIndex|contentSecurityPolicy)$/;
+// The hub takes its six datasets separately: (weather, water, news, cal, tropics,
+// burnban, lang). DATA is a union of every KV shape, so it stands in for all six.
+// Called as (DATA, lang) it put the string "en" in the `water` slot and left
+// `news` undefined, so `news.items` threw a TypeError — which this script only
+// records for ReferenceError. The homepage renderer therefore never executed at
+// all, in either language, and /es dropped out of the Spanish-link check below.
+const HOME = /^home(Html|Markdown)$/;
 
 const failures = [];
+const uncovered = []; // page renderers that never produced HTML, so never ran
 const esHtml = [];   // every Spanish page's rendered HTML, for the link check below
 let calls = 0;
 
@@ -124,11 +132,18 @@ for (const file of await jsFiles(SRC)) {
         : name === "footer" ? [{ page: "/", lang, source: "S", data: DATA }]
         : name === "topbar" ? ["/", lang]
         : name === "renderError" ? [new Error("probe"), "a data source"]
+        : HOME.test(name) ? [DATA, DATA, DATA, DATA, DATA, DATA, lang]
         : NO_ARG.test(name) ? [] // discovery surfaces are pure
         : [DATA, lang];
       calls++;
       try {
         const r = fn(...args);
+        // A page renderer that does not return a string never executed its body,
+        // so every ReferenceError inside it is invisible to this gate. Only
+        // ReferenceError is treated as a failure below, so a wrong call shape
+        // fails *silently* — which is how homeHtml sat uncovered. Record the
+        // miss instead of letting the pass stand on renderers that never ran.
+        if (/Html$/.test(name) && typeof r !== "string") uncovered.push({ rel, name, lang, why: `returned ${typeof r}, not a string` });
         if (lang === "es" && /Html$/.test(name) && typeof r === "string") esHtml.push({ rel, name, html: r });
         // Async exports (the mcp* handlers) reject rather than throw, and an
         // unhandled rejection would crash this script *after* it printed OK —
@@ -143,6 +158,7 @@ for (const file of await jsFiles(SRC)) {
           );
         }
       } catch (err) {
+        if (/Html$/.test(name)) uncovered.push({ rel, name, lang, why: `threw ${err.constructor.name}: ${err.message}` });
         if (err instanceof ReferenceError) failures.push({ rel, name, lang, err });
       }
     }
@@ -209,6 +225,16 @@ if (linkProblems.length) {
   console.error(`\nSpanish pages linking to English pages (${linkProblems.length}):\n`);
   for (const p of linkProblems) console.error(`  ${p}`);
   console.error("\nUse the localizing link helper, or add a documented exception to ES_LINK_ALLOW.\n");
+  process.exit(1);
+}
+
+// A page renderer that never returned HTML was never really checked, and the
+// pass above says nothing about it. Fail rather than report a green gate over
+// a page whose body did not run.
+if (uncovered.length) {
+  console.error(`\nPage renderers that never produced HTML (${uncovered.length}) — the gate did not cover them:\n`);
+  for (const u of uncovered) console.error(`  ${u.rel} → ${u.name}(lang="${u.lang}") ${u.why}`);
+  console.error("\nGive the renderer its own call shape above, next to radarHtml/HOME.\n");
   process.exit(1);
 }
 

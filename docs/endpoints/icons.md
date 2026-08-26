@@ -9,7 +9,7 @@ Proxies NWS weather icons through our origin.
 | **Methods** | `GET`, `HEAD`. Anything else → **405** `Allow: GET, HEAD` |
 | **Content-type** | upstream's, else `image/png` |
 | **Cache** | `public, max-age=86400, s-maxage=604800, immutable`; upstream fetched with `cf: {cacheTtl: 604800, cacheEverything: true}` |
-| **Errors** | 404 if the upstream 404s, else 502 `Icon unavailable` |
+| **Errors** | **404 on any upstream 4xx**, 502 otherwise — `Icon unavailable` |
 
 ## Why proxy rather than hotlink
 
@@ -25,6 +25,14 @@ for paths already starting `/icons/`. `new URL()` has normalized any `..`
 segments before the check, so the prefix cannot be escaped.
 
 The query string **is** forwarded — NWS icon URLs carry a `size` parameter.
+
+## A bad icon path is the caller's 404, not our 502
+
+Only a literal upstream `404` used to map to 404; every other non-OK status
+became 502. NWS answers a malformed icon path with a 4xx that is not 404, so
+`/icons/land/day/skc.png` — a real icon, written with an extension NWS paths do
+not carry — surfaced as a gateway error blaming our upstream. Any upstream 4xx
+is now a 404. 5xx still means 502, because that one genuinely is upstream.
 
 ## Not a page
 

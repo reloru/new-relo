@@ -582,7 +582,14 @@ export async function routeRequest(request, env, ctx) {
         return new Response("Icon unavailable", { status: 502 });
       }
       if (!res.ok) {
-        return new Response("Icon unavailable", { status: res.status === 404 ? 404 : 502 });
+        // Any upstream 4xx means the CALLER asked for an icon that isn't there,
+        // so answer 404 — not 502, which claims our upstream is broken. Only
+        // literal 404s were mapped before, and api.weather.gov answers a
+        // malformed icon path with a different 4xx, so `/icons/land/day/skc.png`
+        // (a real icon, with an extension NWS paths don't carry) surfaced as a
+        // gateway error. 5xx and anything else stays 502: that one IS upstream.
+        const clientError = res.status >= 400 && res.status < 500;
+        return new Response("Icon unavailable", { status: clientError ? 404 : 502 });
       }
       const headers = new Headers();
       headers.set("content-type", res.headers.get("content-type") || "image/png");
