@@ -103,7 +103,7 @@ claude mcp add --transport http crosbynews https://crosbynews.com/mcp
   gauges, fishing-water conditions and road incidents on every tick — and, on a
   slower cadence, the tropical outlook (~1h June–November hurricane season,
   ~24h the rest of the year), the pollen count (weekday mornings only, once
-  that day's count posts), the burn-ban status (~12h) and the school calendar
+  that day's count posts), the burn-ban status (~4h) and the school calendar
   (~24h). Local news is the exception: it is written out-of-band, because
   Google News blocks Worker IPs.
 - Data: U.S. National Weather Service (public domain), NOAA NWPS and NHC,

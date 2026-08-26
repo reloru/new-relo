@@ -9,7 +9,9 @@
 // the rest of the year, pollen only on weekday mornings once that day's count
 // has posted (HHD publishes one count per weekday — polling more often buys
 // nothing), calendar ~24h (Crosby ISD's calendar changes rarely), and
-// burnban ~12h (TFS updates roughly daily, not on a schedule).
+// burnban ~4h (TFS updates roughly daily, not on a schedule, but a status
+// change during fire-weather conditions is worth catching sooner than half a
+// day out).
 //
 // Every branch that actually FETCHES records its outcome through the recorder,
 // written once at the end to the `cron_status` key — the only place
@@ -145,16 +147,18 @@ export async function scheduled(event, env, ctx) {
       console.error("Cron pollen refresh failed:", e && e.stack);
       run.failed("pollen", e);
     }
-    // Refresh the Harris County burn-ban status at most ~every 12h — TFS's feed
+    // Refresh the Harris County burn-ban status at most ~every 4h — TFS's feed
     // updates roughly daily (a county judge's order, not a schedule), so a flat
-    // 12h gate catches a change within half a day without hammering the feed.
+    // 4h gate still doesn't hammer it while catching a change well inside a
+    // single day (was 12h; tightened 2026-08-26 so a status flip during active
+    // fire weather doesn't sit stale for half a day).
     // fetchBurnBan() throws on failure, an error-shaped body, or an
     // unrecognized status, so a transient TFS outage skips the write and the
     // last good status survives.
     try {
       const cur = await env.WEATHER.get(BURNBAN_KV_KEY, "json");
       const age = cur?.updated ? Date.now() - new Date(cur.updated).getTime() : Infinity;
-      if (!cur || (cur.status !== "Yes" && cur.status !== "No") || age > 12 * 3600 * 1000) {
+      if (!cur || (cur.status !== "Yes" && cur.status !== "No") || age > 4 * 3600 * 1000) {
         // burnbanHistory carries the status-history stamps forward off the
         // PREVIOUS entry, so the write has to be built from `cur` — a bare
         // fetchBurnBan() result would reset "since when" on every refresh.
