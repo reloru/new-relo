@@ -91,7 +91,7 @@ export function renderHero(data, lang) {
         <p class="hero-temp">${esc(now.temperature)}&deg;<span>${esc(now.temperatureUnit)}</span></p>
         <p class="hero-cond">${esc(translateConditions(now.shortForecast, lang))}</p>
         ${feels != null ? `<p class="hero-feels">${T(lang, "Feels like", "Sensación térmica de")} ${esc(feels)}&deg;</p>` : ""}
-        <p class="hero-meta">${esc(data.place)} &middot; ${T(lang, "as of", "a las")} ${esc(clockTime(now.startTime, lang))} CT${pop(now) ? ` &middot; ${pop(now)}% ${T(lang, "precip", "prob. lluvia")}` : ""}${uvNow ? ` &middot; ${T(lang, "UV", "UV")} ${esc(uvNow)} (${esc(uvCategory(uvNow, lang))})` : ""}${aqi?.usAqi != null ? ` &middot; ${T(lang, "Air", "Aire")} ${esc(aqi.usAqi)} (${esc(aqiCategory(aqi.usAqi, lang))}, ${esc(aqiSourceTag(aqi, lang))})` : ""}</p>
+        <p class="hero-meta">${esc(data.place)} &middot; ${T(lang, "for the", "para la hora de las")} ${esc(hourLabel(now.startTime, lang))} ${T(lang, "CT hour", "CT")}${pop(now) ? ` &middot; ${pop(now)}% ${T(lang, "precip", "prob. lluvia")}` : ""}${uvNow ? ` &middot; ${T(lang, "UV", "UV")} ${esc(uvNow)} (${esc(uvCategory(uvNow, lang))})` : ""}${aqi?.usAqi != null ? ` &middot; ${T(lang, "Air", "Aire")} ${esc(aqi.usAqi)} (${esc(aqiCategory(aqi.usAqi, lang))}, ${esc(aqiSourceTag(aqi, lang))})` : ""}</p>
         ${sun ? `<p class="hero-meta">${T(lang, "Sunrise", "Amanecer")} ${esc(clockTime(sun.sunrise, lang))} &middot; ${T(lang, "Sunset", "Atardecer")} ${esc(clockTime(sun.sunset, lang))}</p>` : ""}
       </div>
     </section>
@@ -229,7 +229,7 @@ export function renderMarkdown(data, lang, burnban) {
     const uvNow = uvCurrent(data);
     const aqi = data.aqi;
     out.push(T(lang, "## Now", "## Ahora"));
-    out.push(`**${now.temperature}°${now.temperatureUnit}** — ${translateConditions(now.shortForecast, lang)} (${T(lang, "as of", "a las")} ${clockTime(now.startTime, lang)} CT)${feels != null ? ` · ${T(lang, "feels like", "sensación térmica de")} ${feels}°` : ""}${pop(now) ? ` · ${pop(now)}% ${T(lang, "precip", "prob. lluvia")}` : ""}${uvNow ? ` · ${T(lang, "UV", "UV")} ${uvNow} (${uvCategory(uvNow, lang)})` : ""}${aqi?.usAqi != null ? ` · ${T(lang, "Air", "Aire")} ${aqi.usAqi} (${aqiCategory(aqi.usAqi, lang)}, ${T(lang, "modeled", "modelado")})` : ""}`, "");
+    out.push(`**${now.temperature}°${now.temperatureUnit}** — ${translateConditions(now.shortForecast, lang)} (${T(lang, "for the", "para la hora de las")} ${hourLabel(now.startTime, lang)} ${T(lang, "CT hour", "CT")})${feels != null ? ` · ${T(lang, "feels like", "sensación térmica de")} ${feels}°` : ""}${pop(now) ? ` · ${pop(now)}% ${T(lang, "precip", "prob. lluvia")}` : ""}${uvNow ? ` · ${T(lang, "UV", "UV")} ${uvNow} (${uvCategory(uvNow, lang)})` : ""}${aqi?.usAqi != null ? ` · ${T(lang, "Air", "Aire")} ${aqi.usAqi} (${aqiCategory(aqi.usAqi, lang)}, ${T(lang, "modeled", "modelado")})` : ""}`, "");
     if (sun) out.push(`${T(lang, "Sunrise", "Amanecer")} ${clockTime(sun.sunrise, lang)} · ${T(lang, "Sunset", "Atardecer")} ${clockTime(sun.sunset, lang)} CT`, "");
   }
   if (lead) out.push(`**${translatePeriodName(lead.name, lang)}:** ${lead.detailedForecast}`, "");
