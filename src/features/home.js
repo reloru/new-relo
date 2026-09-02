@@ -108,20 +108,6 @@ export function hubBurnBanBanner(burnban, lang) {
   </a>`;
 }
 
-// Temporary, hand-placed for the 2026-09-01 Crosby ISD closure. Quotes the
-// district's own notice verbatim rather than paraphrasing a safety call, and
-// self-expires (no follow-up PR needed to remove it once the date passes) —
-// remove this function and its call sites once ISD_CLOSURE_EXPIRES is in the
-// past and no other closure is pending.
-const ISD_CLOSURE_EXPIRES = Date.parse("2026-09-02T00:00:00-05:00");
-export function isdClosureBanner(lang) {
-  if (Date.now() >= ISD_CLOSURE_EXPIRES) return "";
-  return `<div class="isd-banner">
-    <p class="ib-title">&#128276; ${T(lang, "Crosby ISD closed Tuesday, September 1", "Crosby ISD cerrado el martes 1 de septiembre")}</p>
-    <p class="ib-quote">${esc(`"Due to expected inclement weather in our area around midday, Crosby ISD will be closed tomorrow, Tuesday, September 1, 2026." — Crosby ISD`)}</p>
-  </div>`;
-}
-
 // "Today at a Glance" numbers, all from the cached NWS data: daily periods
 // for high/low, the REMAINING hourly periods of today (Central calendar day,
 // current hour onward — hours already past are excluded even when the NWS
@@ -451,9 +437,6 @@ ${JSONLD_SITE}
   .burnban-banner:hover .bb-link { text-decoration:underline; }
   .bb-title { margin:0; font-weight:800; font-size:1.05rem; }
   .bb-detail { margin:0.35rem 0 0; font-size:0.9rem; opacity:0.95; }
-  .isd-banner { display:block; background:linear-gradient(135deg,#1d3f6e,#2b5a99); color:#fff; border-radius:12px; padding:0.85rem 1.05rem; margin-top:0.8rem; }
-  .ib-title { margin:0; font-weight:800; font-size:1.05rem; }
-  .ib-quote { margin:0.35rem 0 0; font-size:0.9rem; opacity:0.95; font-style:italic; }
   .bb-link { margin:0.45rem 0 0; font-size:0.88rem; font-weight:700; }
   .about { margin-top:0.45rem; font-size:0.85rem; }
   .about summary { cursor:pointer; color:var(--link); list-style:none; }
@@ -474,7 +457,6 @@ ${JSONLD_SITE}
 ${topbar("/", lang)}
 <main id="main">
   <h1 class="visually-h1">${T(lang, "Crosby, Texas", "Crosby, Texas")}</h1>
-  ${isdClosureBanner(lang)}
   ${alertsBanner(alerts, lang)}
   ${hubTropicsBanner(tropics, lang)}
   ${hubBurnBanBanner(burnban, lang)}
@@ -491,9 +473,6 @@ export function homeMarkdown(weather, water, news, cal, tropics, burnban, lang) 
   const now = currentHourly(weather);
   const feels = now ? feelsLikeF(now) : null;
   const out = [`# ${T(lang, "Crosby, Texas", "Crosby, Texas")}`, "", `_${T(lang, "The front page for Crosby, TX — weather, water levels, local news, and school calendar.", "La página principal de Crosby, TX — clima, niveles de agua, noticias locales y calendario escolar.")}_`, ""];
-  if (Date.now() < ISD_CLOSURE_EXPIRES) {
-    out.push(`**&#128276; ${T(lang, "Crosby ISD closed Tuesday, September 1", "Crosby ISD cerrado el martes 1 de septiembre")}:** "Due to expected inclement weather in our area around midday, Crosby ISD will be closed tomorrow, Tuesday, September 1, 2026." — Crosby ISD`, "");
-  }
   if (now) {
     const windLine = now.windSpeed && now.windDirection ? `; ${T(lang, "wind", "viento")} ${translateWind(now.windSpeed, lang)} ${T(lang, "from the", "del")} ${dirWord(now.windDirection, lang)}` : "";
     const popNow = pop(now) ? `; ${pop(now)}% ${T(lang, "chance of precipitation", "de probabilidad de lluvia")}` : "";
