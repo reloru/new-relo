@@ -71,7 +71,15 @@ rm -rf .wrangler/state          # next `wrangler dev` starts truly empty
   Written by the same cron, skipped entirely on Sat/Sun (Central time) and on
   weekdays only when the cached `countDate` isn't today's date yet — HHD
   publishes one count per weekday morning, so this is "have we got today's
-  count" rather than a flat age throttle; cold-warms on read. Self-heals. Low risk.
+  count" rather than a flat age throttle — **and at most hourly**, since that
+  condition never settles on a day HHD publishes nothing (City of Houston
+  holidays) and would otherwise retry all 96 ticks; cold-warms on read.
+  Self-heals. Low risk.
+  **A frozen `countDate` with a fresh `updated` is the failure to look for
+  here** — it means selection is missing published counts, not that the fetch is
+  broken (four occurrences Aug-Sep 2026, all silent; see `docs/pages/pollen.md`).
+  `.github/workflows/pollen-watch.yml` now files a `pollen-watch` issue when
+  HHD's index advertises a count newer than `/api/pollen` serves.
 - **`burnban`** — Harris County outdoor-burning ban status from the Texas A&M
   Forest Service, shape `{ updated, status, startDate, statusSince,
   trackingSince }` (`loadBurnBan()` checks `status` is `"Yes"` or `"No"`;

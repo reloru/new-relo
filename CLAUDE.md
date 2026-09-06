@@ -169,6 +169,20 @@ violate:
   self-trigger loop, and `"*"` would hand any bot on this public repo full
   shell access. It cannot push to `main` — the ruleset is the backstop,
   not the token scope.
+- A **third workflow**, `.github/workflows/pollen-watch.yml`, runs weekdays at
+  17:00 UTC and files a `pollen-watch`-labelled issue when HHD's index
+  advertises a pollen count newer than `/api/pollen` serves. Not a staleness
+  alarm — it compares HHD's human-readable link text against our slug-derived
+  `countDate`, so weekends and City of Houston holidays can't trigger it. See
+  `docs/pages/pollen.md`; the comparison lives in
+  `.github/scripts/pollen-watch.mjs` and deliberately does **not** import from
+  `src/`. **It cannot hand itself to `@claude`**: it posts as
+  `github-actions[bot]`, and `claude.yml` skips bot senders
+  (`sender.type != 'Bot'` + unset `allowed_bots`, both load-bearing above). The
+  issue notifies the owner, who replies `@claude fix this` to escalate. Allowing
+  the single identity `github-actions[bot]` would work and is far narrower than
+  `"*"`, but it would need the `sender.type` job guard relaxed in the same
+  commit or the bot silently stops triggering.
 
 ## GitHub security settings
 Full detail — on/off inventory, the three-way 403 taxonomy, why the toggles

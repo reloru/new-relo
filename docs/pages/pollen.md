@@ -35,38 +35,81 @@ block entirely on Sat/Sun (Central time), and on weekdays fetches only when
 the cached entry's `countDate` isn't today's Central-time date yet — "have we
 got today's count," not "how long has it been."
 
-There is **no API**. `fetchPollen()` scrapes `houstonhealth.org`: the index page
+That condition self-limits on a normal weekday (it stops the moment the morning
+count lands) but nothing ended it on a day the count never arrives, so it ran all
+96 ticks — twice a real case: HHD skips **City of Houston holidays**, and on
+2026-09-04 a slug change hid a count that *had* been published. A **1h floor
+between attempts** (added 2026-09-06) bounds that. It keys on the last successful
+*write*, not the last attempt, because the case being bounded is a fetch that
+succeeds and re-stores the same `countDate` — quiet, and persists for days. A
+throwing upstream writes nothing and still retries each tick; that one is loud in
+`/api/health` (`ok: false` with the error) and transient, so it needs no floor.
+
+There is **no API** — HHD's only structured output is a *monthly*
+`pollen-count-archive-YYYYMM.xlsx` linked from the index, which cannot serve
+daily freshness. `fetchPollen()` scrapes `houstonhealth.org`: the index page
 (`/services/pollen-mold`) lists per-date count pages with slug dates
-(`…/houston-pollen-mold-count-thursday-july-16-2026`);
+(`…/houston-pollen-mold-friday-september-4-2026`);
 `pollenNewestFromIndex()` picks the newest by slug date (via `pollenSlugDate`),
 and `parsePollenCount` reads the four groups plus the per-genus species lists
 (the first `<ul>` after each "Major … counted" heading, bounded at `</ul>`).
 
-**URL matching in `pollenNewestFromIndex()` is deliberately permissive, in two
-places**, because HHD changes the shape of these URLs without notice:
+**`pollenNewestFromIndex()` asserts nothing about what the slug is called.** It
+matches any href under `/services/pollen-mold/` (case-insensitively — HHD mixes
+`/services/…` and `/Services/…` on one index page) and lets `pollenSlugDate()`
+decide what is a count page: a link whose slug ends in a parseable date is one, a
+link without one (the section home, pagination, the monthly archive
+spreadsheets) is discarded. `pollenSlugDate()` in turn accepts both `…-july-31-2026`
+and `…-august-52026` (day-year hyphen optional, greedy so a two-digit day still
+wins), and full or abbreviated month names via `pollenMonth()`, which resolves by
+**unique prefix** — three characters is the shortest unambiguous prefix across
+all twelve months, so `sept` and any other truncation resolve. An ambiguous or
+too-short prefix yields **no date** rather than a guessed month: a wrong date
+would present a stale count as current, which is worse than showing none.
 
-- the day-year separator is **optional** — HHD publishes both
-  `…-july-31-2026` and, from 2026-08-03, `…-august-52026`
-- the index href match is **case-insensitive** — HHD serves this section as both
-  `/services/…` and `/Services/…`, mixing the two on a single index page
-- the month name may be **full or abbreviated** — HHD served
-  `…-friday-august-212026` and `…-monday-aug-242026` in the same week, from the
-  same index. `pollenMonth()` resolves it by **unique prefix** (three characters
-  is the shortest unambiguous prefix across all twelve months), so `sept` and any
-  other truncation resolve too. An ambiguous or too-short prefix returns **no
-  date** rather than a guessed month: a wrong date would present a stale count as
-  current, which is worse than showing none.
+This is deliberately looser than it needs to be for any one observed format,
+because **the slug's wording is the thing HHD keeps changing** — four times in
+five weeks, and every time silently:
 
-None of these strictnesses fails loudly. The fetch still succeeds, an older count still
-parses, and the page keeps rendering a real but **frozen** count. Both patterns
-were strict until 2026-08-05, and between them they hid three days of published
-counts while `/pollen` showed July 31 as though nothing were wrong. The month
-name repeated the pattern on 2026-08-24: the exact-name lookup dropped Monday's
-abbreviated slug, so the index's newest entry was invisible and `/pollen` served
-Friday's count into Monday evening with `/api/health` reporting the feed `ok`.
-**Every one of these was found by a human noticing a date, not by a check.** Let
-`parsePollenCount` be the strict gate — it is the one that can distinguish a
-real layout change from a cosmetic URL change.
+| Date | What changed | Result |
+|---|---|---|
+| 2026-08-03 | day-year hyphen dropped (`…-august-52026`) | 3 days hidden, page pinned to Jul 31 |
+| 2026-08-05 | some days moved to capitalized `/Services/` | same outage, second cause |
+| 2026-08-24 | month abbreviated (`…-mon-aug-242026`) | newest entry invisible; Friday's count served into Monday evening |
+| 2026-09-06 | stem lost "count" (`houston-pollen-mold-friday-…`) | Sep 3 + Sep 4 hidden; Wednesday's count served into Sunday |
+
+Each of the first three was fixed by relaxing the one thing that had just
+changed, which is why a fourth happened. Selection now depends only on the two
+properties that held across all four — under the section path, ends in a date —
+so a rename is absorbed with no code change.
+
+**None of this fails loudly.** The fetch succeeds, an older page parses, the KV
+entry is rewritten on schedule, and the page renders a real, correctly-labelled,
+**frozen** count with `/api/health` reporting the feed `ok`. Let
+`parsePollenCount` be the strict gate — it is the one that can distinguish a real
+layout change from a cosmetic URL change.
+
+**The species markup is matched with attributes, never as a bare tag**
+(`<ul\b[^>]*>`, `<li\b[^>]*>`). HHD's Drupal began emitting
+`<li data-list-item-id="…">` on some lists; a bare `<li>` match dropped every
+attributed entry, and since the block only renders when a group has species, the
+whole "What's in the air" section disappeared from `/pollen` rather than showing
+empty. Found 2026-09-06, affecting weed and mold on every count page checked —
+including the one already being served, so it predates the slug change. The
+`<ul>` lookup is a regex rather than `indexOf("<ul>")` for the same reason and
+one worse: an attribute on `<ul>` would make `indexOf` skip *past* the real list
+to a later bare one and parse an unrelated block.
+
+**Every one of these was found by a human noticing a date, not by a check** —
+which is what `.github/workflows/pollen-watch.yml` now exists to end. It runs
+weekdays at 17:00 UTC and compares the date in HHD's human-readable **link text**
+against the `countDate` in `/api/pollen`, opening a labelled `pollen-watch` issue
+when HHD is ahead. It shares no failure mode with href matching (the link text
+mutated on 2026-09-03 too — it lost "Count" — but the date inside it survived all
+four renames), and it keys on nothing time-based, so weekends and City of Houston
+holidays cannot trigger it. `.github/scripts/pollen-watch.mjs` deliberately does
+**not** import from `src/`: reusing the selection code would inherit the bug it
+exists to catch.
 
 `pollenNewestFromIndex()` is split out of `fetchPollen()` and takes no network,
 so the selection is pinned offline by **`scripts/test-pollen-parse.mjs`** in the
@@ -79,6 +122,16 @@ parse yield a real, correctly-labelled count that is merely days old.
 Fixing only one of the two matchers still yields a wrong-but-plausible answer
 (Aug 3 rather than Aug 5), which is why the test asserts the composed result and
 not just the date parser.
+
+**That suite stayed green through the 2026-09-06 outage**, because every fixture
+in it embedded `houston-pollen-mold-count` — the exact stem that had just
+changed. A test built from the format that broke last time cannot catch the
+format that breaks next time. It now also carries the real Sept 2026 index (both
+stems on one page, plus the dateless section links that must not be selected), a
+slug with **no recognisable stem** to prove selection is wording-independent, and
+`parsePollenCount` fixtures with `data-list-item-id` on `<li>` and attributes on
+`<ul>`. Each of those was confirmed to fail against the pre-fix patterns before
+being committed.
 
 `fetchPollen()` **throws on failure OR on an unrecognizable layout** (fewer than
 2 groups parsed), so neither a transient outage nor a Drupal redesign can wipe

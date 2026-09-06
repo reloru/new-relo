@@ -21,7 +21,7 @@
 //
 // Run: node scripts/test-pollen-parse.mjs
 
-import { pollenSlugDate, pollenNewestFromIndex, pollenMonth } from "../src/features/pollen.js";
+import { pollenSlugDate, pollenNewestFromIndex, pollenMonth, parsePollenCount } from "../src/features/pollen.js";
 
 let failures = 0;
 const check = (label, got, want) => {
@@ -149,9 +149,97 @@ console.log("\npollenNewestFromIndex — nothing parseable returns null (so fetc
 check("no count links", pollenNewestFromIndex(`<a href="/services/pollen-mold">home</a>`), null);
 check("empty document", pollenNewestFromIndex(""), null);
 
+// The 2026-09-06 freeze: HHD dropped "count" from the slug on Sep 3, so the two
+// newest days stopped matching a stem-anchored pattern while the older ones kept
+// parsing — /pollen served Wednesday's count into Sunday.
+//
+// Every fixture above embeds `houston-pollen-mold-count`, which is exactly why
+// this suite stayed green through that outage. These entries are the real hrefs
+// from houstonhealth.org/services/pollen-mold on 2026-09-06, both stems on one
+// page, plus the non-count links that share the section and must NOT be picked:
+// the monthly archive spreadsheets, the section home, and a paginated link.
+const STEM_CHANGE_FIXTURE = `
+  <ul class="listing">
+    <li><a href="/services/pollen-mold/houston-pollen-mold-friday-september-4-2026">Houston Pollen and Mold - Friday, September 4, 2026</a></li>
+    <li><a href="/services/pollen-mold/houston-pollen-mold-thursday-september-3-2026">Houston Pollen and Mold - Thursday, September 3, 2026</a></li>
+    <li><a href="/services/pollen-mold/houston-pollen-mold-count-wednesday-september-2-2026">Houston Pollen and Mold Count - Wednesday, September 2, 2026</a></li>
+    <li><a href="/services/pollen-mold/houston-pollen-mold-count-tuesday-september-1-2026">Houston Pollen and Mold Count - Tuesday, September 1, 2026</a></li>
+    <li><a href="/services/pollen-mold/houston-pollen-mold-count-monday-august-31-2026">Houston Pollen and Mold Count - Monday, August 31, 2026</a></li>
+    <li><a href="/services/pollen-mold">Pollen &amp; Mold home</a></li>
+    <li><a href="/services/pollen-mold?page=1">Next page</a></li>
+    <li><a href="/media/14921/download?inline">pollen-count-archive-202608.xlsx</a></li>
+  </ul>`;
+
+console.log("\npollenNewestFromIndex — the 2026-09-06 slug-stem change (both stems on one index):");
+const stemChange = pollenNewestFromIndex(STEM_CHANGE_FIXTURE);
+check("the stemless newest wins over the older -count- entries", stemChange?.date, "2026-09-04");
+check("...and returns its path", stemChange?.path, "/services/pollen-mold/houston-pollen-mold-friday-september-4-2026");
+
+// Selection must not depend on the slug's words at all — only on living in the
+// section and ending in a date. A stem nobody has seen yet still has to work,
+// or this test is just re-pinning the shape that broke.
+console.log("\npollenNewestFromIndex — an unseen future rename still parses:");
+check(
+  "a slug with no recognisable stem",
+  pollenNewestFromIndex(`<a href="/services/pollen-mold/hhd-daily-aeroallergen-report-monday-september-7-2026">x</a>`)?.date,
+  "2026-09-07",
+);
+
+// The section home, pagination and the archive spreadsheets carry no slug date,
+// so pollenSlugDate discards them. Without that, a dateless link would be a
+// candidate and the reduce would compare undefined.
+console.log("\npollenNewestFromIndex — dateless links in the section are discarded:");
+check(
+  "section home + pagination + archive only",
+  pollenNewestFromIndex(`
+    <a href="/services/pollen-mold">home</a>
+    <a href="/services/pollen-mold?page=2">Next</a>
+    <a href="/media/14921/download?inline">archive.xlsx</a>`),
+  null,
+);
+
+// parsePollenCount's species lists, against the markup HHD serves now. Drupal
+// started stamping `data-list-item-id` on <li> without notice; a bare `<li>`
+// match dropped every attributed entry, and because the section only renders
+// when a group HAS species, "What's in the air" vanished from /pollen entirely
+// rather than rendering empty. Counts and names below are the real Sep 4 page.
+const COUNT_PAGE_FIXTURE = `
+  <h3>Major tree pollen counted</h3>
+  <div class="coh-wysiwyg"><ul>
+    <li>Acer (Maple):&nbsp;0</li>
+    <li>Betula (Birch): 0</li>
+  </ul></div>
+  <h3>Major weed pollen counted</h3>
+  <div class="coh-wysiwyg"><ul>
+    <li data-list-item-id="ed2e1671dd4be6f0c78c1b19f55461d18">Ambrosia (Ragweed):&nbsp;2</li>
+    <li data-list-item-id="ecd6f06525fcc5b047b63b0b0d3c402fd">Amaranthaceae (Amaranth):&nbsp;0</li>
+  </ul></div>
+  <h3>Major mold spores counted</h3>
+  <div class="coh-wysiwyg"><ul class="coh-list" data-block="1">
+    <li data-list-item-id="e73b817e14480dd989a07fe2b94c4dda0">Algae:&nbsp;20</li>
+    <li data-list-item-id="e2303ea63106aa9b755eb1c7defa2b3ec">Ascospores:&nbsp;6,123</li>
+    <li data-list-item-id="e38fb25d2be2e3b93e719602b02ea92a1">Alternaria:&nbsp;4</li>
+  </ul></div>`;
+
+console.log("\nparsePollenCount — species lists whose markup carries attributes:");
+const parsed = parsePollenCount(COUNT_PAGE_FIXTURE);
+check("attributed <li> are read, not dropped", parsed.species.weed?.length, 1);
+check("...and the genus name survives", parsed.species.weed?.[0]?.name, "Ambrosia (Ragweed)");
+check("an attributed <ul> is found too", parsed.species.mold?.length, 3);
+check("thousands separators parse", parsed.species.mold?.[0]?.count, 6123);
+check("species sort by count, worst first", parsed.species.mold?.[0]?.name, "Ascospores");
+check("bare <li> still parse (no regression)", parsed.species.tree?.length, 0);
+
+// Zero-count genera are filtered deliberately: HHD lists the full panel every
+// day, so without this the "what's in the air" block would be mostly zeros.
+// Tree above is all zeros and must come back empty, NOT missing.
+console.log("\nparsePollenCount — zero counts are filtered, not the section:");
+check("an all-zero group yields an empty list", Array.isArray(parsed.species.tree), true);
+check("...with nothing in it", parsed.species.tree?.length, 0);
+
 console.log(
   failures
     ? `\n${failures} pollen parse check(s) FAILED\n`
-    : `\nPollen parsing OK — both URL formats, both path casings, newest wins.\n`,
+    : `\nPollen parsing OK — slug shape ignored, attributed markup read, newest wins.\n`,
 );
 process.exit(failures ? 1 : 0);
