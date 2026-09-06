@@ -90,6 +90,18 @@ export const pollenStrip = (s) =>
 // Heavy / Extremely Heavy) but multi-word values are accepted as-is — we
 // republish, never reclassify. Species lists are the first <ul> after each
 // "Major … counted" heading, bounded at </ul> so sections can't bleed.
+//
+// Both list tags are matched WITH ATTRIBUTES (`<ul\b[^>]*>`, `<li\b[^>]*>`),
+// never as the bare tag. HHD's Drupal started emitting
+// `<li data-list-item-id="e73b81…">` on some lists without notice; a bare
+// `<li>` match dropped every one of those entries, and because the block only
+// renders when a group has species, the whole "What's in the air" section
+// disappeared from /pollen rather than rendering empty. Found 2026-09-06,
+// affecting weed and mold on every count page checked. The `<ul>` search is a
+// regex rather than indexOf for the same reason and one worse: an attribute on
+// `<ul>` would make indexOf skip PAST the real list to some later bare one and
+// parse an unrelated block, which the 2000-char proximity guard only sometimes
+// catches.
 export function parsePollenCount(html) {
   const groups = {};
   for (const [key, marker] of [
@@ -117,11 +129,15 @@ export function parsePollenCount(html) {
   ]) {
     const h = html.indexOf(header);
     if (h === -1) continue;
-    const ulStart = html.indexOf("<ul>", h);
+    const ulRe = /<ul\b[^>]*>/g;
+    ulRe.lastIndex = h;
+    const ulMatch = ulRe.exec(html);
+    if (!ulMatch) continue;
+    const ulStart = ulMatch.index;
     const ulEnd = html.indexOf("</ul>", ulStart);
-    if (ulStart === -1 || ulEnd === -1 || ulStart - h > 2000) continue;
+    if (ulEnd === -1 || ulStart - h > 2000) continue;
     const found = [];
-    for (const li of html.slice(ulStart, ulEnd).matchAll(/<li>([\s\S]*?)<\/li>/g)) {
+    for (const li of html.slice(ulStart, ulEnd).matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/g)) {
       const m = pollenStrip(li[1]).match(/^(.+?):\s*([\d,]+)\s*$/);
       if (!m) continue;
       const count = Number(m[2].replace(/,/g, ""));
@@ -144,8 +160,31 @@ export function parsePollenCount(html) {
 // both "/services/..." and "/Services/...", mixing the two on one index page,
 // so a lowercase-only match silently drops whichever days happen to be
 // published under the capitalized path.
+//
+// SELECTION NO LONGER DEPENDS ON WHAT THE SLUG IS CALLED. The pattern was
+// `…/houston-pollen-mold-count-[^"#?]+` until 2026-09-06, when HHD dropped
+// "count" from the slug ("…/houston-pollen-mold-friday-september-4-2026") and
+// the two newest days went invisible: the older, still-matching entries parsed
+// fine, so /pollen served Wednesday's count into Sunday with the feed reporting
+// ok. That was the FOURTH break of this exact shape in five weeks — day-year
+// hyphen (08-03), path casing (08-05), month abbreviation (08-24), slug stem
+// (09-06) — and every one was a cosmetic rename that a name-based matcher
+// cannot survive.
+//
+// So the only structural facts asserted here are the two that have held across
+// all four: the page lives under the pollen section, and its slug ends in a
+// parseable date. pollenSlugDate() via the `.filter` below is what separates a
+// count page from anything else in the section — a link with no date (the
+// archive spreadsheets, pagination, "draft page") yields null and is dropped.
+// Pagination links are excluded by `[^"#?]` before that, since they carry `?`.
+//
+// Independently confirmed as an upstream change, not ours: hadley/houston-pollen
+// scrapes the same source daily and its data files 404 for exactly 2026-09-03
+// onward. Its approach — constructing candidate URLs from a list of known slug
+// formats — is the one CLAUDE.md warns against, and it enumerated two prefixes
+// and still missed this third one.
 export function pollenNewestFromIndex(idxHtml) {
-  const candidates = [...String(idxHtml).matchAll(/href="(\/services\/pollen-mold\/houston-pollen-mold-count-[^"#?]+)"/gi)]
+  const candidates = [...String(idxHtml).matchAll(/href="(\/services\/pollen-mold\/[^"#?]+)"/gi)]
     .map((m) => ({ path: m[1], date: pollenSlugDate(m[1]) }))
     .filter((c) => c.date);
   if (!candidates.length) return null;

@@ -1,0 +1,99 @@
+name: Pollen watch
+
+# Catch the /pollen silent freeze — the one failure mode this site has hit four
+# times in five weeks and never once detected itself.
+#
+# HHD renames its count URLs without notice (day-year hyphen 2026-08-03, path
+# casing 08-05, month abbreviation 08-24, slug stem 09-06). Every time, the
+# fetch kept succeeding, an older page kept parsing, and /pollen kept rendering
+# a real but frozen count. There is no exception to catch and no status code to
+# alarm on. All four were found by a human noticing a date.
+#
+# WHY THIS DOESN'T KEY ON STALENESS. "The count is more than N hours old" is
+# wrong here and would cry wolf constantly: weekends legitimately carry Friday's
+# count, and HHD skips City of Houston holidays, so four-day-old data is often
+# correct. Instead this compares two INDEPENDENT statements of the same fact on
+# HHD's own index — the date in the human-readable link TEXT versus the date in
+# the slug we select by. They diverge only when HHD has published a count we
+# failed to pick up, which is never anything but a bug. It carries no assumption
+# about publication schedule, so it is silent on weekends, holidays and quiet
+# days without being told about any of them.
+#
+# The two signals share no failure mode: the link text mutated too on 2026-09-03
+# ("Houston Pollen and Mold Count -" lost its "Count"), but the DATE inside it
+# survived all four renames. This reads only the date.
+#
+# It also catches what the parser fix cannot. Selection now ignores slug wording
+# entirely, so a rename is absorbed silently — but if HHD ever changes the DATE
+# FORMAT in the slug, new links stop yielding a date, we quietly fall back to an
+# older one, and the freeze returns. This fires on that too, because it doesn't
+# care WHY we missed a count.
+
+on:
+  schedule:
+    # 17:00 UTC on weekdays — noon CDT / 11am CST, comfortably after HHD's
+    # morning post either side of daylight saving. Weekdays only: HHD publishes
+    # Mon-Fri, so a weekend run would compare against Friday's count and could
+    # only ever be a no-op.
+    - cron: '0 17 * * 1-5'
+  workflow_dispatch:
+
+# Read-only by default; the compare job needs issues:write to report, and
+# nothing here touches repository contents beyond checkout.
+permissions:
+  contents: read
+
+jobs:
+  compare:
+    name: Compare published count against served count
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v7
+
+      # No install step and no dependencies — curl plus the node already on the
+      # runner, matching the repo's zero-runtime-dependency posture.
+      - name: Read HHD's index and our served count
+        id: compare
+        run: |
+          curl -sS --retry 3 --retry-delay 5 -A 'crosbynews.com' \
+            'https://www.houstonhealth.org/services/pollen-mold' -o /tmp/hhd-index.html
+          curl -sS --retry 3 --retry-delay 5 -A 'crosbynews.com' \
+            'https://crosbynews.com/api/pollen' -o /tmp/served.json
+          node .github/scripts/pollen-watch.mjs \
+            /tmp/hhd-index.html /tmp/served.json /tmp/issue-body.md >> "$GITHUB_OUTPUT"
+
+      - name: Report a missed count
+        if: steps.compare.outputs.behind == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ADVERTISED: ${{ steps.compare.outputs.advertised }}
+          SERVED: ${{ steps.compare.outputs.served }}
+        run: |
+          # One open issue at a time. While the freeze persists this runs every
+          # weekday, and a new issue per day would bury the first one's context.
+          existing=$(gh issue list --label pollen-watch --state open \
+            --json number --jq '.[0].number' --repo "$GITHUB_REPOSITORY")
+          if [ -n "$existing" ]; then
+            echo "Issue #$existing already open for this; not filing another."
+            exit 0
+          fi
+          # The label has to exist before --label will accept it, and this
+          # workflow may be the first thing to ever use it.
+          gh label create pollen-watch --repo "$GITHUB_REPOSITORY" \
+            --color d93f0b --description "/pollen is not picking up a published HHD count" \
+            --force
+          gh issue create --repo "$GITHUB_REPOSITORY" \
+            --title "/pollen is behind HHD: serving $SERVED, published $ADVERTISED" \
+            --label pollen-watch \
+            --body-file /tmp/issue-body.md
+
+      - name: Report result
+        run: |
+          if [ "${{ steps.compare.outputs.behind }}" = "true" ]; then
+            echo "::warning::/pollen is behind HHD (serving ${{ steps.compare.outputs.served }}, published ${{ steps.compare.outputs.advertised }})"
+          else
+            echo "In step with HHD — serving ${{ steps.compare.outputs.served }}, newest published ${{ steps.compare.outputs.advertised }}."
+          fi

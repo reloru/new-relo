@@ -6,9 +6,11 @@
 //
 // Cadences differ on purpose: weather/water/fishing/traffic every tick (they
 // move fast), tropics ~1h June-November (Atlantic hurricane season) and ~24h
-// the rest of the year, pollen only on weekday mornings once that day's count
-// has posted (HHD publishes one count per weekday — polling more often buys
-// nothing), calendar ~24h (Crosby ISD's calendar changes rarely), and
+// the rest of the year, pollen only on weekdays until that day's count
+// has posted and at most hourly (HHD publishes one count per weekday — polling
+// more often buys nothing, and on a day it publishes none the hourly floor is
+// the only thing that ends the retry), calendar ~24h (Crosby ISD's calendar
+// changes rarely), and
 // burnban ~4h (TFS updates roughly daily, not on a schedule, but a status
 // change during fire-weather conditions is worth catching sooner than half a
 // day out).
@@ -133,12 +135,35 @@ export async function scheduled(event, env, ctx) {
     // weekdays, only fetch if the cached entry's countDate isn't today's date
     // yet. fetchPollen() throws on failure OR an unparseable layout, so the
     // last good count survives.
+    //
+    // The 1h floor bounds the case that condition can't settle. "Keep asking
+    // until countDate is today" self-limits on a normal weekday — it stops the
+    // moment the morning count lands — but nothing ended it on a day the count
+    // never arrives, so it ran all 96 ticks. That is not hypothetical: HHD
+    // doesn't publish on City of Houston holidays (Labor Day, Thanksgiving,
+    // Christmas…), and on 2026-09-04 a slug change hid a count that HAD been
+    // published, which put the feed in that state every weekday until it was
+    // fixed. Each tick costs two requests to a city health department, so the
+    // floor is politeness, not correctness — a count still lands within an hour
+    // of posting, which is immaterial for a once-a-day number.
+    //
+    // Deliberately keyed on the last successful WRITE, not the last attempt:
+    // the case being bounded is a fetch that SUCCEEDS and re-stores the same
+    // countDate (quiet, and persists for days). A throwing upstream writes
+    // nothing, so it still retries each tick — that one is loud in /api/health
+    // (ok:false with the error) and transient, so it doesn't need a floor.
     try {
       const weekday = new Date().toLocaleDateString("en-US", { timeZone: TZ, weekday: "short" });
       if (weekday !== "Sat" && weekday !== "Sun") {
         const cur = await env.WEATHER.get(POLLEN_KV_KEY, "json");
         const today = ctDateStr(Date.now());
-        if (!cur || !cur.groups || !cur.countDate || cur.countDate !== today) {
+        const sinceWrite = cur?.updated ? Date.now() - new Date(cur.updated).getTime() : Infinity;
+        // Written as "is it throttled" rather than "is it old enough" so an
+        // unparseable `updated` (NaN) fails OPEN and fetches. The inverted form
+        // would compare NaN, get false, and skip forever — a brand-new silent
+        // freeze in the throttle added to stop one.
+        const throttled = Number.isFinite(sinceWrite) && sinceWrite <= 3600 * 1000;
+        if ((!cur || !cur.groups || !cur.countDate || cur.countDate !== today) && !throttled) {
           await env.WEATHER.put(POLLEN_KV_KEY, JSON.stringify(await fetchPollen()));
           run.ok("pollen");
         }
