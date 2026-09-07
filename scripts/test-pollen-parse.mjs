@@ -22,6 +22,10 @@
 // Run: node scripts/test-pollen-parse.mjs
 
 import { pollenSlugDate, pollenNewestFromIndex, pollenMonth, parsePollenCount } from "../src/features/pollen.js";
+// The pollen watchdog parses the same upstream HTML but must never share code
+// with the selection it checks, so it lives outside src/ and is imported only
+// here, to pin its text extraction in the same required CI job.
+import { stripToText, advertisedDates } from "../.github/scripts/pollen-watch.mjs";
 
 let failures = 0;
 const check = (label, got, want) => {
@@ -236,6 +240,31 @@ check("bare <li> still parse (no regression)", parsed.species.tree?.length, 0);
 console.log("\nparsePollenCount — zero counts are filtered, not the section:");
 check("an all-zero group yields an empty list", Array.isArray(parsed.species.tree), true);
 check("...with nothing in it", parsed.species.tree?.length, 0);
+
+// The watchdog's own text extraction. It lives outside src/ on purpose (it must
+// not share code with the selection it checks), but it parses the same
+// third-party HTML and needs the same pinning — CodeQL, not this suite, caught
+// its first bug (js/incomplete-multi-character-sanitization, high, on #218).
+//
+// The failing case was NOT nesting: `<[^>]+>` needs a closing `>`, so an
+// unterminated `<script` was never matched and passed through into a GitHub
+// issue body verbatim.
+console.log("\nstripToText — third-party anchor markup reduced to a plain label:");
+check("tags are removed", stripToText("<b>Houston Pollen</b> - Friday"), "Houston Pollen - Friday");
+check("&nbsp; becomes a space", stripToText("Friday,&nbsp;September&nbsp;4,&nbsp;2026"), "Friday, September 4, 2026");
+check("an UNTERMINATED tag cannot survive", stripToText("Report <script src=x"), "Report script src=x");
+check("no < survives at all", /[<>]/.test(stripToText("<a><<b>>x<script")), false);
+check("nested markup leaves no tag", /[<>]/.test(stripToText("<div <span>>text</div>")), false);
+check("a plain label is untouched", stripToText("Houston Pollen and Mold - Friday, September 4, 2026"), "Houston Pollen and Mold - Friday, September 4, 2026");
+
+// The date must still parse out of markup-bearing text, or sanitizing would
+// have quietly disabled the watchdog instead of hardening it.
+console.log("\nadvertisedDates — a date still parses through the sanitizer:");
+const dirty = advertisedDates(
+  `<a href="/services/pollen-mold/houston-pollen-mold-friday-september-4-2026"><span>Houston Pollen and Mold - <b>Friday, September 4, 2026</b></span></a>`,
+);
+check("date survives nested markup", dirty[0]?.iso, "2026-09-04");
+check("...and the label is clean", dirty[0]?.text, "Houston Pollen and Mold - Friday, September 4, 2026");
 
 console.log(
   failures

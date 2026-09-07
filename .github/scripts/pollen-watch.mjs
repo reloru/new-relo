@@ -22,17 +22,42 @@
 // version of this was silently unparseable YAML.
 
 import { readFileSync, writeFileSync } from "node:fs";
-
-const [indexPath, servedPath, bodyOut] = process.argv.slice(2);
-if (!indexPath || !servedPath) {
-  console.error("usage: pollen-watch.mjs <hhd-index.html> <api-pollen.json> [body-out.md]");
-  process.exit(2);
-}
+import { pathToFileURL } from "node:url";
 
 const MONTHS = {
   january: 1, february: 2, march: 3, april: 4, may: 5, june: 6,
   july: 7, august: 8, september: 9, october: 10, november: 11, december: 12,
 };
+
+// Reduce third-party anchor markup to a plain human label.
+//
+// A single-pass `replace(/<[^>]+>/g, "")` is NOT enough, which CodeQL caught on
+// #218 (js/incomplete-multi-character-sanitization, high). The pattern needs a
+// closing `>` to match, so an UNTERMINATED `<script` is never matched and
+// passes through untouched. This value reaches a GitHub issue body; GitHub's
+// own markdown sanitizer would neuter it there, but "the sink happens to be
+// safe" is not a reason to emit the string.
+//
+// So: strip tags to a fixpoint (a single pass can also let a removal join two
+// fragments back into a tag), separate with a SPACE rather than "" so nothing
+// re-forms across the seam — which is what `pollenStrip` in
+// src/features/pollen.js has always done, and this diverged from — then drop
+// any surviving angle brackets outright. That last step is what makes it
+// complete by construction rather than by pattern: no `<script` can survive a
+// string with no `<` in it. Costs nothing, since this is a display label.
+export function stripToText(markup) {
+  let text = String(markup);
+  let prev;
+  do {
+    prev = text;
+    text = text.replace(/<[^>]+>/g, " ");
+  } while (text !== prev);
+  return text
+    .replace(/[<>]/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
 // Anchors whose href is under HHD's pollen section, dated from their TEXT.
 // Scoping to the section href is what keeps an unrelated dated link elsewhere
@@ -44,7 +69,7 @@ export function advertisedDates(html) {
     /<a\s[^>]*href="(\/services\/pollen-mold\/[^"#?]*)"[^>]*>([\s\S]*?)<\/a>/gi,
   );
   for (const m of anchors) {
-    const text = m[2].replace(/<[^>]+>/g, "").replace(/&nbsp;/gi, " ").replace(/\s+/g, " ").trim();
+    const text = stripToText(m[2]);
     const d = text.match(/([A-Za-z]+)\s+(\d{1,2}),\s*(\d{4})/);
     if (!d) continue;
     const mo = MONTHS[d[1].toLowerCase()];
@@ -69,51 +94,58 @@ function centralToday() {
   return `${g("year")}-${g("month")}-${g("day")}`;
 }
 
-const indexHtml = readFileSync(indexPath, "utf8");
-const served = JSON.parse(readFileSync(servedPath, "utf8"));
+// Everything below is the CLI. It runs only when this file is executed
+// directly: scripts/test-pollen-parse.mjs imports stripToText/advertisedDates
+// to pin them in the required CI job, and a top-level process.exit() here
+// would kill that test run before it printed anything.
+function main(indexPath, servedPath, bodyOut) {
+  const indexHtml = readFileSync(indexPath, "utf8");
+  const served = JSON.parse(readFileSync(servedPath, "utf8"));
 
-const today = centralToday();
-// Future-dated entries are ignored rather than trusted: HHD has posted a page
-// ahead of its date before, and "we don't have tomorrow's count yet" is not a
-// bug. Comparing only against dates that have actually arrived keeps every
-// finding a real one.
-const dated = advertisedDates(indexHtml).filter((d) => d.iso <= today);
+  const today = centralToday();
+  // Future-dated entries are ignored rather than trusted: HHD has posted a page
+  // ahead of its date before, and "we don't have tomorrow's count yet" is not a
+  // bug. Comparing only against dates that have actually arrived keeps every
+  // finding a real one.
+  const dated = advertisedDates(indexHtml).filter((d) => d.iso <= today);
 
-if (!dated.length) {
-  // Nothing dated parsed at all. That is a change in the index itself, not a
-  // missed count, and this check can't speak to what we're serving — say so
-  // plainly rather than reporting a false "in step".
-  console.log("behind=false");
-  console.log("advertised=none");
-  console.log(`served=${served.countDate ?? "none"}`);
-  console.log("newest_href=");
-  console.error("No dated pollen links parsed from HHD's index — its layout may have changed.");
-  process.exit(0);
-}
+  if (!dated.length) {
+    // Nothing dated parsed at all. That is a change in the index itself, not a
+    // missed count, and this check can't speak to what we're serving — say so
+    // plainly rather than reporting a false "in step".
+    console.log("behind=false");
+    console.log("advertised=none");
+    console.log(`served=${served.countDate ?? "none"}`);
+    console.log("newest_href=");
+    console.error("No dated pollen links parsed from HHD's index — its layout may have changed.");
+    process.exit(0);
+  }
 
-const newest = dated.reduce((a, b) => (b.iso > a.iso ? b : a));
-const servedDate = served.countDate ?? null;
-const behind = servedDate === null || newest.iso > servedDate;
+  const newest = dated.reduce((a, b) => (b.iso > a.iso ? b : a));
+  const servedDate = served.countDate ?? null;
+  const behind = servedDate === null || newest.iso > servedDate;
 
-console.log(`behind=${behind}`);
-console.log(`advertised=${newest.iso}`);
-console.log(`served=${servedDate ?? "none"}`);
-console.log(`newest_href=${newest.href}`);
-console.error(
-  behind
-    ? `BEHIND: HHD advertises ${newest.iso} ("${newest.text}"), we serve ${servedDate ?? "nothing"}.`
-    : `In step: newest advertised ${newest.iso}, serving ${servedDate}.`,
-);
+  console.log(`behind=${behind}`);
+  console.log(`advertised=${newest.iso}`);
+  console.log(`served=${servedDate ?? "none"}`);
+  console.log(`newest_href=${newest.href}`);
+  console.error(
+    behind
+      ? `BEHIND: HHD advertises ${newest.iso} ("${newest.text}"), we serve ${servedDate ?? "nothing"}.`
+      : `In step: newest advertised ${newest.iso}, serving ${servedDate}.`,
+  );
 
-if (behind && bodyOut) {
-  writeFileSync(
-    bodyOut,
-    `HHD's index advertises a count dated **${newest.iso}**, but \`/api/pollen\` is
+  if (behind && bodyOut) {
+    writeFileSync(
+      bodyOut,
+      // Continuation lines sit at column 0 on purpose: this template IS the
+      // issue body, so indenting it here indents the rendered markdown.
+      `HHD's index advertises a count dated **${newest.iso}**, but \`/api/pollen\` is
 serving **${servedDate ?? "nothing"}**. A published count is not being picked up.
 
 Newest entry HHD links:
 
-- text: ${newest.text}
+- text: ${newest.text.slice(0, 200)}
 - href: \`${newest.href}\`
 
 This compares the date in HHD's human-readable link text against the date in the
@@ -138,5 +170,15 @@ to hand it over with the whole thread as context.
 ---
 _Filed automatically by \`.github/workflows/pollen-watch.yml\`._
 `,
-  );
+    );
+  }
+}
+
+if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
+  const [indexPath, servedPath, bodyOut] = process.argv.slice(2);
+  if (!indexPath || !servedPath) {
+    console.error("usage: pollen-watch.mjs <hhd-index.html> <api-pollen.json> [body-out.md]");
+    process.exit(2);
+  }
+  main(indexPath, servedPath, bodyOut);
 }
