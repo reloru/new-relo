@@ -111,6 +111,20 @@ holidays cannot trigger it. `.github/scripts/pollen-watch.mjs` deliberately does
 **not** import from `src/`: reusing the selection code would inherit the bug it
 exists to catch.
 
+`stripToText()` in that script reduces HHD's anchor markup to a plain label
+before the date parse, and it is **not** a single `replace(/<[^>]+>/g, "")` —
+that pattern needs a closing `>`, so an unterminated `<script` is never matched
+and passes through into the GitHub issue body verbatim (CodeQL
+`js/incomplete-multi-character-sanitization`, high, caught on #218 *after* it
+merged). It strips tags to a fixpoint, separates with a space rather than `""`
+so nothing re-forms across the seam — which is what `pollenStrip` in
+`src/features/pollen.js` always did and this had diverged from — then drops any
+surviving angle brackets outright, which is what makes it complete by
+construction. Pinned in `scripts/test-pollen-parse.mjs`, which imports the
+watchdog for exactly this (its only import from outside `src/`); the script's
+CLI is behind an `import.meta.url` direct-execution guard so that import doesn't
+run it.
+
 `pollenNewestFromIndex()` is split out of `fetchPollen()` and takes no network,
 so the selection is pinned offline by **`scripts/test-pollen-parse.mjs`** in the
 required `Syntax check` job: both URL formats, both path casings, full and
