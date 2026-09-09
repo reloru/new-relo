@@ -164,8 +164,29 @@ Most likely cause, in order:
    last good entry is retained — check \`/api/health\` for \`pollen.ok: false\`.
 
 \`docs/pages/pollen.md\` has the full history of this failure mode (four
-occurrences, Aug–Sep 2026, all silent). Reply \`@claude fix this\` on this issue
-to hand it over with the whole thread as context.
+occurrences, Aug–Sep 2026, every one of them silent) and the shape of the
+previous fixes.
+
+@claude please investigate and fix this.
+
+Start by confirming the divergence is real rather than trusting this issue:
+fetch HHD's index and \`https://crosbynews.com/api/pollen\` yourself and compare.
+Then find why \`pollenNewestFromIndex()\` did not select the newer entry.
+
+Two rules specific to this bug, both learned the hard way:
+
+- **Do not re-derive the expected URL from our own parser.** Extract what HHD
+  actually serves with a deliberately looser pattern and diff against our parse.
+  A 2026-08-05 audit concluded HHD had stopped publishing because it generated
+  candidate URLs from the same date pattern the parser uses.
+- **Do not just add the new shape as another known variant.** HHD alternates
+  rather than migrates — it dropped \`-count-\` from the slug on Sep 3, then put
+  it back on Sep 8. Selection deliberately depends on no slug wording at all;
+  keep it that way and fix the assumption that actually broke.
+
+Open a PR; do not push to \`main\`. Add a regression fixture to
+\`scripts/test-pollen-parse.mjs\` built from the real HTML, and confirm it FAILS
+against the current code before you fix it — otherwise it pins nothing.
 
 ---
 _Filed automatically by \`.github/workflows/pollen-watch.yml\`._

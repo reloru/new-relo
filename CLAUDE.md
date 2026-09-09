@@ -163,12 +163,19 @@ violate:
   session's GitHub proxy — none of the GraphQL/repo-scoping/credential-
   substitution restrictions in `docs/ops/github-security.md` apply to it.
   Deliberately unconstrained on tools: bare `Bash`, no turn cap.
-  **`allowed_bots` is unset and must stay that way** — a cloud session's
-  comments already trigger it as `reloru` (the bot badge in the UI is
-  `performed_via_github_app`, not the actor), unset is what prevents a
-  self-trigger loop, and `"*"` would hand any bot on this public repo full
-  shell access. It cannot push to `main` — the ruleset is the backstop,
-  not the token scope.
+  **`allowed_bots` is `"github-actions[bot]"` and nothing else — never
+  `"*"`**, which would hand any bot on this public repo full shell access.
+  A cloud session's comments do NOT need it and never did: they trigger as
+  `reloru` (the bot badge in the UI is `performed_via_github_app`, not the
+  actor). The single entry exists only so `pollen-watch.yml`'s issue can
+  reach Claude.
+  **The loop guard is now the SHAPE of the allowed path, not the absence of
+  the entry.** The job `if:` admits a bot only on `issues` + `opened` +
+  the `pollen-watch` label; Claude answers by commenting, so its replies —
+  under `claude[bot]` or under the `github.token` fallback's
+  `github-actions[bot]` — can never satisfy it. `if:` and `allowed_bots`
+  are a pair: change both or the path is dead. It cannot push to `main` —
+  the ruleset is the backstop, not the token scope.
 - A **third workflow**, `.github/workflows/pollen-watch.yml`, runs weekdays at
   17:00 UTC and files a `pollen-watch`-labelled issue when HHD's index
   advertises a pollen count newer than `/api/pollen` serves. Not a staleness
@@ -176,13 +183,15 @@ violate:
   `countDate`, so weekends and City of Houston holidays can't trigger it. See
   `docs/pages/pollen.md`; the comparison lives in
   `.github/scripts/pollen-watch.mjs` and deliberately does **not** import from
-  `src/`. **It cannot hand itself to `@claude`**: it posts as
-  `github-actions[bot]`, and `claude.yml` skips bot senders
-  (`sender.type != 'Bot'` + unset `allowed_bots`, both load-bearing above). The
-  issue notifies the owner, who replies `@claude fix this` to escalate. Allowing
-  the single identity `github-actions[bot]` would work and is far narrower than
-  `"*"`, but it would need the `sender.type` job guard relaxed in the same
-  commit or the bot silently stops triggering.
+  `src/`. **The issue mentions `@claude` and self-escalates** (2026-09-09): it
+  posts as `github-actions[bot]`, which `claude.yml` admits on exactly that one
+  event shape — see the `allowed_bots` note above. So a missed count opens an
+  issue *and* puts Claude on it without waiting for a human.
+  **The label is load-bearing, not cosmetic.** `claude.yml`'s `if:` keys on
+  `pollen-watch` being present at creation, so `gh issue create --label` must
+  set it in the create call (a label added afterwards fires `labeled`, which the
+  guard excludes). Renaming the label silently kills the escalation — grep
+  `claude.yml` before touching it.
 
 ## GitHub security settings
 Full detail — on/off inventory, the three-way 403 taxonomy, why the toggles
