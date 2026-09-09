@@ -165,9 +165,10 @@ enumerated allowlist becomes the thing in the way.
 
 Three things worth knowing before changing it:
 
-- **Who can fire it: anyone with write access, and that already covers
-  every Claude surface used here.** There is no allowlist to maintain.
-  **`allowed_bots` is deliberately unset.** Measured on issue #185
+- **Who can fire it: anyone with write access, plus one narrowly-scoped
+  bot path.** **`allowed_bots` is `"github-actions[bot]"`** — one entry,
+  added 2026-09-09 so `pollen-watch.yml`'s issue can escalate itself. It
+  is NOT there for Claude's own surfaces. Measured on issue #185
   (2026-08-15), a comment from a Claude Code **cloud session** reports as:
 
   | field | value |
@@ -183,14 +184,31 @@ Three things worth knowing before changing it:
   sessions therefore trigger through the ordinary human path. Do not add a
   bot entry "so Claude can trigger it"; that is already handled, and the
   UI badge is what makes it look otherwise.
-- **Unset `allowed_bots` is also the loop guard.** The action ships no
-  documented self-trigger prevention, and `GITHUB_TOKEN` recursion
-  prevention is **not** a backstop: the action resolves its token as
+- **The loop guard is the SHAPE of the allowed path, not the absence of an
+  entry.** The action ships no documented self-trigger prevention, and
+  `GITHUB_TOKEN` recursion prevention is **not** a backstop: the action
+  resolves its token as
   `steps.run.outputs.github_token || inputs.github_token || github.token`,
   and the first of those is the Claude App token, which is not
-  `GITHUB_TOKEN` and so *does* create new runs. Naming the identity this
-  workflow posts under is precisely how a comment loop would start — so
-  leaving it unset means the workflow cannot re-trigger itself.
+  `GITHUB_TOKEN` and so *does* create new runs. **Identity alone is
+  therefore not enough** — that last fallback also posts as
+  `github-actions[bot]`, so allowing that login on the *comment* path would
+  let a Claude-authored comment re-fire the workflow.
+
+  The job `if:` closes that by requiring `issues` **+** `opened` **+** the
+  `pollen-watch` label. Claude answers by **commenting**, never by opening
+  a labelled issue, and every bot comment still fails the type check. The
+  truth table that was verified before shipping:
+
+  | Event | Runs? |
+  |---|---|
+  | owner (or cloud session, as `reloru`) comments | yes |
+  | `claude[bot]` replies | no |
+  | **`github-actions[bot]` comments `@claude`** | **no — the loop case** |
+  | **`github-actions[bot]` opens `pollen-watch`-labelled issue** | **yes — the only bot path** |
+  | `github-actions[bot]` opens an unlabelled issue | no |
+  | `github-actions[bot]` *labels* an existing issue | no (`action != opened`) |
+  | another bot opens a `pollen-watch` issue | no (login mismatch) |
 - **Never set `allowed_bots: "*"` — the repo is public.** The action's
   `docs/security.md` is explicit: *"A bot that matches an entry does not
   need to be installed on your repository or have write access."* So `"*"`
@@ -211,18 +229,32 @@ Three things worth knowing before changing it:
   indistinguishable from a broken workflow. Phrase matching therefore stays
   with the action, which does it case-insensitively. Do not "optimize" it
   back into the workflow without handling case.
-- **There IS an `if:` guard on the ACTOR: `github.event.sender.type !=
-  'Bot'`.** Different thing, none of the risk above — it never inspects the
-  comment body. Pure waste elimination with zero behavioral change, since
-  `allowed_bots` is unset and the action already rejects every bot actor;
-  this just declines to boot a runner to reach the same rejection.
-  Measured on #184 before it was added: a single `@claude` interaction
-  spawned **two** extra no-op runs (`31919355089`, `31919520557`), both
-  from `claude[bot]`'s own replies starting a runner that immediately
-  exited. Verified identities: `reloru` → `type: User` (owner *and* Claude
-  Code cloud sessions), `claude[bot]` → `type: Bot` (this workflow's
-  replies). **If a bot is ever added to `allowed_bots`, relax this line in
-  the same commit** or that bot will silently stop triggering.
+- **There IS an `if:` guard on the ACTOR**, and since 2026-09-09 it carries
+  the single bot exception:
+
+  ```
+  github.event.sender.type != 'Bot'
+  || (github.event_name == 'issues'
+      && github.event.action == 'opened'
+      && github.event.sender.login == 'github-actions[bot]'
+      && contains(github.event.issue.labels.*.name, 'pollen-watch'))
+  ```
+
+  None of the phrase-guard risk above — it never inspects the comment body.
+  Measured on #184 before the type check existed: a single `@claude`
+  interaction spawned **two** extra no-op runs (`31919355089`,
+  `31919520557`), both from `claude[bot]`'s own replies starting a runner
+  that immediately exited. Verified identities: `reloru` → `type: User`
+  (owner *and* Claude Code cloud sessions), `claude[bot]` → `type: Bot`
+  (this workflow's replies).
+  **`if:` and `allowed_bots` are a pair — change both together.** The action
+  runs its own actor check, so the `if:` alone cannot admit a bot, and
+  `allowed_bots` alone cannot get past the `if:`. Dropping either kills the
+  pollen-watch escalation silently.
+  **The label is load-bearing.** The guard reads
+  `github.event.issue.labels` on the `opened` event, so `pollen-watch.yml`
+  must pass `--label` in the `gh issue create` call. A label applied
+  afterwards arrives as `labeled`, which the guard deliberately excludes.
 
 `permissions:` is `contents: write`, `pull-requests: write`,
 `issues: write`, `actions: read`, `id-token: write`. `contents: write` is

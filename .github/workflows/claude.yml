@@ -37,32 +37,63 @@ on:
 #   steps.run.outputs.github_token || inputs.github_token || github.token
 # and the first of those is the Claude App token, which is NOT GITHUB_TOKEN
 # and therefore DOES create new workflow runs. So a workflow-authored comment
-# echoing the trigger phrase can re-fire this workflow. Keeping `allowed_bots`
-# narrow is what bounds that; if a loop ever starts, tighten allowed_bots or
-# add exclude_comments_by_actor rather than relying on the platform rule.
+# echoing the trigger phrase can re-fire this workflow.
+#
+# What bounds it is the SHAPE of the one bot path allowed, not the identity:
+# the job-level `if:` admits a bot only on `issues`/`opened` carrying the
+# `pollen-watch` label. Claude answers by commenting, so its replies — under
+# claude[bot] OR under the github.token fallback's github-actions[bot] — can
+# never satisfy that condition. A loop would require this workflow to OPEN a
+# labelled issue, which it does not do.
+#
+# If a loop ever does start, narrow that `if:` further or add
+# exclude_comments_by_actor. Never rely on the platform recursion rule.
 
 jobs:
   claude:
     name: Claude
     runs-on: ubuntu-latest
 
-    # Skip bot-authored events. This is a pure waste-elimination guard with
-    # ZERO behavioral change, because `allowed_bots` is unset (see below), so
-    # the action already rejects every bot actor — this just declines to boot
-    # a runner in order to reach that same rejection.
+    # Skip bot-authored events, with ONE deliberately narrow exception.
     #
     # Measured on #184: one @claude interaction spawned TWO extra no-op runs
     # (31919355089, 31919520557), both from claude[bot]'s own reply comments
-    # starting a runner that immediately exited. This removes those.
+    # starting a runner that immediately exited. The type check removes those.
     #
     # Safe because it filters on actor type, NOT on the trigger phrase — so
     # it cannot reintroduce the "@Claude" case-sensitivity failure that the
     # phrase-guard note above exists to prevent. Verified identities:
     #   reloru       -> type User  (owner, and Claude Code cloud sessions)
     #   claude[bot]  -> type Bot   (this workflow's own replies)
-    # If a real bot is ever added to `allowed_bots`, this line must be
-    # relaxed in the same commit or that bot silently stops triggering.
-    if: github.event.sender.type != 'Bot'
+    #
+    # THE EXCEPTION (2026-09-09): pollen-watch.yml files an issue when HHD
+    # publishes a pollen count /pollen failed to pick up — the site's most
+    # repetitive failure, four occurrences in five weeks. It posts under
+    # GITHUB_TOKEN, so it lands as github-actions[bot] and the type check
+    # alone would drop it, leaving the issue to sit until a human noticed.
+    #
+    # It is scoped to a single event shape rather than to the identity,
+    # because identity alone is NOT enough to bound the loop. The action
+    # resolves its token as
+    #   steps.run.outputs.github_token || inputs.github_token || github.token
+    # and that last fallback posts as github-actions[bot] too — so allowing
+    # that login on the COMMENT path would let a Claude-authored comment
+    # containing the trigger phrase re-fire this workflow.
+    #
+    # Requiring `issues` + `opened` + the `pollen-watch` label makes the loop
+    # structurally impossible instead of merely unlikely: Claude answers by
+    # COMMENTING, never by opening a labelled issue, and every bot comment
+    # (its own included) still fails the type check. `labeled` and `assigned`
+    # from a bot are excluded too — only the creation event qualifies.
+    #
+    # Keep this in sync with `allowed_bots` below: the action performs its own
+    # actor check, so BOTH must name github-actions[bot] or the path is dead.
+    if: >-
+      github.event.sender.type != 'Bot'
+      || (github.event_name == 'issues'
+          && github.event.action == 'opened'
+          && github.event.sender.login == 'github-actions[bot]'
+          && contains(github.event.issue.labels.*.name, 'pollen-watch'))
 
     # Wide by design — Claude opens branches and PRs, comments, and reads CI.
     # `contents: write` is what lets it push a branch; it still cannot push to
@@ -87,10 +118,12 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 
-          # NO `allowed_bots` — deliberately, and it costs nothing.
+          # ONE bot login, never `"*"`. See the job-level `if:` above — the
+          # two are a pair and must be changed together.
           #
-          # Measured on issue #185 (2026-08-15), a comment posted from a
-          # Claude Code CLOUD session reports as:
+          # This does NOT exist so "Claude can trigger it". Measured on issue
+          # #185 (2026-08-15), a comment posted from a Claude Code CLOUD
+          # session reports as:
           #     user.login               : reloru
           #     user.type                : User
           #     author_association       : OWNER
@@ -98,23 +131,28 @@ jobs:
           # The GitHub UI renders that `performed_via_github_app` as an app
           # badge, which reads as "a bot commented" — but the ACTOR the
           # action's permission check evaluates is `reloru`, a User with
-          # write access. So cloud-session comments already trigger through
-          # the ordinary human path and never needed a bot entry.
+          # write access. Cloud-session comments have always triggered
+          # through the ordinary human path and still need no bot entry.
           #
-          # Leaving it unset is also the loop guard. The action ships no
-          # documented self-trigger prevention, so naming the identity that
-          # this workflow itself posts under is exactly how a comment loop
-          # would start. Unset = the workflow cannot re-trigger itself.
+          # It exists for exactly one thing: pollen-watch.yml's issue, filed
+          # under GITHUB_TOKEN as github-actions[bot]. The action runs its own
+          # actor check, so the job-level `if:` alone cannot let that through.
           #
-          # And `"*"` would be actively unsafe here: the repo is PUBLIC, and
-          # the action's docs/security.md states "A bot that matches an entry
-          # does not need to be installed on your repository or have write
-          # access" — so `"*"` hands bare Bash + contents: write to any bot
-          # account that can comment. An earlier revision of this file used
+          # The loop risk this used to guard against is now handled by SHAPE,
+          # not by absence. The action ships no self-trigger prevention and
+          # GITHUB_TOKEN recursion prevention is not a backstop here (the
+          # Claude App token is not GITHUB_TOKEN and does create runs), so the
+          # `if:` above admits only `issues`/`opened` carrying the
+          # `pollen-watch` label. A comment from this login — including the
+          # action's own github.token fallback — never reaches the runner.
+          #
+          # `"*"` remains actively unsafe and must never be used: the repo is
+          # PUBLIC and the action's docs/security.md states "A bot that
+          # matches an entry does not need to be installed on your repository
+          # or have write access", so `"*"` hands bare Bash + contents: write
+          # to any bot account that can comment. An earlier revision used
           # `"*"` and claimed otherwise; that was wrong.
-          #
-          # If some future surface does need to trigger under a real bot
-          # login, add just that login here — never `"*"`.
+          allowed_bots: "github-actions[bot]"
 
           # Lets Claude read CI: get_ci_status, get_workflow_run_details,
           # download_job_log. Pairs with `actions: read` above — both are
