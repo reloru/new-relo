@@ -362,10 +362,13 @@ this repo can see that.** It injected an analytics tracker into every page for
 months while `/privacy` claimed otherwise. Two rules from
 `docs/ops/cloudflare-zone.md`: audit the edge by **bytes with a real browser UA
 and an HTML `Accept` header** (a default-UA `curl` sees nothing — that is what
-hid it), and **never delete the `_acme-challenge` TXT records** — they look like
-issuance leftovers but are the certificate packs' DCV proof, so removing them
-kills renewal silently, weeks later. That file records consequences only, not
-the zone's current security posture: this repo is public.
+hid it), and **never hand-add a TXT record from a Cloudflare DCV-failure email**
+— this zone is a full setup, so Cloudflare places DCV tokens itself at the
+authoritative layer (they resolve without appearing in the DNS record list) and
+rotates them on every failure, so a pasted token is stale junk by the time you
+read it; diagnose from the pack's `validation_errors`, and leave the two existing
+`_acme-challenge` records alone. That file records consequences only, not the
+zone's current security posture: this repo is public.
 
 ## DNS-AID, MCP Registry, Email auth
 Three more `docs/ops/` topics, none of which live in the Worker — all lives

@@ -12,20 +12,50 @@ So this file records only what the API *cannot* tell you: which things look like
 cruft but are load-bearing, and which changes would break documented behaviour.
 Consequences, not configuration. Check current state with the token.
 
-## Do not delete: the `_acme-challenge` TXT records
+## `_acme-challenge`: never hand-add a token from a DCV email, and don't delete what's there
 
-The zone carries `_acme-challenge` TXT records with short TTLs and opaque base64
-values. They look exactly like leftovers from a one-off certificate issuance.
-**They are not.** The certificate packs on this zone use
-`validation_method: txt`, so those records are the domain-control proof for the
-apex and the wildcard. Delete them and renewal fails — silently, and only weeks
-later when the current certificate expires.
+The certificate packs on this zone use `validation_method: txt`, so DCV proof
+lives at `_acme-challenge.crosbynews.com`. **Cloudflare places those tokens
+itself.** The zone is a full setup (`/zones/{id}` → `"type": "full"`), and
+Cloudflare's DCV flow documentation says it "either places the tokens on your
+behalf (Full DNS setup, Delegated DCV), or makes the tokens available for you to
+place them" — this zone is the first case. The live tokens therefore **resolve
+without appearing in the DNS record list at all**, so the record list is not
+where you look to see whether DCV proof is published.
 
-Confirm before ever touching them:
+Two consequences, both counter-intuitive:
+
+- **A Cloudflare DCV-failure email asks for records this zone does not need.**
+  Its "Create a DNS record …" lines are written for zones whose authoritative DNS
+  is elsewhere. Here the tokens it quotes are already published — and rotate
+  fast, because the same documentation notes tokens "will change upon
+  verification failures" (measured 2026-09-11: the emailed pair was superseded
+  within four minutes). Pasting one in leaves a record that matches no live ACME
+  order, forever. Check what is actually published instead:
+
+  ```bash
+  curl -sS 'https://dns.google/resolve?name=_acme-challenge.crosbynews.com&type=TXT'
+  ```
+
+- **The two records that *are* in the list (created 2026-07-28) are leftovers
+  from that mistake, and still should not be deleted.** They post-date the
+  advanced pack's issuance by two and a half minutes, match no current order, and
+  do nothing. Removing them is equally pointless and cannot be shown safe against
+  the backup pack. Leave them; just don't add a third.
+
+Diagnose a DCV failure from the pack, never from the email — the email says what
+to create, the API says what actually went wrong:
 
 ```
-GET /zones/{zone_id}/ssl/certificate_packs?status=all   → validation_method
+GET /zones/{zone_id}/ssl/certificate_packs?status=all          → status, validation_method
+GET /zones/{zone_id}/ssl/certificate_packs/{cert_pack_uuid}    → validation_errors
 ```
+
+A `validation_errors` message naming "secondary validation" is Let's Encrypt
+querying from multiple geographic vantage points, not a missing record; Cloudflare
+retries on its own backoff schedule. Full worked example, including what was ruled
+out and which expiry is the real deadline, in
+`docs/investigations/2026-09-11-dcv-failure-universal-le-pack.md`.
 
 ## Changes that would break documented behaviour
 
