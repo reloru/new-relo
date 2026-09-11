@@ -289,3 +289,40 @@ pam.ns.cloudflare.com. dns.cloudflare.com. 2414588674 10000 2400 604800 1800
 records — CAA, TXT, CNAME, MX, SVCB, AAAA — with **no SOA and no NS**: Cloudflare
 manages both at the platform level. So there is no knob to turn even if the
 warnings were real.
+
+### Why the other three timers pass, which is the tell
+
+The obvious objection is that the same scanner calls refresh, retry and minimum
+TTL fine. It grades them on **two different yardsticks**, and each result's
+wording says which: "out of recommended range" is measured against RFC 1912,
+"within allowed values" is not.
+
+| field | measured | RFC 1912 §2.2 | scanner |
+|---|---|---|---|
+| refresh | 10000 (2h47m) | "20 mins to 2 hours" or "2-12 hours" | OK |
+| retry | 2400 (40m) | "typically some fraction of the refresh interval" | OK |
+| expire | 604800 (7d) | "2-4 weeks are suggested values" | warning |
+| minimum | 1800 (30m) | "1-5 days are typical values", 3+ once stable | OK |
+
+Expire misses its suggestion by 2× and is flagged; **minimum misses the same
+document by 48×** against its one-day figure, and RFC 1912 calls minimum "by far
+the most important timer" of the four. The split tracks the scanner's encoded
+thresholds, not the zone. Note too that RFC 1912's only *requirement* about
+expire — it "must be greater than the minimum and retry intervals" — is satisfied
+(604800 > 2400 > 1800); only the suggested range is missed.
+
+**Minimum cannot be graded against RFC 1912, because that field was redefined.**
+RFC 2308 §4 (1998): "The SOA minimum field has been overloaded in the past to
+have three different meanings... Despite being the original defined meaning, the
+first of these, the minimum TTL value of all RRs in a zone, has never in practice
+been used and is hereby deprecated." §3 gives its current job — the TTL of a
+negative (NXDOMAIN/NODATA) answer, which "indicates how long a resolver may cache
+the negative answer." 1800 is ordinary negative-cache practice; the "1-5 days"
+figure describes a meaning retired two years after RFC 1912 shipped. That
+twenty-eight-year gap, not the zone, is what these warnings measure.
+
+One incidental confirmation from the same measurements: the serial was
+byte-identical across five hours spanning several DCV token placements and
+withdrawals. **Auto-placed DCV tokens do not bump the zone serial**, which is
+further evidence they are not zone records — consistent with the
+`_acme-challenge` section above.
