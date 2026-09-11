@@ -261,3 +261,31 @@ broken renewal *before* the certificate expires.
 Emails whenever any CA issues a certificate for the domain — the only signal that
 would surface a mis-issued or attacker-obtained certificate. Routine renewal
 notices a few times a quarter are expected and are not alerts.
+
+## SOA: two DNS-scanner warnings that are not findings
+
+mxtoolbox's `dns:crosbynews.com` check reports two SOA warnings. **Both are
+convention checks against values Cloudflare owns, and neither is actionable.**
+Don't spend a session on them. The record, identical from all three authoritative
+IPs sampled and from Google Public DNS (2026-09-11):
+
+```
+pam.ns.cloudflare.com. dns.cloudflare.com. 2414588674 10000 2400 604800 1800
+```
+
+- **"SOA Serial Number Format is Invalid — Serial year was 2414."** It is not
+  invalid. RFC 1035 §3.3.13 defines SERIAL as "The unsigned 32 bit version number
+  of the original copy of the zone", with no format requirement; 2414588674 fits
+  in 32 bits. The `YYYYMMDDnn` layout the scanner tests against is RFC 1912
+  §2.2's "recommended syntax", not a rule. The tool parsed a counter as a date.
+- **"SOA Expire Value out of recommended range — 604800."** RFC 1035 defines
+  EXPIRE as "the upper limit on the time interval that can elapse before the zone
+  is no longer authoritative", which is the clock a **secondary** runs when it has
+  lost its primary. Both nameservers here are Cloudflare anycast, not a
+  primary/secondary pair exchanging zone transfers, so nothing counts it down.
+  RFC 1912's two-to-four-week suggestion addresses the classic arrangement.
+
+**And neither field is editable.** `GET /zones/{zone_id}/dns_records` returns 25
+records — CAA, TXT, CNAME, MX, SVCB, AAAA — with **no SOA and no NS**: Cloudflare
+manages both at the platform level. So there is no knob to turn even if the
+warnings were real.
