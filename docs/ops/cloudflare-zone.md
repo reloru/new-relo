@@ -40,8 +40,9 @@ Two consequences, both counter-intuitive:
 - **The two records that *are* in the list (created 2026-07-28) are leftovers
   from that mistake, and still should not be deleted.** They post-date the
   advanced pack's issuance by two and a half minutes, match no current order, and
-  do nothing. Removing them is equally pointless and cannot be shown safe against
-  the backup pack. Leave them; just don't add a third.
+  do nothing. Removing them gains nothing either, and every live order's tokens
+  are placed and withdrawn by Cloudflare around them. Leave them; just don't add
+  a third.
 
 Diagnose a DCV failure from the pack, never from the email — the email says what
 to create, the API says what actually went wrong:
@@ -51,11 +52,30 @@ GET /zones/{zone_id}/ssl/certificate_packs?status=all          → status, valid
 GET /zones/{zone_id}/ssl/certificate_packs/{cert_pack_uuid}    → validation_errors
 ```
 
-A `validation_errors` message naming "secondary validation" is Let's Encrypt
-querying from multiple geographic vantage points, not a missing record; Cloudflare
-retries on its own backoff schedule. Full worked example, including what was ruled
-out and which expiry is the real deadline, in
-`docs/investigations/2026-09-11-dcv-failure-universal-le-pack.md`.
+A `validation_errors` message naming "secondary validation" is the CA querying
+from multiple geographic vantage points, not a missing record; Cloudflare retries
+on its own backoff schedule.
+
+**Re-read the pack before changing anything, because the email is already stale.**
+A DCV-failure email describes one failed attempt, not a standing condition. On
+2026-09-11 the pack the email named went `active` on its own eight minutes after
+it was last seen failing, and a CA change was nonetheless proposed and applied
+two and a half hours later on the stale picture. If the pack reads `active`, there
+is nothing to fix.
+
+**Changing the Universal SSL CA re-issues the certificate.** `PATCH
+/zones/{zone_id}/ssl/universal/settings` with a different
+`certificate_authority` retires the existing universal pack and orders a new one,
+which then has to validate from scratch; it does not retune the pack in place. So
+it is not a free knob to try, and flipping it back does not restore what was
+there — it orders a third certificate. The zone's universal CA is Google Trust
+Services as of 2026-09-11, matching the advanced pack that actually serves
+traffic.
+
+Worked examples: `docs/investigations/2026-09-11-dcv-failure-universal-le-pack.md`
+for the mechanism and everything ruled out,
+`docs/investigations/2026-09-11-dcv-resolution-and-ca-switch.md` for how it
+ended and what the CA switch cost.
 
 ## Changes that would break documented behaviour
 
@@ -205,10 +225,16 @@ wildcard issuance.
 hand; **thirteen** publish. Cloudflare backfilled `comodoca.com` and
 `digicert.com` on its own — these do not appear in the dashboard and are visible
 only over DNS. They are correct. Do not delete them as cruft; they exist so a
-Cloudflare CA rotation does not break issuance. (This automatic backfill is
-documented as *not* applying to Advanced Certificate Manager. This zone is Free
-plan with no ACM subscription, so it does apply here — if ACM is ever purchased,
-re-check that the backfill still covers the CAs in use.)
+Cloudflare CA rotation does not break issuance. The backfill is **confirmed by
+the DNS answer itself**, re-measured 2026-09-11: thirteen records publish, both
+backfilled CAs among them. Rely on that measurement, not on an inference from the
+zone's entitlements — Cloudflare documents the backfill as not applying to
+Advanced Certificate Manager, and this zone's entitlement state is genuinely
+ambiguous: an **advanced** certificate pack is active, while `/zones/{id}` reads
+Free, `/zones/{id}/subscription` returns "no active core subscription", and the
+account's subscription list names only `teams_free` and `r2_paid` with no ACM
+entry. So re-check the published set over DNS after any CAA edit rather than
+reasoning from whether ACM is in force.
 
 **Never follow the common scanner advice** to "restrict the issue tag to your
 actual certificate provider." Cloudflare rotates among several partner CAs, and
