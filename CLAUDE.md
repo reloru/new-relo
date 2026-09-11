@@ -367,8 +367,12 @@ hid it), and **never hand-add a TXT record from a Cloudflare DCV-failure email**
 authoritative layer (they resolve without appearing in the DNS record list) and
 rotates them on every failure, so a pasted token is stale junk by the time you
 read it; diagnose from the pack's `validation_errors`, and leave the two existing
-`_acme-challenge` records alone. That file records consequences only, not the
-zone's current security posture: this repo is public.
+`_acme-challenge` records alone. **Re-read the pack before changing any zone
+setting over a DCV email** — on 2026-09-11 the pack went `active` on its own eight
+minutes after it was last seen failing, and changing the Universal SSL CA (which
+re-issues the pack rather than retuning it) was applied hours later on that stale
+picture. That file records consequences only, not the zone's current security
+posture: this repo is public.
 
 ## DNS-AID, MCP Registry, Email auth
 Three more `docs/ops/` topics, none of which live in the Worker — all lives
