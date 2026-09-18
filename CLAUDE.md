@@ -183,7 +183,14 @@ violate:
   `countDate`, so weekends and City of Houston holidays can't trigger it. See
   `docs/pages/pollen.md`; the comparison lives in
   `.github/scripts/pollen-watch.mjs` and deliberately does **not** import from
-  `src/`. **The issue mentions `@claude` and self-escalates** (2026-09-09): it
+  `src/`. **It matches any `pollen-mold` href anywhere on the index, not just
+  under `/services/pollen-mold/`** — scoping it to the section was a shared blind
+  spot with the selector it exists to falsify, and HHD does publish pollen pages
+  at the root (found 2026-09-17). **It excludes "projected" entries**, which is
+  what makes that wider scope safe: HHD's projected counts carry an NAB category
+  with no grains/m³ number, `/pollen` is measured-only (`measured: true`), and a
+  projection dated ahead of the newest measured count would otherwise report a
+  missed count every time. **The issue mentions `@claude` and self-escalates** (2026-09-09): it
   posts as `github-actions[bot]`, which `claude.yml` admits on exactly that one
   event shape — see the `allowed_bots` note above. So a missed count opens an
   issue *and* puts Claude on it without waiting for a human.
