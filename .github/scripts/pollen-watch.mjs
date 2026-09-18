@@ -63,13 +63,42 @@ export function stripToText(markup) {
 // Scoping to the section href is what keeps an unrelated dated link elsewhere
 // on the page (a news item, an event) from being read as a pollen count —
 // verified against the live page on 2026-09-06, where nothing else matched.
+// A PROJECTED count is a forecast, not a measurement: HHD renders it as
+// "TREE POLLEN Projected None" — an NAB category with NO grains/m³ number,
+// where a measured page reads "TREE POLLEN NONE 0". /pollen is the site's only
+// measured environmental number and says so ("Measured by the Houston Health
+// Department laboratory, a National Allergy Bureau counting station"), and
+// /api/pollen asserts `measured: true`, so a projection must never be selected
+// — parsePollenCount already refuses it (0 groups parsed, fetchPollen throws,
+// last good count survives), and this check must not report its absence as a
+// missed count either. Owner decision 2026-09-17: measured only.
+//
+// Matched on the LINK TEXT, not the slug, for the same reason everything else
+// here reads the text: the wording HHD puts in front of a human is the stable
+// channel. "Projected Count" has appeared in both.
+const PROJECTED = /projected/i;
+
 export function advertisedDates(html) {
   const out = [];
+  // Scoped to any pollen-mold href ANYWHERE on the page, not to
+  // /services/pollen-mold/ — that narrower scope was a shared blind spot with
+  // the selector this check exists to falsify, which defeated the whole point.
+  //
+  // Found 2026-09-17: HHD published
+  //   /houston-pollen-mold-projected-count-thursday-september-17-2026
+  // at the ROOT, outside the section entirely. Harmless in that instance (it
+  // was a projection we correctly ignore), but it proves HHD does publish
+  // pollen pages off the section path — and the issue body this script writes
+  // lists "HHD moved count pages off /services/pollen-mold/" as a cause to
+  // look for, which a section-scoped check could never have detected. The
+  // selector stays deliberately narrow; the DETECTOR must not share its
+  // assumptions or it cannot falsify them.
   const anchors = html.matchAll(
-    /<a\s[^>]*href="(\/services\/pollen-mold\/[^"#?]*)"[^>]*>([\s\S]*?)<\/a>/gi,
+    /<a\s[^>]*href="(\/[^"#?]*pollen-mold[^"#?]*)"[^>]*>([\s\S]*?)<\/a>/gi,
   );
   for (const m of anchors) {
     const text = stripToText(m[2]);
+    if (PROJECTED.test(text) || PROJECTED.test(m[1])) continue;
     const d = text.match(/([A-Za-z]+)\s+(\d{1,2}),\s*(\d{4})/);
     if (!d) continue;
     const mo = MONTHS[d[1].toLowerCase()];

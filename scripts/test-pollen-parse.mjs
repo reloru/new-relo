@@ -266,6 +266,53 @@ const dirty = advertisedDates(
 check("date survives nested markup", dirty[0]?.iso, "2026-09-04");
 check("...and the label is clean", dirty[0]?.text, "Houston Pollen and Mold - Friday, September 4, 2026");
 
+// The watchdog's SCOPE, and the projection exclusion that scope requires.
+//
+// Until 2026-09-17 advertisedDates() matched only hrefs under
+// /services/pollen-mold/ — the same assumption pollenNewestFromIndex() makes,
+// which meant the check could not falsify the very thing it exists to check.
+// HHD then published
+//   /houston-pollen-mold-projected-count-thursday-september-17-2026
+// at the ROOT. Harmless in that instance (a projection, correctly ignored), but
+// proof HHD publishes pollen pages off the section path — the exact cause the
+// filed issue tells a reader to look for.
+//
+// Widening the scope makes the projection exclusion load-bearing rather than
+// cosmetic: without it, a projection dated ahead of the newest measured count
+// reports a missed count every time HHD posts one.
+const ROOT_MEASURED = `
+  <a href="/houston-pollen-mold-count-thursday-september-17-2026">Houston Pollen and Mold Count - Thursday, September 17, 2026</a>
+  <a href="/services/pollen-mold/houston-pollen-mold-count-wednesday-september-16-2026">Houston Pollen and Mold Count - Wednesday, September 16, 2026</a>`;
+
+console.log("\nadvertisedDates — a measured count OFF the section path is still seen:");
+const rootSeen = advertisedDates(ROOT_MEASURED);
+check("the root-level measured count is picked up", rootSeen[0]?.iso, "2026-09-17");
+check("...from a root href", rootSeen[0]?.href, "/houston-pollen-mold-count-thursday-september-17-2026");
+// The pre-fix pattern, inlined: proves the fixture discriminates rather than
+// just passing. A section-scoped match sees only the older in-section entry.
+const OLD_SCOPE = [...ROOT_MEASURED.matchAll(/<a\s[^>]*href="(\/services\/pollen-mold\/[^"#?]*)"[^>]*>/gi)];
+check("the OLD section-scoped pattern missed it", OLD_SCOPE.length, 1);
+
+const PROJECTED_INDEX = `
+  <a href="/houston-pollen-mold-projected-count-thursday-september-17-2026">Houston Pollen and Mold Projected Count - Thursday, September 17, 2026</a>
+  <a href="/services/pollen-mold/houston-pollen-mold-count-wednesday-september-16-2026">Houston Pollen and Mold Count - Wednesday, September 16, 2026</a>`;
+
+console.log("\nadvertisedDates — a PROJECTED count is never advertised as measured:");
+const proj = advertisedDates(PROJECTED_INDEX);
+check("only the measured entry survives", proj.length, 1);
+check("...and it is the measured date", proj[0]?.iso, "2026-09-16");
+// Excluded on either signal, since HHD has put "Projected" in both.
+check("excluded by link text alone", advertisedDates(`<a href="/services/pollen-mold/x-september-17-2026">Projected Count - Thursday, September 17, 2026</a>`).length, 0);
+check("excluded by href alone", advertisedDates(`<a href="/pollen-mold-projected-x">Count - Thursday, September 17, 2026</a>`).length, 0);
+
+// A projection dated AHEAD of the newest measured count is the live case as of
+// 2026-09-17, and reporting it would be a false "missed count" — /pollen is the
+// measured number and must not chase a forecast.
+console.log("\nadvertisedDates — a projection dated ahead does not mask the measured newest:");
+const newestAdvertised = proj.reduce((a, b) => (b.iso > a.iso ? b : a));
+check("newest advertised is the measured count", newestAdvertised.iso, "2026-09-16");
+check("...not the later projection", newestAdvertised.iso === "2026-09-17", false);
+
 console.log(
   failures
     ? `\n${failures} pollen parse check(s) FAILED\n`

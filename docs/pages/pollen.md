@@ -104,12 +104,34 @@ to a later bare one and parse an unrelated block.
 which is what `.github/workflows/pollen-watch.yml` now exists to end. It runs
 weekdays at 17:00 UTC and compares the date in HHD's human-readable **link text**
 against the `countDate` in `/api/pollen`, opening a labelled `pollen-watch` issue
-when HHD is ahead. It shares no failure mode with href matching (the link text
-mutated on 2026-09-03 too — it lost "Count" — but the date inside it survived all
-four renames), and it keys on nothing time-based, so weekends and City of Houston
+when HHD is ahead. It keys on nothing time-based, so weekends and City of Houston
 holidays cannot trigger it. `.github/scripts/pollen-watch.mjs` deliberately does
 **not** import from `src/`: reusing the selection code would inherit the bug it
 exists to catch.
+
+It reads the link **text** where the selector reads the **slug**, and those
+mutate independently — the text lost its "Count" on 2026-09-03 and lost the
+spaces around its dash by 2026-09-14, while the date inside it survived every
+rename. **But text-vs-slug was not enough on its own.** Until 2026-09-17 the
+check also scoped to hrefs under `/services/pollen-mold/` — the selector's own
+assumption, which meant it could not falsify a move off that path, the exact
+cause the filed issue tells a reader to look for. It now matches **any**
+`pollen-mold` href anywhere on the index. The selector stays narrow on purpose;
+the detector must not share its assumptions.
+
+**Projected counts are excluded, and that exclusion is what makes the wider
+scope safe.** HHD began publishing e.g.
+`/houston-pollen-mold-projected-count-thursday-september-17-2026` — at the root,
+outside the section — rendering as `TREE POLLEN Projected None` where a measured
+page reads `TREE POLLEN NONE 0`: an NAB category with **no grains/m³ number at
+all**. A projection is a forecast, and `/pollen` is the site's only measured
+environmental number and says so, with `/api/pollen` asserting
+`measured: true` — so it must never be selected. `parsePollenCount` already
+refuses one (0 groups → `fetchPollen()` throws → last good count survives), and
+the watchdog drops any entry whose link text **or** href says "projected", on
+either signal since HHD has used both. Without that, a projection dated ahead of
+the newest measured count would report a missed count every time HHD posts one.
+Owner decision 2026-09-17: measured only, no projected line on the page.
 
 `stripToText()` in that script reduces HHD's anchor markup to a plain label
 before the date parse, and it is **not** a single `replace(/<[^>]+>/g, "")` —
