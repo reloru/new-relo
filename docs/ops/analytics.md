@@ -38,10 +38,12 @@ UTC day. The stored record holds counts, not events — no per-call row exists
 even transiently, so there is nothing to correlate back to a caller.
 
 Every stored name is allow-listed first, because `method` and `params.name`
-arrive from the caller: unknown methods collapse to `(other)`, unknown tools to
-`(unknown)`, and client names are sanitised, truncated and capped at 20 distinct
-values. Without that, a loop of random method names would grow the record
-without bound.
+arrive from the caller: methods outside the MCP spec's fixed 25 collapse to
+`(other)`, unknown tools to `(unknown)`, and client names are sanitised,
+truncated and capped at 20 distinct values. Without that, a loop of random
+method names would grow the record without bound. The method list covers the
+whole spec rather than only what this server implements, so a client asking for
+a capability we lack is visible by name instead of buried in `(other)`.
 
 Read it with `GET /api/mcp-usage?key=<ADMIN_KEY>` — see
 `docs/endpoints/api/mcp-usage.md` for the full contract, storage layout and the

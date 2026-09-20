@@ -56,6 +56,7 @@ than hiding a secret from logs the owner alone can read.
   "lifetime":  { "…same shape…" },
   "tools":      { "last7Days": [{ "name": "get_forecast", "calls": 311, "ms": 57284 }], "lifetime": [] },
   "methods":    { "last7Days": { "tools/call": 702 }, "lifetime": {} },
+  "unimplementedRequested": { "last7Days": { "resources/templates/list": 4 }, "lifetime": {} },
   "errorCodes": { "last7Days": { "-32602": 4 },       "lifetime": {} },
   "clients":    { "last7Days": { "claude-ai": 9 },    "lifetime": {} },
   "days":   { "2026-09-20": { "…summary…" } },
@@ -63,6 +64,12 @@ than hiding a secret from logs the owner alone can read.
   "rollup": { "at": "…", "ok": true, "shards": 3, "error": null }
 }
 ```
+
+`unimplementedRequested` is **derived at read time**, not stored, so widening
+`METHODS_UNIMPLEMENTED` reclassifies history that was already recorded. The
+`?format=txt` view prints it under its own "asked for, NOT implemented here"
+heading rather than as another row, because it is the one figure here that
+suggests an action.
 
 `ms` is a **sum** of elapsed time across that tool's calls, so a mean is
 `ms / calls`. It is not latency and must not be read as latency: Workers freeze
@@ -85,12 +92,28 @@ row exists even transiently.
 
 Every recorded name is allow-listed before storage, because `method` and
 `params.name` are caller-controlled strings and an unbounded record is a remote
-storage-growth bug. Methods outside the eight `mcpHandle` dispatches become
-`(other)`; tool names outside `mcpTools()` become `(unknown)`; a malformed
-envelope becomes `(invalid)`; error codes outside the five JSON-RPC codes become
-`(other)`; client names are lower-cased, stripped to `[a-z0-9._-]`, truncated to
-32 characters and capped at 20 distinct values with the rest folded into
-`(other)`.
+storage-growth bug. Tool names outside `mcpTools()` become `(unknown)`; a
+malformed envelope becomes `(invalid)`; error codes outside the five JSON-RPC
+codes become `(other)`; client names are lower-cased, stripped to
+`[a-z0-9._-]`, truncated to 32 characters and capped at 20 distinct values with
+the rest folded into `(other)`.
+
+The method allow-list is deliberately **wider than what the server dispatches**:
+it is the full 25-method list from the MCP spec schema for both protocol
+versions in `MCP_SUPPORTED_VERSIONS`, split three ways in `src/mcp/metrics.js`.
+
+| Set | Count | Why it is separate |
+|---|---|---|
+| `METHODS_IMPLEMENTED` | 8 | dispatched by `mcpHandle` |
+| `METHODS_UNIMPLEMENTED` | 8 | spec **requests** this server answers `-32601` to — a nonzero count is a client asking for a capability that is not here |
+| `METHODS_NOTIFICATIONS` | 9 | spec notifications; ignoring one is correct protocol behaviour, not a gap, so these are never reported as missing |
+
+Anything outside all three becomes `(other)`. The ceiling is therefore fixed at
+25 names plus `(other)` and `(invalid)`.
+
+A spec method collapsed into `(other)` would be indistinguishable from junk,
+which is the whole reason for the wider list: the most actionable thing in the
+record is a real client reaching for something the server lacks.
 
 ## Storage
 

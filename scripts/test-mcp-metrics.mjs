@@ -21,6 +21,7 @@ import {
   classify,
   mcpRecord,
   mcpBatchRecorded,
+  MCP_UNIMPLEMENTED_METHODS,
   mcpRollUp,
   mcpUsageReport,
   mcpUsageText,
@@ -129,7 +130,8 @@ console.log("\nclassification (real mcpHandle):\n");
     ["resources/read unknown uri", { jsonrpc: "2.0", id: 6, method: "resources/read", params: { uri: "nope" } }, "resources/read", null, "rpc_error", "-32602", null],
     ["prompts/get unknown name", { jsonrpc: "2.0", id: 7, method: "prompts/get", params: { name: "nope" } }, "prompts/get", null, "rpc_error", "-32602", null],
     ["unknown method", { jsonrpc: "2.0", id: 8, method: "no/such/method" }, "(other)", null, "rpc_error", "-32601", null],
-    ["notification", { jsonrpc: "2.0", method: "notifications/initialized" }, "(other)", null, "notification", null, null],
+    ["notification", { jsonrpc: "2.0", method: "notifications/initialized" }, "notifications/initialized", null, "notification", null, null],
+    ["unimplemented spec request", { jsonrpc: "2.0", id: 13, method: "resources/templates/list" }, "resources/templates/list", null, "rpc_error", "-32601", null],
     ["unknown tool", { jsonrpc: "2.0", id: 9, method: "tools/call", params: { name: "no_such_tool" } }, "tools/call", "(unknown)", "rpc_error", "-32602", null],
     ["real tool, no KV needed", { jsonrpc: "2.0", id: 10, method: "tools/call", params: { name: "get_emergency_contacts" } }, "tools/call", "get_emergency_contacts", "ok", null, null],
     // The trap: a non-null response that is NOT a request.
@@ -163,6 +165,35 @@ console.log("\ncardinality:\n");
     methods.add(classify({ jsonrpc: "2.0", id: i, method: `junk/${i}` }, { error: { code: -32601 } }, 1).method);
   }
   assert("1000 distinct junk methods collapse to one bucket", [...methods], ["(other)"]);
+
+  // Every method the MCP spec defines, for BOTH protocol versions this server
+  // advertises, must be recorded under its own name — a spec method collapsed
+  // into "(other)" is indistinguishable from junk, which defeats the point of
+  // recording it. Pinned verbatim against the schema at
+  // github.com/modelcontextprotocol/modelcontextprotocol/schema/{2025-03-26,2025-06-18}.
+  const SPEC_METHODS = [
+    "initialize", "ping", "tools/list", "tools/call",
+    "prompts/list", "prompts/get",
+    "resources/list", "resources/read", "resources/templates/list",
+    "resources/subscribe", "resources/unsubscribe",
+    "completion/complete", "logging/setLevel",
+    "elicitation/create", "roots/list", "sampling/createMessage",
+    "notifications/initialized", "notifications/cancelled", "notifications/progress",
+    "notifications/message", "notifications/roots/list_changed",
+    "notifications/prompts/list_changed", "notifications/resources/list_changed",
+    "notifications/resources/updated", "notifications/tools/list_changed",
+  ];
+  const collapsed = SPEC_METHODS.filter(
+    (m) => classify({ jsonrpc: "2.0", id: 1, method: m }, { result: {} }, 1).method !== m,
+  );
+  assert("every spec method is recorded by name", collapsed, []);
+  assert("the spec list is the full 25", SPEC_METHODS.length, 25);
+
+  // ...and the unimplemented-request split is a subset of it, so the report
+  // cannot name something the allow-list would have dropped.
+  const strays = [...MCP_UNIMPLEMENTED_METHODS].filter((m) => !SPEC_METHODS.includes(m));
+  assert("unimplemented set is all spec methods", strays, []);
+  assert("notifications are not counted as gaps", MCP_UNIMPLEMENTED_METHODS.has("notifications/initialized"), false);
 
   const huge = classify(
     { jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "x".repeat(1024 * 1024) } },
@@ -309,6 +340,47 @@ console.log("\ntext rendering:\n");
   assert("states the privacy position", text.includes("No caller identity"), true);
 }
 
+// --- 5b. an unimplemented spec request is surfaced as a gap -----------------
+
+console.log("\nunimplemented requests:\n");
+{
+  const env = fakeKv({
+    [MCP_METRICS_KV_KEY]: {
+      v: 1,
+      rolledUpThrough: bucketEndingAgo(30 * 60000),
+      firstSeen: new Date(Date.now() - 86400000).toISOString(),
+      lifetime: oneDay({
+        total: 9,
+        // a real client probing a capability we lack, a correct notification,
+        // and ordinary traffic — only the first is a gap
+        methods: { "resources/templates/list": 4, "notifications/initialized": 3, "tools/list": 2 },
+        outcomes: { rpc_error: 4, notification: 3, ok: 2 },
+        codes: { "-32601": 4 },
+      }),
+      months: {},
+      days: {
+        [day()]: oneDay({
+          total: 9,
+          methods: { "resources/templates/list": 4, "notifications/initialized": 3, "tools/list": 2 },
+          outcomes: { rpc_error: 4, notification: 3, ok: 2 },
+          codes: { "-32601": 4 },
+        }),
+      },
+      rollup: { at: new Date().toISOString(), ok: true, shards: 1, error: null },
+    },
+  });
+  const report = await mcpUsageReport(env);
+  assert("the gap is named with its count", report.unimplementedRequested.lifetime, { "resources/templates/list": 4 });
+  assert("a correct notification is not a gap", "notifications/initialized" in report.unimplementedRequested.lifetime, false);
+  assert("an implemented method is not a gap", "tools/list" in report.unimplementedRequested.lifetime, false);
+
+  const text = mcpUsageText(report);
+  assert("the text report calls it out", text.includes("asked for, NOT implemented here"), true);
+  assert("...and names it", text.includes("resources/templates/list"), true);
+  const widest = Math.max(...text.split("\n").map((l) => l.length));
+  assert("still fits a phone terminal", widest <= 60, true);
+}
+
 // --- 6. an empty install does not explode -----------------------------------
 
 console.log("\ncold start:\n");
@@ -359,7 +431,15 @@ console.log("\nrequest path:\n");
   const d = v.days[day()];
   assert("every message counted", d.total, 8);
   assert("the POST counted once", d.batches, 1);
-  assert("methods tallied", d.methods, { initialize: 1, "(other)": 2, "tools/list": 1, "tools/call": 4 });
+  // notifications/initialized is a spec method, so it is named rather than
+  // lumped in; only the genuinely unknown "no/such" lands in "(other)".
+  assert("methods tallied", d.methods, {
+    initialize: 1,
+    "notifications/initialized": 1,
+    "tools/list": 1,
+    "tools/call": 4,
+    "(other)": 1,
+  });
   assert("tools tallied", d.tools, { get_forecast: 2, get_pollen: 1, "(unknown)": 1 });
   // initialize, tools/list and three tools/call succeed; one notification; two
   // rpc errors (unknown tool, unknown method).
