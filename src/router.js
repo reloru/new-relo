@@ -339,8 +339,12 @@ export async function routeRequest(request, env, ctx) {
       try {
         report = await mcpUsageReport(env);
       } catch (err) {
+        // The detail goes to the log, never to the response: an exception
+        // message can carry internals, and this is the house shape for the
+        // secret-gated routes (see `store_failed` below). CodeQL flagged the
+        // echoed message on this line as information exposure (alert #9).
         console.error("MCP usage report failed:", err && err.stack);
-        return jsonRes({ error: "read_failed", message: (err && err.message) || String(err) }, 500);
+        return jsonRes({ error: "read_failed" }, 500);
       }
 
       // Deliberately no access-control-allow-origin: same-origin only, like the

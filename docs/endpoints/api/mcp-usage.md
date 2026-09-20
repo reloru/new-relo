@@ -38,7 +38,7 @@ than hiding a secret from logs the owner alone can read.
 |---|---|---|
 | 200 | the report (JSON, or the text table) | ok |
 | 401 | `{"error": "unauthorized"}` | `key` missing or mismatched |
-| 500 | `{"error": "read_failed", "message": "…"}` | KV read threw |
+| 500 | `{"error": "read_failed"}` | KV read threw. The exception detail goes to the log only — an echoed message can carry internals, and this matches `store_failed` on the other admin routes. |
 | 503 | `{"error": "admin_unavailable"}` | `ADMIN_KEY` unset — the feature is inert |
 
 ## Shape
