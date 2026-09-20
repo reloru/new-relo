@@ -43,6 +43,7 @@ file.
 |---|---|
 | `api/*.md` | the ten public data APIs plus `/api/health` |
 | `api/news/{delete,restore}.md` | the admin nuke endpoints |
+| `api/mcp-usage.md` | `GET /api/mcp-usage` — aggregate MCP usage counters, owner-only |
 | `api/push/*.md` | the Web Push endpoints |
 | `mcp.md` | `POST /mcp` — the JSON-RPC transport (`GET /mcp` is `docs/pages/mcp.md`) |
 | `openapi.json.md` | `/openapi.json` |
@@ -68,5 +69,6 @@ structurally out of reach of it. The one exception is a page, not an endpoint:
 `access-control-max-age: 86400`.
 
 The ten public data APIs, `/api/health`, `/api/push/*`, and the discovery files
-send `access-control-allow-origin: *`. **`/api/news/delete` and
-`/api/news/restore` deliberately do not** — they are same-origin only.
+send `access-control-allow-origin: *`. **`/api/news/delete`,
+`/api/news/restore` and `/api/mcp-usage` deliberately do not** — they are
+same-origin only. All three are the secret-gated owner surfaces.

@@ -13,6 +13,14 @@
     }
   ],
 
+  // Kill switch for the aggregate /mcp usage counters. Anything other than
+  // "on" makes them inert at every call site (see src/mcp/metrics.js), so the
+  // feature can be shipped dark or disabled with a redeploy rather than a
+  // code change.
+  "vars": {
+    "MCP_METRICS": "on"
+  },
+
   // Refresh the cached weather every 15 minutes.
   "triggers": {
     "crons": ["*/15 * * * *"]

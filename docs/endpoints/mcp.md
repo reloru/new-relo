@@ -48,10 +48,11 @@ or no response at all if it had no `id`.
 
 ## Tools
 
-Thirteen: `get_current_conditions`, `get_forecast` (optional `hours` 1–48, the
+Fourteen: `get_current_conditions`, `get_forecast` (optional `hours` 1–48, the
 full KV hourly supply), `get_alerts`, `get_tropical_outlook`, `get_pollen`,
-`get_air_quality`, `get_crosby_news`, `get_school_events`, `get_river_levels`,
-`get_traffic`, `get_fishing`, `get_emergency_contacts`, `get_radar`.
+`get_burn_ban`, `get_air_quality`, `get_crosby_news`, `get_school_events`,
+`get_river_levels`, `get_traffic`, `get_fishing`, `get_emergency_contacts`,
+`get_radar`.
 
 - Every tool carries `MCP_READ_ONLY` annotations (`readOnlyHint: true`,
   `openWorldHint: false`) so clients can skip per-call confirmation.
@@ -63,6 +64,20 @@ full KV hourly supply), `get_alerts`, `get_tropical_outlook`, `get_pollen`,
 - **`get_radar` is the exception**: its result is an inline base64 GIF fetched
   server-side from the NWS KHGX still, with a text fallback when the upstream is
   down. Being an image, it has no `structuredContent` and no `outputSchema`.
+
+## Usage counters
+
+Every message through this endpoint is counted in aggregate: method, tool name,
+outcome class and elapsed ms, plus the `clientInfo.name` sent at `initialize`.
+Recording happens in the router's dispatch loop via `mcpRecord()`
+(`src/mcp/metrics.js`) — it is never awaited, cannot throw into the protocol
+path, and hands the KV write to `ctx.waitUntil`, so **no byte of the JSON-RPC
+response and no part of its latency depends on it**.
+
+No addresses, user agents, tool arguments or request contents are stored. Read
+the totals at `GET /api/mcp-usage`; the full contract is in
+`docs/endpoints/api/mcp-usage.md`. `MCP_METRICS` in `wrangler.jsonc` is the kill
+switch.
 
 ## Prompt
 

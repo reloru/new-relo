@@ -39,6 +39,7 @@ import { loadPollen, pollenHtml, pollenMarkdown, apiPollen } from "./features/po
 import { loadBurnBan, burnbanHtml, burnbanMarkdown, apiBurnBan } from "./features/burnban.js";
 import { homeHtml, homeMarkdown, renderError } from "./features/home.js";
 import { MCP_CORS, mcpHandle, mcpJson, rpcError, mcpServerCard, mcpInfoHtml, mcpInfoMarkdown } from "./mcp/server.js";
+import { mcpRecord, mcpBatchRecorded, mcpUsageReport, mcpUsageText } from "./mcp/metrics.js";
 import { apiCatalog, openApiSpec } from "./api/openapi.js";
 import { healthReport } from "./api/health.js";
 import { llmsTxt, robotsTxt, sitemapXml, CROSBY_WEATHER_SKILL, agentSkillsIndex } from "./discovery.js";
@@ -270,9 +271,17 @@ export async function routeRequest(request, env, ctx) {
       const batch = Array.isArray(body);
       const out = [];
       for (const m of batch ? body : [body]) {
+        // Elapsed time around mcpHandle only. Workers freeze Date.now() between
+        // I/O operations, so a method that does none (ping, tools/list) reads 0
+        // by construction — this measures a tool's KV/upstream cost, not latency.
+        const t0 = Date.now();
         const r = await mcpHandle(m, env);
+        // Aggregate counters. Deliberately not awaited and cannot throw: the
+        // protocol response must not wait on, or be affected by, bookkeeping.
+        mcpRecord(env, ctx, m, r, Date.now() - t0);
         if (r) out.push(r);
       }
+      mcpBatchRecorded(env, ctx);
       if (out.length === 0) return new Response(null, { status: 202, headers: MCP_CORS });
       return mcpJson(batch ? out : out[0], 200);
     }
@@ -304,6 +313,44 @@ export async function routeRequest(request, env, ctx) {
           "cache-control": "no-store",
         },
       });
+    }
+
+    // Aggregate MCP usage — owner-only, and the only reason this endpoint is
+    // gated at all. The numbers themselves identify nobody: they are counts by
+    // JSON-RPC method, tool name and outcome, with no addresses, user agents,
+    // tool arguments or request contents anywhere in the record. What is
+    // private is the business fact of how much the server is used.
+    //
+    // Reads KV and never writes, so polling it cannot disturb the rollup. It
+    // merges the shards the cron has not folded yet, so the answer is current
+    // rather than up to a quarter-hour behind.
+    if (path === "/api/mcp-usage") {
+      const jsonRes = (obj, status) =>
+        new Response(JSON.stringify(obj, null, 2), {
+          status: status || 200,
+          headers: { "content-type": "application/json; charset=utf-8", "cache-control": "private, no-store" },
+        });
+      // No secret configured means the feature is inert, matching the news
+      // admin endpoints rather than failing open.
+      if (!env.ADMIN_KEY) return jsonRes({ error: "admin_unavailable" }, 503);
+      if (!isAdmin(env, url.searchParams.get("key"))) return jsonRes({ error: "unauthorized" }, 401);
+
+      let report;
+      try {
+        report = await mcpUsageReport(env);
+      } catch (err) {
+        console.error("MCP usage report failed:", err && err.stack);
+        return jsonRes({ error: "read_failed", message: (err && err.message) || String(err) }, 500);
+      }
+
+      // Deliberately no access-control-allow-origin: same-origin only, like the
+      // other secret-gated routes.
+      if (url.searchParams.get("format") === "txt") {
+        return new Response(mcpUsageText(report), {
+          headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "private, no-store" },
+        });
+      }
+      return jsonRes(report);
     }
 
     // --- Severe-alert Web Push endpoints ---

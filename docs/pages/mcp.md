@@ -27,6 +27,10 @@ Order matters:
 4. `POST` → the protocol (`docs/endpoints/mcp.md`)
 5. Anything else → 405
 
+Only branch 4 is counted. The aggregate usage counters record JSON-RPC messages,
+so GET traffic to this explainer page — human or crawler — is not measured, here
+or anywhere else on the site. See `docs/endpoints/api/mcp-usage.md`.
+
 ## Content blocks
 
 | Block | Source |

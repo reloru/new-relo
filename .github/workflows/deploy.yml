@@ -99,6 +99,17 @@ jobs:
       # read nothing else. Pinned against real bulletins. Pure node.
       - name: Check tropical outlook parsing
         run: node scripts/test-two-parse.mjs
+      # The /mcp usage counters fail silently in three directions, and the live
+      # site looks perfectly healthy in all three: mcpHandle returns null for a
+      # valid notification AND for a malformed message with no id (so "no
+      # response means ok" scores garbage as success), a folded shard can keep
+      # appearing in list() for a minute after its delete (so a missing
+      # high-water mark quietly doubles every number), and `method` /
+      # `params.name` are caller-controlled strings (so an unbounded record
+      # grows forever). Drives the real dispatcher and the real rollup against
+      # a stubbed KV. Pure node, no install, no network.
+      - name: Check MCP usage metrics
+        run: node scripts/test-mcp-metrics.mjs
 
   # Build gate: parse wrangler.jsonc and bundle the Worker without uploading.
   # Catches config/bundling errors and the compat-date/wrangler-pin coupling

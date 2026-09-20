@@ -3,12 +3,14 @@
 Current expected state of visitor measurement for crosbynews.com. Overwritten in
 place — no history; see `docs/README.md`.
 
-**There is no analytics. Nothing counts visitors, in the browser or at the edge.**
+**Nothing counts visitors. No script of any kind runs in a reader's browser to
+measure them, and nothing at the edge profiles them.** One server-side counter
+does exist, and it does not count visitors: see *MCP usage counters* below.
 
 ## What the site ships
 
-- **No analytics script of any kind.** No first-party counter, no third-party
-  service, no pixel, no beacon.
+- **No analytics script of any kind.** No third-party service, no pixel, no
+  beacon, and nothing loaded into the reader's browser to count or profile them.
 - The CSP allows **no third-party script origin at all**
   (`contentSecurityPolicy()`, `src/discovery.js`). `script-src` is same-origin
   plus three inline hashes; `connect-src` is `'self'`. Adding any analytics
@@ -17,6 +19,50 @@ place — no history; see `docs/README.md`.
   must move together**: `PRIVACY`/`PRIVACY_ES` (`src/pages/privacy.js`),
   `ABOUT`/`ABOUT_ES` (`src/pages/about.js`), and the CSP are one change, not
   four.
+
+## MCP usage counters — added 2026-09-20
+
+`POST /mcp` keeps aggregate counts of its own traffic. This is not visitor
+analytics and is not a browser tracker: it measures an agent-facing JSON-RPC
+endpoint, runs entirely server-side, loads nothing into anyone's browser, sets
+no cookie, and touches no CSP directive.
+
+**Counted:** the JSON-RPC method, the tool name for `tools/call`, an outcome
+class (ok / notification / rpc_error / tool_error), elapsed ms per tool, the
+`clientInfo.name` an MCP client sends at `initialize`, and two volume counters
+(messages, and POSTs).
+
+**Not counted, ever:** IP addresses, User-Agent, tool arguments, request or
+response bodies, any cross-request identifier, or any timestamp finer than the
+UTC day. The stored record holds counts, not events — no per-call row exists
+even transiently, so there is nothing to correlate back to a caller.
+
+Every stored name is allow-listed first, because `method` and `params.name`
+arrive from the caller: unknown methods collapse to `(other)`, unknown tools to
+`(unknown)`, and client names are sanitised, truncated and capped at 20 distinct
+values. Without that, a loop of random method names would grow the record
+without bound.
+
+Read it with `GET /api/mcp-usage?key=<ADMIN_KEY>` — see
+`docs/endpoints/api/mcp-usage.md` for the full contract, storage layout and the
+kill switch (`MCP_METRICS` in `wrangler.jsonc`).
+
+### Why /privacy and /about were not changed
+
+Owner decision, 2026-09-20. `/privacy`'s Analytics section says *"There are
+none. crosbynews.com runs no analytics script — nothing loads in your browser
+to count, profile, or report your visit, and no third-party analytics service
+is used."* That claim is about scripts in a **reader's browser**, and every
+clause of it remains literally true: no script ships, no third party is
+involved, and a reader of a page is never counted. `/mcp` is an agent protocol
+endpoint, not a page, and its counters record no identity.
+
+The precedent that makes this worth writing down rather than assuming: the
+Cloudflare beacon below ran for months while `/privacy` denied it. The
+difference is that the beacon contradicted the page text and this does not. If
+the counters are ever extended to anything that identifies a caller, or to page
+traffic, that reasoning collapses and the page text must change with the code —
+in both languages, per the rule above.
 
 ## Cloudflare Web Analytics — removed 2026-08-19
 
@@ -74,7 +120,7 @@ back off rather than retrying tight.
 
 ## What still observes traffic
 
-Cloudflare keeps aggregate server-side request logs as part of serving the site,
-the way any host does. That is not a browser-side tracker, carries no analytics
+The `/mcp` usage counters above, and Cloudflare's own aggregate server-side
+request logs, kept as part of serving the site the way any host does. That is not a browser-side tracker, carries no analytics
 identifier, and is disclosed in the `/privacy` Analytics section. Zone analytics
 in the Cloudflare dashboard are derived from those logs and need no script.
