@@ -57,11 +57,22 @@ const OTHER = "(other)";
 const UNKNOWN = "(unknown)";
 const INVALID = "(invalid)";
 
-// The eight dispatch cases in mcpHandle. `method` is an attacker-controlled
-// string, so it is matched against this set and never stored raw: without that,
-// a loop of {"method":"<random>"} mints a new counter key per message and the
-// cron folds every one of them into the durable record, forever.
-const METHODS = new Set([
+// `method` is an attacker-controlled string, so it is matched against a fixed
+// allow-list and never stored raw: without that, a loop of
+// {"method":"<random>"} mints a new counter key per message and the cron folds
+// every one of them into the durable record, forever.
+//
+// The allow-list is deliberately WIDER than what this server dispatches. A
+// method the MCP spec defines but this server does not implement is the most
+// interesting thing in the whole record — it is a real client asking for a
+// capability we lack — and collapsing it into "(other)" alongside junk hides
+// exactly that. Recording it by name costs nothing, because the set below is
+// closed: it is the full method list from the spec schema for both protocol
+// versions in MCP_SUPPORTED_VERSIONS (2025-03-26 and 2025-06-18), so the
+// ceiling is 25 names plus "(other)" and "(invalid)", forever.
+
+// Dispatched by mcpHandle. Everything else here answers -32601 or is ignored.
+const METHODS_IMPLEMENTED = new Set([
   "initialize",
   "ping",
   "tools/list",
@@ -71,6 +82,43 @@ const METHODS = new Set([
   "resources/read",
   "tools/call",
 ]);
+
+// Spec REQUESTS this server does not implement, so each one answers -32601.
+// These are the names worth acting on: a nonzero count is a client asking for
+// a capability that is not here. The last three are server-to-client requests
+// a well-behaved client never sends us, kept because receiving one is itself
+// worth seeing rather than burying in "(other)".
+const METHODS_UNIMPLEMENTED = new Set([
+  "completion/complete",
+  "logging/setLevel",
+  "resources/subscribe",
+  "resources/unsubscribe",
+  "resources/templates/list",
+  "elicitation/create",
+  "roots/list",
+  "sampling/createMessage",
+]);
+
+// Spec NOTIFICATIONS. Ignoring a notification is correct protocol behaviour,
+// not a gap — the spec forbids responding to one — so these are recorded by
+// name but never reported as something missing.
+const METHODS_NOTIFICATIONS = new Set([
+  "notifications/initialized",
+  "notifications/cancelled",
+  "notifications/progress",
+  "notifications/message",
+  "notifications/roots/list_changed",
+  "notifications/prompts/list_changed",
+  "notifications/resources/list_changed",
+  "notifications/resources/updated",
+  "notifications/tools/list_changed",
+]);
+
+const METHODS = new Set([...METHODS_IMPLEMENTED, ...METHODS_UNIMPLEMENTED, ...METHODS_NOTIFICATIONS]);
+
+// Exported so the reader can separate "a client asked for this and we said
+// -32601" from ordinary traffic, without re-deriving the split.
+export const MCP_UNIMPLEMENTED_METHODS = METHODS_UNIMPLEMENTED;
 const CODES = new Set(["-32700", "-32600", "-32601", "-32602", "-32603"]);
 
 // --- per-isolate state -------------------------------------------------------
@@ -512,6 +560,14 @@ function summarise(day) {
   };
 }
 
+function pickUnimplemented(methods) {
+  const out = {};
+  for (const k of Object.keys(methods || {})) {
+    if (METHODS_UNIMPLEMENTED.has(k) && methods[k] > 0) out[k] = methods[k];
+  }
+  return out;
+}
+
 function rank(obj, day) {
   return Object.keys(obj || {})
     .map((k) => ({ name: k, calls: obj[k], ms: day && day.toolMs ? day.toolMs[k] || 0 : 0 }))
@@ -574,6 +630,12 @@ export async function mcpUsageReport(env) {
     lifetime: summarise(lifetime),
     tools: { last7Days: rank(week.tools, week), lifetime: rank(lifetime.tools, lifetime) },
     methods: { last7Days: week.methods, lifetime: lifetime.methods },
+    // Spec requests this server answers -32601 to. Derived rather than stored,
+    // so widening METHODS_UNIMPLEMENTED reclassifies history already recorded.
+    unimplementedRequested: {
+      last7Days: pickUnimplemented(week.methods),
+      lifetime: pickUnimplemented(lifetime.methods),
+    },
     errorCodes: { last7Days: week.codes, lifetime: lifetime.codes },
     clients: { last7Days: week.clients, lifetime: lifetime.clients },
     days: Object.fromEntries(
@@ -624,6 +686,20 @@ export function mcpUsageText(report) {
   if (!Object.keys(methods).length) L.push("  (none yet)");
   for (const k of Object.keys(methods).sort((a, b) => methods[b] - methods[a])) {
     L.push(`  ${pad(k, 26)}${num(methods[k], 7)}`);
+  }
+
+  // Called out separately, not left as a row in the table above: a client
+  // asking for a capability this server lacks is the one thing in here that
+  // suggests an action, and it reads as ordinary traffic otherwise.
+  const missing = Object.keys(report.unimplementedRequested.lifetime).length
+    ? report.unimplementedRequested.lifetime
+    : null;
+  if (missing) {
+    L.push("");
+    L.push("asked for, NOT implemented here");
+    for (const k of Object.keys(missing).sort((a, b) => missing[b] - missing[a])) {
+      L.push(`  ${pad(k, 26)}${num(missing[k], 7)}`);
+    }
   }
 
   const codes = Object.keys(report.errorCodes.last7Days).length
