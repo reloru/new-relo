@@ -352,9 +352,11 @@ datacenter IPs, so `scripts/fetch-news.mjs` runs out-of-band on a Claude
 routine and writes straight to the WEATHER KV `news` key. The Worker only
 reads it (`loadNews()` is read-only, no cron involvement).
 
-## Analytics — there is none
+## Analytics — none for visitors
 **No analytics script ships, and the CSP allows no third-party script origin at
-all.** Cloudflare Web Analytics was auto-injected at the zone edge (never in this
+all.** The one counter that exists is server-side and counts MCP protocol calls,
+not visitors — `docs/ops/analytics.md` has the scope and the reason `/privacy`
+was left unchanged. Cloudflare Web Analytics was auto-injected at the zone edge (never in this
 repo) until it was deleted 2026-08-19. Two traps, both in
 `docs/ops/analytics.md`: the beacon is **invisible to a default-UA `curl`**
 (Cloudflare only injects it for browser-looking requests, so check with a real
@@ -386,6 +388,9 @@ Three more `docs/ops/` topics, none of which live in the Worker — all lives
 in Cloudflare DNS / external registries:
 - **DNS-AID** (`docs/ops/dns-aid.md`) — SVCB records advertising the site to
   agent discovery; reproduce with `node scripts/dns-aid.mjs`.
+- **MCP usage** — `POST /mcp` counts its own traffic in aggregate (method, tool,
+  outcome, client name; never addresses, user agents or arguments). Read it with
+  `curl -s 'https://crosbynews.com/api/mcp-usage?key=<ADMIN_KEY>&format=txt'`.
 - **MCP Registry** (`docs/ops/mcp-registry.md`) — the `/mcp` server is
   published as `com.crosbynews/weather`. **Five hand-maintained places name
   the tools and go stale silently when a tool is added** — `CROSBY_WEATHER_SKILL`,
@@ -415,6 +420,12 @@ in Cloudflare DNS / external registries:
   `/api/health` serves) and the Web Push state (`push_notified`, `push:*`) —
   don't hand-edit either; deleting `push_notified` would re-notify every
   active severe warning on the next tick.
+- **`mcp_metrics`** (cron-owned) holds the aggregate `/mcp` usage counts, folded
+  each tick from the transient **`mcpm:*`** shards the request path writes (one
+  per isolate per 10-minute bucket, self-expiring after 6h). Never hand-edit
+  `mcp_metrics`: its `rolledUpThrough` high-water mark is what stops a shard
+  being counted twice, so editing it downward re-folds and double-counts.
+  Served by `/api/mcp-usage`; see `docs/endpoints/api/mcp-usage.md`.
 - The **`news_blocklist`** key is worker-owned (written by the
   `/api/news/delete` + `/api/news/restore` admin endpoints): articles the
   owner hid via the `/news?admin=` nuke. Self-prunes entries older than 60

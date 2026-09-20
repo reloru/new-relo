@@ -36,6 +36,7 @@ import { fetchBurnBan, burnbanHistory, BURNBAN_KV_KEY } from "./features/burnban
 import { ctDateStr } from "./features/air.js";
 import { pushSevereAlerts } from "./push.js";
 import { cronRunRecorder, recordCronRun } from "./api/health.js";
+import { mcpRollUp } from "./mcp/metrics.js";
 
 export async function scheduled(event, env, ctx) {
     // Refresh the weather cache. News is NOT fetched here — it's written to the
@@ -194,6 +195,17 @@ export async function scheduled(event, env, ctx) {
       console.error("Cron burnban refresh failed:", e && e.stack);
       run.failed("burnban", e);
     }
+    // Fold the per-isolate MCP counters into the durable record. Its own
+    // try/catch, and deliberately NOT a `run` feed: this is not a content feed,
+    // and a fake row in /api/health's table would cost that endpoint the
+    // honesty it exists for. Its health is reported inside `mcp_metrics.rollup`
+    // and surfaced by /api/mcp-usage.
+    try {
+      await mcpRollUp(env);
+    } catch (e) {
+      console.error("Cron MCP metrics rollup failed:", e && e.stack);
+    }
+
     // Last, so a failure here can never affect the refreshes it describes.
     await recordCronRun(env, run);
 }

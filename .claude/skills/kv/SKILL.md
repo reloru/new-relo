@@ -1,7 +1,7 @@
 ---
 name: kv
-description: Inspect and (carefully) edit the production WEATHER KV namespace — the cache behind crosbynews.com. Always uses `--remote` so it reads real production state, not local miniflare. Knows the nine content keys, `weather` + `calendar` + `water` + `fishing` + `tropics` + `pollen` + `traffic` + `burnban` (cron-owned) and `news` (routine-owned). Use to check cache freshness or debug /news, /calendar, /water, /fishing, /tropics, /pollen, /traffic, /burn-ban, and the weather pages.
-argument-hint: "[list | get <key> | put <key> <json> | delete <key>]  (key = weather | calendar | water | fishing | tropics | pollen | traffic | burnban | news)"
+description: Inspect and (carefully) edit the production WEATHER KV namespace — the cache behind crosbynews.com. Always uses `--remote` so it reads real production state, not local miniflare. Knows the nine content keys, `weather` + `calendar` + `water` + `fishing` + `tropics` + `pollen` + `traffic` + `burnban` (cron-owned) and `news` (routine-owned), plus `cron_status`, the Web Push state, `news_blocklist` and the MCP usage counters (`mcp_metrics` + `mcpm:*`). Use to check cache freshness or debug /news, /calendar, /water, /fishing, /tropics, /pollen, /traffic, /burn-ban, and the weather pages.
+argument-hint: "[list | get <key> | put <key> <json> | delete <key>]  (key = weather | calendar | water | fishing | tropics | pollen | traffic | burnban | news | mcp_metrics)"
 allowed-tools: Bash(npx wrangler kv key list *), Bash(npx wrangler kv key get *)
 ---
 
@@ -128,6 +128,25 @@ blockedAtMs}` of news articles the owner hid via the `/news?admin=<ADMIN_KEY>`
 nuke (written by `/api/news/delete` + `/api/news/restore`, read by `loadNews()`
 and the news routine). Deleting it just un-hides every article; it self-prunes
 past 60 days. Safe to inspect; deleting is low-risk (only un-hides).
+
+Also present (MCP usage, cron-owned): **`mcp_metrics`** — aggregate counts for
+`POST /mcp`: `{v, updated, rolledUpThrough, firstSeen, lifetime, months, days,
+rollup}`, where each day holds `{total, batches, methods, tools, outcomes,
+codes, clients, toolMs}`. 90 days of daily detail; older days collapse into
+`months`; `lifetime` is never trimmed. Alongside it, transient
+**`mcpm:<bucket>:<shard>`** entries — one per isolate per 10-minute UTC bucket,
+written by the request path, folded by the cron and deleted, with a 6h
+`expirationTtl` as the backstop. `list` shows these alongside the content keys.
+
+**Never hand-edit `mcp_metrics`.** `rolledUpThrough` is the high-water mark that
+makes the fold idempotent — KV deletes are eventually consistent, so a folded
+shard can still appear in `list()` for up to a minute, and lowering the mark
+re-folds it and doubles the numbers. Deleting the whole key is recoverable only
+in the sense that counting restarts from zero; there is no other copy. Deleting
+an `mcpm:*` shard loses at most ten minutes of one isolate's counts.
+
+Read it through `/api/mcp-usage` rather than raw KV when you just want the
+numbers — it merges the unfolded shards, which a bare `get` does not.
 
 ## Read (safe)
 List keys:

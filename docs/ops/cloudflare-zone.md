@@ -232,8 +232,8 @@ zone's entitlements — Cloudflare documents the backfill as not applying to
 Advanced Certificate Manager, and this zone's entitlement state is genuinely
 ambiguous: an **advanced** certificate pack is active, while `/zones/{id}` reads
 Free, `/zones/{id}/subscription` returns "no active core subscription", and the
-account's subscription list names only `teams_free` and `r2_paid` with no ACM
-entry. So re-check the published set over DNS after any CAA edit rather than
+account's subscription list names `teams_free`, `workers_paid` and `r2_paid`
+(Workers Paid added 2026-09-20) with no ACM entry. So re-check the published set over DNS after any CAA edit rather than
 reasoning from whether ACM is in force.
 
 **Never follow the common scanner advice** to "restrict the issue tag to your
