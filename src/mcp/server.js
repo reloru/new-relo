@@ -738,8 +738,15 @@ ${topbar("/mcp", lang)}
     <p>${T(lang, `The prompt <code>crosby_briefing</code> returns a data-grounded daily-briefing prompt with live weather, alerts, headlines, and school events already filled in. Resources expose <a href="/llms.txt"><code>llms.txt</code></a> and the <a href="/openapi.json">OpenAPI spec</a> in-protocol.`, `El prompt <code>crosby_briefing</code> devuelve un resumen diario con datos reales: clima en vivo, alertas, titulares y eventos escolares ya incluidos. Los recursos exponen <a href="/llms.txt"><code>llms.txt</code></a> y la <a href="/openapi.json">especificación OpenAPI</a> dentro del protocolo.`)}</p>
   </section>
   <section class="card">
-    <h2>${T(lang, "Connect from Claude Code", "Conectar desde Claude Code")}</h2>
-    <pre>claude mcp add --transport http crosbynews ${SITE}/mcp</pre>
+    <h2>${T(lang, "Connect", "Conectar")}</h2>
+    <p>${T(lang, `Any MCP client that accepts a server URL can use this one. It speaks Streamable HTTP over public HTTPS and needs no key or account:`, `Cualquier cliente MCP que acepte una URL de servidor puede usar este. Habla Streamable HTTP sobre HTTPS público y no requiere clave ni cuenta:`)}</p>
+    <pre>${SITE}/mcp</pre>
+    <ul>
+      <li><strong>Claude Code</strong> — <code>claude mcp add --transport http crosbynews ${SITE}/mcp</code></li>
+      <li><strong>Grok</strong> — <code>grok mcp add --transport http crosbynews ${SITE}/mcp</code>${T(lang, `, or add it as a custom connector in the Grok app.`, `, o agrégalo como conector personalizado en la app de Grok.`)}</li>
+      <li><strong>Perplexity</strong> — ${T(lang, `add a custom connector under Settings, paste the URL, and leave authentication set to none.`, `agrega un conector personalizado en Configuración, pega la URL y deja la autenticación en ninguna.`)}</li>
+      <li><strong>ChatGPT</strong> — ${T(lang, `through developer mode, which OpenAI currently limits to Business and Enterprise/Edu workspaces on the web.`, `mediante el modo desarrollador, que OpenAI limita actualmente a espacios de trabajo Business y Enterprise/Edu en la web.`)}</li>
+    </ul>
     <p class="intro">${T(lang, `Then ask, e.g., "what's the forecast for Crosby, TX?" and the agent will call these tools. Prefer a webpage? See the <a href="/">live forecast</a>, <a href="/hourly">hourly</a>, and <a href="/radar">radar</a>.`, `Luego pregunta, por ejemplo, "¿cuál es el pronóstico para Crosby, TX?" y el agente llamará a estas herramientas. ¿Prefieres una página web? Mira el <a href="/es/weather">pronóstico en vivo</a>, <a href="/es/hourly">por hora</a> y <a href="/es/radar">radar</a>.`)}</p>
   </section>
 </main>
@@ -784,11 +791,19 @@ ${tools}
 - Prompt \`crosby_briefing\` — un resumen diario con datos reales (clima en vivo, alertas, titulares y eventos escolares ya incluidos).
 - Recursos — \`${SITE}/llms.txt\` (resumen del sitio) y \`${SITE}/openapi.json\` (especificación de la API), legibles dentro del protocolo.
 
-## Conectar desde Claude Code
+## Conectar
+
+Cualquier cliente MCP que acepte una URL de servidor puede usar este. Habla
+Streamable HTTP sobre HTTPS público y no requiere clave ni cuenta:
 
 \`\`\`
-claude mcp add --transport http crosbynews ${SITE}/mcp
+${SITE}/mcp
 \`\`\`
+
+- **Claude Code** — \`claude mcp add --transport http crosbynews ${SITE}/mcp\`
+- **Grok** — \`grok mcp add --transport http crosbynews ${SITE}/mcp\`, o agrégalo como conector personalizado en la app de Grok.
+- **Perplexity** — agrega un conector personalizado en Configuración, pega la URL y deja la autenticación en ninguna.
+- **ChatGPT** — mediante el modo desarrollador, que OpenAI limita actualmente a espacios de trabajo Business y Enterprise/Edu en la web.
 
 Luego pregunta, por ejemplo, "¿cuál es el pronóstico para Crosby, TX?" y el
 agente llamará a estas herramientas. ¿Prefieres una página web? Mira el
@@ -819,11 +834,19 @@ ${tools}
 - Prompt \`crosby_briefing\` — a data-grounded daily-briefing prompt (live weather, alerts, headlines, and school events pre-filled).
 - Resources — \`${SITE}/llms.txt\` (site overview) and \`${SITE}/openapi.json\` (API spec), readable in-protocol.
 
-## Connect from Claude Code
+## Connect
+
+Any MCP client that accepts a server URL can use this one. It speaks Streamable
+HTTP over public HTTPS and needs no key or account:
 
 \`\`\`
-claude mcp add --transport http crosbynews ${SITE}/mcp
+${SITE}/mcp
 \`\`\`
+
+- **Claude Code** — \`claude mcp add --transport http crosbynews ${SITE}/mcp\`
+- **Grok** — \`grok mcp add --transport http crosbynews ${SITE}/mcp\`, or add it as a custom connector in the Grok app.
+- **Perplexity** — add a custom connector under Settings, paste the URL, and leave authentication set to none.
+- **ChatGPT** — through developer mode, which OpenAI currently limits to Business and Enterprise/Edu workspaces on the web.
 
 Then ask, e.g., "what's the forecast for Crosby, TX?" and the agent will call
 these tools. Prefer a webpage? See the [live forecast](${SITE}/),
