@@ -217,6 +217,33 @@ console.log("\ncardinality:\n");
   const codes = new Set();
   for (const c of [-1, 0, 42, 999]) codes.add(classify({ jsonrpc: "2.0", id: 1, method: "ping" }, { error: { code: c } }, 1).code);
   assert("unrecognised error codes collapse", [...codes], ["(other)"]);
+
+  // Storage and display are separate concerns and must stay that way: the cap
+  // exists so a caller-controlled name cannot grow the record without bound,
+  // while the phone report stays readable. Raising one must not silently
+  // change the other.
+  {
+    const many = {};
+    for (let i = 0; i < 400; i++) many[`client-${i}`] = 400 - i;
+    const report = {
+      checkedAt: "now", since: null, rolledUpThrough: null, pending: { shards: 0, calls: 0 },
+      today: { calls: 0, ok: 0, notifications: 0, rpcErrors: 0, toolErrors: 0 },
+      last7Days: { calls: 0, ok: 0, notifications: 0, rpcErrors: 0, toolErrors: 0 },
+      lifetime: { calls: 0, ok: 0, notifications: 0, rpcErrors: 0, toolErrors: 0 },
+      tools: { last7Days: [], lifetime: [] },
+      methods: { last7Days: {}, lifetime: {} },
+      errorCodes: { last7Days: {}, lifetime: {} },
+      clients: { last7Days: {}, lifetime: many },
+      unimplementedRequested: { last7Days: {}, lifetime: {} },
+      days: {}, months: {}, rollup: { at: null, ok: true, shards: 0, error: null },
+    };
+    const lines = mcpUsageText(report).split("\n");
+    const shown = lines.filter((l) => /^ {2}client-\d+ /.test(l)).length;
+    assert("the report prints only the top 15 clients", shown, 15);
+    assert("...and says how many it left out", lines.some((l) => l.includes("and 385 more")), true);
+    const widest = Math.max(...lines.map((l) => l.length));
+    assert("...and still fits a phone terminal", widest <= 60, true);
+  }
 }
 
 // --- 3. the rollup ----------------------------------------------------------

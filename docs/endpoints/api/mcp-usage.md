@@ -88,16 +88,26 @@ because one batch carries many messages.
 **Never recorded:** IP addresses, User-Agent, tool arguments, request or
 response bodies, any cross-request identifier, or any timestamp finer than the
 Central calendar day in the durable record. A shard holds counts, not events,
-so no per-call
-row exists even transiently.
+so no per-call row exists even transiently.
 
 Every recorded name is allow-listed before storage, because `method` and
 `params.name` are caller-controlled strings and an unbounded record is a remote
 storage-growth bug. Tool names outside `mcpTools()` become `(unknown)`; a
 malformed envelope becomes `(invalid)`; error codes outside the five JSON-RPC
 codes become `(other)`; client names are lower-cased, stripped to
-`[a-z0-9._-]`, truncated to 32 characters and capped at 20 distinct values with
-the rest folded into `(other)`.
+`[a-z0-9._-]`, truncated to 32 characters and capped at 100 distinct values with
+the rest folded into `(other)`. Storage and display are separate: the JSON
+carries every kept name, while `?format=txt` prints the top 15 and totals the
+remainder, because a phone terminal cannot use a hundred-line list.
+
+The cap's **existence** is the load-bearing part, not its value. `clientInfo.name`
+is caller-controlled, so without a ceiling a loop of unique names grows the
+record until a `put` crosses KV's 25 MiB value limit and the counters stop
+recording entirely — it guards the feature's availability, not a storage bill.
+Distinct names cost no extra KV *writes*: the flush cadence sets the write
+count, and a new name adds roughly 17 bytes to a value that was being written
+anyway. Measured 2026-09-20, the whole record was 2,950 bytes; at this cap it
+projects to well under 1% of the 25 MiB limit after a year.
 
 The method allow-list is deliberately **wider than what the server dispatches**:
 it is the full 25-method list from the MCP spec schema for both protocol

@@ -52,7 +52,22 @@ const SHARD_TTL_S = 21600;
 // that, or a shard written in another colo is missed.
 const GRACE_MS = 120000;
 const RETAIN_DAYS = 90;
-const MAX_CLIENTS = 20;
+// Distinct `clientInfo.name` values kept per day, per month and lifetime; the
+// rest fold into "(other)". Raised from 20 on 2026-09-20, when day one already
+// carried 21 real clients and the cap started truncating a genuinely useful
+// list. The number is not load-bearing — its EXISTENCE is. Client names are
+// caller-controlled, so without a ceiling a loop of unique names grows the
+// record until the put crosses KV's 25 MiB value limit and the metrics stop
+// recording altogether. This is not a storage-cost guard, it is what stops the
+// feature being switched off remotely. At 100 the record measures well under
+// 1% of that limit after a year. Distinct names cost no extra KV WRITES: the
+// flush cadence sets the write count, and a new name only adds ~17 bytes to a
+// value that was being written anyway.
+const MAX_CLIENTS = 100;
+// How many of them the fixed-width report prints. Storage and display are
+// separate on purpose: a phone terminal cannot use a hundred-line list, but
+// the JSON still carries every kept name.
+const MAX_CLIENTS_SHOWN = 15;
 
 const OTHER = "(other)";
 const UNKNOWN = "(unknown)";
@@ -736,9 +751,14 @@ export function mcpUsageText(report) {
   const clients = Object.keys(report.clients.lifetime).length ? report.clients.lifetime : null;
   if (clients) {
     L.push("");
-    L.push("clients, lifetime");
-    for (const k of Object.keys(clients).sort((a, b) => clients[b] - clients[a])) {
+    const ranked = Object.keys(clients).sort((a, b) => clients[b] - clients[a]);
+    L.push(`clients, lifetime${ranked.length > MAX_CLIENTS_SHOWN ? ` (top ${MAX_CLIENTS_SHOWN} of ${ranked.length})` : ""}`);
+    for (const k of ranked.slice(0, MAX_CLIENTS_SHOWN)) {
       L.push(`  ${pad(k, 26)}${num(clients[k], 7)}`);
+    }
+    if (ranked.length > MAX_CLIENTS_SHOWN) {
+      const rest = ranked.slice(MAX_CLIENTS_SHOWN).reduce((n, k) => n + clients[k], 0);
+      L.push(`  ${pad(`… and ${ranked.length - MAX_CLIENTS_SHOWN} more`, 26)}${num(rest, 7)}`);
     }
   }
 
