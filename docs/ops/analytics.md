@@ -41,7 +41,7 @@ even transiently, so there is nothing to correlate back to a caller.
 Every stored name is allow-listed first, because `method` and `params.name`
 arrive from the caller: methods outside the MCP spec's fixed 25 collapse to
 `(other)`, unknown tools to `(unknown)`, and client names are sanitised,
-truncated and capped at 20 distinct values. Without that, a loop of random
+truncated and capped at 100 distinct values. Without that, a loop of random
 method names would grow the record without bound. The method list covers the
 whole spec rather than only what this server implements, so a client asking for
 a capability we lack is visible by name instead of buried in `(other)`.
