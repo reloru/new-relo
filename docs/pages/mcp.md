@@ -37,7 +37,7 @@ or anywhere else on the site. See `docs/endpoints/api/mcp-usage.md`.
 |---|---|
 | What MCP is and what this server does | static |
 | Tool list — name + description, one `<li>` each | **generated from `mcpTools()`**, so it cannot drift from the protocol |
-| How to connect, with a copy-paste `claude mcp add` command | static |
+| How to connect — the bare server URL, then one line each for Claude Code, Grok, Perplexity and ChatGPT | static |
 | Pointer to the server card and OpenAPI spec | static |
 
 ## Canonical & sitemap
