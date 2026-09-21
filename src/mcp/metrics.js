@@ -5,10 +5,10 @@
 //
 // WHAT IS NEVER RECORDED: IP addresses, User-Agent, tool arguments, request or
 // response bodies, any cross-request identifier, and any timestamp finer than
-// the UTC day in the durable record. A shard entry holds COUNTS, not events, so
-// no per-call row exists even transiently. The one thing recorded about a
-// caller is `clientInfo.name` from `initialize` — a product name ("claude-ai",
-// "cursor"), allow-list-shaped and capped, never a person.
+// the Central calendar day in the durable record. A shard entry holds COUNTS,
+// not events, so no per-call row exists even transiently. The one thing
+// recorded about a caller is `clientInfo.name` from `initialize` — a product
+// name ("claude-ai", "cursor"), allow-list-shaped and capped, never a person.
 //
 // WHY THIS IS SHAPED THE WAY IT IS. Workers KV permits a maximum of one write
 // per second to the same key, and concurrent writes to one key clobber each
@@ -24,6 +24,7 @@
 
 import { mcpTools } from "./server.js";
 import { centralStamp } from "../lib/format.js";
+import { ctDateStr } from "../features/air.js";
 
 // The one durable key, flat alongside `cron_status`.
 export const MCP_METRICS_KV_KEY = "mcp_metrics";
@@ -210,8 +211,14 @@ function bucketStartMs(b) {
   return Date.UTC(+b.slice(0, 4), +b.slice(4, 6) - 1, +b.slice(6, 8), +b.slice(9, 11), +b.slice(11, 13));
 }
 
-function dayOf(ms) {
-  return new Date(ms).toISOString().slice(0, 10);
+// Central, not UTC. This site is Central-facing — every timestamp it renders
+// goes through centralStamp, and the pollen/air features key their days with
+// ctDateStr — so "today" in a report a human reads has to mean the day that
+// human is living in. Keyed by UTC, the day rolled over at 7pm local and
+// "today" read as a near-empty bucket all evening. The 10-minute shard buckets
+// stay UTC on purpose: those are time windows, not calendar days.
+export function dayOf(ms) {
+  return ctDateStr(ms);
 }
 
 function freshRecord() {
@@ -542,9 +549,15 @@ export async function mcpRollUp(env) {
 
 // --- read path ---------------------------------------------------------------
 
-function lastNDays(n, nowMs) {
+export function lastNDays(n, nowMs) {
+  // Step calendar days from a NOON anchor rather than subtracting 24h from the
+  // current instant: a Central day is 23 or 25 hours long on the two DST shift
+  // dates, so fixed 24h steps repeat or skip a day there. Noon is far enough
+  // from both boundaries that the date never slips.
+  const [y, m, d] = dayOf(nowMs).split("-").map(Number);
+  const anchor = Date.UTC(y, m - 1, d, 12);
   const out = [];
-  for (let i = 0; i < n; i++) out.push(dayOf(nowMs - i * 86400000));
+  for (let i = 0; i < n; i++) out.push(new Date(anchor - i * 86400000).toISOString().slice(0, 10));
   return out;
 }
 
