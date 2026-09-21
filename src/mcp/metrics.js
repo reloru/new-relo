@@ -678,9 +678,16 @@ export function mcpUsageText(report) {
   L.push(report.checkedAt);
   L.push("");
 
-  L.push(`${pad("", 10)}${num("calls", 7)}${num("ok", 6)}${num("rpcerr", 7)}${num("toolerr", 8)}`);
+  // EVERY outcome class gets a column. Notifications were missing, so the row
+  // did not add up to its own `calls` total — and a table that fails the
+  // reader's arithmetic reads as a counting bug rather than a missing column.
+  // A notification (notifications/initialized and friends) draws no response
+  // by protocol, so it is neither a success nor an error and needs its own.
+  L.push(`${pad("", 10)}${num("calls", 7)}${num("ok", 6)}${num("notif", 7)}${num("rpcerr", 7)}${num("toolerr", 8)}`);
   for (const [label, s] of [["today", report.today], ["7 days", report.last7Days], ["lifetime", report.lifetime]]) {
-    L.push(`${pad(label, 10)}${num(s.calls, 7)}${num(s.ok, 6)}${num(s.rpcErrors, 7)}${num(s.toolErrors, 8)}`);
+    L.push(
+      `${pad(label, 10)}${num(s.calls, 7)}${num(s.ok, 6)}${num(s.notifications, 7)}${num(s.rpcErrors, 7)}${num(s.toolErrors, 8)}`,
+    );
   }
   if (report.since) L.push(`since ${report.since}`);
   L.push("");

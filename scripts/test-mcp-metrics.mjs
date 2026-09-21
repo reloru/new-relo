@@ -356,9 +356,9 @@ console.log("\ntext rendering:\n");
       v: 1,
       rolledUpThrough: bucketEndingAgo(30 * 60000),
       firstSeen: new Date(Date.now() - 5 * 86400000).toISOString(),
-      lifetime: oneDay({ total: 9, methods: { "tools/call": 9 }, tools: { get_forecast: 9 }, outcomes: { ok: 8, rpc_error: 1 }, codes: { "-32602": 1 }, clients: { "claude-ai": 3 }, toolMs: { get_forecast: 900 } }),
+      lifetime: oneDay({ total: 12, methods: { "tools/call": 9, "notifications/initialized": 3 }, tools: { get_forecast: 9 }, outcomes: { ok: 8, notification: 3, rpc_error: 1 }, codes: { "-32602": 1 }, clients: { "claude-ai": 3 }, toolMs: { get_forecast: 900 } }),
       months: {},
-      days: { [day()]: oneDay({ total: 9, methods: { "tools/call": 9 }, tools: { get_forecast: 9 }, outcomes: { ok: 8, rpc_error: 1 }, codes: { "-32602": 1 }, clients: { "claude-ai": 3 }, toolMs: { get_forecast: 900 } }) },
+      days: { [day()]: oneDay({ total: 12, methods: { "tools/call": 9, "notifications/initialized": 3 }, tools: { get_forecast: 9 }, outcomes: { ok: 8, notification: 3, rpc_error: 1 }, codes: { "-32602": 1 }, clients: { "claude-ai": 3 }, toolMs: { get_forecast: 900 } }) },
       rollup: { at: new Date().toISOString(), ok: true, shards: 1, error: null },
     },
   });
@@ -368,6 +368,16 @@ console.log("\ntext rendering:\n");
   assert("names the busiest tool", text.includes("get_forecast"), true);
   assert("reports the error code", text.includes("-32602"), true);
   assert("states the privacy position", text.includes("No caller identity"), true);
+
+  // The owner added the columns by hand and they came up short: notifications
+  // were a fourth outcome class with no column, so the row did not equal its
+  // own total. Pin it — a table that fails the reader's arithmetic reads as a
+  // counting bug.
+  for (const row of ["today", "7 days", "lifetime"]) {
+    const line = text.split("\n").find((l) => l.startsWith(row));
+    const n = line.slice(10).trim().split(/\s+/).map(Number);
+    assert(`"${row}" columns sum to its own total`, n.slice(1).reduce((a, b) => a + b, 0), n[0]);
+  }
 }
 
 // --- 5b. an unimplemented spec request is surfaced as a gap -----------------
