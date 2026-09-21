@@ -34,7 +34,8 @@ class (ok / notification / rpc_error / tool_error), elapsed ms per tool, the
 
 **Not counted, ever:** IP addresses, User-Agent, tool arguments, request or
 response bodies, any cross-request identifier, or any timestamp finer than the
-UTC day. The stored record holds counts, not events — no per-call row exists
+Central calendar day. The stored record holds counts, not events — no per-call
+row exists
 even transiently, so there is nothing to correlate back to a caller.
 
 Every stored name is allow-listed first, because `method` and `params.name`

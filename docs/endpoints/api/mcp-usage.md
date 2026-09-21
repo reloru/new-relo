@@ -87,7 +87,8 @@ because one batch carries many messages.
 
 **Never recorded:** IP addresses, User-Agent, tool arguments, request or
 response bodies, any cross-request identifier, or any timestamp finer than the
-UTC day in the durable record. A shard holds counts, not events, so no per-call
+Central calendar day in the durable record. A shard holds counts, not events,
+so no per-call
 row exists even transiently.
 
 Every recorded name is allow-listed before storage, because `method` and
@@ -123,7 +124,9 @@ Reads two things and writes neither:
   detail; older days collapse into `months`, kept indefinitely; `lifetime` is
   never trimmed.
 - **`mcpm:<bucket>:<shard>`** — transient per-isolate counters for a 10-minute
-  UTC bucket, `expirationTtl` 6h.
+  **UTC** bucket, `expirationTtl` 6h. The bucket stays UTC deliberately: it is a
+  time window for the rollup's closed-bucket rule, not a calendar day. Only the
+  `days` keys inside the values are Central.
 
 The endpoint merges shards the cron has not folded yet, so the answer is current
 rather than up to a quarter-hour behind. **The read order is load-bearing**: it

@@ -27,6 +27,8 @@ import {
   mcpUsageText,
   mergeInto,
   bucketOf,
+  dayOf,
+  lastNDays,
   MCP_METRICS_KV_KEY,
   MCP_SHARD_PREFIX,
 } from "../src/mcp/metrics.js";
@@ -91,7 +93,10 @@ function bucketToken(ms) {
 // A bucket whose window ENDED roughly `agoMs` ago.
 const bucketEndingAgo = (agoMs) => bucketToken(Date.now() - agoMs - BUCKET_MS);
 
-const day = (msAgo = 0) => new Date(Date.now() - msAgo).toISOString().slice(0, 10);
+// Address day buckets through the REAL dayOf: a second implementation here was
+// UTC while production moved to Central, so every lookup missed after 7pm
+// local. Central-correctness is pinned separately, against fixed timestamps.
+const day = (msAgo = 0) => dayOf(Date.now() - msAgo);
 
 function shard(days, at = new Date().toISOString()) {
   return { v: 1, at, days };
@@ -301,6 +306,31 @@ console.log("\nrollup:\n");
   const monthTotal = Object.values(rec.months).reduce((n, m) => n + m.total, 0);
   const dayTotal = Object.values(rec.days).reduce((n, d) => n + d.total, 0);
   assert("no count is lost in the trim", monthTotal + dayTotal, 97);
+}
+
+// --- 3b. days are CENTRAL, not UTC ------------------------------------------
+
+// The header renders Central via centralStamp, so a UTC day bucket makes
+// "today" roll over at 7pm local and read as near-empty all evening. That is
+// what shipped first, and it is invisible unless you look after 7pm.
+console.log("\ncalendar days:\n");
+{
+  // 2026-09-21T02:00Z is 2026-09-20 21:00 CDT — the window where the two
+  // disagree, which is exactly when the bug showed.
+  assert("an evening instant keys to the Central day", dayOf(Date.parse("2026-09-21T02:00:00Z")), "2026-09-20");
+  // ...and before 7pm local the two agree, so this is not an off-by-one.
+  assert("an afternoon instant is unchanged", dayOf(Date.parse("2026-09-20T18:00:00Z")), "2026-09-20");
+  // CST (winter, UTC-6): 2026-01-15T05:00Z is 2026-01-14 23:00 CST.
+  assert("works in CST as well as CDT", dayOf(Date.parse("2026-01-15T05:00:00Z")), "2026-01-14");
+
+  // A Central day is 23 or 25 hours on the DST shift dates, so stepping back
+  // by a fixed 86400000 from the current instant repeats or skips a day there.
+  const fallBack = lastNDays(4, Date.parse("2026-11-02T18:00:00Z")); // DST ended Nov 1
+  assert("no repeated day across the fall-back shift", new Set(fallBack).size, 4);
+  assert("...and the dates are consecutive", fallBack, ["2026-11-02", "2026-11-01", "2026-10-31", "2026-10-30"]);
+
+  const springFwd = lastNDays(4, Date.parse("2026-03-09T18:00:00Z")); // DST began Mar 8
+  assert("no skipped day across the spring-forward shift", springFwd, ["2026-03-09", "2026-03-08", "2026-03-07", "2026-03-06"]);
 }
 
 // --- 4. merge arithmetic ----------------------------------------------------
