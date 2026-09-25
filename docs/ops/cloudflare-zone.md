@@ -63,6 +63,35 @@ it was last seen failing, and a CA change was nonetheless proposed and applied
 two and a half hours later on the stale picture. If the pack reads `active`, there
 is nothing to fix.
 
+**A burst of several emails is the retry schedule, not an escalating problem.**
+Cloudflare's validation backoff spaces the first ten attempts about a minute
+apart before stretching toward a four-hour cap, and its docs state that "in
+automatic processes, most validations complete within the first five minutes."
+The **advanced** pack carries two certificates, RSA and ECDSA, so a single failed
+attempt on it emails twice. Measured 2026-09-25, when the advanced pack's renewal
+fired: four emails across two minutes, then `active` four minutes after the first
+attempt, with `validation_errors` never populating. Renewal tokens are generated
+30 days before expiry, so expect this once a quarter per pack.
+
+**The Worker owns `/.well-known/acme-challenge/*`, which is a trap for any future
+HTTP-validated certificate.** Cloudflare's DCV troubleshooting page warns that a
+Workers route covering that path can intercept the CA's request. Ours does: the
+apex answers 404 there with the Worker's own CSP header, so the Worker replied,
+not the edge. **It is inert today** and all three conditions must hold for it to
+stay that way — verified 2026-09-25:
+
+| condition | current state |
+|---|---|
+| every pack's `validation_method` | `txt` |
+| every pack's hostnames | include `*.crosbynews.com` |
+| HTTP fallback requires | no wildcard, and a partial setup |
+
+Wildcards alone close every path to HTTP validation, since HTTP DCV cannot cover
+them. But order a **non-wildcard** certificate for a named subdomain, or switch a
+pack to HTTP, and the Worker will swallow the token with no obvious cause. If that
+ever happens, `routeRequest()` needs a passthrough for that prefix before the
+order is placed, not after it fails.
+
 **Changing the Universal SSL CA re-issues the certificate.** `PATCH
 /zones/{zone_id}/ssl/universal/settings` with a different
 `certificate_authority` retires the existing universal pack and orders a new one,
