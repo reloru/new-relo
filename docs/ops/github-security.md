@@ -56,6 +56,34 @@ bump can't violate `compatibility_date`.
 - CodeQL's workflow is **advisory only** — do NOT add it to branch
   protection as a required check.
 
+## Dependency overrides (`package.json`)
+
+`overrides` forces two transitive packages past the versions wrangler's own
+dependency pins: `undici` `^8.11.2` and `sharp` `^0.35.5`. Miniflare, which
+wrangler depends on, pins both **exactly** — at wrangler 4.148.0 that is
+`undici@7.29.1` and `sharp@0.35.4` — so a plain `npm update` cannot move them.
+
+Why each exists (as of 2026-10-07):
+- **`undici`** — Dependabot raised six alerts, all `undici` (one high, two
+  moderate, three low), all fixed in 7.29.1 or 8.10.2. The override takes the
+  8.x line. **8.x needs Node `>=22.19.0`** (7.x needed `>=20.18.1`); CI pins
+  `node-version: '22'`, which floats to the latest 22.x.
+- **`sharp`** — `npm audit` flags `sharp <0.35.5` (librsvg, GHSA-wq5f-xc86-pv6w).
+  Dependabot did not raise it. It is unreachable here — miniflare only uses
+  `sharp` to simulate the Images binding locally and `wrangler.jsonc` declares
+  none — and is overridden to keep `npm audit` at zero.
+
+Neither reaches production: the built Worker bundle was **byte-identical**
+(same sha256) before and after the bump, and contains no `undici`, `sharp` or
+`librsvg`. The ranges are carets so a later security patch can flow through the
+lockfile without editing `package.json`.
+
+**Remove both overrides** once the wrangler you are on pulls in patched versions
+itself. To check: delete the `overrides` block, run `npm install`, and confirm
+`npm audit` reports 0 and `npm ls undici sharp` shows `undici >=8.11.2` (or a
+patched 7.x) and `sharp >=0.35.5`. Until then they are a pin someone has to
+remember, which is why this section exists.
+
 ## Everything below is about the Claude Code *session* proxy — not `claude.yml`
 
 **The `@claude` GitHub Actions workflow (`docs/ops/ci-cd.md`) bypasses this
