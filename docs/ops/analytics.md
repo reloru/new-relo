@@ -127,3 +127,26 @@ The `/mcp` usage counters above, and Cloudflare's own aggregate server-side
 request logs, kept as part of serving the site the way any host does. That is not a browser-side tracker, carries no analytics
 identifier, and is disclosed in the `/privacy` Analytics section. Zone analytics
 in the Cloudflare dashboard are derived from those logs and need no script.
+
+## Workers Logs — off since 2026-10-07
+
+`observability.enabled` is `false` in `wrangler.jsonc`. Until then the Worker
+persisted Workers Logs with invocation logs on, so every request URL was
+recorded **with its query string** (`redact_query_string` was `false`) — which on
+`/news?admin=` and `/api/mcp-usage?key=` is the `ADMIN_KEY`. Retention was 3 days
+on Free and 7 on Paid.
+
+This is the Worker's own log persistence, separate from the zone-level request
+logs above, and nothing depends on it:
+
+- the MCP usage counters live in KV (`mcp_metrics`, `mcpm:*`);
+- `/api/health` reads the `cron_status` KV key.
+
+What it costs is diagnostics. Every `console.error` in the Worker (the cron's
+per-feed failures, the MCP flush and rollup failures) now goes nowhere. A failing
+MCP rollup is visible only as `rollup.ok` on `/api/mcp-usage`, and a failing cron
+feed only through `/api/health`. To get logs back, set `enabled` to `true` and
+redeploy.
+
+Disabling stops new logs. Entries already stored age out on their own retention
+window rather than being deleted.
