@@ -26,7 +26,15 @@
     "crons": ["*/15 * * * *"]
   },
 
+  // Workers Logs off, by the owner's decision (2026-10-07). Nothing in the site
+  // depends on it: the MCP usage counters live in KV, and /api/health reports
+  // cron feed status from the `cron_status` KV key. What it costs is
+  // diagnostics: every `console.error` in the Worker now goes nowhere, so a
+  // failing flush or rollup shows up only as `rollup.ok` on /api/mcp-usage.
+  // For the record: invocation logs recorded each request URL with its query
+  // string (redact_query_string was false), which on the admin routes is the
+  // ADMIN_KEY.
   "observability": {
-    "enabled": true
+    "enabled": false
   }
 }
