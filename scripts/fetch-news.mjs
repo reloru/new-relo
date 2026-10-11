@@ -56,7 +56,7 @@ const REJECT = [
 // enough to accept given these places otherwise rank straight into the feed.
 const GEO_REJECT = [
   "waterbury", "crosbyton", "uk", "england", "britain", "british", "liverpool",
-  "waterloo", "sefton", "merseyside", "cumbria", "lancashire",
+  "waterloo", "sefton", "merseyside", "cumbria", "lancashire", "scunthorpe", "lincolnshire",
 ];
 const GEO_RE = new RegExp("\\b(?:" + GEO_REJECT.join("|") + ")\\b", "i");
 // Obituaries / funeral-home noise — dropped entirely.

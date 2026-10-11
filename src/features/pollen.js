@@ -144,7 +144,7 @@ export function parsePollenCount(html) {
       if (count > 0) found.push({ name: m[1].trim(), count });
     }
     found.sort((a, b) => b.count - a.count);
-    species[key] = found.slice(0, 8);
+    species[key] = found;
   }
   return { groups, species };
 }

@@ -32,6 +32,13 @@ comparable and are never mixed across data.
 filtered by `waterNum()` so they never render as numbers. Flow is stored in
 kcfs upstream and converted by `waterFlowCfs()`.
 
+**Two gauges show stage only (`noFlow` in `WATER_GAUGES`).** NWPS reports a
+flow for both, but USGS measures nothing it could stand for: HSJT2 (USGS
+08072000) is a lake-level gage with no discharge series at all, and SHLT2 (USGS
+08072050) is tidal, where USGS's measured flow swings through zero in both
+directions while NWPS's figure stays thousands of cfs positive. Where USGS does
+measure discharge (HCDT2, HFFT2, NCET2) NWPS's flow matches it.
+
 ## Data
 
 Cron + KV, key `water`, cron-owned, refreshed **every tick** (levels move fast in

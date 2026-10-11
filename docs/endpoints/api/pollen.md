@@ -23,7 +23,9 @@ keeps the ETag honest in either direction.
 
 `countDate`, the source `url`, and `groups` — tree, weed, grass pollen and mold
 spores, each with its National Allergy Bureau category and grains/m³ — plus the
-per-genus `species` lists.
+per-genus `species` lists — every genus the lab counted above zero, sorted by
+count, uncapped (the page says "only types the lab actually counted today are
+listed", which a cap would make false).
 
 **Categories are republished verbatim from the lab.** They are never
 recalculated or rebanded on our side.
