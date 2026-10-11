@@ -14,9 +14,13 @@ deployed artifact is the esbuild bundle rooted at `src/index.js` and
 nothing else. **A CVE in that tree cannot reach crosbynews.com.** Don't
 read a Dependabot alert here as a live-site vulnerability; it isn't one.
 
-The exposure runs the other way: the deploy job runs `npm ci` + wrangler
-with `CLOUDFLARE_API_TOKEN` in the environment, so a compromised package
-executes next to the credential that can rewrite the site. **The threat
+The exposure runs the other way: the deploy job runs `cloudflare/wrangler-action`
+(`wranglerVersion: "4"`) with `CLOUDFLARE_API_TOKEN`, so whatever wrangler it
+installs executes next to the credential that can rewrite the site. That job has
+**no `npm ci` step of its own** — only the Build check job (no secrets) runs
+`npm ci` and the dry-run — so how the action installs wrangler, and whether it
+reads `package-lock.json`, is **not established here**; check the action before
+relying on the lockfile to describe what runs beside the token. **The threat
 model is supply-chain compromise of the deploy token**, which is why
 malware alerts rank above CVE alerts, and why the three floating Action
 tags matter as much as npm — same job, same secrets.
@@ -35,6 +39,15 @@ build-only dependency. These PRs get a real gate — the dry-run job runs
 `npm ci` + `wrangler deploy --dry-run` — and per the compat-date note in
 `docs/ops/ci-cd.md`, bumping wrangler only RAISES the workerd ceiling, so a
 bump can't violate `compatibility_date`.
+
+**No `overrides` are in use.** Miniflare (wrangler's dependency) pins `undici`
+and `sharp` **exactly**, so a plain `npm update` cannot move them. If an
+advisory lands on one before a wrangler release has caught up, an `overrides`
+entry in `package.json` is the only way to move it early. Treat that as a
+temporary pin: remove it once wrangler pulls in the patched version itself
+(delete the block, `npm install`, confirm `npm audit` reports 0). Beware that
+`undici` 8.x needs Node `>=22.19.0`, while the 7.x line wrangler pins needs only
+`>=20.18.1`.
 
 **Deliberately OFF, with reasons** (so they don't get "fixed" later):
 - *Automatic dependency submission* — for ecosystems whose deps resolve
@@ -55,34 +68,6 @@ bump can't violate `compatibility_date`.
   (security) + `Errors` (standard) — but look at real alerts first.
 - CodeQL's workflow is **advisory only** — do NOT add it to branch
   protection as a required check.
-
-## Dependency overrides (`package.json`)
-
-`overrides` forces two transitive packages past the versions wrangler's own
-dependency pins: `undici` `^8.11.2` and `sharp` `^0.35.5`. Miniflare, which
-wrangler depends on, pins both **exactly** — at wrangler 4.148.0 that is
-`undici@7.29.1` and `sharp@0.35.4` — so a plain `npm update` cannot move them.
-
-Why each exists (as of 2026-10-07):
-- **`undici`** — Dependabot raised six alerts, all `undici` (one high, two
-  moderate, three low), all fixed in 7.29.1 or 8.10.2. The override takes the
-  8.x line. **8.x needs Node `>=22.19.0`** (7.x needed `>=20.18.1`); CI pins
-  `node-version: '22'`, which floats to the latest 22.x.
-- **`sharp`** — `npm audit` flags `sharp <0.35.5` (librsvg, GHSA-wq5f-xc86-pv6w).
-  Dependabot did not raise it. It is unreachable here — miniflare only uses
-  `sharp` to simulate the Images binding locally and `wrangler.jsonc` declares
-  none — and is overridden to keep `npm audit` at zero.
-
-Neither reaches production: the built Worker bundle was **byte-identical**
-(same sha256) before and after the bump, and contains no `undici`, `sharp` or
-`librsvg`. The ranges are carets so a later security patch can flow through the
-lockfile without editing `package.json`.
-
-**Remove both overrides** once the wrangler you are on pulls in patched versions
-itself. To check: delete the `overrides` block, run `npm install`, and confirm
-`npm audit` reports 0 and `npm ls undici sharp` shows `undici >=8.11.2` (or a
-patched 7.x) and `sharp >=0.35.5`. Until then they are a pin someone has to
-remember, which is why this section exists.
 
 ## Everything below is about the Claude Code *session* proxy — not `claude.yml`
 
