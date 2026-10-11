@@ -22,7 +22,8 @@ The script holds all the filtering logic:
 - `REJECT` for famous "Crosby" people / other-state Crosbys
 - `GEO_REJECT` (word-boundary matched, so "uk" can't fire on
   "truck"/"Duke") for other-place Crosbys that otherwise rank straight in
-  — Crosby in Merseyside/Liverpool/Sefton, England (UK); Crosby High
+  — Crosby in Merseyside/Liverpool/Sefton, England (UK); the Crosby
+  district of Scunthorpe, Lincolnshire (UK); Crosby High
   School in **Waterbury, CT** (matches the `crosby high` relevance token);
   and **Crosbyton, TX**
 - real-estate + obituary drops

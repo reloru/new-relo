@@ -45,7 +45,10 @@ styled lighter than storm cards — an area at 40% is not a storm, and giving it
 equal visual weight overstates it to someone already anxious.
 
 `NHC_CLASS` is a hand dictionary mapping NHC classification codes to human
-labels. Winds are converted from NHC's **knots** (`intensity`) with
+labels. **`PTC` is post-tropical, not potential** — NHC advisories for systems
+carrying it are headed "Post-Tropical Cyclone <name>". The code NHC uses for a
+potential tropical cyclone is undocumented, so none is mapped; an unmapped code
+renders as itself. Winds are converted from NHC's **knots** (`intensity`) with
 `ktToMph` — `kt × 1.15078`, rounded to the nearest 5, matching NHC's own
 advisory rounding. Movement is shown as a **compass direction only**
 (`degToCompass`), because `movementSpeed`'s unit is not clearly documented

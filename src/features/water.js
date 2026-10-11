@@ -27,8 +27,12 @@ export const WATER_KV_KEY = "water";
 // Crosby and the surrounding NE Harris County / San Jacinto corridor.
 export const WATER_GAUGES = [
   { lid: "HCDT2", en: "Cedar Bayou near Crosby", es: "Cedar Bayou cerca de Crosby" },
-  { lid: "SHLT2", en: "San Jacinto River near Sheldon", es: "Río San Jacinto cerca de Sheldon" },
-  { lid: "HSJT2", en: "San Jacinto River at Lake Houston", es: "Río San Jacinto en Lake Houston" },
+  // noFlow: NWPS still reports a flow here, but USGS measures none that it
+  // could stand for. 08072000 is a lake-level gage with no discharge series;
+  // 08072050 is tidal, where measured flow swings both ways through zero while
+  // NWPS's figure stays thousands of cfs positive. Stage is real at both.
+  { lid: "SHLT2", en: "San Jacinto River near Sheldon", es: "Río San Jacinto cerca de Sheldon", noFlow: true },
+  { lid: "HSJT2", en: "San Jacinto River at Lake Houston", es: "Río San Jacinto en Lake Houston", noFlow: true },
   { lid: "HFFT2", en: "Luce Bayou near Huffman", es: "Luce Bayou cerca de Huffman" },
   { lid: "GMKT2", en: "Goose Creek near McNair", es: "Goose Creek cerca de McNair" },
   { lid: "NCET2", en: "East Fork San Jacinto River near New Caney", es: "Bifurcación Este del Río San Jacinto cerca de New Caney" },
@@ -93,7 +97,7 @@ export async function fetchWater() {
           usgsId: d.usgsId || null,
           stage: waterNum(obs.primary),
           stageUnit: obs.primaryUnit || "ft",
-          flow: waterNum(obs.secondary), // kcfs
+          flow: g.noFlow ? null : waterNum(obs.secondary), // kcfs
           category: obs.floodCategory || "unknown",
           validTime: obs.validTime || null,
           thresholds,

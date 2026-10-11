@@ -241,6 +241,24 @@ console.log("\nparsePollenCount — zero counts are filtered, not the section:")
 check("an all-zero group yields an empty list", Array.isArray(parsed.species.tree), true);
 check("...with nothing in it", parsed.species.tree?.length, 0);
 
+// No cap on the list. /pollen says "Only types the lab actually counted today
+// are listed", and a top-8 cut made that false: on Oct 9 it hid seven counted
+// molds, Alternaria among them. These are the real Oct 9 mold counts — 15
+// nonzero genera summing to that day's 11,426 total.
+const OCT9_MOLDS = [
+  ["Alternaria", 38], ["Ascospores", 3377], ["Basidiospores", 1336], ["Cercospora", 411],
+  ["Cladosporium", 5503], ["Curvularia", 133], ["Dreshslera/Helminthosporium", 16],
+  ["Nigrospora", 12], ["Oidium/Erysiphe", 10], ["Penicillium/Aspergillus", 267],
+  ["Periconia", 62], ["Pithomyces", 8], ["Rusts", 6], ["Smuts/Myxomycetes", 245], ["Torula", 2],
+];
+const ALL_MOLDS = parsePollenCount(
+  `<h3>Major mold spores counted</h3><ul>${OCT9_MOLDS.map(([n, c]) => `<li>${n}:&nbsp;${c}</li>`).join("")}</ul>`,
+).species.mold ?? [];
+console.log("\nparsePollenCount — every counted genus is kept, not just the top few:");
+check("all 15 nonzero molds kept", ALL_MOLDS.length, 15);
+check("...summing to the day's total", ALL_MOLDS.reduce((a, s) => a + s.count, 0), 11426);
+check("...including the smallest", ALL_MOLDS.at(-1)?.name, "Torula");
+
 // The watchdog's own text extraction. It lives outside src/ on purpose (it must
 // not share code with the selection it checks), but it parses the same
 // third-party HTML and needs the same pinning — CodeQL, not this suite, caught

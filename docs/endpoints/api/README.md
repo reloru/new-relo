@@ -15,7 +15,7 @@ No query parameters are read by any of them.
 
 ## Conditional GET
 
-All nine go through `conditional(request, seed, make, headers)` (`src/lib/http.js`):
+All ten go through `conditional(request, seed, make, headers)` (`src/lib/http.js`):
 
 - **ETag** — weak, `W/"<seed>"`, with any `"` stripped from the seed.
 - **Last-Modified** — set only when the seed parses as a date. Informational;
@@ -58,12 +58,11 @@ intentional for a debuggable public API and is a different judgement from
 
 ## Documented in
 
-- `/openapi.json` — all nine plus `/api/health` (which documents only `200` — it reports facts, not a verdict)
-- `/.well-known/api-catalog` — all nine, each with `service-desc`, `service-doc`
+- `/openapi.json` — all ten plus `/api/health` (which documents only `200` — it reports facts, not a verdict)
+- `/.well-known/api-catalog` — all ten, each with `service-desc`, `service-doc`
   and a `status` link to `/api/health`
-- `/llms.txt` — eight of the nine; **`/api/fishing` is missing**
-  (`docs/audit/2026-07-30-state.md`)
-- `README.md` and `/developers` — all nine
+- `/llms.txt` — all ten
+- `README.md` and `/developers` — all ten
 
 Adding a public API endpoint means adding it to all of those, plus an MCP tool if
 it warrants one, plus a file here.

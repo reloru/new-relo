@@ -110,7 +110,7 @@ export function openApiSpec() {
     properties: {
       id: { type: "string", description: "NHC storm id (e.g. al052026). Atlantic basin only." },
       name: { type: "string" },
-      classification: { type: "string", description: "NHC classification code: TD/TS/HU/MH/STD/STS/PTC/PC/RL." },
+      classification: { type: "string", description: "NHC classification code: TD/TS/HU/MH/STD/STS/PTC (post-tropical)/RL." },
       classificationLabel: { type: "string", description: "Human-readable classification (e.g. Hurricane, Tropical Storm)." },
       windMph: { type: ["integer", "null"], description: "Max sustained winds in mph, rounded to 5 like NHC advisories (converted from NHC's knots)." },
       intensityKt: { type: ["number", "null"], description: "Max sustained winds in knots, as NHC reports them." },

@@ -13,7 +13,7 @@ Shared contract: `docs/endpoints/api/README.md`.
 
 ## Response
 
-Per-gauge `id`, `name`, `usgsId`, observed stage (ft) and flow (cfs), NWPS `category`, the NWS `thresholds` object, and `officialUrl`. Reading and thresholds share one gauge datum, so they are directly comparable.
+Per-gauge `id`, `name`, `usgsId`, observed stage (ft) and flow (cfs; `null` at HSJT2 and SHLT2, where USGS measures no flow it could stand for — see `docs/pages/water.md`), NWPS `category`, the NWS `thresholds` object, and `officialUrl`. Reading and thresholds share one gauge datum, so they are directly comparable.
 
 ## Page
 

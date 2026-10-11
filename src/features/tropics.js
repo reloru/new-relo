@@ -29,8 +29,11 @@ export const NHC_CLASS = {
   MH: ["Major Hurricane", "Huracán mayor"],
   STD: ["Subtropical Depression", "Depresión subtropical"],
   STS: ["Subtropical Storm", "Tormenta subtropical"],
-  PTC: ["Potential Tropical Cyclone", "Posible ciclón tropical"],
-  PC: ["Post-tropical Cyclone", "Ciclón postropical"],
+  // PTC is POST-tropical: NHC advisories for systems carrying it are headed
+  // "Post-Tropical Cyclone <name>". The code NHC uses for a potential tropical
+  // cyclone is not documented anywhere checked, so none is mapped; an unmapped
+  // code renders as itself rather than as a guessed label.
+  PTC: ["Post-tropical Cyclone", "Ciclón postropical"],
   RL: ["Remnant Low", "Baja remanente"],
 };
 export function tropicsClassLabel(code, lang) {
