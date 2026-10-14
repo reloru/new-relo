@@ -5,6 +5,18 @@
   "main": "src/index.js",
   "compatibility_date": "2026-08-11",
 
+  // Binary files (the PNG icons, favicon.ico, og:image) live in public/ and
+  // are served by Workers static assets. run_worker_first: every request reaches
+  // the Worker, which hands the icon paths to env.ASSETS (src/router.js), so
+  // they get the same security headers as every other response and anything
+  // not routed still 404s from the router, not the asset layer. public/ is
+  // written by scripts/build-icons.mjs — regenerate, don't hand-edit.
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "run_worker_first": true
+  },
+
   // Cached NWS forecast + alerts JSON live here under the "weather" key.
   "kv_namespaces": [
     {

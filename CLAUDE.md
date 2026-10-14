@@ -142,7 +142,8 @@ ruleset contents — lives in `docs/ops/ci-cd.md`. The facts an agent must not
 violate:
 - `.github/workflows/deploy.yml` has two required checks: **"Syntax check"**
   (covers every file under `src/` via `node --check`, plus the cross-module-
-  reference and both-language renderer checks) and **"Build check (dry-run)"**
+  reference and both-language renderer checks, and the unit gates such as
+  `Check app icons`) and **"Build check (dry-run)"**
   (`npm ci` + `wrangler deploy --dry-run`). **Don't rename either job** —
   branch protection keys on the exact names.
 - `strict_required_status_checks_policy` is on: a PR must be up to date with
@@ -222,7 +223,8 @@ canonicalization runs via a single Cloudflare Redirect rule
 
 ## Conventions
 - Plain Workers, ES modules (`export default { fetch, scheduled }`). No
-  framework and no runtime dependencies — standard `fetch` + Workers KV only.
+  framework and no runtime dependencies — standard `fetch`, Workers KV and the
+  static-assets binding only.
 - Layout: `src/index.js` is the entry point Wrangler resolves via `wrangler.jsonc`'s
   `main`. It is deliberately thin (~50 lines): the two Worker handlers plus the
   response wrapper. **The route table is `src/router.js`** and **the cron is
@@ -232,7 +234,8 @@ canonicalization runs via a single Cloudflare Redirect rule
   `src/mcp/`, `src/api/`, plus `config.js`, `i18n.js`, `chrome.js`, `seo.js`,
   `discovery.js`, `push.js`. **`src/assets/`
   holds the inline client-side assets** (`icons.js`, `sw-script.js`,
-  `base-css.js`, `client-scripts.js`) — template literals whose escape sequences
+  `base-css.js`, `client-scripts.js`, plus the generated
+  `apple-touch-icon.js`) — template literals whose escape sequences
   belong to the *shipped* string, not to the source file. Move or edit their
   content, never their framing: reformatting silently ships broken client JS
   that `node --check` cannot see, because to the Worker it is all just a string.
@@ -257,8 +260,8 @@ canonicalization runs via a single Cloudflare Redirect rule
   keys on various cadences (see `## KV gotcha` below and `/kv`'s SKILL.md for
   the full list and throttle intervals). `fetch()` serves the cache and falls
   back to a live fetch + warm on a cold cache.
-- Styling: an inline `<style>` block in the rendered HTML — no build step,
-  no static assets. **Three blue tokens, and they are not interchangeable:**
+- Styling: an inline `<style>` block in the rendered HTML — no build step.
+  **Three blue tokens, and they are not interchangeable:**
   `--accent` is **decoration only** (gradients, badge fills, large display
   numerals) — it measures 3.6–4.3:1 on the four surfaces, below WCAG AA, so it
   must never carry body text; `--link` is coloured text and flips per theme;
@@ -282,10 +285,28 @@ canonicalization runs via a single Cloudflare Redirect rule
 - SEO/structured data: every HTML page emits schema.org JSON-LD (`JSONLD_SITE`
   sitewide plus per-page nodes). Kept deliberately honest — no schema for the
   forecast (no truthful type exists) and no fake ratings/FAQ.
-- Link previews: every HTML page emits Open Graph tags plus the shared
-  `OG_COMMON`. No `og:image` — that would need a committed binary, which the
-  "no static assets" rule forbids; cards still render title + description +
-  site name.
+- Binary files (the app icons, `favicon.ico`, the `og:image`) live in
+  `public/` and are served through **Workers static assets** — the `ASSETS`
+  binding in `wrangler.jsonc`, with `run_worker_first: true` so every request
+  still reaches the Worker and gets the security headers; the router hands
+  the icon paths (`ICON_ASSET_PATHS` in `src/assets/icons.js`) to
+  `env.ASSETS`. Text stays inline in the Worker as before. `public/` is
+  written by `node scripts/build-icons.mjs` from the art defined in that
+  script — regenerate, never hand-edit; `scripts/test-icons.mjs` fails CI if
+  the files drift from the art. Full detail in `docs/endpoints/app-icons.md`.
+- **No icon anywhere is an SVG** — not the tab icon, the manifest icons, the
+  touch icon or the notification art. iOS Add to Home Screen shows a letter
+  tile when the only icons it can find are SVG, and Chrome's WebAPK install
+  wants raster `any` icons at 192 and 512 plus a separate maskable one.
+- Shared head: `sharedHead(lang)` (`src/seo.js`) emits every tag the pages
+  have in common — viewport, theme-color, `og:site_name`, the absolute
+  `og:image` (512px PNG, with width/height/type/alt), `twitter:card`, the PNG
+  tab icons, the 180px `apple-touch-icon` **inlined as a data URI**, and the
+  manifest link. Every page and the error page call it; per-page tags
+  (charset first, title, description, og:title/description/type/url,
+  canonical, hreflang, JSON-LD) stay in the page. `/news?admin=` calls it
+  with `{ manifest: false }` and keeps the touch icon — see
+  `docs/pages/news.md`.
 
 ## Pages & routes — where the per-page state lives
 
@@ -335,7 +356,9 @@ invariants that cut across pages.
   `/es/mcp` are in that set, and in `sitemapXml()`. `PAGE_PATHS` matches on
   pathname, not method, so a `POST /mcp` JSON-RPC response also carries the
   canonical `Link` header — inert for MCP clients.
-- **Adding a page** means touching, in the same PR: the handler, `PAGE_PATHS`,
+- **Adding a page** means touching, in the same PR: the handler (its `<head>`
+  calls `sharedHead(lang)`, and `scripts/test-icons.mjs`'s `PAGES` gets its
+  call shape — the test fails until it does), `PAGE_PATHS`,
   `sitemapXml()`, `llmsTxt()`, `topbar()`, the `/sitemap` page, and a new
   `docs/pages/<page>.md`. Adding a public endpoint: the handler,
   `openApiSpec()`, `apiCatalog()`, `llmsTxt()`, `README.md`, `/developers`,

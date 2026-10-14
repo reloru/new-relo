@@ -7,7 +7,7 @@ import { T, canonicalFor, hreflangTags } from "../i18n.js";
 import { esc } from "../lib/format.js";
 import { BASE_CSS } from "../assets/base-css.js";
 import { topbar, footer } from "../chrome.js";
-import { JSONLD_SITE, OG_COMMON } from "../seo.js";
+import { JSONLD_SITE, sharedHead } from "../seo.js";
 
 // Embeds the NOAA/NWS Houston-Galveston (KHGX) radar loop, which covers Crosby.
 // The image is proxied through /radar-image so it lives on our crawlable origin
@@ -19,21 +19,16 @@ export function radarHtml(lang, data) {
 <html lang="${T(lang, "en", "es-MX")}">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(title)} &mdash; crosbynews.com</title>
 <meta name="description" content="${esc(desc)}">
-<meta name="theme-color" content="#0b3d61">
 <meta property="og:title" content="${esc(title)}">
 <meta property="og:description" content="${esc(desc)}">
 <meta property="og:type" content="website">
 <meta property="og:url" content="${canonicalFor("/radar", lang)}">
-${OG_COMMON}
+${sharedHead(lang)}
 <link rel="canonical" href="${canonicalFor("/radar", lang)}">
 ${hreflangTags("/radar")}
 ${JSONLD_SITE}
-<link rel="manifest" href="/manifest.json">
-<link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<link rel="alternate icon" href="/favicon.ico">
 <style>${BASE_CSS}
   .radar-wrap { margin-top:1rem; background:var(--card); border-radius:12px; padding:0.8rem; box-shadow:0 1px 3px rgba(0,0,0,0.07); }
   .radar-wrap img { width:100%; height:auto; border-radius:8px; display:block; background:#000; }

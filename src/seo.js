@@ -1,6 +1,8 @@
-// Structured data and link-preview tags shared by every page.
+// Structured data and the head tags shared by every page.
 
 import { LAT, LON, SITE } from "./config.js";
+import { OG_IMAGE } from "./assets/icons.js";
+import { APPLE_TOUCH_ICON_DATA_URI } from "./assets/apple-touch-icon.js";
 
 // Sitewide structured data (schema.org JSON-LD): the site's identity + publisher.
 // Static, so it's built once at module load; it's a non-executable data block, so
@@ -60,9 +62,36 @@ export const JSONLD_DATASET = `<script type="application/ld+json">${JSON.stringi
   ],
 })}</script>`;
 
-// Invariant Open Graph / Twitter tags every page repeats. og:url is per-page
-// (it mirrors <link rel="canonical">). No og:image — that would need a binary
-// asset, which the "no static assets" rule forbids; cards still render the
-// title, description, and site name.
-export const OG_COMMON = `<meta property="og:site_name" content="Crosby News">
-<meta name="twitter:card" content="summary">`;
+// The head tags every page shares: viewport, theme-color, the site-wide Open
+// Graph / Twitter tags, the icons and the manifest. Per-page tags (charset,
+// title, description, og:title/description/type/url, canonical, hreflang,
+// JSON-LD) stay in each page; charset in particular must stay first in <head>.
+//
+// Icons: no SVG anywhere, because iOS Add to Home Screen falls back to a letter
+// tile when the only icons it finds are SVG. The 180px touch icon is inlined as
+// a data URI so iOS has it with no further fetch, on every page.
+//
+// `manifest: false` is for the /news?admin= view: with a manifest linked, iOS
+// pins the manifest's start_url (/) instead of the admin URL. It keeps every
+// other tag, the touch icon included.
+//
+// scripts/test-icons.mjs renders every page in both languages and checks this
+// block is present exactly once and that its icon URLs resolve.
+export function sharedHead(lang, { manifest = true } = {}) {
+  const alt = lang === "es"
+    ? "Ícono de Crosby News: un sol detrás de una nube sobre azul marino"
+    : "Crosby News app icon: a sun behind a cloud on navy blue";
+  return `<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0b3d61">
+<meta property="og:site_name" content="Crosby News">
+<meta property="og:image" content="${SITE}${OG_IMAGE.path}">
+<meta property="og:image:type" content="${OG_IMAGE.type}">
+<meta property="og:image:width" content="${OG_IMAGE.width}">
+<meta property="og:image:height" content="${OG_IMAGE.height}">
+<meta property="og:image:alt" content="${alt}">
+<meta name="twitter:card" content="summary">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="${APPLE_TOUCH_ICON_DATA_URI}">${manifest ? `
+<link rel="manifest" href="/manifest.json">` : ""}`;
+}

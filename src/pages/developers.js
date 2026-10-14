@@ -7,7 +7,7 @@ import { T, canonicalFor, hreflangTags } from "../i18n.js";
 import { esc } from "../lib/format.js";
 import { BASE_CSS } from "../assets/base-css.js";
 import { topbar, footer } from "../chrome.js";
-import { JSONLD_SITE, OG_COMMON, ORG_ID, WEBSITE_ID, JSONLD_DATASET } from "../seo.js";
+import { JSONLD_SITE, sharedHead, ORG_ID, WEBSITE_ID, JSONLD_DATASET } from "../seo.js";
 
 // The site's agent/developer surface, gathered onto one page (moved off /about
 // during the 2026 restructure so /about stays human-facing). Same {h,p,links}
@@ -217,23 +217,18 @@ export function developersHtml(lang) {
 <html lang="${T(lang, "en", "es-MX")}">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(D.title)} &mdash; crosbynews.com</title>
 <meta name="description" content="${esc(D.description)}">
-<meta name="theme-color" content="#0b3d61">
 <meta property="og:title" content="${esc(D.title)}">
 <meta property="og:description" content="${esc(D.description)}">
 <meta property="og:type" content="website">
 <meta property="og:url" content="${canonicalFor("/developers", lang)}">
-${OG_COMMON}
+${sharedHead(lang)}
 <link rel="canonical" href="${canonicalFor("/developers", lang)}">
 ${hreflangTags("/developers")}
 ${JSONLD_SITE}
 ${JSONLD_DATASET}
 ${jsonldDevelopers(lang)}
-<link rel="manifest" href="/manifest.json">
-<link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<link rel="alternate icon" href="/favicon.ico">
 <style>${BASE_CSS}
   .card { background:var(--card); border-radius:12px; padding:0.9rem 1.1rem; margin-top:1rem; box-shadow:0 1px 3px rgba(0,0,0,0.07); }
   .card h2 { margin:0 0 0.5rem; }

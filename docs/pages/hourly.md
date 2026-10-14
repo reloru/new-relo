@@ -52,9 +52,9 @@ On throw: `renderError`, 502.
 - Title "Crosby, TX Hourly Forecast" / "Pronóstico por hora de Crosby, TX"
 - Per-language description covering temperature, conditions, precipitation
   chance and wind for the next two days
-- OG title/description/type/url + `OG_COMMON`
+- OG title/description/type/url
 - JSON-LD: `JSONLD_SITE` only
-- `<link rel="manifest">`, favicon
+- `sharedHead(lang)` (`src/seo.js`): viewport, `theme-color` `#0b3d61`, `og:site_name`, absolute `og:image` (`/og-image.png`, 512×512 PNG with type/width/height/alt), `twitter:card`, PNG tab icons, inline 180px PNG `apple-touch-icon`, `<link rel="manifest">`
 
 ## CSP
 

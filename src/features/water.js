@@ -9,7 +9,7 @@ import { T, canonicalFor, hreflangTags } from "../i18n.js";
 import { esc, fullTime, clockTime } from "../lib/format.js";
 import { BASE_CSS } from "../assets/base-css.js";
 import { topbar, footer } from "../chrome.js";
-import { JSONLD_SITE, OG_COMMON } from "../seo.js";
+import { JSONLD_SITE, sharedHead } from "../seo.js";
 
 // Crosby's defining hazard is flooding. This renders live stage + flood-
 // category for the waters that flood Crosby / NE Harris County, from NOAA/NWS
@@ -197,21 +197,16 @@ export function waterHtml(data, lang) {
 <html lang="${T(lang, "en", "es-MX")}">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(title)} &mdash; crosbynews.com</title>
 <meta name="description" content="${esc(desc)}">
-<meta name="theme-color" content="#0b3d61">
 <meta property="og:title" content="${esc(title)}">
 <meta property="og:description" content="${T(lang, "Live river and bayou levels with NWS flood stages for the Crosby, TX area.", "Niveles de ríos y arroyos en vivo con las etapas de inundación del NWS para la zona de Crosby, TX.")}">
 <meta property="og:type" content="website">
 <meta property="og:url" content="${canonicalFor("/water", lang)}">
-${OG_COMMON}
+${sharedHead(lang)}
 <link rel="canonical" href="${canonicalFor("/water", lang)}">
 ${hreflangTags("/water")}
 ${JSONLD_SITE}
-<link rel="manifest" href="/manifest.json">
-<link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<link rel="alternate icon" href="/favicon.ico">
 <style>${BASE_CSS}
   .status { display:flex; align-items:center; gap:1rem; border-radius:16px; padding:1.2rem 1.4rem; margin-top:0.8rem; color:#fff; }
   .status-icon { font-size:2.4rem; line-height:1; flex:none; }

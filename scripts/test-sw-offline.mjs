@@ -38,7 +38,7 @@ try {
 const PORT = process.env.PORT || "8799";
 const BASE = `http://127.0.0.1:${PORT}`;
 const CHROMIUM = process.env.PW_CHROMIUM || "/opt/pw-browsers/chromium";
-const PRECACHE = ["/", "/alerts", "/es", "/es/alerts", "/manifest.json", "/favicon.svg"];
+const PRECACHE = ["/", "/alerts", "/es", "/es/alerts", "/manifest.json", "/favicon-32.png"];
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let failures = 0;

@@ -50,7 +50,7 @@ file.
 | `robots.txt.md`, `llms.txt.md`, `sitemap.xml.md` | discovery files |
 | `alerts.xml.md`, `news.xml.md` | the RSS feeds |
 | `sw.js.md`, `manifest.json.md`, `app-icons.md` | the PWA surface |
-| `app-icons.md` | `/favicon.ico`, `/favicon.svg`, `/icon.svg`, `/apple-touch-icon.png`, `/apple-touch-icon-precomposed.png` |
+| `app-icons.md` | `/favicon.ico`, `/favicon-32.png`, `/icon-192.png`, `/icon-512.png`, `/icon-maskable-512.png`, `/apple-touch-icon.png` (+ `-precomposed`), `/og-image.png`, `/notification-badge.png` — PNG files served by Workers static assets |
 | `badge.svg.md` | the hotlinkable weather badge |
 | `radar-image.md` | the KHGX radar proxy |
 | `icons.md` | the `/icons/*` NWS icon proxy |

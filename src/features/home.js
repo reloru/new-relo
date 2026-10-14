@@ -17,7 +17,7 @@ import { pop, feelsLikeF, feelsLikeRawF, currentHourly } from "../lib/derived.js
 import { BASE_CSS } from "../assets/base-css.js";
 import { HOME_SCRIPT } from "../assets/client-scripts.js";
 import { topbar, footer } from "../chrome.js";
-import { JSONLD_SITE, OG_COMMON } from "../seo.js";
+import { JSONLD_SITE, sharedHead } from "../seo.js";
 import { uvPeakToday, uvCategory, aqiCategory, aqiSourceNote } from "./air.js";
 import { waterCatLabel, waterCatClass, WATER_FLOOD_CATS, WATER_CAT_ORDER } from "./water.js";
 import { tropicsStormLine, tropicsDisturbanceLine, tropicsWatchPeak, tropicsWatchAreas } from "./tropics.js";
@@ -365,22 +365,17 @@ export function homeHtml(weather, water, news, cal, tropics, burnban, lang) {
 <html lang="${T(lang, "en", "es-MX")}">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(title)}</title>
 <meta name="description" content="${esc(desc)}">
-<meta name="theme-color" content="#0b3d61">
 <meta name="msvalidate.01" content="71B0F51AEDA395D9136070A67436D4F9">
 <meta property="og:title" content="${esc(title)}">
 <meta property="og:description" content="${T(lang, "Live weather, flood levels, local news, and school calendar for Crosby, Texas.", "Clima en vivo, niveles de inundación, noticias locales y calendario escolar para Crosby, Texas.")}">
 <meta property="og:type" content="website">
 <meta property="og:url" content="${canonicalFor("/", lang)}">
-${OG_COMMON}
+${sharedHead(lang)}
 <link rel="canonical" href="${canonicalFor("/", lang)}">
 ${hreflangTags("/")}
 ${JSONLD_SITE}
-<link rel="manifest" href="/manifest.json">
-<link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<link rel="alternate icon" href="/favicon.ico">
 <style>${BASE_CSS}
   .hub-hero { display:flex; align-items:center; gap:1rem; background:linear-gradient(135deg,var(--blue),var(--accent)); color:#fff; border-radius:16px; padding:1.1rem 1.3rem; margin-top:0.8rem; flex-wrap:wrap; }
   .hub-hero .hero-icon { border-radius:12px; background:rgba(255,255,255,0.12); flex:none; }
@@ -554,8 +549,8 @@ export function renderError(err, source = "a data source") {
   console.error("Page render failed:", source, "-", err && err.stack);
   return `<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>crosbynews.com &mdash; temporarily unavailable</title></head>
+<title>crosbynews.com &mdash; temporarily unavailable</title>
+${sharedHead("en")}</head>
 <body style="font-family:system-ui,sans-serif;max-width:640px;margin:3rem auto;padding:0 1rem">
 <h1>Temporarily unavailable</h1>
 <p>We couldn't reach ${esc(source)} just now. Please try again shortly.</p>

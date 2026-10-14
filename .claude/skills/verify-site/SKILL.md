@@ -45,8 +45,11 @@ Non-page routes: `/robots.txt`, `/sitemap.xml`, `/llms.txt`,
 `/api/weather`, `/api/health`, `/api/news`, `/api/calendar`, `/api/water`,
 `/api/fishing`, `/api/tropics`, `/api/pollen`, `/api/burn-ban`, `/api/air`, `/api/traffic`,
 `/alerts.xml`, `/news.xml`, `/badge.svg`,
-`/manifest.json`, `/icon.svg`, `/sw.js`, `/favicon.svg`, `/favicon.ico`,
-`/apple-touch-icon.png`, `/radar-image`,
+`/manifest.json`, `/sw.js`, the icon files (`/favicon.ico`, `/favicon-32.png`,
+`/icon-192.png`, `/icon-512.png`, `/icon-maskable-512.png`,
+`/apple-touch-icon.png`, `/apple-touch-icon-precomposed.png`, `/og-image.png`,
+`/notification-badge.png` — all `image/png` except the ICO, served from
+Workers static assets), `/radar-image`,
 `/.well-known/api-catalog`, `/openapi.json`, `/.well-known/security.txt`,
 `/.well-known/mcp/server-card.json`, `/.well-known/agent-skills/index.json`,
 `/.well-known/agent-skills/crosby-weather/SKILL.md`.

@@ -89,11 +89,10 @@ Two links to `/mcp` from Spanish pages are deliberate and are allow-listed in
 - Title "MCP Server" / "Servidor MCP" — crosbynews.com
 - Per-language description, hoisted to a const and reused verbatim by
   `og:title` / `og:description` so the two cannot drift
-- `theme-color` `#0b3d61`
-- Open Graph: `og:title`, `og:description`, `og:type`, per-page `og:url`, plus
-  the shared `OG_COMMON` — like every other page
+- Open Graph: `og:title`, `og:description`, `og:type`, per-page `og:url` —
+  like every other page
 - `JSONLD_SITE` — like every other page
-- `<link rel="manifest">`, favicon SVG + ICO alternate
+- `sharedHead(lang)` (`src/seo.js`): viewport, `theme-color` `#0b3d61`, `og:site_name`, absolute `og:image` (`/og-image.png`, 512×512 PNG with type/width/height/alt), `twitter:card`, PNG tab icons, inline 180px PNG `apple-touch-icon`, `<link rel="manifest">` — like every other page
 
 ## CSP
 

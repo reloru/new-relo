@@ -74,9 +74,9 @@ Weather Statement correctly did not push.
 - Title "Crosby, TX Weather Alerts" / "Alertas meteorológicas de Crosby, TX"
 - Per-language description covering alerts, warnings, watches and the guide
 - `<link rel="alternate" type="application/rss+xml">` → `/alerts.xml`
-- OG title/description/type/url + `OG_COMMON`
+- OG title/description/type/url
 - JSON-LD: `JSONLD_SITE` only
-- `<link rel="manifest">`, favicon
+- `sharedHead(lang)` (`src/seo.js`): viewport, `theme-color` `#0b3d61`, `og:site_name`, absolute `og:image` (`/og-image.png`, 512×512 PNG with type/width/height/alt), `twitter:card`, PNG tab icons, inline 180px PNG `apple-touch-icon`, `<link rel="manifest">`
 
 ## CSP
 

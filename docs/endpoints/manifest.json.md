@@ -13,13 +13,25 @@ The web app manifest. Makes the site installable and names the PWA.
 `name` "Crosby News — Crosby, TX Weather", `short_name` "Crosby News",
 `id`/`start_url`/`scope` all `/`, `display: standalone`, `background_color`
 `#eef2f6` (matching `BASE_CSS`), `theme_color` `#0b3d61` (brand navy), `lang`
-`en-US`, and one icon: `/icon.svg`, `sizes: any`, `purpose: "any maskable"`.
+`en-US`, and three PNG icons:
+
+| `src` | `sizes` | `purpose` |
+|---|---|---|
+| `/icon-192.png` | `192x192` | `any` |
+| `/icon-512.png` | `512x512` | `any` |
+| `/icon-maskable-512.png` | `512x512` | `maskable` |
+
+No SVG, and no combined `"any maskable"` entry — see
+`docs/endpoints/app-icons.md`. Chrome's install criteria name a 192px and a
+512px icon. When an installed WebAPK's Chrome detects a changed manifest
+(icons included), it regenerates the WebAPK.
 
 ## Linked from every page except two
 
 `<link rel="manifest">` is in every page's `<head>` — **except**:
 
-1. **The `/news?admin=` view**, which links `/apple-touch-icon.png` instead. With
+1. **The `/news?admin=` view** (`sharedHead(lang, { manifest: false })`). It
+   keeps every other shared tag, including the inline PNG touch icon. With
    a manifest present, iOS "Add to Home Screen" reads `start_url` (`/`) and pins
    the *homepage* rather than the `?admin=` URL — the web-app URL field is locked
    when a manifest is present. Dropping the tag makes iOS bookmark the actual

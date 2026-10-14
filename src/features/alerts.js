@@ -9,7 +9,7 @@ import { T, canonicalFor, hreflangTags } from "../i18n.js";
 import { esc, fullTime, nl2br, rssDate } from "../lib/format.js";
 import { BASE_CSS } from "../assets/base-css.js";
 import { topbar, footer } from "../chrome.js";
-import { JSONLD_SITE, OG_COMMON } from "../seo.js";
+import { JSONLD_SITE, sharedHead } from "../seo.js";
 import { PUSH_CLIENT_SCRIPT } from "../assets/client-scripts.js";
 
 // Stable URL for active NWS alerts in Crosby. When nothing is active (the usual
@@ -157,23 +157,18 @@ export function alertsHtml(data, lang, burnban) {
 <html lang="${T(lang, "en", "es-MX")}">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${T(lang, "Crosby, TX Weather Alerts", "Alertas meteorológicas de Crosby, TX")} &mdash; crosbynews.com</title>
 <meta name="robots" content="max-snippet:160">
 <meta name="description" content="${T(lang, "Active National Weather Service alerts, warnings, and watches for Crosby, Texas, plus a plain-language guide to what each severe-weather alert means and what to do.", "Alertas, avisos y vigilancias activas del Servicio Meteorológico Nacional para Crosby, Texas, además de una guía en lenguaje sencillo sobre qué significa cada alerta de clima severo y qué hacer.")}">
-<meta name="theme-color" content="#0b3d61">
 <meta property="og:title" content="${T(lang, "Crosby, TX Weather Alerts", "Alertas meteorológicas de Crosby, TX")}">
 <meta property="og:description" content="${T(lang, "Active NWS alerts for Crosby, Texas and a plain-language severe-weather guide.", "Alertas activas del NWS para Crosby, Texas y una guía de clima severo en lenguaje sencillo.")}">
 <meta property="og:type" content="website">
 <meta property="og:url" content="${canonicalFor("/alerts", lang)}">
-${OG_COMMON}
+${sharedHead(lang)}
 <link rel="canonical" href="${canonicalFor("/alerts", lang)}">
 ${hreflangTags("/alerts")}
 <link rel="alternate" type="application/rss+xml" title="Crosby, TX Weather Alerts (RSS)" href="/alerts.xml">
 ${JSONLD_SITE}
-<link rel="manifest" href="/manifest.json">
-<link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<link rel="alternate icon" href="/favicon.ico">
 <style>${BASE_CSS}
   /* Big, calm status panel — the first thing you see. */
   .status { display:flex; align-items:center; gap:1rem; border-radius:16px; padding:1.4rem 1.5rem; margin-top:0.8rem; }

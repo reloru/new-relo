@@ -63,8 +63,9 @@ accounts and no public voting.
   secret lives in the URL you bookmark and is checked server-side, so the privacy
   model is unchanged. Rotate with `wrangler secret put ADMIN_KEY`.
 
-**Admin renders omit `<link rel="manifest">` and link `/apple-touch-icon.png`
-instead.** With a manifest present, iOS "Add to Home Screen" reads its
+**Admin renders omit `<link rel="manifest">`** (`sharedHead(lang, { manifest:
+false })`) and keep everything else in the shared head, including the inline
+PNG touch icon, so the web clip gets the real icon. With a manifest present, iOS "Add to Home Screen" reads its
 `start_url` (`/`) and pins the *homepage* rather than the `?admin=` URL — the
 web-app URL field is locked when a manifest is present. Dropping the manifest tag
 makes iOS bookmark the actual `/news?admin=…` URL as a plain Safari web clip.
@@ -83,9 +84,9 @@ Markdown output never gets the admin view: `adminOn` requires `!wantsMarkdown`.
 - Title "Crosby, TX News" / "Noticias de Crosby, TX"
 - Per-language description covering sourcing and relevance filtering
 - `<link rel="alternate" type="application/rss+xml">` → `/news.xml`
-- OG title/description/type/url + `OG_COMMON`
+- OG title/description/type/url
 - JSON-LD: `JSONLD_SITE` only
-- Favicon; manifest **conditional** — see the admin note above
+- `sharedHead(lang)` (`src/seo.js`): viewport, `theme-color` `#0b3d61`, `og:site_name`, absolute `og:image` (`/og-image.png`, 512×512 PNG with type/width/height/alt), `twitter:card`, PNG tab icons, inline 180px PNG `apple-touch-icon`, `<link rel="manifest">` **except on the admin view** — see the admin note above
 
 ## CSP
 

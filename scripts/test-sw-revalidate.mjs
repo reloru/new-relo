@@ -6,7 +6,7 @@
 //
 // Why this exists. Navigations return from the network-first branch above and
 // never reach the PRECACHE branch, so the only paths it actually serves are
-// /manifest.json and /favicon.svg. Cache-first has no expiry: an installed PWA
+// /manifest.json and /favicon-32.png. Cache-first has no expiry: an installed PWA
 // would keep the manifest it downloaded at install FOREVER — wrong name, icons,
 // theme colour or start_url — and the single thing that ever cleared it was
 // bumping CACHE. That failure is silent, and invisible on a fresh device,
@@ -42,7 +42,7 @@ const SRC = join(dirname(fileURLToPath(import.meta.url)), "..", "src");
 const { SW_SCRIPT } = await import(join(SRC, "assets", "sw-script.js"));
 
 // The SW precaches "/", "/alerts", "/es", "/es/alerts", "/manifest.json" and
-// "/favicon.svg"; addAll() rejects wholesale if any 404s, so serve all six.
+// "/favicon-32.png"; addAll() rejects wholesale if any 404s, so serve all six.
 let manifestVersion = 1;
 const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>t</title>
 <link rel="manifest" href="/manifest.json"></head><body>ok
@@ -56,7 +56,7 @@ const server = createServer((req, res) => {
   };
   if (p === "/sw.js") return send(SW_SCRIPT, "text/javascript; charset=utf-8");
   if (p === "/manifest.json") return send(JSON.stringify({ v: manifestVersion }), "application/manifest+json");
-  if (p === "/favicon.svg") return send("<svg xmlns='http://www.w3.org/2000/svg'/>", "image/svg+xml");
+  if (p === "/favicon-32.png") return send(Buffer.from("iVBORw0KGgo=", "base64"), "image/png");
   if (["/", "/alerts", "/es", "/es/alerts"].includes(p)) return send(html, "text/html; charset=utf-8");
   res.writeHead(404);
   res.end("not found");

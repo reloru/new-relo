@@ -52,10 +52,10 @@ On throw: `renderError`, 502.
 
 - Title "Crosby, TX Weather" / "Clima de Crosby, TX" — `crosbynews.com`
 - Per-language description naming NWS and the 15-minute cadence
-- `theme-color` `#0b3d61`; OG title/description, `og:type: website`, `og:url` = canonical, `OG_COMMON`
+- OG title/description, `og:type: website`, `og:url` = canonical
 - JSON-LD: `JSONLD_SITE` only. **No forecast markup** — no truthful schema.org
   type exists for a forecast, and inventing one is out of policy.
-- `<link rel="manifest">`, favicon SVG + ICO alternate
+- `sharedHead(lang)` (`src/seo.js`): viewport, `theme-color` `#0b3d61`, `og:site_name`, absolute `og:image` (`/og-image.png`, 512×512 PNG with type/width/height/alt), `twitter:card`, PNG tab icons, inline 180px PNG `apple-touch-icon`, `<link rel="manifest">`
 
 ## CSP
 

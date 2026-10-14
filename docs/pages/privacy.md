@@ -53,9 +53,9 @@ message content is transmitted, which is exactly what the policy claims.
 
 - Title from `PRIVACY.title` — Crosby, TX Weather / Clima de Crosby, TX
 - Description from `PRIVACY.description`
-- OG title/description/type/url + `OG_COMMON`
+- OG title/description/type/url
 - JSON-LD: `JSONLD_SITE` + `jsonldPrivacy(lang)` (`WebPage`)
-- `<link rel="manifest">`, favicon
+- `sharedHead(lang)` (`src/seo.js`): viewport, `theme-color` `#0b3d61`, `og:site_name`, absolute `og:image` (`/og-image.png`, 512×512 PNG with type/width/height/alt), `twitter:card`, PNG tab icons, inline 180px PNG `apple-touch-icon`, `<link rel="manifest">`
 
 ## CSP
 
