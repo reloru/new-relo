@@ -112,7 +112,8 @@ jobs:
         run: node scripts/test-mcp-metrics.mjs
       # EPA's UV product rolls to the next day around 7 PM CT, after which a
       # plain max over today's remaining rows reported "peak today: 0" every
-      # night. Pinned against a real product snapshot. Pure node.
+      # night. Pins the cron's carry-over of today's rows and the homepage's
+      # "UV tomorrow". Built from a real product snapshot. Pure node.
       - name: Check UV peak rollover
         run: node scripts/test-uv-peak.mjs
       # The app icons decide whether Chrome on Android installs a real WebAPK

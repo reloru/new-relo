@@ -70,8 +70,9 @@ see `docs/README.md`.
   stages lets one stage's output be rescanned by the next, turning
   `&amp;lt;script&amp;gt;` into a live `<script>` in markdown, which is
   emitted unescaped. `Check UV peak rollover` (`scripts/test-uv-peak.mjs`) —
-  EPA's UV product rolls to the next day around 7 PM CT, and a max over
-  today's remaining rows reported "peak today: 0" every night.
+  EPA's UV product rolls to the next day around 7 PM CT; a max over
+  today's remaining rows reported "peak today: 0" every night, then null.
+  Pins the cron's carry-over of today's rows and the homepage's "UV tomorrow".
 - **Check colour contrast** (`node scripts/test-contrast.mjs`) — same job,
   same reason, added 2026-08-24. Parses the palette out of `BASE_CSS` itself
   (not a copy, which could drift and pass anyway) and measures `--link`,
