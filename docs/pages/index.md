@@ -36,10 +36,13 @@ escaping inside it is wrong for one of them — it previously sent `&amp;` into
 markdown for a gauge name containing "&", and forced a tag-stripping regex
 downstream that CodeQL flagged. Don't reintroduce `esc()` in the summary.
 
-**Aggregate-row mechanics.** High / Low / Feels like / Rain chance / UV / Wind /
-Gusts are max or range over the **remaining** hours of the CT calendar day — past
-hours are excluded even when the NWS product still carries them. In the evening,
-when NWS drops today's daytime period, the High row relabels to "High tomorrow".
+**Aggregate-row mechanics.** Feels like / Rain chance / Wind / Gusts are max or
+range over the **remaining** hours of the CT calendar day — past hours are
+excluded even when the NWS product still carries them. UV is the EPA forecast's
+whole-day peak. In the evening, when NWS drops today's daytime period, the High
+row relabels to "High tomorrow" and UV follows it: "UV tomorrow" / "UV mañana"
+with tomorrow's EPA peak, hidden in the gap before EPA publishes tomorrow
+(~6–7 PM CT).
 Labels are bare metric names; the time basis lives in the "Right now" group
 heading and in each metric's explainer. Rationale:
 `docs/investigations/2026-07-10-today-at-a-glance.md`.

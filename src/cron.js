@@ -33,7 +33,7 @@ import { fetchTropics, TROPICS_KV_KEY } from "./features/tropics.js";
 import { fetchTraffic, TRAFFIC_KV_KEY } from "./features/traffic.js";
 import { fetchPollen, POLLEN_KV_KEY } from "./features/pollen.js";
 import { fetchBurnBan, burnbanHistory, BURNBAN_KV_KEY } from "./features/burnban.js";
-import { ctDateStr } from "./features/air.js";
+import { ctDateStr, carryUvToday } from "./features/air.js";
 import { pushSevereAlerts } from "./push.js";
 import { cronRunRecorder, recordCronRun } from "./api/health.js";
 import { mcpRollUp } from "./mcp/metrics.js";
@@ -45,6 +45,11 @@ export async function scheduled(event, env, ctx) {
     const run = cronRunRecorder();
     try {
       const data = await fetchWeather(env);
+      // EPA's UV product drops today's daytime hours at its ~7 PM rollover;
+      // keep them from the previous snapshot so "peak today" lasts until
+      // midnight. A failed read only loses the carry, never the refresh.
+      const prev = await env.WEATHER.get(KV_KEY, "json").catch(() => null);
+      data.uv = carryUvToday(data.uv, prev?.uv);
       await env.WEATHER.put(KV_KEY, JSON.stringify(data));
       run.ok("weather");
       // After a fresh forecast, wake push subscribers for any NEW severe

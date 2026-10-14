@@ -18,7 +18,7 @@ import { BASE_CSS } from "../assets/base-css.js";
 import { HOME_SCRIPT } from "../assets/client-scripts.js";
 import { topbar, footer } from "../chrome.js";
 import { JSONLD_SITE, sharedHead } from "../seo.js";
-import { uvPeakToday, uvCategory, aqiCategory, aqiSourceNote } from "./air.js";
+import { uvPeakOn, uvCategory, aqiCategory, aqiSourceNote } from "./air.js";
 import { waterCatLabel, waterCatClass, WATER_FLOOD_CATS, WATER_CAT_ORDER } from "./water.js";
 import { tropicsStormLine, tropicsDisturbanceLine, tropicsWatchPeak, tropicsWatchAreas } from "./tropics.js";
 import { alertsBanner, ALERT_BANNER_CSS, alertRank, alertSummaryLine } from "./alerts.js";
@@ -154,8 +154,11 @@ export function todayGlance(weather, lang) {
   if (feelsMax > -Infinity && dayP && feelsMax >= dayP.temperature) addDay(T(lang, "Feels like", "Sensación térmica"), `${feelsMax}°`);
   const popMax = hours.reduce((m, h) => Math.max(m, pop(h)), 0);
   addDay(T(lang, "Rain chance", "Prob. de lluvia"), `${popMax}%`);
-  const uvPeak = uvPeakToday(weather);
-  if (uvPeak != null) addDay(T(lang, "UV index", "Índice UV"), `${uvPeak} (${uvCategory(uvPeak, lang)})`);
+  // UV follows the High row: once today's daytime period is gone, today's UV
+  // peak is behind us and tomorrow's is the useful number, so it relabels.
+  const uvDate = dayP && !dayIsToday ? ctDay(dayP.startTime) : today;
+  const uvPeak = uvPeakOn(weather, uvDate);
+  if (uvPeak != null) addDay(uvDate === today ? T(lang, "UV index", "Índice UV") : T(lang, "UV tomorrow", "UV mañana"), `${uvPeak} (${uvCategory(uvPeak, lang)})`);
   const speeds = hours.flatMap((h) => String(h.windSpeed || "").match(/\d+/g) || []).map(Number);
   const dirs = hours.map((h) => h.windDirection).filter(Boolean);
   if (speeds.length) {
@@ -230,8 +233,8 @@ export function glanceExplainers(lang, aqi) {
       T(lang, "About the UV index", "Acerca del índice UV"),
       T(
         lang,
-        "This is the highest UV index expected today — the EPA's forecast of peak sunburn-causing UV radiation, on a scale where 3–5 is moderate, 6–7 high, 8–10 very high, and 11+ extreme. At 6 or above, use sunscreen and seek shade around midday — Gulf Coast summers routinely reach very high.",
-        "Es el índice UV más alto previsto para hoy — el pronóstico de la EPA sobre la radiación UV máxima que causa quemaduras, en una escala donde 3–5 es moderado, 6–7 alto, 8–10 muy alto y 11+ extremo. Con 6 o más, usa protector solar y busca sombra al mediodía — los veranos de la costa del Golfo llegan seguido a muy alto."
+        "This is the highest UV index expected today (tomorrow's, once it is evening) — the EPA's forecast of peak sunburn-causing UV radiation, on a scale where 3–5 is moderate, 6–7 high, 8–10 very high, and 11+ extreme. At 6 or above, use sunscreen and seek shade around midday — Gulf Coast summers routinely reach very high.",
+        "Es el índice UV más alto previsto para hoy (el de mañana, ya por la noche) — el pronóstico de la EPA sobre la radiación UV máxima que causa quemaduras, en una escala donde 3–5 es moderado, 6–7 alto, 8–10 muy alto y 11+ extremo. Con 6 o más, usa protector solar y busca sombra al mediodía — los veranos de la costa del Golfo llegan seguido a muy alto."
       ),
     ],
     [

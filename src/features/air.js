@@ -57,17 +57,29 @@ export function uvCurrent(data) {
   return hit ? hit.value : null;
 }
 // The product is one forecast day (6 AM–6 PM) plus the previous evening, and it
-// rolls to tomorrow around 7 PM. After that, today's only rows are its zero-UV
-// evening hours, whose max is 0 — not today's peak. So the peak exists only
-// while today's rows still include midday: 12 and 13 cover solar noon in both
-// CST and CDT.
-export function uvPeakToday(data) {
+// rolls to tomorrow around 7 PM. After that, a fresh fetch carries none of
+// today's daytime hours — carryUvToday() keeps them from the previous snapshot
+// so the peak survives until midnight. A peak is reported only for a date whose
+// rows include midday (12 and 13 cover solar noon in both CST and CDT): a cold
+// cache warmed after the rollover has only zero-UV evening rows for today, and
+// their max of 0 is not the day's peak.
+export function uvPeakOn(data, date) {
   const entries = data?.uv?.hourly;
   if (!Array.isArray(entries)) return null;
+  const day = entries.filter((e) => e.date === date);
+  if (!day.some((e) => e.hour === 12) || !day.some((e) => e.hour === 13)) return null;
+  return Math.max(...day.map((e) => e.value));
+}
+export const uvPeakToday = (data) => uvPeakOn(data, ctDateStr(Date.now()));
+// Merge today's rows from the previous `uv` snapshot into a fresh fetch, for
+// hours the fresh product no longer carries. Fresh rows win on overlap; rows
+// for any other date are dropped, so the carry ends at CT midnight on its own.
+export function carryUvToday(fresh, prev) {
+  if (!Array.isArray(fresh?.hourly) || !Array.isArray(prev?.hourly)) return fresh;
   const date = ctDateStr(Date.now());
-  const today = entries.filter((e) => e.date === date);
-  if (!today.some((e) => e.hour === 12) || !today.some((e) => e.hour === 13)) return null;
-  return Math.max(...today.map((e) => e.value));
+  const have = new Set(fresh.hourly.map((e) => `${e.date} ${e.hour}`));
+  const kept = prev.hourly.filter((e) => e.date === date && !have.has(`${e.date} ${e.hour}`));
+  return kept.length ? { ...fresh, hourly: [...fresh.hourly, ...kept] } : fresh;
 }
 // EPA/WHO UV index categories.
 export function uvCategory(v, lang = "en") {
