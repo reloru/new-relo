@@ -6,7 +6,7 @@ import { T, canonicalFor, hreflangTags, translateConditions,
 import { esc, fullTime, clockTime, hourLabel, dayLabel, capFirst, iconUrl } from "../lib/format.js";
 import { BASE_CSS } from "../assets/base-css.js";
 import { topbar, footer } from "../chrome.js";
-import { JSONLD_SITE, OG_COMMON } from "../seo.js";
+import { JSONLD_SITE, sharedHead } from "../seo.js";
 import { pop, feelsLikeRawF, sunTimesForCtDate } from "../lib/derived.js";
 
 // Full multi-day hourly forecast (the cache holds 48h; the homepage shows 12).
@@ -57,21 +57,16 @@ ${rows}
 <html lang="${T(lang, "en", "es-MX")}">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${T(lang, "Crosby, TX Hourly Forecast", "Pronóstico por hora de Crosby, TX")} &mdash; crosbynews.com</title>
 <meta name="description" content="${T(lang, "Hour-by-hour weather forecast for Crosby, Texas for the next two days, from the U.S. National Weather Service: temperature, conditions, precipitation chance, and wind.", "Pronóstico del tiempo hora por hora para Crosby, Texas para los próximos dos días, del Servicio Meteorológico Nacional de EE. UU.: temperatura, condiciones, probabilidad de lluvia y viento.")}">
-<meta name="theme-color" content="#0b3d61">
 <meta property="og:title" content="${T(lang, "Crosby, TX Hourly Forecast", "Pronóstico por hora de Crosby, TX")}">
 <meta property="og:description" content="${T(lang, "Hour-by-hour forecast for Crosby, Texas from the National Weather Service.", "Pronóstico hora por hora para Crosby, Texas del Servicio Meteorológico Nacional.")}">
 <meta property="og:type" content="website">
 <meta property="og:url" content="${canonicalFor("/hourly", lang)}">
-${OG_COMMON}
+${sharedHead(lang)}
 <link rel="canonical" href="${canonicalFor("/hourly", lang)}">
 ${hreflangTags("/hourly")}
 ${JSONLD_SITE}
-<link rel="manifest" href="/manifest.json">
-<link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<link rel="alternate icon" href="/favicon.ico">
 <style>${BASE_CSS}
   .day { margin-top:1rem; background:var(--card); border-radius:12px; padding:0.5rem 0.9rem 0.9rem; box-shadow:0 1px 3px rgba(0,0,0,0.07); overflow-x:auto; }
   .day h2 { font-size:1.05rem; }

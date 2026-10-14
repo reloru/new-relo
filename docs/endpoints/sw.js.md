@@ -12,13 +12,15 @@ is at its flakiest exactly when the site matters most.
 
 ## Cache version
 
-`CACHE = "crosby-v3"`. **Bump it when changing this script's behavior** — the
+`CACHE = "crosby-v4"`. **Bump it when changing this script's behavior** — the
 `activate` handler sweeps every cache whose name is not the current one. Bumped
-from `crosby-v2` on 2026-08-19 with the revalidation change below, which also
-swept the manifest/favicon copies that had been frozen since install.
+from `crosby-v3` when the precached tab icon changed from `/favicon.svg` to
+`/favicon-32.png`, so the orphaned SVG entry is swept.
 
 `PRECACHE`: `/`, `/alerts`, `/es`, `/es/alerts`, `/manifest.json`,
-`/favicon.svg` — the storm-critical set.
+`/favicon-32.png` — the storm-critical set. `addAll` rejects wholesale if any
+entry fails, so every non-page entry must be served; `scripts/test-icons.mjs`
+checks that.
 
 ## Strategy
 
@@ -30,7 +32,7 @@ swept the manifest/favicon copies that had been frozen since install.
   immediately (still instant, still offline-proof) and a background fetch
   refreshes it for next time. Never revert this to plain cache-first. Navigations
   return from the branch above and never reach here, so the only paths this
-  actually serves are `/manifest.json` and `/favicon.svg` — and cache-first has
+  actually serves are `/manifest.json` and `/favicon-32.png` — and cache-first has
   no expiry, so an installed PWA kept the manifest it downloaded at install
   forever (wrong name, icons, theme colour or `start_url`), with a `CACHE` bump
   the only escape. Silent, and invisible on a fresh device because only
@@ -58,6 +60,11 @@ and penalized — push.
 
 `PUSH_EVENTS` here is **kept in sync by hand with `SEVERE_PUSH_EVENTS` in the
 Worker.** Changing one means changing both.
+
+Notification art is PNG: `icon: "/icon-192.png"`, `badge:
+"/notification-badge.png"`. The badge is a white silhouette because Android
+draws a badge from its alpha channel only, in the status bar; a colour icon
+there renders as a solid blob.
 
 `notificationclick` focuses an existing `/alerts` window or opens one.
 

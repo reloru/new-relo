@@ -75,11 +75,11 @@ than naming one.
 ## Meta
 
 - Title and description are per-language, built in `homeHtml`
-- `theme-color` `#0b3d61`; OG title/description/type + `OG_COMMON`; `og:url` = canonical
+- OG title/description/type; `og:url` = canonical
 - `<meta name="msvalidate.01">` — the Bing Webmaster verification, which lives on
   the root because that is the URL Bing has on file. Do not move it.
 - JSON-LD: `JSONLD_SITE` only (`WebSite` + `Organization` `@graph`)
-- `<link rel="manifest">`, favicon SVG + ICO alternate
+- `sharedHead(lang)` (`src/seo.js`): viewport, `theme-color` `#0b3d61`, `og:site_name`, absolute `og:image` (`/og-image.png`, 512×512 PNG with type/width/height/alt), `twitter:card`, PNG tab icons, inline 180px PNG `apple-touch-icon`, `<link rel="manifest">`
 
 ## CSP
 

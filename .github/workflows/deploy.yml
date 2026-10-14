@@ -110,6 +110,16 @@ jobs:
       # a stubbed KV. Pure node, no install, no network.
       - name: Check MCP usage metrics
         run: node scripts/test-mcp-metrics.mjs
+      # The app icons decide whether Chrome on Android installs a real WebAPK
+      # and whether iOS Add to Home Screen shows the icon or a letter tile, and
+      # both fail silently: every page still returns 200 and looks fine on a
+      # desktop. Checks the PNGs in public/ against the art in
+      # scripts/build-icons.mjs and each platform's pixel rules, the manifest,
+      # the SW's notification art, the icon routes, and every page head in both
+      # languages (inline PNG touch icon, og:image, no SVG icon anywhere).
+      # Pure node, no install.
+      - name: Check app icons
+        run: node scripts/test-icons.mjs
 
   # Build gate: parse wrangler.jsonc and bundle the Worker without uploading.
   # Catches config/bundling errors and the compat-date/wrangler-pin coupling

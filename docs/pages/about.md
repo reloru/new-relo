@@ -48,9 +48,9 @@ The measured-vs-modeled air-quality disclosure also lives here.
 
 - Title from `ABOUT.title` — Crosby, TX Weather / Clima de Crosby, TX
 - Description from `ABOUT.description`
-- OG title/description, `og:type: website`, `og:url` = canonical, `OG_COMMON`
+- OG title/description, `og:type: website`, `og:url` = canonical
 - JSON-LD: `JSONLD_SITE` + `jsonldAbout(lang)` (`AboutPage`)
-- `<link rel="manifest">`, favicon
+- `sharedHead(lang)` (`src/seo.js`): viewport, `theme-color` `#0b3d61`, `og:site_name`, absolute `og:image` (`/og-image.png`, 512×512 PNG with type/width/height/alt), `twitter:card`, PNG tab icons, inline 180px PNG `apple-touch-icon`, `<link rel="manifest">`
 
 ## CSP
 

@@ -12,7 +12,7 @@
 // The security headers and the canonical Link header are added by the fetch
 // wrapper in index.js, not here.
 
-import { FAVICON_SVG, ICON_SVG, APPLE_TOUCH_ICON_B64, MANIFEST } from "./assets/icons.js";
+import { ICON_ASSET_PATHS, ICON_ALIASES, MANIFEST } from "./assets/icons.js";
 import { SW_SCRIPT } from "./assets/sw-script.js";
 import { KV_KEY, TZ, SITE } from "./config.js";
 import { footer } from "./chrome.js";
@@ -127,35 +127,25 @@ export async function routeRequest(request, env, ctx) {
         });
       }
     }
-    // Serve the favicon as a real file. Browsers and crawlers auto-request
-    // /favicon.ico; serving it (as SVG) avoids needless 404s in crawl stats.
-    if (path === "/favicon.ico" || path === "/favicon.svg") {
-      return new Response(FAVICON_SVG, {
-        headers: { "content-type": "image/svg+xml; charset=utf-8", "cache-control": "public, max-age=604800, immutable" },
-      });
-    }
-    // PWA surface: manifest + app icon + service worker (see the constants up
-    // top). The SW gets `no-cache` so a deploy's new worker is picked up on
-    // the next visit rather than after a stale-cache window.
+    // PWA surface: manifest + icons + service worker. The icons are PNG files
+    // in public/, served by Workers static assets; run_worker_first sends every
+    // request here first, so they pass through the fetch wrapper's security
+    // headers like everything else. The SW gets `no-cache` so a deploy's new
+    // worker is picked up on the next visit rather than after a stale-cache
+    // window.
     if (path === "/manifest.json") {
       return new Response(JSON.stringify(MANIFEST, null, 2), {
         headers: { "content-type": "application/manifest+json; charset=utf-8", "cache-control": "public, max-age=3600" },
       });
     }
-    if (path === "/icon.svg") {
-      return new Response(ICON_SVG, {
-        headers: { "content-type": "image/svg+xml; charset=utf-8", "cache-control": "public, max-age=604800, immutable" },
-      });
-    }
-    // Raster app icon for iOS "Add to Home Screen" (apple-touch-icon). Also
-    // served at the well-known root path so iOS finds it by convention on pages
-    // that don't link the manifest (the admin /news view). Decodes the inline
-    // base64 PNG to bytes.
-    if (path === "/apple-touch-icon.png" || path === "/apple-touch-icon-precomposed.png") {
-      const bytes = Uint8Array.from(atob(APPLE_TOUCH_ICON_B64), (c) => c.charCodeAt(0));
-      return new Response(bytes, {
-        headers: { "content-type": "image/png", "cache-control": "public, max-age=604800, immutable" },
-      });
+    if (ICON_ASSET_PATHS.has(path) || Object.hasOwn(ICON_ALIASES, path)) {
+      const target = new URL(ICON_ALIASES[path] ?? path, url);
+      const asset = await env.ASSETS.fetch(new Request(target, request));
+      const r = new Response(asset.body, asset);
+      // A week, not `immutable`: the URLs carry no content hash, so a redrawn
+      // icon has to be able to replace the old one.
+      if (asset.ok) r.headers.set("cache-control", "public, max-age=604800");
+      return r;
     }
     if (path === "/sw.js") {
       return new Response(SW_SCRIPT, {

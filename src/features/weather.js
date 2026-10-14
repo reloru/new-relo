@@ -16,7 +16,7 @@ import { BASE_CSS } from "../assets/base-css.js";
 import { alertsBanner, ALERT_BANNER_CSS } from "./alerts.js";
 import { HOME_SCRIPT } from "../assets/client-scripts.js";
 import { topbar, footer } from "../chrome.js";
-import { JSONLD_SITE, OG_COMMON } from "../seo.js";
+import { JSONLD_SITE, sharedHead } from "../seo.js";
 import { fetchUv, uvCurrent, uvPeakToday, uvCategory, fetchAqi, fetchNearbyOzone,
          aqiCategory, aqiSourceTag, aqiApiObject } from "./air.js";
 
@@ -146,21 +146,16 @@ export function renderHtml(data, lang, burnban) {
 <html lang="${T(lang, "en", "es-MX")}">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${T(lang, "Crosby, TX Weather", "Clima de Crosby, TX")} &mdash; crosbynews.com</title>
 <meta name="description" content="${T(lang, "Live weather forecast and active alerts for Crosby, Texas, refreshed every 15 minutes from the U.S. National Weather Service.", "Pronóstico del tiempo y alertas activas para Crosby, Texas, actualizado cada 15 minutos del Servicio Meteorológico Nacional de EE. UU.")}">
-<meta name="theme-color" content="#0b3d61">
 <meta property="og:title" content="${T(lang, "Crosby, TX Weather", "Clima de Crosby, TX")}">
 <meta property="og:description" content="${T(lang, "Live forecast and active alerts for Crosby, Texas.", "Pronóstico del tiempo y alertas activas para Crosby, Texas.")}">
 <meta property="og:type" content="website">
 <meta property="og:url" content="${canonicalFor("/weather", lang)}">
-${OG_COMMON}
+${sharedHead(lang)}
 <link rel="canonical" href="${canonicalFor("/weather", lang)}">
 ${hreflangTags("/weather")}
 ${JSONLD_SITE}
-<link rel="manifest" href="/manifest.json">
-<link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<link rel="alternate icon" href="/favicon.ico">
 <style>${BASE_CSS}
   ${ALERT_BANNER_CSS}
   .hero { display:flex; align-items:center; gap:1rem; background:linear-gradient(135deg,var(--blue),var(--accent)); color:#fff; border-radius:16px; padding:1.1rem 1.3rem; margin-top:0.5rem; }

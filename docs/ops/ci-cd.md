@@ -78,6 +78,16 @@ see `docs/README.md`.
   a decoration token at 3.6–4.3:1 — under WCAG AA — and had been carrying
   body text sitewide until a reader reported `/burn-ban`'s link list as
   "blue on blue".
+- **Check app icons** (`node scripts/test-icons.mjs`) — same job. Whether
+  Chrome on Android installs a real WebAPK and whether iOS Add to Home Screen
+  shows the icon or a letter tile both fail silently: every page still
+  returns 200. Verifies the committed PNGs in `public/` pixel-for-pixel
+  against the art in `scripts/build-icons.mjs`, measures each file's platform
+  rule from its decoded pixels (opaque touch icon and og:image, maskable art
+  inside the safe zone, white-only badge), checks the manifest, the SW's
+  notification art and the icon routes, and renders every page head in both
+  languages plus the `/news?admin=` and error views. See
+  `docs/endpoints/app-icons.md`.
 - **Deploy** (`cloudflare/wrangler-action@v4`) — runs on push to `main`
   only, after BOTH checks pass (`needs: [check, build]`). Has a
   `concurrency: { group: deploy-production, cancel-in-progress: false }`
@@ -142,6 +152,12 @@ hangs; `| head -20` is fine. Redirect to a file, or use `tail`.
   Node the steps themselves use.
 - Repo secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` are set at
   the repository level — same token as used by the manual deploy path.
+- Every deploy also uploads `public/` as Workers static assets (the icon
+  PNGs). That needs no permission beyond the script upload: the
+  `assets-upload-session` call sits under the same
+  `/workers/scripts/crosbynews/` resource, and a `wrangler versions upload`
+  with this token uploaded assets successfully on 2026-10-14. Unchanged
+  files are skipped by hash, so an ordinary deploy re-sends none of them.
 
 ## `claude.yml` — the `@claude` assistant workflow
 

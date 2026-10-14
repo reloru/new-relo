@@ -11,7 +11,7 @@ import { T, canonicalFor, hreflangTags } from "../i18n.js";
 import { esc, fullTime, rssDate } from "../lib/format.js";
 import { BASE_CSS } from "../assets/base-css.js";
 import { topbar, footer } from "../chrome.js";
-import { JSONLD_SITE, OG_COMMON } from "../seo.js";
+import { JSONLD_SITE, sharedHead } from "../seo.js";
 import { NEWS_ADMIN_SCRIPT } from "../assets/client-scripts.js";
 
 // The Worker is a pure renderer: /news serves the WEATHER KV "news" key,
@@ -112,22 +112,17 @@ export function newsHtml(data, lang, admin) {
 <html lang="${T(lang, "en", "es-MX")}">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${T(lang, "Crosby, TX News", "Noticias de Crosby, TX")} &mdash; crosbynews.com</title>
 <meta name="description" content="${T(lang, "Recent local news headlines for Crosby, Texas, gathered from Texas and Houston-area news sources and filtered for relevance to the Crosby community.", "Titulares recientes de noticias locales de Crosby, Texas, recopilados de fuentes de noticias de Texas y del área de Houston y filtrados por relevancia para la comunidad de Crosby.")}">
-<meta name="theme-color" content="#0b3d61">
 <meta property="og:title" content="${T(lang, "Crosby, TX News", "Noticias de Crosby, TX")}">
 <meta property="og:description" content="${T(lang, "Recent local news headlines for Crosby, Texas.", "Titulares recientes de noticias locales de Crosby, Texas.")}">
 <meta property="og:type" content="website">
 <meta property="og:url" content="${canonicalFor("/news", lang)}">
-${OG_COMMON}
+${sharedHead(lang, { manifest: !admin })}
 <link rel="canonical" href="${canonicalFor("/news", lang)}">
 ${hreflangTags("/news")}
 <link rel="alternate" type="application/rss+xml" title="Crosby, TX News (RSS)" href="/news.xml">
 ${JSONLD_SITE}
-${admin ? `<link rel="apple-touch-icon" href="/apple-touch-icon.png">` : `<link rel="manifest" href="/manifest.json">`}
-<link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<link rel="alternate icon" href="/favicon.ico">
 <style>${BASE_CSS}
   .news-list { list-style:none; padding:0; margin:1rem 0 0; }
   .news-item { background:var(--card); border-radius:10px; padding:0.7rem 0.95rem; margin-bottom:0.6rem; box-shadow:0 1px 3px rgba(0,0,0,0.07); }

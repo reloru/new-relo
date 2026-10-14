@@ -54,12 +54,12 @@ PR.
 
 - Title from `DEVELOPERS.title` — crosbynews.com
 - Description from `DEVELOPERS.description`
-- OG title/description/type/url + `OG_COMMON`
+- OG title/description/type/url
 - JSON-LD: `JSONLD_SITE` + **`JSONLD_DATASET`** + `jsonldDevelopers(lang)`
   (`WebPage`). `JSONLD_DATASET` is a `Dataset` node describing the public weather
   API for dataset search engines — a truthful type, unlike forecast markup, and
   this page is where it lives.
-- `<link rel="manifest">`, favicon
+- `sharedHead(lang)` (`src/seo.js`): viewport, `theme-color` `#0b3d61`, `og:site_name`, absolute `og:image` (`/og-image.png`, 512×512 PNG with type/width/height/alt), `twitter:card`, PNG tab icons, inline 180px PNG `apple-touch-icon`, `<link rel="manifest">`
 
 ## CSP
 

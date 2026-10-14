@@ -7,7 +7,7 @@ import { T, canonicalFor, hreflangTags } from "../i18n.js";
 import { esc, fullTime, clockTime } from "../lib/format.js";
 import { BASE_CSS } from "../assets/base-css.js";
 import { topbar, footer } from "../chrome.js";
-import { JSONLD_SITE, OG_COMMON } from "../seo.js";
+import { JSONLD_SITE, sharedHead } from "../seo.js";
 
 // Live water conditions for the waters people ACTUALLY fish near Crosby, matched
 // to the nearest USGS real-time station. Source: api.waterdata.usgs.gov —
@@ -220,21 +220,16 @@ ${cards}
 <html lang="${T(lang, "en", "es-MX")}">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(title)} &mdash; crosbynews.com</title>
 <meta name="description" content="${esc(desc)}">
-<meta name="theme-color" content="#0b3d61">
 <meta property="og:title" content="${esc(title)}">
 <meta property="og:description" content="${esc(desc)}">
 <meta property="og:type" content="website">
 <meta property="og:url" content="${canonicalFor("/fishing", lang)}">
-${OG_COMMON}
+${sharedHead(lang)}
 <link rel="canonical" href="${canonicalFor("/fishing", lang)}">
 ${hreflangTags("/fishing")}
 ${JSONLD_SITE}
-<link rel="manifest" href="/manifest.json">
-<link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<link rel="alternate icon" href="/favicon.ico">
 <style>${BASE_CSS}
   .intro { color:var(--muted); margin:0.6rem 0 0; }
   .fw { margin-top:1.5rem; }

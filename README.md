@@ -95,6 +95,9 @@ claude mcp add --transport http crosbynews https://crosbynews.com/mcp
 ## Stack
 
 - **Cloudflare Workers** (ES modules) + **Workers KV** for the cached forecast.
+- **Workers static assets** for the binary files only — the PNG app icons,
+  `favicon.ico` and the link-preview image in `public/`, drawn by
+  `scripts/build-icons.mjs`.
 - No framework and no runtime dependencies — the Worker imports nothing. The
   source under `src/` is bundled by Wrangler (esbuild) at deploy time, which CI
   exercises on every pull request via `wrangler deploy --dry-run`.

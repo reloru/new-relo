@@ -6,16 +6,16 @@
 
 // Service worker (/sw.js) — offline resilience for storm time, when Crosby's
 // connectivity is at its flakiest exactly when the site matters most. Served
-// as a Worker route (no static assets, per the repo rule) with `no-cache` so
-// deploys pick up on the next visit. Strategy: precache the storm-critical
-// pages at install, then network-first for navigations (always fresh online)
-// with the last-good cached copy as the offline fallback. Bump CACHE when
+// as a Worker route (it is a string constant, not a file in public/) with
+// `no-cache` so deploys pick up on the next visit. Strategy: precache the
+// storm-critical pages at install, then network-first for navigations (always
+// fresh online) with the last-good cached copy as the offline fallback. Bump CACHE when
 // changing this script's behavior so old caches are swept on activate.
 // Registered from HOME_SCRIPT (its CSP hash recomputes automatically).
 export const SW_SCRIPT = `// crosbynews.com service worker - offline cache of storm-critical pages
 // plus severe-alert Web Push (empty wake-up + local composition).
-var CACHE = "crosby-v3";
-var PRECACHE = ["/", "/alerts", "/es", "/es/alerts", "/manifest.json", "/favicon.svg"];
+var CACHE = "crosby-v4";
+var PRECACHE = ["/", "/alerts", "/es", "/es/alerts", "/manifest.json", "/favicon-32.png"];
 // Warning events that earn a push (life-threatening; warnings only, never
 // watches/advisories - avoids alert fatigue). Kept in sync with the Worker's
 // SEVERE_PUSH_EVENTS.
@@ -66,12 +66,12 @@ self.addEventListener("fetch", function (e) {
     return;
   }
 
-  // Precached assets (favicon, manifest): stale-while-revalidate. Serve the
+  // Precached assets (tab icon, manifest): stale-while-revalidate. Serve the
   // cached copy immediately - still instant, still works offline - but always
   // kick off a background fetch that refreshes it for next time.
   //
   // Plain cache-first was a trap here. The pages in PRECACHE never reach this
-  // branch (navigations return above), but /manifest.json and /favicon.svg do,
+  // branch (navigations return above), but /manifest.json and /favicon-32.png do,
   // and cache-first has no expiry: an installed PWA would keep the manifest it
   // downloaded at install FOREVER - wrong name, icons, theme colour or
   // start_url - and the only thing that ever cleared it was bumping CACHE.
@@ -97,6 +97,10 @@ self.addEventListener("fetch", function (e) {
   }
 });
 
+// Notification art is PNG: icon-192.png is the app icon; notification-badge.png
+// is a white silhouette, because Android draws a badge from its alpha channel
+// only, in the status bar.
+//
 // Severe-alert push. The Worker sends an EMPTY wake-up (no encrypted payload),
 // so the SW composes the notification here from live data - it fetches the
 // current alerts and shows the active severe warning(s). userVisibleOnly
@@ -112,13 +116,13 @@ self.addEventListener("push", function (e) {
         if (!severe.length) {
           return self.registration.showNotification("Crosby, TX weather alert", {
             body: "A severe weather alert may be active. Tap for details.",
-            icon: "/icon.svg", badge: "/icon.svg", tag: "crosby-alert", data: { url: "/alerts" },
+            icon: "/icon-192.png", badge: "/notification-badge.png", tag: "crosby-alert", data: { url: "/alerts" },
           });
         }
         return Promise.all(severe.map(function (a) {
           return self.registration.showNotification("\\u26A0\\uFE0F " + a.event + " - Crosby, TX", {
             body: a.headline || (a.description ? String(a.description).split("\\n")[0] : "Take shelter and follow official guidance."),
-            icon: "/icon.svg", badge: "/icon.svg",
+            icon: "/icon-192.png", badge: "/notification-badge.png",
             tag: a.id || a.event, renotify: true, requireInteraction: true,
             data: { url: "/alerts" },
           });
@@ -127,7 +131,7 @@ self.addEventListener("push", function (e) {
       .catch(function () {
         return self.registration.showNotification("Crosby, TX weather alert", {
           body: "A severe weather alert may be active. Tap for details.",
-          icon: "/icon.svg", badge: "/icon.svg", tag: "crosby-alert", data: { url: "/alerts" },
+          icon: "/icon-192.png", badge: "/notification-badge.png", tag: "crosby-alert", data: { url: "/alerts" },
         });
       })
   );
