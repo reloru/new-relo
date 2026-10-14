@@ -56,12 +56,18 @@ export function uvCurrent(data) {
   const hit = entries.find((e) => e.date === date && e.hour === hour);
   return hit ? hit.value : null;
 }
+// The product is one forecast day (6 AM–6 PM) plus the previous evening, and it
+// rolls to tomorrow around 7 PM. After that, today's only rows are its zero-UV
+// evening hours, whose max is 0 — not today's peak. So the peak exists only
+// while today's rows still include midday: 12 and 13 cover solar noon in both
+// CST and CDT.
 export function uvPeakToday(data) {
   const entries = data?.uv?.hourly;
   if (!Array.isArray(entries)) return null;
   const date = ctDateStr(Date.now());
   const today = entries.filter((e) => e.date === date);
-  return today.length ? Math.max(...today.map((e) => e.value)) : null;
+  if (!today.some((e) => e.hour === 12) || !today.some((e) => e.hour === 13)) return null;
+  return Math.max(...today.map((e) => e.value));
 }
 // EPA/WHO UV index categories.
 export function uvCategory(v, lang = "en") {

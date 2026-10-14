@@ -21,7 +21,7 @@ Shared contract: `docs/endpoints/api/README.md`.
 | `source` | `"U.S. National Weather Service (api.weather.gov)"` |
 | `updated` | KV refresh stamp — when *we* refreshed, not a period start |
 | `sun` | `{sunrise, sunset}` ISO, from `sunTimesForCtDate()`. Derived in-Worker, not an NWS field. |
-| `uv` | `{current, currentCategory, peakToday, peakCategory, source}`. EPA-sourced, so it is a separate object rather than folded into `current`. `null` when the EPA fetch failed or the current hour is outside the product's ~6am–8pm window. Raw `0`s are kept. |
+| `uv` | `{current, currentCategory, peakToday, peakCategory, source}`. EPA-sourced, so it is a separate object rather than folded into `current`. `null` when the EPA fetch failed or the current hour is outside the product's ~6am–8pm window. Raw `0`s are kept for `current`. `peakToday` is `null` from about 7 PM CT to midnight: EPA's product has rolled to tomorrow by then, and today's remaining rows are only its zero-UV evening hours, so their max would report 0 for a day that peaked at 7. `uvPeakToday()` returns a peak only while today's rows include hours 12 and 13. |
 | `airQuality` | `aqiApiObject(data.aqi)` — shared with `/api/air`, so the two cannot drift. `null` when both AirNow and Open-Meteo failed. |
 | `current` | `currentHourly(data)` with `feelsLike` added. **Never `hourly[0]`** — see below. |
 | `hourly` | `data.hourly.slice(0, 12)`, each with `feelsLike` |

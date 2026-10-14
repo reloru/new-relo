@@ -154,11 +154,8 @@ export function todayGlance(weather, lang) {
   if (feelsMax > -Infinity && dayP && feelsMax >= dayP.temperature) addDay(T(lang, "Feels like", "Sensación térmica"), `${feelsMax}°`);
   const popMax = hours.reduce((m, h) => Math.max(m, pop(h)), 0);
   addDay(T(lang, "Rain chance", "Prob. de lluvia"), `${popMax}%`);
-  // UV gates on > 0: at night EPA's remaining hours for "today" are all 0, and
-  // "UV index 0" would read as if the day never had any. Daytime Crosby is
-  // always ≥ 1, so a 0 reliably means the daylight hours have passed.
   const uvPeak = uvPeakToday(weather);
-  if (uvPeak) addDay(T(lang, "UV index", "Índice UV"), `${uvPeak} (${uvCategory(uvPeak, lang)})`);
+  if (uvPeak != null) addDay(T(lang, "UV index", "Índice UV"), `${uvPeak} (${uvCategory(uvPeak, lang)})`);
   const speeds = hours.flatMap((h) => String(h.windSpeed || "").match(/\d+/g) || []).map(Number);
   const dirs = hours.map((h) => h.windDirection).filter(Boolean);
   if (speeds.length) {
