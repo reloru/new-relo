@@ -110,6 +110,11 @@ jobs:
       # a stubbed KV. Pure node, no install, no network.
       - name: Check MCP usage metrics
         run: node scripts/test-mcp-metrics.mjs
+      # EPA's UV product rolls to the next day around 7 PM CT, after which a
+      # plain max over today's remaining rows reported "peak today: 0" every
+      # night. Pinned against a real product snapshot. Pure node.
+      - name: Check UV peak rollover
+        run: node scripts/test-uv-peak.mjs
       # The app icons decide whether Chrome on Android installs a real WebAPK
       # and whether iOS Add to Home Screen shows the icon or a letter tile, and
       # both fail silently: every page still returns 200 and looks fine on a

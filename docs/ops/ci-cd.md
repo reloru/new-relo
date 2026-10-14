@@ -54,7 +54,7 @@ see `docs/README.md`.
   so far found a new way to be wrong. **The two-language sweep is the
   point** — roughly half the site's render branches never execute under
   `lang="en"`, which is why `/hourly` was fine while `/es/hourly` was down.
-- **Four content/behaviour checks**, all inside the required `Syntax check`
+- **Five content/behaviour checks**, all inside the required `Syntax check`
   job, all pure node with no install. Each exists because its failure mode is
   a **cheerful green**: the code runs, the page returns 200, and only the
   output is wrong. `Check /api/health` (`scripts/test-health.mjs`) — a broken
@@ -69,7 +69,9 @@ see `docs/README.md`.
   (`scripts/test-decode-entities.mjs`) — decoding Google News titles in
   stages lets one stage's output be rescanned by the next, turning
   `&amp;lt;script&amp;gt;` into a live `<script>` in markdown, which is
-  emitted unescaped.
+  emitted unescaped. `Check UV peak rollover` (`scripts/test-uv-peak.mjs`) —
+  EPA's UV product rolls to the next day around 7 PM CT, and a max over
+  today's remaining rows reported "peak today: 0" every night.
 - **Check colour contrast** (`node scripts/test-contrast.mjs`) — same job,
   same reason, added 2026-08-24. Parses the palette out of `BASE_CSS` itself
   (not a copy, which could drift and pass anyway) and measures `--link`,

@@ -438,7 +438,7 @@ export function openApiSpec() {
               properties: {
                 current: { type: ["integer", "null"], description: "UV index for the current hour (Central time)." },
                 currentCategory: { type: ["string", "null"], description: "Low / Moderate / High / Very High / Extreme." },
-                peakToday: { type: ["integer", "null"], description: "Highest forecast UV index for today." },
+                peakToday: { type: ["integer", "null"], description: "Highest forecast UV index for today. Null once EPA's product has rolled to the next day (from about 7 PM CT), when today's daytime hours are no longer published." },
                 peakCategory: { type: ["string", "null"] },
                 source: { type: "string" },
               },
