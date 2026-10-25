@@ -219,7 +219,9 @@ Full detail — subdomain/preview settings, HSTS layering — lives in
 canonicalization runs via a single Cloudflare Redirect rule
 (`(not ssl) or (http.host eq "www.crosbynews.com")` → `https://crosbynews.com`
 + path, 301, one hop). It lives in the zone/dashboard, not `wrangler.jsonc` or
-`fetch()` — don't try to reproduce it in the Worker.
+`fetch()` — don't try to reproduce it in the Worker. The one exception is
+the trailing slash: `routeRequest()` (`src/router.js`) 301s any path ending in
+`/` to its slash-less form (query kept), so `/weather/` → `/weather`.
 
 ## Conventions
 - Plain Workers, ES modules (`export default { fetch, scheduled }`). No
