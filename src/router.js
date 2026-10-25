@@ -49,6 +49,11 @@ export async function routeRequest(request, env, ctx) {
     const url = new URL(request.url);
     const path = url.pathname;
 
+    if (path.length > 1 && path.endsWith("/")) {
+      const trimmed = path.replace(/\/+$/, "") || "/";
+      return Response.redirect(new URL(trimmed + url.search, url).toString(), 301);
+    }
+
     if (path === "/robots.txt") {
       return new Response(robotsTxt(), {
         headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "public, max-age=3600" },
