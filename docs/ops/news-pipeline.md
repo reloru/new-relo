@@ -16,7 +16,7 @@ key via the Cloudflare KV API. The Worker only renders that key
 
 ## Filtering logic
 
-The script holds all the filtering logic:
+The script holds all the filtering logic (plus the Workers AI layer below):
 - relevance gate `areaTier`: core Crosby incl. Barrett Station vs. nearby
   towns w/ TX context
 - `REJECT` for famous "Crosby" people / other-state Crosbys
@@ -43,12 +43,71 @@ The script holds all the filtering logic:
   spared)
 - aggressive fuzzy de-dup (Jaccard > 0.35)
 
-Incidents are capped at 2 AND limited to one per crime "family"
-(`crimeFamily()`: violence > vehicle > hazard > other), so the page shows a
-couple of DISTINCT events and one case's many reworded headlines collapse
-to a single slot — `/news` leans community, not crime-blotter. Tone knobs:
-the incident cap (`incidents.length >= 2`), the `crimeFamily()` buckets,
-and the `CRIME_WORDS`/`CRIME_STEMS`/`AFTERMATH` lists.
+Incidents are capped at `MAX_INCIDENTS` (3) AND limited to one per (tier,
+crime "family") — `crimeFamily()`: violence > vehicle > hazard > other; tier:
+core Crosby vs nearby town — so the page shows a few DISTINCT events and one
+case's many reworded headlines collapse to a single slot. Core incidents sort
+before nearby ones, so a nearby-town incident takes a slot only if one is free.
+`/news` leans community, not crime-blotter. Tone knobs: `MAX_INCIDENTS`, the
+`crimeFamily()` buckets, and the `CRIME_WORDS`/`CRIME_STEMS`/`AFTERMATH` lists.
+
+## Workers AI layer (`scripts/news-ai.mjs`)
+
+Two **preview** models, called over REST with the routine's existing
+`CLOUDFLARE_API_TOKEN`/`CLOUDFLARE_ACCOUNT_ID` (the same value as the deploy
+token; confirmed to have Workers AI access from a session — **not yet confirmed
+inside the routine's own environment**, see Failure behaviour). Cost is about
+$0.0001 per headline (~560 input tokens at $0.24/M), roughly a cent per run;
+output tokens are free.
+
+- **`@cf/cloudflare/clef`** answers three yes/no questions per headline —
+  `crosby_tx` (about Crosby, TX, not the other Crosbys), `nearby_tx` (about
+  Huffman/Highlands/Baytown/Atascocita/Channelview/Kingwood/Dayton), `is_story`
+  (a single story, not an index/gallery/schedule/listing/obituary page) — and
+  returns a probability for each. `aiDecision()` applies `THRESH`:
+
+  | Item | Kept when |
+  |---|---|
+  | regex-accepted (`core`/`near`) | `is_story >= 0.5` (veto index pages) |
+  | `core` | also `crosby_tx >= 0.5` (vetoes e.g. St. Louis "Barrett Station Road") |
+  | `near` | also `max(nearby_tx, crosby_tx) >= 0.5` |
+  | `near` **incident** | also `nearby_tx >= 0.95` and `is_story >= 0.8` |
+  | `maybeCore` / `maybeNear` (**rescue**) | `is_story >= 0.8` and `crosby_tx >= 0.8` / `nearby_tx >= 0.9`; a rescued incident in a nearby town also needs `nearby_tx >= 0.95` |
+
+  `maybeCore`/`maybeNear` (`areaCandidate()` in `fetch-news.mjs`) are headlines
+  that name Crosby or a nearby town and pass every hard reject but carry no Texas
+  context in the text. The hard rejects (`REJECT`, `GEO_REJECT`, `SOFT_DROP`,
+  `BLOTTER_RE`, `AFTERMATH`, listings) run first and **no model overrides them**.
+  Veto is deliberately more lenient than rescue: the model may remove what the
+  regex let in at 0.5, but may add only at 0.8-0.95.
+- **`@cf/cloudflare/clairic`** reads the date a headline's announced event takes
+  place (`reference_date` = the item's publish date), so numeric dates ("5/12"),
+  weekdays ("this Saturday") and relative dates ("next Tuesday") are understood.
+  `staleEventIndexes()` drops an item only if the date is confident
+  (`confidence >= 0.9`, `p_null <= 0.1`) AND `pubTs < eventTs < now` AND the
+  headline has an event/scheduling cue (`hasEventCue`) — the same three
+  safeguards as `stalePastEvent()`, which still runs first.
+
+The AI pass runs after the freshness/regex-stale gates and **before** de-dup, so a
+vetoed index page cannot suppress a real story via the Jaccard check.
+
+**Failure behaviour.** Any HTTP error, timeout (20 s), retry-exhausted 429/5xx or
+malformed answer yields "no verdict" for that headline, and the regex result
+stands — except that nothing is rescued and nearby-town incidents are dropped
+without a verdict. The run never aborts or writes a partial snapshot because of
+the models. If the routine's token lacks Workers AI access, every headline gets
+"no verdict" and the page degrades to the pre-AI behaviour (plus the 3-slot
+incident cap); the run prints `with no verdict` in its summary line.
+`NEWS_AI=0` disables the layer (use it for a before/after diff with `DRY_RUN=1`).
+`node scripts/test-news-ai.mjs` pins all of this offline (CI: "Check news AI layer").
+
+**Measured when written (2026-11-06), 77 live headlines + 18 synthetic:** the 11
+synthetic leaks (Merseyside, Scunthorpe, Crosbyton, Crosby MN/ND, Waterbury CT,
+Sidney/Maxx/David Crosby, Crosby County) all scored `crosby_tx <= 0.08`; real
+Crosby stories scored `>= 0.77`; index/gallery/obituary pages scored `is_story
+<= 0.28`. Not measured: accuracy against hand-labelled ground truth, and clef
+vs clef-omni are NOT interchangeable (they disagreed on 17 of 77 headlines at
+0.5; clef-omni is looser), so keep `clef`.
 
 ## Running it
 

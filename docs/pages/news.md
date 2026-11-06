@@ -29,7 +29,9 @@ source with real Crosby coverage, and it hard-blocks Cloudflare Worker
 datacenter IPs (503). So `scripts/fetch-news.mjs` runs on a Claude routine — whose
 environment is not IP-blocked — queries Google News, filters, and writes the key
 via the Cloudflare KV API. All the relevance and de-duplication logic lives in
-that script, not in the Worker.
+that script (and its Workers AI layer, `scripts/news-ai.mjs`), not in the Worker.
+The page shows up to 3 incidents (one per tier and crime family) beside the
+community stories; `docs/ops/news-pipeline.md` has the rules.
 
 If the routine stops, items age out at 45 days and the page shows an honest "no
 recent news" — it never errors. A run that hits total upstream failure aborts

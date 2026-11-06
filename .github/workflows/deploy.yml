@@ -81,6 +81,12 @@ jobs:
       # hole with nothing failing. Pure node, no install.
       - name: Check entity decoding
         run: node scripts/test-decode-entities.mjs
+      # The news routine's Workers AI layer runs against preview models. This pins
+      # the failure behaviour (outage => regex result stands, never an abort or a
+      # partial snapshot) and the threshold directions (veto lenient, rescue
+      # strict) with a fake fetch. Pure node, no network.
+      - name: Check news AI layer
+        run: node scripts/test-news-ai.mjs
       # A contrast regression is invisible to every other gate: nothing throws,
       # the render check passes, the page returns 200, and it looks fine to
       # whoever changed it — it is only unreadable for the people who need it
