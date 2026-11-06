@@ -61,6 +61,9 @@ const REJECT = [
 const GEO_REJECT = [
   "waterbury", "crosbyton", "uk", "england", "britain", "british", "liverpool",
   "waterloo", "sefton", "merseyside", "cumbria", "lancashire", "scunthorpe", "lincolnshire",
+  // St. Louis, Missouri has a "Barrett Station Road" too; its TV outlets' bylines
+  // ("... Barrett Station Road ... - KSDK") otherwise rank straight in as core.
+  "ksdk", "kmov",
 ];
 const GEO_RE = new RegExp("\\b(?:" + GEO_REJECT.join("|") + ")\\b", "i");
 // Obituaries / funeral-home noise — dropped entirely.

@@ -27,6 +27,8 @@ check("context-less Crosby is a candidate", areaCandidate("Crosby Football Video
 check("regex-accepted stays accepted", areaCandidate("Crosby ISD board meets, Texas", ""), "core");
 check("hard reject beats candidacy (Merseyside)", areaCandidate("Crosby man jailed after Liverpool Road stabbing", ""), null);
 check("hard reject beats candidacy (Maxx Crosby)", areaCandidate("Maxx Crosby ruled out Sunday", ""), null);
+check("St. Louis Barrett Station Road is a hard reject (KSDK/KMOV)", [areaCandidate("Rollover crash closes lanes of Manchester at Barrett Station Road - KSDK", ""), areaCandidate("Crash closes Manchester Road at Barrett Station Road for several hours - KMOV", "")], [null, null]);
+check("a real Barrett Station headline still passes", areaTier("Barrett Station residents hold town hall on drainage - Houston Chronicle", ""), "core");
 check("obituary is never a candidate", areaCandidate("Debra Smith Obituary - Crosby", "Legacy"), null);
 check("unrelated headline is not a candidate", areaCandidate("City council votes on budget", ""), null);
 
