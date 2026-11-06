@@ -375,7 +375,11 @@ the fire-on-demand curl command live in `docs/ops/news-pipeline.md`. Short
 version: Google News RSS has the only real Crosby coverage but blocks Worker
 datacenter IPs, so `scripts/fetch-news.mjs` runs out-of-band on a Claude
 routine and writes straight to the WEATHER KV `news` key. The Worker only
-reads it (`loadNews()` is read-only, no cron involvement).
+reads it (`loadNews()` is read-only, no cron involvement). A Workers AI layer
+(`scripts/news-ai.mjs`: clef vetoes non-stories/wrong places and rescues context-less
+Crosby/nearby-town headlines on a higher bar; clairic reads announced-event dates)
+sits on top of the regex gates; it only ever falls back to the regex result, never
+aborts the run. `NEWS_AI=0` turns it off; `node scripts/test-news-ai.mjs` pins it.
 
 ## Analytics — none for visitors
 **No analytics script ships, and the CSP allows no third-party script origin at
