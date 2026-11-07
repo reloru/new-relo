@@ -116,6 +116,14 @@ jobs:
       # a stubbed KV. Pure node, no install, no network.
       - name: Check MCP usage metrics
         run: node scripts/test-mcp-metrics.mjs
+      # The tools/call contract the Anthropic connector-directory review tests:
+      # invalid arguments return an actionable isError result before any KV
+      # read (never silently clamped), a load failure names the feed and the
+      # page instead of a bare upstream string, unknown tools are -32602, every
+      # tool has a title + readOnlyHint, and the /mcp example prompts name real
+      # tools. Real dispatcher, stubbed KV and fetch. Pure node, no network.
+      - name: Check MCP server contract
+        run: node scripts/test-mcp-server.mjs
       # EPA's UV product rolls to the next day around 7 PM CT, after which a
       # plain max over today's remaining rows reported "peak today: 0" every
       # night. Pins the cron's carry-over of today's rows and the homepage's

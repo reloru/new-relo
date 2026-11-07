@@ -86,11 +86,17 @@ Every page is content-negotiated — send `Accept: text/markdown` (or add
 - **[llms.txt](https://crosbynews.com/llms.txt)** — plain-language site summary
   for LLMs.
 
-Connect the MCP server from Claude Code:
+Connect the MCP server from Claude (claude.ai or the desktop app) by adding
+`https://crosbynews.com/mcp` as a custom connector under Settings → Connectors,
+with no authentication — or from Claude Code:
 
 ```bash
 claude mcp add --transport http crosbynews https://crosbynews.com/mcp
 ```
+
+Example questions and the tools they reach are on [`/mcp`](https://crosbynews.com/mcp);
+the Anthropic connector-directory submission packet is
+[`docs/ops/anthropic-directory.md`](docs/ops/anthropic-directory.md).
 
 ## Stack
 

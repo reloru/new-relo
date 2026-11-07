@@ -12,6 +12,9 @@ The Model Context Protocol server. Stateless, Streamable HTTP, JSON-RPC 2.0.
 | **CORS** | `MCP_CORS` |
 | **Language** | English-only. `POST /es/mcp` **404s** — that path is a page, not an endpoint. |
 | **Registry** | published as `com.crosbynews/weather`, `remotes: [{streamable-http, https://crosbynews.com/mcp}]` |
+| **Anthropic directory** | ready to submit — checklist and portal fields in `docs/ops/anthropic-directory.md` |
+| **Origin** | not checked, deliberately — a strict `Origin` check is a documented cause of Claude connector `initialize` timeouts, and the server is public and read-only |
+| **Test** | `scripts/test-mcp-server.mjs` (CI step "Check MCP server contract") |
 
 ## Request and batching
 
@@ -36,7 +39,7 @@ combined `Accept`.
 | `initialize` | Echoes a requested `protocolVersion` **only if it is in `MCP_SUPPORTED_VERSIONS`** (`2025-03-26`, `2025-06-18`); otherwise answers with our latest, per spec. Never parrot an unsupported version back — echoing e.g. `2026-07-28` would falsely promise that revision's semantics. Returns `serverInfo` and prose `instructions`. |
 | `ping` | `{}` |
 | `tools/list` | `mcpTools()` |
-| `tools/call` | `mcpCallTool(name, args, env)`. A thrown error with a numeric `code` becomes a JSON-RPC error; anything else becomes a **successful result with `isError: true`**, which is the MCP convention for tool-level failure. |
+| `tools/call` | `mcpCallTool(name, args, env)`, in this order: (1) unknown tool → JSON-RPC **`-32602`**, before any KV read; (2) `validateToolArgs()` checks the arguments against the tool's own `inputSchema` and returns an **`isError: true` result** on failure, also before any KV read (see *Argument validation*); (3) the tool runs, and a data-load failure becomes an **`isError: true` result** naming the feed and the human page (`MCP_TOOL_SOURCES`), with the upstream detail kept in parentheses. Tool-level failures are results, not JSON-RPC errors, which is the MCP convention and lets the model read and act on them. |
 | `prompts/list` | `mcpPrompts()` |
 | `prompts/get` | `mcpGetPrompt(name, env)` |
 | `resources/list` | `MCP_RESOURCES` |
@@ -59,6 +62,16 @@ full KV hourly supply), `get_alerts`, `get_tropical_outlook`, `get_pollen`,
 - Every **data** tool declares an `outputSchema` — shallow and permissive, since
   NWS and NHC objects pass through with more fields than are enumerated. Full
   docs live in `/openapi.json`.
+- The two parameters, `get_forecast.hours` (1–48) and `get_school_events.limit`
+  (1–60, default 15), are **validated, never clamped**: a non-integer, an
+  out-of-range value (including `hours: 0`) or an unknown argument returns
+  `isError` with the allowed range and what omitting it does (`MCP_OMIT_HINTS`).
+  `null` counts as omitted. Until v1.7.1 these were silently clamped or fell back
+  to the default, which Anthropic's directory review criteria reject ("validate
+  inputs and return actionable error messages rather than silently accepting
+  invalid data"). Only `type: integer` with `minimum`/`maximum` is implemented;
+  `scripts/test-mcp-server.mjs` fails if a tool gains a parameter of any other
+  type, so a new parameter cannot skip validation.
 - `get_current_conditions` adds normalized `dewpointF` / `humidityPercent`
   alongside the raw NWS fields.
 - **`get_radar` is the exception**: its result is an inline base64 GIF fetched

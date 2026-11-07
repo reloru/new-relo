@@ -81,6 +81,13 @@ see `docs/README.md`.
   a decoration token at 3.6–4.3:1 — under WCAG AA — and had been carrying
   body text sitewide until a reader reported `/burn-ban`'s link list as
   "blue on blue".
+- **Check MCP server contract** (`node scripts/test-mcp-server.mjs`) — same
+  job, added with the Anthropic directory preparation. Pins what that review
+  tests directly: bad arguments return an actionable `isError` result before
+  any KV read (never silently clamped), a data-load failure names the feed and
+  the page, unknown tools are `-32602`, every tool has a `title` +
+  `readOnlyHint` and a name ≤ 64 chars, and the `/mcp` example prompts name
+  real tools. Real dispatcher, stubbed KV and `fetch`; no network.
 - **Check app icons** (`node scripts/test-icons.mjs`) — same job. Whether
   Chrome on Android installs a real WebAPK and whether iOS Add to Home Screen
   shows the icon or a letter tile both fail silently: every page still

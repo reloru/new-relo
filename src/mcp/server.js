@@ -46,7 +46,7 @@ export const MCP_SUPPORTED_VERSIONS = ["2025-03-26", "2025-06-18"];
 // Version moves in lockstep with `server.json`'s registry version on any
 // tool-set change — they drifted apart (1.2.0 vs 1.4.0) when `get_air_quality`
 // and `get_fishing` shipped without a bump, so both now carry the same number.
-export const MCP_SERVER_INFO = { name: "crosbynews-weather", version: "1.7.0", title: "Crosby, TX Weather" };
+export const MCP_SERVER_INFO = { name: "crosbynews-weather", version: "1.7.1", title: "Crosby, TX Weather" };
 export const MCP_CORS = {
   "access-control-allow-origin": "*",
   "access-control-allow-methods": "POST, OPTIONS",
@@ -167,7 +167,7 @@ export function mcpTools() {
           disturbances: {
             type: ["array", "null"],
             description:
-              "Areas the NHC is watching for development but has NOT named — the shaded areas on its graphical outlook. `null` means the outlook could not be read; `[]` means the NHC is watching nothing. Do not conflate the two, and do not report a formation chance as a storm or as a forecast track.",
+              "Areas the NHC is watching for development but has NOT named — the shaded areas on its graphical outlook. `null` means the outlook could not be read (status unknown); `[]` means the NHC is watching nothing — two different states. A formation chance is neither a storm nor a forecast track.",
             items: {
               type: "object",
               properties: {
@@ -182,7 +182,7 @@ export function mcpTools() {
           },
           storms: {
             type: "array",
-            description: "Named/numbered cyclones only. Empty is common and does NOT imply nothing is brewing — check `disturbances` too.",
+            description: "Named/numbered cyclones only. Empty is common and does not by itself mean nothing is brewing; unnamed areas are in `disturbances`.",
             items: {
               type: "object",
               properties: {
@@ -672,6 +672,20 @@ export function mcpServerCard() {
   };
 }
 
+// Example questions, each answerable by the tools named beside it. Shown on
+// the /mcp explainer in both languages and reused verbatim as the "use cases"
+// in the Anthropic directory submission (docs/ops/anthropic-directory.md), so
+// the public docs and the listing say the same thing.
+export const MCP_EXAMPLE_PROMPTS = [
+  { en: "Is there any severe weather or flooding risk in Crosby, TX right now?", es: "¿Hay algún riesgo de clima severo o inundación en Crosby, TX ahora mismo?", tools: ["get_alerts", "get_river_levels"] },
+  { en: "What's the hourly forecast for Crosby tomorrow afternoon?", es: "¿Cuál es el pronóstico por hora para Crosby mañana por la tarde?", tools: ["get_forecast"] },
+  { en: "Is anything brewing in the Atlantic or the Gulf this week?", es: "¿Se está formando algo en el Atlántico o en el Golfo esta semana?", tools: ["get_tropical_outlook"] },
+  { en: "How bad is the pollen in Crosby today, and is the air quality okay for a run?", es: "¿Qué tan alto está el polen hoy en Crosby, y está bien la calidad del aire para salir a correr?", tools: ["get_pollen", "get_air_quality"] },
+  { en: "Is there a burn ban in Harris County right now?", es: "¿Hay prohibición de quemas en el condado de Harris ahora mismo?", tools: ["get_burn_ban"] },
+  { en: "Any wrecks or lane closures on US-90 or FM-2100 near Crosby?", es: "¿Hay accidentes o cierres de carriles en la US-90 o la FM-2100 cerca de Crosby?", tools: ["get_traffic"] },
+  { en: "When is the next no-school day for Crosby ISD?", es: "¿Cuándo es el próximo día sin clases en Crosby ISD?", tools: ["get_school_events"] },
+];
+
 // Human-facing explainer shown when a browser opens /mcp (which only speaks
 // POST JSON-RPC). Lists the tools and how to connect. The MCP protocol/API is
 // English-only; `lang` renders a Spanish HUMAN explainer at /es/mcp that points
@@ -737,12 +751,24 @@ ${topbar("/mcp", lang)}
     <p>${T(lang, `Any MCP client that accepts a server URL can use this one. It speaks Streamable HTTP over public HTTPS and needs no key or account:`, `Cualquier cliente MCP que acepte una URL de servidor puede usar este. Habla Streamable HTTP sobre HTTPS público y no requiere clave ni cuenta:`)}</p>
     <pre>${SITE}/mcp</pre>
     <ul>
+      <li><strong>Claude</strong> (claude.ai ${T(lang, "and the desktop app", "y la app de escritorio")}) — ${T(lang, `add it as a custom connector under Settings → Connectors, paste the URL, and leave authentication off. Then turn it on in a chat from <strong>+ → Connectors</strong>.`, `agrégalo como conector personalizado en Configuración → Conectores, pega la URL y deja la autenticación desactivada. Luego actívalo en un chat desde <strong>+ → Conectores</strong>.`)}</li>
       <li><strong>Claude Code</strong> — <code>claude mcp add --transport http crosbynews ${SITE}/mcp</code></li>
       <li><strong>Grok</strong> — <code>grok mcp add --transport http crosbynews ${SITE}/mcp</code>${T(lang, `, or add it as a custom connector in the Grok app.`, `, o agrégalo como conector personalizado en la app de Grok.`)}</li>
       <li><strong>Perplexity</strong> — ${T(lang, `add a custom connector under Settings, paste the URL, and leave authentication set to none.`, `agrega un conector personalizado en Configuración, pega la URL y deja la autenticación en ninguna.`)}</li>
       <li><strong>ChatGPT</strong> — ${T(lang, `through developer mode, which OpenAI currently limits to Business and Enterprise/Edu workspaces on the web.`, `mediante el modo desarrollador, que OpenAI limita actualmente a espacios de trabajo Business y Enterprise/Edu en la web.`)}</li>
     </ul>
-    <p class="intro">${T(lang, `Then ask, e.g., "what's the forecast for Crosby, TX?" and the agent will call these tools. Prefer a webpage? See the <a href="/">live forecast</a>, <a href="/hourly">hourly</a>, and <a href="/radar">radar</a>.`, `Luego pregunta, por ejemplo, "¿cuál es el pronóstico para Crosby, TX?" y el agente llamará a estas herramientas. ¿Prefieres una página web? Mira el <a href="/es/weather">pronóstico en vivo</a>, <a href="/es/hourly">por hora</a> y <a href="/es/radar">radar</a>.`)}</p>
+    <p class="intro">${T(lang, `Prefer a webpage? See the <a href="/">live forecast</a>, <a href="/hourly">hourly</a>, and <a href="/radar">radar</a>.`, `¿Prefieres una página web? Mira el <a href="/es/weather">pronóstico en vivo</a>, <a href="/es/hourly">por hora</a> y <a href="/es/radar">radar</a>.`)}</p>
+  </section>
+  <section class="card">
+    <h2>${T(lang, "Try asking", "Prueba a preguntar")}</h2>
+    <p class="intro">${T(lang, "Once connected, questions like these make the agent call the tools shown:", "Una vez conectado, preguntas como estas hacen que el agente llame a las herramientas indicadas:")}</p>
+    <ul>
+      ${MCP_EXAMPLE_PROMPTS.map((p) => `<li>&ldquo;${esc(lang === "es" ? p.es : p.en)}&rdquo; &mdash; ${p.tools.map((t) => `<code>${t}</code>`).join(", ")}</li>`).join("\n      ")}
+    </ul>
+  </section>
+  <section class="card">
+    <h2>${T(lang, "Privacy &amp; support", "Privacidad y soporte")}</h2>
+    <p>${T(lang, `No account, no key, and no personal data. Tool arguments are used to answer the request and are not stored; the server keeps only aggregate call counts. Details: <a href="/privacy">privacy policy</a>. Questions or problems: <a href="mailto:contact@crosbynews.com">contact@crosbynews.com</a>; security reports: <a href="mailto:security@crosbynews.com">security@crosbynews.com</a>.`, `Sin cuenta, sin clave y sin datos personales. Los argumentos de las herramientas se usan para responder la solicitud y no se guardan; el servidor solo conserva conteos agregados de llamadas. Detalles: <a href="/es/privacy">política de privacidad</a>. Preguntas o problemas: <a href="mailto:contact@crosbynews.com">contact@crosbynews.com</a>; reportes de seguridad: <a href="mailto:security@crosbynews.com">security@crosbynews.com</a>.`)}</p>
   </section>
 </main>
 ${footer({ page: "/mcp", lang: lang === "es" ? "es" : "en", source: T(lang, `Data from the U.S. National Weather Service (<a href="https://weather.gov">weather.gov</a>).`, `Datos del Servicio Meteorológico Nacional de EE. UU. (<a href="https://weather.gov">weather.gov</a>).`) })}
@@ -758,6 +784,9 @@ ${footer({ page: "/mcp", lang: lang === "es" ? "es" : "en", source: T(lang, `Dat
 export function mcpInfoMarkdown(lang) {
   const tools = mcpTools()
     .map((t) => `- \`${t.name}\` — ${t.description}`)
+    .join("\n");
+  const examples = MCP_EXAMPLE_PROMPTS
+    .map((p) => `- "${lang === "es" ? p.es : p.en}" — ${p.tools.map((t) => `\`${t}\``).join(", ")}`)
     .join("\n");
   if (lang === "es") {
     return `# Servidor MCP — crosbynews.com
@@ -795,15 +824,29 @@ Streamable HTTP sobre HTTPS público y no requiere clave ni cuenta:
 ${SITE}/mcp
 \`\`\`
 
+- **Claude** (claude.ai y la app de escritorio) — agrégalo como conector personalizado en Configuración → Conectores, pega la URL y deja la autenticación desactivada. Luego actívalo en un chat desde **+ → Conectores**.
 - **Claude Code** — \`claude mcp add --transport http crosbynews ${SITE}/mcp\`
 - **Grok** — \`grok mcp add --transport http crosbynews ${SITE}/mcp\`, o agrégalo como conector personalizado en la app de Grok.
 - **Perplexity** — agrega un conector personalizado en Configuración, pega la URL y deja la autenticación en ninguna.
 - **ChatGPT** — mediante el modo desarrollador, que OpenAI limita actualmente a espacios de trabajo Business y Enterprise/Edu en la web.
 
-Luego pregunta, por ejemplo, "¿cuál es el pronóstico para Crosby, TX?" y el
-agente llamará a estas herramientas. ¿Prefieres una página web? Mira el
-[pronóstico en vivo](${SITE}/es/weather), [por hora](${SITE}/es/hourly) y
-[radar](${SITE}/es/radar).
+¿Prefieres una página web? Mira el [pronóstico en vivo](${SITE}/es/weather),
+[por hora](${SITE}/es/hourly) y [radar](${SITE}/es/radar).
+
+## Prueba a preguntar
+
+Una vez conectado, preguntas como estas hacen que el agente llame a las
+herramientas indicadas:
+
+${examples}
+
+## Privacidad y soporte
+
+Sin cuenta, sin clave y sin datos personales. Los argumentos de las
+herramientas se usan para responder la solicitud y no se guardan; el servidor
+solo conserva conteos agregados de llamadas. Detalles:
+[política de privacidad](${SITE}/es/privacy). Preguntas o problemas:
+contact@crosbynews.com; reportes de seguridad: security@crosbynews.com.
 
 ---
 [crosbynews.com](${SITE}/es) · datos del Servicio Meteorológico Nacional de EE. UU.
@@ -838,14 +881,27 @@ HTTP over public HTTPS and needs no key or account:
 ${SITE}/mcp
 \`\`\`
 
+- **Claude** (claude.ai and the desktop app) — add it as a custom connector under Settings → Connectors, paste the URL, and leave authentication off. Then turn it on in a chat from **+ → Connectors**.
 - **Claude Code** — \`claude mcp add --transport http crosbynews ${SITE}/mcp\`
 - **Grok** — \`grok mcp add --transport http crosbynews ${SITE}/mcp\`, or add it as a custom connector in the Grok app.
 - **Perplexity** — add a custom connector under Settings, paste the URL, and leave authentication set to none.
 - **ChatGPT** — through developer mode, which OpenAI currently limits to Business and Enterprise/Edu workspaces on the web.
 
-Then ask, e.g., "what's the forecast for Crosby, TX?" and the agent will call
-these tools. Prefer a webpage? See the [live forecast](${SITE}/),
+Prefer a webpage? See the [live forecast](${SITE}/),
 [hourly](${SITE}/hourly), and [radar](${SITE}/radar).
+
+## Try asking
+
+Once connected, questions like these make the agent call the tools shown:
+
+${examples}
+
+## Privacy & support
+
+No account, no key, and no personal data. Tool arguments are used to answer the
+request and are not stored; the server keeps only aggregate call counts.
+Details: [privacy policy](${SITE}/privacy). Questions or problems:
+contact@crosbynews.com; security reports: security@crosbynews.com.
 
 ---
 [crosbynews.com](${SITE}/) · data from the U.S. National Weather Service
@@ -861,7 +917,95 @@ export function bufToBase64(buf) {
   return btoa(bin);
 }
 
+// What to say when a tool's data cannot be loaded: which feed it depends on and
+// the human page that shows the same data. get_radar and get_emergency_contacts
+// are absent because neither can throw (radar degrades to a text fallback,
+// emergency contacts are static).
+export const MCP_TOOL_SOURCES = {
+  get_current_conditions: ["National Weather Service forecast", "/weather"],
+  get_forecast: ["National Weather Service forecast", "/weather"],
+  get_alerts: ["National Weather Service alerts", "/alerts"],
+  get_air_quality: ["air-quality (EPA/AirNow)", "/air"],
+  get_tropical_outlook: ["National Hurricane Center", "/tropics"],
+  get_pollen: ["Houston Health Department pollen count", "/pollen"],
+  get_burn_ban: ["Texas A&M Forest Service burn-ban", "/burn-ban"],
+  get_crosby_news: ["local news", "/news"],
+  get_school_events: ["Crosby ISD calendar", "/calendar"],
+  get_river_levels: ["NWS river-gauge", "/water"],
+  get_fishing: ["USGS water-conditions", "/fishing"],
+  get_traffic: ["Houston TranStar traffic", "/traffic"],
+};
+
+// Per-argument advice appended to a validation error, so the caller learns
+// what omitting the argument does instead of only what was wrong.
+const MCP_OMIT_HINTS = {
+  "get_forecast.hours": "Omit it for the 7-day day/night forecast.",
+  "get_school_events.limit": "Omit it for the default of 15 events.",
+};
+
+const toolError = (text) => ({ content: [{ type: "text", text }], isError: true });
+
+// Checks `args` against the tool's own inputSchema. Only the keywords those
+// schemas use are implemented (type integer, minimum, maximum,
+// additionalProperties:false); scripts/test-mcp-server.mjs fails if a tool
+// gains a property of any other type, so a new parameter cannot slip past
+// validation unchecked. `null` counts as omitted: some clients send it for
+// optional parameters they were not asked to fill.
+export function validateToolArgs(tool, args) {
+  if (args == null) return { args: {} };
+  if (typeof args !== "object" || Array.isArray(args)) {
+    return { error: `Arguments for ${tool.name} must be a JSON object.` };
+  }
+  const props = tool.inputSchema?.properties ?? {};
+  const names = Object.keys(props);
+  const clean = {};
+  for (const [key, value] of Object.entries(args)) {
+    const spec = props[key];
+    if (!spec) {
+      return {
+        error: `Unknown argument "${key}". ${tool.name} ${names.length ? `accepts only: ${names.join(", ")}` : "takes no arguments"}.`,
+      };
+    }
+    if (value === null || value === undefined) continue;
+    if (spec.type === "integer") {
+      const ok = typeof value === "number" && Number.isInteger(value) && value >= spec.minimum && value <= spec.maximum;
+      if (!ok) {
+        const hint = MCP_OMIT_HINTS[`${tool.name}.${key}`];
+        return {
+          error: `"${key}" must be a whole number from ${spec.minimum} to ${spec.maximum}; got ${JSON.stringify(value)}.${hint ? ` ${hint}` : ""}`,
+        };
+      }
+    }
+    clean[key] = value;
+  }
+  return { args: clean };
+}
+
+// tools/call entry point. Order: unknown tool → JSON-RPC -32602 (a protocol
+// error, per spec); bad arguments → isError result the model can read and
+// correct, returned before any KV read; a data-load failure → isError result
+// naming the feed and the page to check, with the upstream detail kept.
 export async function mcpCallTool(name, args, env) {
+  const tool = mcpTools().find((t) => t.name === name);
+  if (!tool) {
+    const err = new Error(`Unknown tool: ${name}`);
+    err.code = -32602;
+    throw err;
+  }
+  const checked = validateToolArgs(tool, args);
+  if (checked.error) return toolError(checked.error);
+  try {
+    return await runTool(name, checked.args, env);
+  } catch (e) {
+    const [source, page] = MCP_TOOL_SOURCES[name] ?? ["crosbynews.com", "/"];
+    const detail = (e && e.message) || String(e);
+    return toolError(
+      `Could not load the ${source} data for ${name} right now (${detail}). This is usually a temporary upstream or cache problem; retrying in a few minutes may succeed. The same data is on ${SITE}${page}.`
+    );
+  }
+}
+
+async function runTool(name, args, env) {
   // News, calendar, water, and tropics tools read their own KV keys — handled
   // first so they don't pay for (or fail on) a weather load they never use.
   if (name === "get_tropical_outlook") {
@@ -882,7 +1026,7 @@ export async function mcpCallTool(name, args, env) {
     // this page made to a human reader on 2026-08-24.
     const dzText =
       payload.disturbances === null
-        ? "The NHC tropical outlook could not be read, so whether anything is being watched is UNKNOWN — do not report an all-clear."
+        ? "The NHC tropical outlook could not be read, so whether anything is being watched is UNKNOWN — this is not an all-clear."
         : payload.disturbances.length
           ? `Areas being watched for development (not named storms):\n${payload.disturbances
               .map((d) => {
@@ -1009,7 +1153,7 @@ export async function mcpCallTool(name, args, env) {
   }
   if (name === "get_school_events") {
     const cal = await loadCalendar(env);
-    const limit = Math.min(Math.max(Number(args?.limit) || 15, 1), 60);
+    const limit = args.limit ?? 15;
     const payload = apiCalendar(cal);
     payload.events = payload.events.slice(0, limit);
     const shown = upcomingEvents(cal.events ?? []).slice(0, limit);
@@ -1094,11 +1238,11 @@ export async function mcpCallTool(name, args, env) {
     };
   }
   if (name === "get_forecast") {
-    const hours = Number(args?.hours) || 0;
-    if (hours > 0) {
+    const hours = args.hours;
+    if (hours != null) {
       // The KV cache keeps 48 hourly periods (the /hourly page's supply) —
       // serve up to all of them so "tomorrow evening" is answerable.
-      const slice = (data.hourly ?? []).slice(0, Math.min(hours, 48));
+      const slice = (data.hourly ?? []).slice(0, hours);
       const text =
         slice
           .map((h) => {

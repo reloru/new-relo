@@ -50,22 +50,28 @@ Read it with `GET /api/mcp-usage?key=<ADMIN_KEY>` — see
 `docs/endpoints/api/mcp-usage.md` for the full contract, storage layout and the
 kill switch (`MCP_METRICS` in `wrangler.jsonc`).
 
-### Why /privacy and /about were not changed
+### How /privacy discloses them
 
-Owner decision, 2026-09-20. `/privacy`'s Analytics section says *"There are
-none. crosbynews.com runs no analytics script — nothing loads in your browser
-to count, profile, or report your visit, and no third-party analytics service
-is used."* That claim is about scripts in a **reader's browser**, and every
-clause of it remains literally true: no script ships, no third party is
-involved, and a reader of a page is never counted. `/mcp` is an agent protocol
-endpoint, not a page, and its counters record no identity.
+`/privacy` has a dedicated **"MCP server for AI assistants"** section, in both
+languages: what the server receives (the tool request only; arguments never
+stored), exactly what is counted, the retention (shards expire within 6h, daily
+totals kept 90 days, then folded into monthly totals), that nothing is shared,
+and that the assistant's own handling of the conversation falls under its
+provider's policy. It was added when the server was prepared for Anthropic's
+connector directory, whose policy requires a privacy policy explaining the
+remote service's collection, usage and retention
+(`docs/ops/anthropic-directory.md`).
 
-The precedent that makes this worth writing down rather than assuming: the
-Cloudflare beacon below ran for months while `/privacy` denied it. The
-difference is that the beacon contradicted the page text and this does not. If
-the counters are ever extended to anything that identifies a caller, or to page
-traffic, that reasoning collapses and the page text must change with the code —
-in both languages, per the rule above.
+The Analytics section's *"There are none … nothing loads in your browser to
+count, profile, or report your visit"* stays as it was and remains literally
+true: it is about a **reader's browser**, and a reader of a page is never
+counted. `/about` was left unchanged for the same reason.
+
+The precedent behind keeping these in lockstep: the Cloudflare beacon below ran
+for months while `/privacy` denied it. **The MCP section is now a claim about
+the code** — if the counters ever gain a field, change `RETAIN_DAYS` or the
+shard TTL in `src/mcp/metrics.js`, or start identifying a caller, change that
+section in the same PR, in both languages.
 
 ## Cloudflare Web Analytics — removed 2026-08-19
 
