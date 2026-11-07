@@ -68,6 +68,7 @@ const MAX_CLIENTS = 100;
 // separate on purpose: a phone terminal cannot use a hundred-line list, but
 // the JSON still carries every kept name.
 const MAX_CLIENTS_SHOWN = 15;
+const MAX_CLIENTS_SHOWN_WEEK = 40;
 
 const OTHER = "(other)";
 const UNKNOWN = "(unknown)";
@@ -698,10 +699,10 @@ export function mcpUsageText(report) {
   // reader's arithmetic reads as a counting bug rather than a missing column.
   // A notification (notifications/initialized and friends) draws no response
   // by protocol, so it is neither a success nor an error and needs its own.
-  L.push(`${pad("", 10)}${num("calls", 7)}${num("ok", 6)}${num("notif", 7)}${num("rpcerr", 7)}${num("toolerr", 8)}`);
+  L.push(`${pad("", 10)}${num("calls", 9)}${num("ok", 9)}${num("notif", 8)}${num("rpcerr", 8)}${num("toolerr", 8)}`);
   for (const [label, s] of [["today", report.today], ["7 days", report.last7Days], ["lifetime", report.lifetime]]) {
     L.push(
-      `${pad(label, 10)}${num(s.calls, 7)}${num(s.ok, 6)}${num(s.notifications, 7)}${num(s.rpcErrors, 7)}${num(s.toolErrors, 8)}`,
+      `${pad(label, 10)}${num(s.calls, 9)}${num(s.ok, 9)}${num(s.notifications, 8)}${num(s.rpcErrors, 8)}${num(s.toolErrors, 8)}`,
     );
   }
   if (report.since) L.push(`since ${report.since}`);
@@ -748,19 +749,24 @@ export function mcpUsageText(report) {
     }
   }
 
-  const clients = Object.keys(report.clients.lifetime).length ? report.clients.lifetime : null;
-  if (clients) {
+  // Lifetime is dominated by monitoring bots, so a client that called once this
+  // week never reaches its top 15. The 7-day list is the one that answers "did
+  // X just connect", so it shows more names (a week's distinct clients are few).
+  const clientBlock = (title, counts, shownMax) => {
+    if (!Object.keys(counts).length) return;
     L.push("");
-    const ranked = Object.keys(clients).sort((a, b) => clients[b] - clients[a]);
-    L.push(`clients, lifetime${ranked.length > MAX_CLIENTS_SHOWN ? ` (top ${MAX_CLIENTS_SHOWN} of ${ranked.length})` : ""}`);
-    for (const k of ranked.slice(0, MAX_CLIENTS_SHOWN)) {
-      L.push(`  ${pad(k, 26)}${num(clients[k], 7)}`);
+    const ranked = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
+    L.push(`${title}${ranked.length > shownMax ? ` (top ${shownMax} of ${ranked.length})` : ""}`);
+    for (const k of ranked.slice(0, shownMax)) {
+      L.push(`  ${pad(k, 26)}${num(counts[k], 7)}`);
     }
-    if (ranked.length > MAX_CLIENTS_SHOWN) {
-      const rest = ranked.slice(MAX_CLIENTS_SHOWN).reduce((n, k) => n + clients[k], 0);
-      L.push(`  ${pad(`… and ${ranked.length - MAX_CLIENTS_SHOWN} more`, 26)}${num(rest, 7)}`);
+    if (ranked.length > shownMax) {
+      const rest = ranked.slice(shownMax).reduce((n, k) => n + counts[k], 0);
+      L.push(`  ${pad(`… and ${ranked.length - shownMax} more`, 26)}${num(rest, 7)}`);
     }
-  }
+  };
+  clientBlock("clients, 7 days", report.clients.last7Days, MAX_CLIENTS_SHOWN_WEEK);
+  clientBlock("clients, lifetime", report.clients.lifetime, MAX_CLIENTS_SHOWN);
 
   L.push("");
   const r = report.rollup;
