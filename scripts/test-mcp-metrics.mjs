@@ -243,6 +243,16 @@ console.log("\ncardinality:\n");
     assert("...and says how many it left out", lines.some((l) => l.includes("and 385 more")), true);
     const widest = Math.max(...lines.map((l) => l.length));
     assert("...and still fits a phone terminal", widest <= 60, true);
+
+    const week = {};
+    for (let i = 0; i < 60; i++) week[`wk-${i}`] = 60 - i;
+    week["one-call-today"] = 1;
+    const wl = mcpUsageText({ ...report, clients: { last7Days: week, lifetime: many } }).split("\n");
+    assert("a 7-day client block precedes the lifetime one", wl.findIndex((l) => l.startsWith("clients, 7 days")) < wl.findIndex((l) => l.startsWith("clients, lifetime")), true);
+    assert("...and shows the top 40 of the week", wl.filter((l) => /^ {2}wk-\d+ /.test(l)).length, 40);
+    const big = mcpUsageText({ ...report, lifetime: { calls: 205539, ok: 145165, notifications: 55557, rpcErrors: 4813, toolErrors: 4 } }).split("\n").find((l) => l.startsWith("lifetime"));
+    assert("big lifetime totals keep their columns apart", /205539\s+145165\s+55557/.test(big), true);
+    assert("...within a phone terminal", Math.max(...mcpUsageText(report).split("\n").map((l) => l.length)) <= 60, true);
   }
 }
 
