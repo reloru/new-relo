@@ -428,6 +428,15 @@ in Cloudflare DNS / external registries:
   derive/don't need updating — see the ops file.) Bump `server.json`'s
   `version` in the same PR as any tool-set change; publishing is a separate,
   manual step.
+- **Anthropic connector directory** (`docs/ops/anthropic-directory.md`) — the
+  submission packet: how the server meets each review requirement and every
+  portal field pre-filled. Submitting needs the owner's paid Claude account, not
+  a session. Three things the review checks that are easy to regress: tool
+  arguments are **validated, never clamped** (`validateToolArgs()`, an `isError`
+  result before any KV read); **no `Origin` check on `/mcp`** (a strict one
+  times out Claude's `initialize`); and `/privacy`'s MCP section is a claim
+  about `src/mcp/metrics.js` — change it with the code. Once listed, a material
+  tool or description change means notifying Anthropic (policy 3H).
 - **Email auth** (`docs/ops/email-auth.md`) — mail is iCloud-managed; DMARC
   (`_dmarc.crosbynews.com`, `p=reject`) is the one record this repo owns,
   reproducible with `node scripts/dmarc.mjs` (careful: re-running it as-is

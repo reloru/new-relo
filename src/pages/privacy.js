@@ -30,6 +30,7 @@ export const PRIVACY = {
         "Houston TranStar (houstontranstar.org) — road incidents and scheduled lane closures for the Crosby corridors, from TranStar's public RSS feeds.",
         "Google News — local news headlines aggregated from public RSS feeds by an out-of-band process and cached.",
         "Crosby ISD (crosbyisd.org) — the school district's public iCal calendar feed.",
+        "Texas A&M Forest Service (tfs.tamu.edu) — the Harris County outdoor-burning ban status.",
       ],
     },
     {
@@ -44,6 +45,16 @@ export const PRIVACY = {
       p: [
         "There are none. crosbynews.com runs no analytics script — nothing loads in your browser to count, profile, or report your visit, and no third-party analytics service is used.",
         "Cloudflare, which serves the site, keeps aggregate server-side request logs as part of delivering the page, the way any web host does. That is not something this site adds to your browser, and it carries no analytics identifier.",
+      ],
+    },
+    {
+      h: "MCP server for AI assistants",
+      p: [
+        "crosbynews.com runs a Model Context Protocol (MCP) server at https://crosbynews.com/mcp so AI assistants such as Claude can fetch the same public data this site shows. It needs no account or key and never asks for personal information.",
+        "What it receives: only the tool request your assistant sends — the name of a tool and, for two tools, a number (how many forecast hours or school events to return). Those arguments are used to build the response and are never stored. Your conversation with the assistant is not sent to this site.",
+        "What it counts: aggregate totals only — which protocol method and tool were called, whether the call succeeded, how long it took, and the client software name the assistant reports when it connects (for example, \"claude-ai\"). No IP address, user agent, tool argument, request content, or identifier is stored, and no record of any individual call is kept.",
+        "Retention: the counts are held first in short-lived batches that expire within 6 hours, then kept as daily totals for 90 days, after which they are merged into monthly totals. They are visible only to the site owner and are not shared with or sold to anyone. Cloudflare's request logs, described under Analytics, apply to these requests as to any other.",
+        "The assistant itself is a separate service: what it does with your conversation is governed by its provider's privacy policy (for Claude, Anthropic's), not this one.",
       ],
     },
     {
@@ -76,6 +87,7 @@ export const PRIVACY_ES = {
         "Houston TranStar (houstontranstar.org) — incidentes viales y cierres de carriles programados para los corredores de Crosby, desde los feeds RSS públicos de TranStar.",
         "Google News — titulares de noticias locales recopilados de fuentes RSS públicas mediante un proceso externo y almacenados en caché.",
         "Crosby ISD (crosbyisd.org) — el calendario público iCal del distrito escolar.",
+        "Servicio Forestal de Texas A&M (tfs.tamu.edu) — el estado de la prohibición de quemas al aire libre en el condado de Harris.",
       ],
     },
     {
@@ -90,6 +102,16 @@ export const PRIVACY_ES = {
       p: [
         "No hay ninguna. crosbynews.com no ejecuta ningún script de analítica: nada se carga en tu navegador para contar, perfilar ni informar tu visita, y no se usa ningún servicio de analítica de terceros.",
         "Cloudflare, que sirve el sitio, conserva registros agregados de solicitudes del lado del servidor como parte de entregar la página, igual que cualquier proveedor de alojamiento. Eso no es algo que este sitio agregue a tu navegador y no lleva ningún identificador de analítica.",
+      ],
+    },
+    {
+      h: "Servidor MCP para asistentes de IA",
+      p: [
+        "crosbynews.com opera un servidor de Model Context Protocol (MCP) en https://crosbynews.com/mcp para que asistentes de IA como Claude obtengan los mismos datos públicos que muestra este sitio. No requiere cuenta ni clave y nunca pide información personal.",
+        "Qué recibe: solo la solicitud de herramienta que envía tu asistente — el nombre de una herramienta y, en dos de ellas, un número (cuántas horas de pronóstico o eventos escolares devolver). Esos argumentos se usan para armar la respuesta y nunca se guardan. Tu conversación con el asistente no se envía a este sitio.",
+        "Qué cuenta: solo totales agregados — qué método del protocolo y qué herramienta se llamaron, si la llamada tuvo éxito, cuánto tardó y el nombre del software cliente que el asistente informa al conectarse (por ejemplo, \"claude-ai\"). No se guarda ninguna dirección IP, agente de usuario, argumento de herramienta, contenido de solicitud ni identificador, y no se conserva ningún registro de llamadas individuales.",
+        "Conservación: los conteos se guardan primero en lotes temporales que caducan en menos de 6 horas, luego como totales diarios durante 90 días, y después se combinan en totales mensuales. Solo los ve el dueño del sitio y no se comparten ni se venden a nadie. Los registros de solicitudes de Cloudflare, descritos en Analítica, aplican a estas solicitudes como a cualquier otra.",
+        "El asistente en sí es un servicio aparte: lo que haga con tu conversación se rige por la política de privacidad de su proveedor (en el caso de Claude, la de Anthropic), no por esta.",
       ],
     },
     {
