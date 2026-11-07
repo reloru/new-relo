@@ -140,15 +140,17 @@ Seven acknowledgments. The facts behind each:
 ## Verification (re-run before submitting)
 
 ```bash
-npx -y @modelcontextprotocol/inspector --cli https://crosbynews.com/mcp --transport http --method tools/list
+npx -y @modelcontextprotocol/inspector --cli https://crosbynews.com/mcp --transport http --method tools/list --strict
 ```
 
-Expected: 14 tools, and "Schema portability: 0 errors, 65 warnings". The
-warnings are all one kind — nullable `outputSchema` fields written as
-`type: ["string","null"]`, which is legal JSON Schema that some non-Claude
-dialects (the Inspector cites Gemini's) cannot express. Not a directory
-requirement; Claude loads these schemas fine. Rewriting them as
-`anyOf` branches is optional portability work, not submission work.
+Expected: 14 tools, and `--strict` (schema-portability checks) reporting
+**0 warnings**. Nullable `outputSchema` fields are `anyOf`
+branches (`{anyOf: [{type: "string"}, {type: "null"}]}`), never
+`type: ["string","null"]` — a type array is legal JSON Schema, but dialects
+such as Gemini's cannot express it. `mcpTools()` guarantees this by running
+every `outputSchema` through `portableSchema()` (`src/mcp/server.js`), so write
+nullable fields in either form; `node scripts/test-mcp-server.mjs` fails on any
+array `type`. (Before v1.7.2 the output was "0 errors, 65 warnings".)
 
 Plus one call per tool through a Claude custom connector, and one deliberately
 bad argument (e.g. `get_forecast` with `hours: 500`), which must return an

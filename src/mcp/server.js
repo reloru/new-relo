@@ -46,7 +46,7 @@ export const MCP_SUPPORTED_VERSIONS = ["2025-03-26", "2025-06-18"];
 // Version moves in lockstep with `server.json`'s registry version on any
 // tool-set change — they drifted apart (1.2.0 vs 1.4.0) when `get_air_quality`
 // and `get_fishing` shipped without a bump, so both now carry the same number.
-export const MCP_SERVER_INFO = { name: "crosbynews-weather", version: "1.7.1", title: "Crosby, TX Weather" };
+export const MCP_SERVER_INFO = { name: "crosbynews-weather", version: "1.7.2", title: "Crosby, TX Weather" };
 export const MCP_CORS = {
   "access-control-allow-origin": "*",
   "access-control-allow-methods": "POST, OPTIONS",
@@ -69,6 +69,25 @@ export function mcpJson(payload, status) {
 // Clients use these hints to skip per-call confirmation prompts.
 export const MCP_READ_ONLY = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false };
 
+// JSON Schema allows `type: ["string", "null"]`, but some non-Claude dialects
+// (the MCP Inspector cites Gemini's) cannot express a type array. Rewrite each
+// one as `anyOf` branches: annotations (description, title, default, examples)
+// stay on the parent, every type-specific keyword moves into the first branch.
+const SCHEMA_ANNOTATIONS = ["description", "title", "default", "examples", "$comment"];
+export function portableSchema(node) {
+  if (Array.isArray(node)) return node.map(portableSchema);
+  if (!node || typeof node !== "object") return node;
+  const out = {};
+  for (const [k, v] of Object.entries(node)) out[k] = portableSchema(v);
+  if (!Array.isArray(out.type)) return out;
+  const { type, ...rest } = out;
+  const top = {};
+  const shared = {};
+  for (const [k, v] of Object.entries(rest)) (SCHEMA_ANNOTATIONS.includes(k) ? top : shared)[k] = v;
+  const branches = type.map((t) => (t === "null" ? { type: "null" } : { type: t, ...shared }));
+  return { ...top, anyOf: branches };
+}
+
 export function mcpTools() {
   // outputSchema fragments — shallow and honest: they name the load-bearing
   // fields and stay permissive (additionalProperties defaults to true) since
@@ -80,7 +99,7 @@ export function mcpTools() {
     description:
       "An NWS forecast period, passed through (startTime, temperature, shortForecast, windSpeed, probabilityOfPrecipitation, ...) plus computed feelsLike °F where applicable. Full schema: https://crosbynews.com/openapi.json",
   };
-  return [
+  const tools = [
     {
       name: "get_current_conditions",
       title: "Current conditions",
@@ -521,6 +540,7 @@ export function mcpTools() {
       annotations: MCP_READ_ONLY,
     },
   ];
+  return tools.map((t) => (t.outputSchema ? { ...t, outputSchema: portableSchema(t.outputSchema) } : t));
 }
 
 // MCP prompts — one genuinely useful one: a data-grounded daily briefing.
