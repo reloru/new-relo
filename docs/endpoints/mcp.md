@@ -58,7 +58,9 @@ full KV hourly supply), `get_alerts`, `get_tropical_outlook`, `get_pollen`,
 `get_radar`.
 
 - Every tool carries `MCP_READ_ONLY` annotations (`readOnlyHint: true`,
-  `openWorldHint: false`) so clients can skip per-call confirmation.
+  `openWorldHint: false`) so clients can skip per-call confirmation, plus
+  `annotations.title` — the field the Anthropic directory reads for its listing.
+  `mcpTools()` copies it from the top-level `title`, so the two cannot drift.
 - Every **data** tool declares an `outputSchema` — shallow and permissive, since
   NWS and NHC objects pass through with more fields than are enumerated. Full
   docs live in `/openapi.json`.

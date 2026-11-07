@@ -122,7 +122,7 @@ try {
   // 7. Every tool carries a title and readOnlyHint (directory requirement),
   //    and names fit the 64-character limit.
   for (const t of tools) {
-    check(`${t.name} has title + readOnlyHint, name ≤ 64 chars`, !!t.title && t.annotations?.readOnlyHint === true && t.name.length <= 64);
+    check(`${t.name} has title + annotations.title + readOnlyHint, name ≤ 64 chars`, !!t.title && t.annotations?.title === t.title && t.annotations?.readOnlyHint === true && t.name.length <= 64);
   }
 
   // 8. The example prompts (public docs + directory use cases) name real tools,
