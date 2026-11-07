@@ -100,7 +100,7 @@ try {
     check("get_alerts upstream 503 → isError", r?.isError === true, JSON.stringify(r).slice(0, 300));
     check("…names the feed", t.includes("National Weather Service alerts"), t);
     check("…keeps the upstream detail", t.includes("503"), t);
-    check("…points at the live page", t.includes("https://crosbynews.com/alerts"), t);
+    check("…points at the live page", /The same data is on https:\/\/crosbynews\.com\/alerts\.$/.test(t), t);
     check("…is not a bare 'Error:' string", !/^Error:/.test(t), t);
   }
 
