@@ -7,7 +7,7 @@
 //
 // Run: node scripts/test-mcp-server.mjs
 
-import { mcpCallTool, mcpHandle, mcpTools, validateToolArgs, MCP_TOOL_SOURCES, MCP_EXAMPLE_PROMPTS } from "../src/mcp/server.js";
+import { mcpCallTool, mcpHandle, mcpTools, validateToolArgs, MCP_TOOL_SOURCES, MCP_EXAMPLE_PROMPTS, MCP_SERVER_INFO } from "../src/mcp/server.js";
 
 let failures = 0;
 function check(label, ok, detail = "") {
@@ -130,6 +130,32 @@ try {
   check("at least 3 example prompts", MCP_EXAMPLE_PROMPTS.length >= 3);
   for (const p of MCP_EXAMPLE_PROMPTS) {
     check(`example "${p.en}" names real tools and has Spanish`, !!p.es && p.tools.length > 0 && p.tools.every((n) => byName[n]));
+  }
+  // 9. No outputSchema carries an array `type` (e.g. ["string","null"]): some
+  //    non-Claude dialects cannot express it, and the MCP Inspector --strict
+  //    flags each one. Nullable fields are anyOf branches instead.
+  const arrayTypes = (node, path = "") => {
+    if (Array.isArray(node)) return node.flatMap((v, i) => arrayTypes(v, `${path}[${i}]`));
+    if (!node || typeof node !== "object") return [];
+    const here = Array.isArray(node.type) ? [path || "."] : [];
+    return here.concat(Object.entries(node).flatMap(([k, v]) => arrayTypes(v, `${path}.${k}`)));
+  };
+  let nullBranches = 0;
+  for (const t of tools) {
+    for (const key of ["inputSchema", "outputSchema"]) {
+      if (!t[key]) continue;
+      const bad = arrayTypes(t[key]);
+      check(`${t.name}.${key} has no array type`, bad.length === 0, bad.slice(0, 3).join(", "));
+    }
+    nullBranches += JSON.stringify(t.outputSchema ?? {}).split('{"type":"null"}').length - 1;
+  }
+  check("nullable fields survive as anyOf null branches", nullBranches >= 50, String(nullBranches));
+
+  // 10. The version a server.json bump must match.
+  {
+    const { readFileSync } = await import("node:fs");
+    const sj = JSON.parse(readFileSync(new URL("../server.json", import.meta.url), "utf8"));
+    check("server.json version matches MCP_SERVER_INFO", sj.version === MCP_SERVER_INFO.version, `${sj.version} vs ${MCP_SERVER_INFO.version}`);
   }
 } finally {
   globalThis.fetch = realFetch;
