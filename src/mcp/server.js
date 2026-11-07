@@ -46,7 +46,7 @@ export const MCP_SUPPORTED_VERSIONS = ["2025-03-26", "2025-06-18"];
 // Version moves in lockstep with `server.json`'s registry version on any
 // tool-set change — they drifted apart (1.2.0 vs 1.4.0) when `get_air_quality`
 // and `get_fishing` shipped without a bump, so both now carry the same number.
-export const MCP_SERVER_INFO = { name: "crosbynews-weather", version: "1.7.2", title: "Crosby, TX Weather" };
+export const MCP_SERVER_INFO = { name: "crosbynews-weather", version: "1.7.3", title: "Crosby, TX Weather" };
 export const MCP_CORS = {
   "access-control-allow-origin": "*",
   "access-control-allow-methods": "POST, OPTIONS",
@@ -540,7 +540,12 @@ export function mcpTools() {
       annotations: MCP_READ_ONLY,
     },
   ];
-  return tools.map((t) => (t.outputSchema ? { ...t, outputSchema: portableSchema(t.outputSchema) } : t));
+  // The directory reads `annotations.title`, not the top-level `title`; derive it so the two cannot drift.
+  return tools.map((t) => ({
+    ...t,
+    annotations: { ...t.annotations, title: t.title },
+    ...(t.outputSchema ? { outputSchema: portableSchema(t.outputSchema) } : {}),
+  }));
 }
 
 // MCP prompts — one genuinely useful one: a data-grounded daily briefing.

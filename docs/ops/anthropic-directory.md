@@ -23,7 +23,7 @@ Directory Policy (support.claude.com article 13145358). Escalations:
 |---|---|---|
 | Remote, public HTTPS, Streamable HTTP | yes — stateless JSON-RPC at `https://crosbynews.com/mcp`; no SSE stream (GET with `Accept: text/event-stream` → 405, per spec) | `src/router.js`, `docs/endpoints/mcp.md` |
 | Auth | **none** (authless) — OAuth is only required for servers that require authentication | — |
-| Every tool has `title` + the applicable hint | yes — all 14 carry `readOnlyHint: true`, `destructiveHint: false` (`MCP_READ_ONLY`) | `mcpTools()`; pinned by `scripts/test-mcp-server.mjs` |
+| Every tool has `title` + the applicable hint | yes — all 14 carry `title`, `annotations.title` (the field the directory reads; added v1.7.3 after its review flagged "Missing title annotation" on all 14), `readOnlyHint: true`, `destructiveHint: false` (`MCP_READ_ONLY`) | `mcpTools()`; pinned by `scripts/test-mcp-server.mjs` |
 | Tool names ≤ 64 chars | yes (longest: `get_emergency_contacts`, 22) | pinned by the same test |
 | No mixed read/write tool | yes — every tool is a read | — |
 | Narrow, accurate descriptions; no prompt-injection patterns | yes — descriptions state what the data is; the two schema/result strings that read as instructions to the model were rephrased as statements of fact (v1.7.1) | `mcpTools()`, `get_tropical_outlook` |
@@ -113,8 +113,16 @@ Facts for the "whose API is it" question:
   from Google News RSS via an out-of-band routine (`docs/ops/news-pipeline.md`);
   only titles, source names, dates and links are returned, never article text.
 
-On these facts "your own API" is the accurate answer, and the news sourcing
-can go in a note if the form allows one. Personal health data: **no** (pollen
+On these facts "your own API" is the accurate answer. **Note to paste into the
+submission** (portal note field, or the reviewer instructions if there is none):
+
+> `get_crosby_news` returns headlines from crosbynews.com's own cache. The cache
+> is filled by crosbynews.com's own out-of-band routine, which reads public
+> Google News RSS search results for Crosby, TX and filters them for local
+> relevance and duplicates. Only each headline's title, publisher name,
+> publication date and link are returned, never article text, so the tool
+> points readers to the publishers' own pages. Every other tool reads the same
+> crosbynews.com cache, filled from official public sources. Personal health data: **no** (pollen
 and AQI are environmental readings, not about a person). Sponsored content:
 **no**.
 
