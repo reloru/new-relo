@@ -143,6 +143,13 @@ Seven acknowledgments. The facts behind each:
 npx -y @modelcontextprotocol/inspector --cli https://crosbynews.com/mcp --transport http --method tools/list
 ```
 
+Expected: 14 tools, and "Schema portability: 0 errors, 65 warnings". The
+warnings are all one kind — nullable `outputSchema` fields written as
+`type: ["string","null"]`, which is legal JSON Schema that some non-Claude
+dialects (the Inspector cites Gemini's) cannot express. Not a directory
+requirement; Claude loads these schemas fine. Rewriting them as
+`anyOf` branches is optional portability work, not submission work.
+
 Plus one call per tool through a Claude custom connector, and one deliberately
 bad argument (e.g. `get_forecast` with `hours: 500`), which must return an
 `isError` result naming the 1–48 range.
