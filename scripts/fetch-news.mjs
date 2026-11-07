@@ -13,12 +13,16 @@
 // (CLOUDFLARE_API_TOKEN needs Workers KV Storage:Edit — the deploy token has it.)
 
 import { pathToFileURL } from "node:url";
+import { judgeHeadlines, aiDecision, staleEventIndexes, aiEnabled } from "./news-ai.mjs";
 
 const TOKEN = process.env.CLOUDFLARE_API_TOKEN;
 const ACCOUNT = process.env.CLOUDFLARE_ACCOUNT_ID;
 const NS_ID = process.env.WEATHER_KV_ID || "da96de7daed84b69b32778058b374d5f"; // WEATHER namespace
 const KV_KEY = "news";
 const MAX_AGE_DAYS = 45;
+// Incident slots on /news: one per (tier, crime family). Raised 2 -> 3. Nearby-town
+// incidents sort after core-Crosby ones, so they take a slot only if one is free.
+const MAX_INCIDENTS = 3;
 
 // Google News RSS search queries (Crosby core + nearby towns). Each is gated
 // for relevance after fetching, so broad queries are fine.
@@ -57,6 +61,9 @@ const REJECT = [
 const GEO_REJECT = [
   "waterbury", "crosbyton", "uk", "england", "britain", "british", "liverpool",
   "waterloo", "sefton", "merseyside", "cumbria", "lancashire", "scunthorpe", "lincolnshire",
+  // St. Louis, Missouri has a "Barrett Station Road" too; its TV outlets' bylines
+  // ("... Barrett Station Road ... - KSDK") otherwise rank straight in as core.
+  "ksdk", "kmov",
 ];
 const GEO_RE = new RegExp("\\b(?:" + GEO_REJECT.join("|") + ")\\b", "i");
 // Obituaries / funeral-home noise — dropped entirely.
@@ -144,19 +151,45 @@ function parseRssItems(xml) {
   return items;
 }
 
-// "core" (Crosby), "near" (bordering town w/ TX context), or null (exclude).
-function areaTier(title, source) {
+// Hard rejects shared by areaTier() and areaCandidate(): famous Crosbys, other-place
+// Crosbys, obituaries, blotter indexes, aftermath follow-ups, real-estate listings.
+// No model overrides these.
+function hardReject(title, source) {
   const t = ` ${title.toLowerCase()} `;
   const blob = `${t} ${(source || "").toLowerCase()}`;
-  if (REJECT.some((r) => t.includes(r))) return null;
-  if (GEO_RE.test(title)) return null; // other-place Crosbys (UK / Waterbury CT / Crosbyton)
-  if (SOFT_DROP.some((d) => blob.includes(d))) return null;
-  if (BLOTTER_RE.test(title)) return null; // blotter / report-index boilerplate
-  if (AFTERMATH.some((d) => t.includes(d))) return null;
-  if (RE_ADDRESS.test(title) || REALTOR.some((r) => blob.includes(r))) return null;
+  return (
+    REJECT.some((r) => t.includes(r)) ||
+    GEO_RE.test(title) || // other-place Crosbys (UK / Waterbury CT / Crosbyton)
+    SOFT_DROP.some((d) => blob.includes(d)) ||
+    BLOTTER_RE.test(title) || // blotter / report-index boilerplate
+    AFTERMATH.some((d) => t.includes(d)) ||
+    RE_ADDRESS.test(title) ||
+    REALTOR.some((r) => blob.includes(r))
+  );
+}
+
+// "core" (Crosby), "near" (bordering town w/ TX context), or null (exclude).
+function areaTier(title, source) {
+  if (hardReject(title, source)) return null;
+  const t = ` ${title.toLowerCase()} `;
   const crosby = t.includes("crosby") && (REQUIRE.some((r) => t.includes(r)) || CONTEXT.some((c) => t.includes(c)));
   if (crosby || t.includes("barrett station")) return "core";
   if (NEAR.some((n) => t.includes(n)) && NEAR_CONTEXT.some((c) => t.includes(c))) return "near";
+  return null;
+}
+
+// areaTier() plus "maybeCore" / "maybeNear": the headline literally names Crosby
+// or a nearby town and survives every hard reject, but carries no Texas/Harris
+// County context in its text ("Atascocita crash: ...", "Crosby Cougars vs ...").
+// These are NOT accepted on the regex's say-so; they are kept only if the model
+// clears the higher rescue bar in news-ai.mjs (and never when the model is down).
+function areaCandidate(title, source) {
+  const tier = areaTier(title, source);
+  if (tier) return tier;
+  if (hardReject(title, source)) return null;
+  const t = ` ${title.toLowerCase()} `;
+  if (t.includes("crosby")) return "maybeCore";
+  if (NEAR.some((n) => t.includes(n))) return "maybeNear";
   return null;
 }
 const isCrime = (title) => CRIME_RE.test(title);
@@ -219,12 +252,15 @@ function parseEventDate(title, pubTs) {
   }
   return best;
 }
+function hasEventCue(title) {
+  const t = title.toLowerCase();
+  return EVENT_CUE.some((c) => t.includes(c)) || TIME_RE.test(title);
+}
 function stalePastEvent(title, pubTs, now) {
   const eventTs = parseEventDate(title, pubTs);
   if (eventTs == null) return false;
   if (!(pubTs < eventTs && eventTs < now)) return false; // not an announced-future, now-past event
-  const t = title.toLowerCase();
-  return EVENT_CUE.some((c) => t.includes(c)) || TIME_RE.test(title);
+  return hasEventCue(title);
 }
 
 // Fuzzy de-dupe: collapse near-identical headlines (same story, reworded). Topic
@@ -283,12 +319,13 @@ async function main() {
 
   const now = Date.now();
   const minTs = now - MAX_AGE_DAYS * 86400000;
-  const seen = new Set();
-  const sigs = [];
-  const out = [];
+
+  // Pass 1 (static gates, feed order): relevance candidates, link, freshness,
+  // regex stale-event check.
+  const cands = [];
   for (const xml of xmls) {
     for (const it of parseRssItems(xml)) {
-      const tier = areaTier(it.title, it.source);
+      const tier = areaCandidate(it.title, it.source);
       if (!tier) continue;
       if (!/^https?:\/\//i.test(it.link)) continue; // only real http(s) links reach KV
       const ts = Date.parse(it.pubDate) || 0;
@@ -296,24 +333,70 @@ async function main() {
       // freshness gate too, so a headline we can't date can't linger forever.
       if (!ts || ts < minTs) continue;
       if (stalePastEvent(it.title, ts, now)) continue; // announced event whose date has passed
-      const title = it.title.replace(/\s+-\s+[^-]+$/, "").trim();
-      const key = title.toLowerCase().slice(0, 70);
-      if (seen.has(key)) continue;
-      const sig = sigOf(title);
-      if (sigs.some((s) => jaccard(s, sig) > 0.35)) continue; // near-duplicate story (aggressive)
-      seen.add(key);
-      sigs.push(sig);
-      const sourceFromTitle = (it.title.match(/\s+-\s+([^-]+)$/) || [])[1];
-      out.push({
-        title,
-        source: it.source || (sourceFromTitle ? sourceFromTitle.trim() : ""),
-        link: it.link,
-        ts,
-        crime: isCrime(title),
-        near: tier === "near",
-      });
+      cands.push({ it, tier, ts });
     }
   }
+
+  // Pass 2 (Workers AI, news-ai.mjs): veto non-stories among regex-accepted
+  // items, rescue context-less Crosby / nearby-town headlines on a higher bar.
+  // Runs BEFORE de-dup so a vetoed index page can't suppress a real story.
+  // Any AI failure => no opinion => the regex result stands (rescues need AI).
+  const aiOpts = { account: ACCOUNT, token: TOKEN };
+  const verdicts = await judgeHeadlines(cands.map((c) => c.it.title), aiOpts);
+  const tally = { wrongPlace: 0, incidentBar: 0, vetoed: 0, rescued: 0, rescueRejected: 0, noAi: 0, staleAi: 0 };
+  const judged = cands.filter((c) => {
+    const v = verdicts.get(c.it.title);
+    c.crime = isCrime(c.it.title.replace(/\s+-\s+[^-]+$/, ""));
+    const d = aiDecision(c.tier, v, { crime: c.crime });
+    if (!v) tally.noAi++;
+    if (d.why === "not-a-story") tally.vetoed++;
+    else if (d.why === "wrong-place") tally.wrongPlace++;
+    else if (d.why === "incident-bar") tally.incidentBar++;
+    else if (d.why === "rescued") {
+      c.rescued = true;
+      tally.rescued++;
+      if (process.env.DRY_RUN) console.error(`  [ai-rescue] ${c.it.title.slice(0, 90)}`);
+    } else if (d.why === "rescue-bar") tally.rescueRejected++;
+    if (!d.keep && process.env.DRY_RUN) console.error(`  [ai-drop:${d.why}] ${c.it.title.slice(0, 90)}`);
+    return d.keep;
+  });
+  // Announced events that have passed, read by clairic (numeric dates, weekdays,
+  // "next Tuesday"); only headlines with an event/scheduling cue are asked.
+  const staleAi = await staleEventIndexes(
+    judged.map((c) => ({ title: c.it.title, pubTs: c.ts })),
+    now,
+    hasEventCue,
+    aiOpts
+  );
+  tally.staleAi = staleAi.size;
+  const live = judged.filter((_, i) => !staleAi.has(i));
+
+  // Pass 3: de-dup (feed order, first wins) and shape.
+  const seen = new Set();
+  const sigs = [];
+  const out = [];
+  for (const { it, tier, ts, rescued } of live) {
+    const title = it.title.replace(/\s+-\s+[^-]+$/, "").trim();
+    const key = title.toLowerCase().slice(0, 70);
+    if (seen.has(key)) continue;
+    const sig = sigOf(title);
+    if (sigs.some((s) => jaccard(s, sig) > 0.35)) continue; // near-duplicate story (aggressive)
+    seen.add(key);
+    sigs.push(sig);
+    const sourceFromTitle = (it.title.match(/\s+-\s+([^-]+)$/) || [])[1];
+    out.push({
+      title,
+      source: it.source || (sourceFromTitle ? sourceFromTitle.trim() : ""),
+      link: it.link,
+      ts,
+      crime: isCrime(title),
+      near: tier === "near" || tier === "maybeNear",
+      ...(rescued ? { _rescued: true } : {}),
+    });
+  }
+  console.log(
+    `AI ${aiEnabled() ? "on" : "off (NEWS_AI=0)"}: ${tally.vetoed} vetoed as non-stories, ${tally.wrongPlace} wrong place, ${tally.incidentBar} nearby incidents under the bar, ${tally.rescued} rescued, ${tally.rescueRejected} rescue candidates rejected, ${tally.staleAi} stale events, ${tally.noAi} with no verdict.`
+  );
   // Community before crime, then core-Crosby before nearby, then newest first.
   out.sort((a, b) => Number(a.crime) - Number(b.crime) || Number(a.near) - Number(b.near) || b.ts - a.ts);
   // Editorial blocklist: articles the site owner nuked via the /news admin
@@ -335,13 +418,15 @@ async function main() {
   const seenFam = new Set();
   for (const i of kept) {
     if (!i.crime) continue;
-    const fam = crimeFamily(i.title);
+    // One slot per (tier, family): a nearby-town incident no longer loses its
+    // family to a Crosby one — it competes only with other nearby ones.
+    const fam = `${i.near ? "near" : "core"}:${crimeFamily(i.title)}`;
     if (seenFam.has(fam)) continue;
     seenFam.add(fam);
     incidents.push(i);
-    if (incidents.length >= 2) break;
+    if (incidents.length >= MAX_INCIDENTS) break;
   }
-  const payload = { updated: new Date().toISOString(), items: [...community, ...incidents], source: "google-news-routine" };
+  const payload = { updated: new Date().toISOString(), items: [...community, ...incidents].map(({ _rescued, ...item }) => item), source: "google-news-routine" };
 
   // Shrink-guard: a partial upstream failure (some Google queries rate-limited,
   // the rest 503) can yield a near-empty result that would silently overwrite a
@@ -393,4 +478,4 @@ async function main() {
 // imported, so the pure helpers above can be unit-tested.
 if (import.meta.url === pathToFileURL(process.argv[1] || "").href) main();
 
-export { areaTier, isCrime, crimeFamily, parseEventDate, stalePastEvent, decodeEntities };
+export { areaTier, areaCandidate, hasEventCue, isCrime, crimeFamily, parseEventDate, stalePastEvent, decodeEntities };

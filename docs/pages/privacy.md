@@ -33,8 +33,18 @@ Static, from the `PRIVACY` object. Sections cover:
   `docs/ops/analytics.md`. Adding analytics back means changing this section, the
   matching `/about` block, and the CSP together — the claim and the code must
   move as one
+  The list names every upstream a page or MCP tool reads, including the Texas
+  A&M Forest Service (burn ban)
 - **Push notifications** — only an anonymous push subscription is stored, no
   message content travels through it, and it is deletable at any time
+- **MCP server for AI assistants** — what `POST /mcp` receives (the tool
+  request only; arguments never stored), what it counts (method, tool,
+  outcome, elapsed time, client name — aggregate), retention (shards expire
+  within 6h, daily totals 90 days, then monthly totals), no sharing, and that
+  the assistant's own handling of the conversation is its provider's policy.
+  This is the privacy policy URL in the Anthropic directory submission, so it
+  must stay true to `src/mcp/metrics.js` (`SHARD_TTL_S`, `RETAIN_DAYS`) — change
+  the page with the code, in both languages
 
 The push section must stay accurate against the actual storage: one KV entry per
 subscription under the `push:` prefix, value `{endpoint, keys, added}`, keyed by

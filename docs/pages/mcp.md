@@ -37,7 +37,9 @@ or anywhere else on the site. See `docs/endpoints/api/mcp-usage.md`.
 |---|---|
 | What MCP is and what this server does | static |
 | Tool list — name + description, one `<li>` each | **generated from `mcpTools()`**, so it cannot drift from the protocol |
-| How to connect — the bare server URL, then one line each for Claude Code, Grok, Perplexity and ChatGPT | static |
+| How to connect — the bare server URL, then one line each for Claude (claude.ai / desktop custom connector), Claude Code, Grok, Perplexity and ChatGPT | static |
+| Try asking — example questions, each with the tools it reaches | **`MCP_EXAMPLE_PROMPTS`** — the same list is the "use cases" in the Anthropic directory submission (`docs/ops/anthropic-directory.md`), and `scripts/test-mcp-server.mjs` fails if one names a tool that doesn't exist |
+| Privacy & support — no account/key/personal data, arguments not stored, link to `/privacy` (`/es/privacy` on the Spanish page), contact and security addresses | static |
 | Pointer to the server card and OpenAPI spec | static |
 
 ## Canonical & sitemap

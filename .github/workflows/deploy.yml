@@ -81,6 +81,12 @@ jobs:
       # hole with nothing failing. Pure node, no install.
       - name: Check entity decoding
         run: node scripts/test-decode-entities.mjs
+      # The news routine's Workers AI layer runs against preview models. This pins
+      # the failure behaviour (outage => regex result stands, never an abort or a
+      # partial snapshot) and the threshold directions (veto lenient, rescue
+      # strict) with a fake fetch. Pure node, no network.
+      - name: Check news AI layer
+        run: node scripts/test-news-ai.mjs
       # A contrast regression is invisible to every other gate: nothing throws,
       # the render check passes, the page returns 200, and it looks fine to
       # whoever changed it — it is only unreadable for the people who need it
@@ -110,6 +116,14 @@ jobs:
       # a stubbed KV. Pure node, no install, no network.
       - name: Check MCP usage metrics
         run: node scripts/test-mcp-metrics.mjs
+      # The tools/call contract the Anthropic connector-directory review tests:
+      # invalid arguments return an actionable isError result before any KV
+      # read (never silently clamped), a load failure names the feed and the
+      # page instead of a bare upstream string, unknown tools are -32602, every
+      # tool has a title + readOnlyHint, and the /mcp example prompts name real
+      # tools. Real dispatcher, stubbed KV and fetch. Pure node, no network.
+      - name: Check MCP server contract
+        run: node scripts/test-mcp-server.mjs
       # EPA's UV product rolls to the next day around 7 PM CT, after which a
       # plain max over today's remaining rows reported "peak today: 0" every
       # night. Pins the cron's carry-over of today's rows and the homepage's
