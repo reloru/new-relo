@@ -32,7 +32,8 @@ is the protocol, and `/es/mcp` answers non-GET/HEAD with 404.
 
 HSTS is also set at the Cloudflare zone edge, so it lands on edge-generated
 responses the Worker never sees (notably the `www` → apex 301). Cloudflare
-de-dupes, leaving one header.
+de-dupes, leaving one header — the zone's. Neither copy carries `preload`; the
+site is deliberately not on the HSTS preload list (`docs/ops/cloudflare-zone.md`).
 
 ## File map
 

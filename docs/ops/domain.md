@@ -28,6 +28,17 @@ crosbynews.com. Overwritten in place — no history; see `docs/README.md`.
   so even http://www reaches the apex in ONE hop. Don't remove it. Lives
   in the zone/dashboard, not wrangler.jsonc or fetch(); it matches
   `<link rel="canonical">` and the sitemap `<loc>`.
+  **Known defect: `(not ssl)` is not host-scoped.** The zone also serves
+  subdomains that are not this Worker, and a plain-HTTP request to any of
+  them is sent to the apex with the same path, not upgraded on its own host
+  (`http://<sub>.crosbynews.com/x` → `https://crosbynews.com/x`). Browsers
+  holding the apex's HSTS policy never send that request, so it bites
+  non-browser HTTP clients and first visits. The fix keeps the one-hop
+  `http://www` behaviour and leaves other hosts to "Always Use HTTPS"
+  (same-host upgrade): expression
+  `(http.host eq "www.crosbynews.com") or (not ssl and http.host eq "crosbynews.com")`,
+  same target. Not yet applied — it changes production redirects for hosts
+  outside this repo, so it waits on the owner.
 - "Always Use HTTPS" (SSL/TLS → Edge Certificates) is **ON**. Redundant
   with the Redirect rule but harmless: Cloudflare runs Single Redirects
   first, so the rule's `(not ssl)` clause always wins and there's no
@@ -40,9 +51,13 @@ crosbynews.com. Overwritten in place — no history; see `docs/README.md`.
   it) and so can't stamp HSTS on. The Worker ALSO sets HSTS on its own
   (apex) responses; Cloudflare de-dupes, leaving a single header.
   Zone/dashboard config, not wrangler.jsonc.
-  **The zone's copy wins** — measured 2026-08-19 with the Worker sending
-  `preload` and the zone not: the directive never appeared, on any route.
-  So the Worker's HSTS line is a fallback for "zone HSTS switched off", not
-  the live value; change HSTS at the zone. Details in
-  `docs/ops/cloudflare-zone.md`. Preload also needs a manual submission to
-  hstspreload.org, which Cloudflare does **not** do for you.
+  **The zone's copy wins** — measured 2026-08-19 and again 2026-11-09 with
+  the Worker sending `preload` and the zone not: the directive never
+  appeared, on any route. So the Worker's HSTS line is a fallback for "zone
+  HSTS switched off", not the live value; it now carries the same value as
+  the zone. Change HSTS at the zone.
+  **Not on the HSTS preload list, by decision (2026-11-09):** no `preload`
+  at the zone or in the Worker, and no submission to hstspreload.org — whose
+  maintainers now advise against preloading. Reasons, and what would change
+  the decision, in `docs/ops/cloudflare-zone.md`. Turning preload on is an
+  owner decision, not a session's.

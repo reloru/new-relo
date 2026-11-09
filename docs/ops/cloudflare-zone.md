@@ -192,7 +192,7 @@ is not:
 Turning it off is a zone-dashboard action (Speed → Optimization), not something a
 session can do.
 
-## HSTS and the preload list
+## HSTS is on; the preload list is deliberately not
 
 `max-age=63072000` with `includeSubDomains`, set at the zone edge *and* by the
 Worker (`src/index.js`); Cloudflare de-dupes to a single header.
@@ -203,39 +203,79 @@ overwritten at the edge and never reaches a browser.**
 Measured 2026-08-19, after deploying a Worker header carrying `preload` while the
 zone setting had preload off. Across 18 samples of `/`, plus `/alerts`, plus the
 `www` → apex 301, the live header was `max-age=63072000; includeSubDomains` every
-time — the zone's value, never the Worker's:
+time — the zone's value, never the Worker's. Re-confirmed 2026-11-09, still with
+the Worker sending `preload`: repeated samples of `/`, the `www` 301 and the
+zone's non-Worker subdomains all carried the zone's value.
 
 ```bash
 curl -sI https://crosbynews.com/ | grep -i strict-transport
 ```
 
-Two consequences:
+So **editing the HSTS string in `src/index.js` does nothing while the zone setting
+is enabled.** Keep the line, matching the zone's value: it is the fallback if zone
+HSTS is ever switched off. Change HSTS at the zone.
 
-- **Editing the HSTS string in `src/index.js` does nothing while the zone setting
-  is enabled.** Anyone changing it and expecting an effect will be misled. Keep
-  the line — it is the fallback if zone HSTS is ever switched off — but change
-  HSTS at the zone.
-- **Preload requires the zone-level Preload switch.** Adding `preload` in the
-  Worker was necessary groundwork but is not sufficient on its own.
+### Not on the preload list, by decision (2026-11-09)
 
-Two things about `preload` that are easy to get wrong:
+The site meets every hstspreload.org requirement except the `preload` directive
+itself: `https://hstspreload.org/api/v2/preloadable?domain=crosbynews.com`
+returns only `header.preloadable.preload.missing`. It is still **not submitted**,
+the zone's Preload switch stays off, and the Worker's fallback header carries no
+`preload` either. Reasons:
 
-- **It is a consent marker, not a behaviour.** No browser acts on the word. What
-  browsers act on is a list compiled into the binary. The directive is therefore
-  inert on its own, and safe to ship before any decision is final.
+- **The list's maintainers advise against it.** hstspreload.org, read
+  2026-11-09: *"Many browsers (Chrome, Safari) will automatically upgrade all HTTP
+  navigations to HTTPS, regardless of the domain's HSTS policy. HSTS preloading
+  only provides value when these upgrades fail in the presence of an active
+  attacker. The benefits provided by HSTS preloading are minimal compared to the
+  benefits provided by HSTS. While HSTS is recommended, HSTS preloading is not
+  recommended."*
+- **What it would add here is small.** The site sets no cookies and has no
+  sessions. The header already protects every browser that has loaded the site
+  once — and every subdomain, through `includeSubDomains` — for two years. What
+  is left is a browser's first visit, under an on-path attacker who blocks HTTPS
+  so that the browser's automatic upgrade falls back to plain HTTP.
+- **What it would cost is permanent in practice.** Acceptance commits every
+  present and future name under `crosbynews.com` — nested ones
+  (`*.*.crosbynews.com`) and internal-only ones included — to a valid HTTPS
+  certificate in every browser that ships the list, with no click-through on a
+  certificate error. The zone's certificates cover the apex and one wildcard
+  level only, and the zone already serves subdomains that are not this Worker, so
+  the namespace is in use beyond this site. Removal "takes months for a change to
+  reach users with a Chrome update", and the maintainers "cannot make guarantees
+  about other browsers".
+
+Revisit if the site gains cookies, logins, or anything a visitor sends beyond
+public reads, or if the maintainers' guidance changes. **Turning on the zone
+Preload switch or submitting is an owner decision, not a session's.** If it is
+ever made: switch Preload on at the zone (the Worker line then matters only as
+the fallback), sample the live header until every colo serves `preload`, confirm
+the preloadable API returns no errors, then submit through the form.
+
+Things about `preload` that are easy to get wrong:
+
+- **It is a standing request for inclusion, not an inert marker.**
+  hstspreload.org: *"If a site sends the preload directive in an HSTS header, it
+  is considered to be requesting inclusion in the preload list and may be
+  submitted via the form on this site."* The page treats the header itself as the
+  site's consent and describes no other ownership check. That is why the Worker's
+  fallback header no longer carries it — it would have started authorising
+  submission the day zone HSTS was switched off.
+- **Dropping it later is not removal.** Removing the directive only makes a
+  listed domain "immediately eligible for the removal form"; the months-long
+  release cycle still follows. A listed domain must also keep meeting the
+  requirements, and the maintainers say sites "may be removed automatically in
+  the future for failing to keep up the requirements".
 - **Cloudflare does not submit the domain for you.** The list is maintained by
-  the Chromium project at hstspreload.org and ingested by Firefox, Safari and
-  Edge; submission there is a separate manual step. Cloudflare's Preload switch
-  only adds the same word to the header.
-
-Do not submit lightly. Removal means getting off a list baked into shipped
-browser binaries and waiting out release cycles — months — and acceptance
-permanently commits every present and future subdomain to HTTPS.
+  the Chromium project at hstspreload.org and other major browsers base theirs on
+  it; submission there is a separate manual step. Cloudflare's Preload switch
+  only adds the word to the header.
 
 Also note the zone's HSTS dialog offers a **max-age dropdown that can be blank**
 (`Select…`) while the zone already serves a longer value. Saving that form without
-explicitly choosing a duration risks lowering `max-age`; preload requires at least
-one year.
+explicitly choosing a duration risks lowering `max-age`, which would weaken the
+header for every returning visitor (and fall below the one-year preload minimum,
+if the decision above ever changes).
 
 ## CAA — do not narrow it, and do not "clean up" the extra entries
 
