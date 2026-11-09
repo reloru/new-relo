@@ -217,14 +217,16 @@ permission limits, not a token problem — don't retry with a different token).
 Full detail — subdomain/preview settings, HSTS layering — lives in
 `docs/ops/domain.md`. The one invariant that matters day-to-day: hard
 canonicalization runs via a single Cloudflare Redirect rule
-(`(not ssl) or (http.host eq "www.crosbynews.com")` → `https://crosbynews.com`
-+ path, 301, one hop). It lives in the zone/dashboard, not `wrangler.jsonc` or
-`fetch()` — don't try to reproduce it in the Worker. The one exception is
-the trailing slash: `routeRequest()` (`src/router.js`) 301s any path ending in
-`/` to its slash-less form (query kept), so `/weather/` → `/weather`.
-That rule's `(not ssl)` clause is not host-scoped, so it also sends plain-HTTP
-requests for the zone's *other* subdomains to the apex — a known defect with
-the scoped fix written up in `docs/ops/domain.md`, awaiting the owner.
+(`(http.host eq "www.crosbynews.com") or (not ssl and http.host eq "crosbynews.com")`
+→ `https://crosbynews.com` + path, 301, one hop). It lives in the
+zone/dashboard, not `wrangler.jsonc` or `fetch()` — don't try to reproduce it
+in the Worker. The one exception is the trailing slash: `routeRequest()`
+(`src/router.js`) 301s any path ending in `/` to its slash-less form (query
+kept), so `/weather/` → `/weather`.
+Both clauses are host-scoped because the zone also serves subdomains that are
+not this Worker; "Always Use HTTPS" upgrades those on their own host, so it
+must stay ON. A bare `(not ssl)` (the rule's form until 2026-11-09) sends them
+to the apex — see `docs/ops/domain.md`.
 
 **HSTS is not preloaded, by decision (2026-11-09).** The zone's HSTS copy is
 the one browsers get; neither it nor the Worker's fallback line carries
