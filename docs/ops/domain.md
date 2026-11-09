@@ -18,32 +18,29 @@ crosbynews.com. Overwritten in place — no history; see `docs/README.md`.
   domain-reconciliation surprises. Inspect with
   `/zones/{id}/workers/routes` and `/accounts/{id}/workers/domains`.
 - Hard canonicalization is on via a single Cloudflare Redirect rule (Single
-  Redirects), so every variant reaches `https://crosbynews.com/` in ONE
-  hop:
-  - expression: `(not ssl) or (http.host eq "www.crosbynews.com")`
+  Redirects), so every variant of the site reaches `https://crosbynews.com/`
+  in ONE hop:
+  - expression:
+    `(http.host eq "www.crosbynews.com") or (not ssl and http.host eq "crosbynews.com")`
   - target: `concat("https://crosbynews.com", http.request.uri.path)`,
     301, preserve query string.
   - `https://crosbynews.com` matches neither clause → serves 200, no loop.
-  **The `(not ssl)` clause is load-bearing** — it upgrades http directly,
-  so even http://www reaches the apex in ONE hop. Don't remove it. Lives
-  in the zone/dashboard, not wrangler.jsonc or fetch(); it matches
+  **The www clause matches http too** — that is what sends `http://www`
+  straight to the apex in ONE hop rather than via `https://www`. Lives in
+  the zone/dashboard, not wrangler.jsonc or fetch(); it matches
   `<link rel="canonical">` and the sitemap `<loc>`.
-  **Known defect: `(not ssl)` is not host-scoped.** The zone also serves
-  subdomains that are not this Worker, and a plain-HTTP request to any of
-  them is sent to the apex with the same path, not upgraded on its own host
-  (`http://<sub>.crosbynews.com/x` → `https://crosbynews.com/x`). Browsers
-  holding the apex's HSTS policy never send that request, so it bites
-  non-browser HTTP clients and first visits. The fix keeps the one-hop
-  `http://www` behaviour and leaves other hosts to "Always Use HTTPS"
-  (same-host upgrade): expression
-  `(http.host eq "www.crosbynews.com") or (not ssl and http.host eq "crosbynews.com")`,
-  same target. Not yet applied — it changes production redirects for hosts
-  outside this repo, so it waits on the owner.
-- "Always Use HTTPS" (SSL/TLS → Edge Certificates) is **ON**. Redundant
-  with the Redirect rule but harmless: Cloudflare runs Single Redirects
-  first, so the rule's `(not ssl)` clause always wins and there's no
-  double hop. Either state is fine as long as that clause stays; ON is a
-  safety net if it ever doesn't.
+  **Both clauses are host-scoped on purpose.** The zone also serves
+  subdomains that are not this Worker. Until 2026-11-09 the http clause was a
+  bare `(not ssl)`, which matched every host on the zone and sent
+  `http://<sub>.crosbynews.com/x` to `https://crosbynews.com/x`, the wrong
+  site. Don't widen either clause back to all hosts.
+- "Always Use HTTPS" (SSL/TLS → Edge Certificates) is **ON**, and it is
+  **load-bearing for the zone's other subdomains**: the Redirect rule does
+  not match them, so this setting is what upgrades `http://<sub>/x` to
+  `https://<sub>/x` on the same host (verified 2026-11-09). For the apex and
+  `www` it is redundant: Cloudflare runs Single Redirects first, so the rule
+  wins and there is no double hop. Turning it off would leave the other
+  subdomains answering plain HTTP.
 - HSTS is enabled at the Cloudflare **zone edge** (SSL/TLS → Edge
   Certificates → HSTS: `max-age=63072000; includeSubDomains`, no preload)
   so the header lands on edge-generated responses too — notably the `www`
