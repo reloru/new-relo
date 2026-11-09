@@ -44,15 +44,12 @@ export default {
         })
       : await routeRequest(request, env, ctx);
     const r = new Response(resp.body, resp);
-    // `preload` is a CONSENT MARKER, not a behaviour: no browser acts on it. What
-    // browsers act on is a list compiled into the binary, maintained by the
-    // Chromium project at hstspreload.org and ingested by Firefox/Safari/Edge too.
-    // Cloudflare does NOT submit for you — its zone-level Preload switch only adds
-    // this same word to the header. So this line is inert until crosbynews.com is
-    // submitted there and accepted, and removing it later is free until then.
-    // The zone edge also sets HSTS and Cloudflare de-dupes to one header; which
-    // copy survives is recorded in docs/ops/cloudflare-zone.md.
-    r.headers.set("strict-transport-security", "max-age=63072000; includeSubDomains; preload");
+    // The zone edge also sets HSTS and its copy is the one browsers receive; this
+    // line is the fallback for zone HSTS being switched off. No `preload`: the
+    // site is deliberately not on the HSTS preload list, and hstspreload.org
+    // treats a header carrying `preload` as a request for inclusion that anyone
+    // may submit. Decision and reasons: docs/ops/cloudflare-zone.md.
+    r.headers.set("strict-transport-security", "max-age=63072000; includeSubDomains");
     r.headers.set("x-frame-options", "SAMEORIGIN");
     r.headers.set("content-security-policy", await contentSecurityPolicy());
     r.headers.set("cross-origin-opener-policy", "same-origin");

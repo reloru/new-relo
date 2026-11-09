@@ -222,6 +222,16 @@ canonicalization runs via a single Cloudflare Redirect rule
 `fetch()` — don't try to reproduce it in the Worker. The one exception is
 the trailing slash: `routeRequest()` (`src/router.js`) 301s any path ending in
 `/` to its slash-less form (query kept), so `/weather/` → `/weather`.
+That rule's `(not ssl)` clause is not host-scoped, so it also sends plain-HTTP
+requests for the zone's *other* subdomains to the apex — a known defect with
+the scoped fix written up in `docs/ops/domain.md`, awaiting the owner.
+
+**HSTS is not preloaded, by decision (2026-11-09).** The zone's HSTS copy is
+the one browsers get; neither it nor the Worker's fallback line carries
+`preload`, because hstspreload.org treats that word as a standing request for
+inclusion that anyone may submit. Switching zone Preload on or submitting to
+hstspreload.org is an owner decision, never a session's — reasons in
+`docs/ops/cloudflare-zone.md`.
 
 ## Conventions
 - Plain Workers, ES modules (`export default { fetch, scheduled }`). No
