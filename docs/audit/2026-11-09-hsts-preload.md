@@ -110,3 +110,111 @@ HTTPS", which is already on and upgrades on the same host. It keeps the one-hop
 `http://www` → apex behaviour. It is not applied here: it changes production
 redirects for hosts this repo does not own, so it waits on the owner. Recorded as
 a known defect in `docs/ops/domain.md`.
+
+## Log: implementation, corrections and follow-ups
+
+*Appended 2026-11-09 at the owner's request. Everything above this heading is
+the original write-up, unchanged.*
+
+### Timeline (UTC)
+
+| Time | Event |
+|---|---|
+| 14:20 | PR #253 squash-merged (`93bb87c`): Worker fallback HSTS header without `preload`, decision recorded in the docs |
+| 14:21 | CI deploy for `93bb87c` succeeded |
+| 15:15 | Redirect rule changed at the zone through the Rulesets API (ruleset version 2 → 3), on the owner's go-ahead |
+| 15:18 | PR #254 squash-merged (`371700c`): docs updated to the new rule; CI deploy succeeded |
+
+### What was implemented
+
+**1. HSTS stays un-preloaded (PR #253).** The change is described under
+"Changed in this PR" above. Verified after the deploy:
+
+- The live `Strict-Transport-Security` on `/` was
+  `max-age=63072000; includeSubDomains` in 8 of 8 samples, and the same on the
+  `www` 301. That is unchanged, as intended, because the zone's copy is the one
+  served.
+- The CSP header and `/sw.js` hashed identically before and after the deploy, so
+  nothing else in the shipped output moved.
+- hstspreload.org's preloadable check still returns only
+  `header.preloadable.preload.missing`, which is the intended end state.
+- `/verify-site` passed: all 42 content pages (both languages) returned 200 and
+  were substantive, all 35 non-page routes returned 200, and the security
+  headers, one-hop canonicalization, markdown negotiation, 404s, method guards
+  and `POST /mcp` all passed.
+- The zone's HSTS setting was not touched, its Preload switch stays off, and
+  nothing was submitted to hstspreload.org.
+
+**2. Redirect rule scoped to the site's own hosts (zone change + PR #254).** The
+defect under "Found, not changed" above was fixed the same day. Only the rule's
+expression changed:
+
+```
+before: (not ssl) or (http.host eq "www.crosbynews.com")
+after:  (http.host eq "www.crosbynews.com") or (not ssl and http.host eq "crosbynews.com")
+```
+
+The target (`concat("https://crosbynews.com", http.request.uri.path)`), the 301
+status and query-string preservation are unchanged. The rule's description was
+updated to match. If a rollback is ever needed, set the expression back to the
+"before" line.
+
+Verified in four sampling rounds, all agreeing, and again after the #254 deploy:
+
+| Request | Result |
+|---|---|
+| `http://<sub>.crosbynews.com/x` (both non-Worker subdomains) | 301 → `https://<sub>.crosbynews.com/x` |
+| `http://crosbynews.com/weather?q=1` | 301 → `https://crosbynews.com/weather?q=1` |
+| `https://www.crosbynews.com/weather?q=1` | 301 → `https://crosbynews.com/weather?q=1` |
+| `http://www.crosbynews.com/weather?q=1` | 301 → `https://crosbynews.com/weather?q=1` (one hop) |
+| `https://crosbynews.com/` | 200, no redirect |
+
+HTTPS requests to the other subdomains never matched either version of the rule.
+The fix needed no change to those subdomains' applications, their tunnel
+configuration, or the machine they run on.
+
+PR #254 updated `CLAUDE.md` and `docs/ops/domain.md`. It removed the known-defect
+notes and recorded that "Always Use HTTPS" is now load-bearing. The rule no
+longer matches the other subdomains, so that setting is what upgrades them on
+their own host.
+
+### Corrections and clarifications to the write-up above
+
+- **"Found, not changed" is superseded.** The redirect defect it describes was
+  fixed the same day (item 2 above). `docs/ops/domain.md` is the current-state
+  record.
+- **That section overstated how much the defect mattered.** "A POST turned into
+  a GET at another host's 301 is a real failure for an API" is accurate about the
+  mechanism, but it implies a likely scenario, and there wasn't one:
+  - Browsers holding the apex's HSTS policy never send the plain-HTTP request.
+  - Per the maintainers' text quoted above, Chrome and Safari upgrade HTTP
+    navigations anyway.
+  - The subdomain names don't appear in public certificate-transparency logs,
+    because the certificate names only the apex and the wildcard.
+
+  Only a client explicitly configured with an `http://` URL would have hit it,
+  and it would have failed visibly (a 404 from this site), not silently. It was
+  fixed because the change was trivial and makes the rule do what its
+  documentation says, not because of real exposure.
+- **The tunnel's own plain-HTTP hop was never in scope.** Those subdomains reach
+  their applications through a Cloudflare Tunnel whose last hop, on the host
+  machine, is plain HTTP to localhost. Neither HSTS nor the redirect rule touches
+  that hop; both act only on requests arriving at Cloudflare's edge.
+- **One quote in "Changed in this PR" is a paraphrase.** The old `src/index.js`
+  comment did not contain the words "free to remove until then". It said the line
+  was "inert until crosbynews.com is submitted there and accepted, and removing
+  it later is free until then". The point stands either way.
+
+### Also recorded
+
+- **Owner's answer on internal use:** no `crosbynews.com` name is used
+  internally, on a LAN, or otherwise over plain HTTP. So nothing internal would
+  block preload if the decision were ever revisited. That does not change the
+  decision; the reasons under "Weighing it" stand.
+- **Unverified during the post-deploy check (unrelated to HSTS):** `/api/health`
+  showed the burn-ban content unchanged for about 53 days (`hoursSinceChange`
+  1264.6), while refreshes kept succeeding (`ok: true`, last attempt 2.1 hours
+  earlier). A long-unchanged burn-ban status is plausible. It could not be
+  compared against the Texas A&M Forest Service upstream from the session,
+  because that ArcGIS endpoint failed certificate verification there ("unable to
+  get local issuer certificate"). The deployed Worker reaches it fine. Left open.
