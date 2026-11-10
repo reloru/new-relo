@@ -315,14 +315,14 @@ ${JSONLD_SITE}
   .status-icon { font-size:2.4rem; line-height:1; flex:none; }
   .status-title { margin:0; font-size:1.5rem; font-weight:800; line-height:1.1; }
   .status-sub { margin:0.35rem 0 0; font-size:0.98rem; opacity:0.95; }
-  .status-ok { background:linear-gradient(135deg,#1f8b4c,#2eb86a); }
-  .status-inc { background:linear-gradient(135deg,#b8860b,#e0a800); }
+  .status-ok { background:linear-gradient(135deg,#15693a,#1e8649); }
+  .status-inc { background:linear-gradient(135deg,#8a6400,#956f00); }
   .incs { display:grid; gap:0.7rem; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); margin-top:1rem; }
   .inc { background:var(--card); border-radius:12px; padding:0.85rem 1rem; box-shadow:0 1px 3px rgba(0,0,0,0.07); border-left:5px solid #e0a800; }
   .inc-water { border-left-color:#d44230; }
   .inc-head { display:flex; justify-content:space-between; align-items:flex-start; gap:0.5rem; }
   .inc-head h3 { margin:0; font-size:1rem; }
-  .inc-badge { flex:none; font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.03em; padding:0.15rem 0.5rem; border-radius:999px; color:#fff; background:#b8860b; white-space:nowrap; }
+  .inc-badge { flex:none; font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.03em; padding:0.15rem 0.5rem; border-radius:999px; color:#fff; background:#8f6800; white-space:nowrap; }
   .inc-water .inc-badge { background:#b5301f; }
   .inc-meta { margin:0.45rem 0 0; font-size:0.85rem; color:var(--muted); }
   .closures { list-style:none; margin:0.6rem 0 0; padding:0; }

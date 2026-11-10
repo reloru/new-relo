@@ -99,6 +99,78 @@ for (const [theme, t] of [["light", light], ["dark", dark]]) {
   check(`${theme}: --accent large display numerals clear 3:1`, r >= AA_UI, `${r.toFixed(2)}:1 (needs ${AA_UI})`);
 }
 
+// --- Coloured fills under white text --------------------------------------
+//
+// The status banners, AQI hero, and gauge/fishing/hub badges set white text on
+// a hard-coded fill or gradient. Every one of those carries normal-size text
+// (the banners' sub-line, the badges' labels), so EVERY gradient stop must
+// clear 4.5:1 against white — text sits over the light end as often as the dark
+// one. Before 2026-11-10 the green fill measured 4.32:1, its gradient end
+// 2.57:1, and the amber/orange/gray ends 2.2-3.8:1; the palette sweep above
+// never saw them because they are not tokens.
+//
+// Two sources, both read from the shipped files:
+//   1. any rule that declares `color:#fff` and a hard-coded background on the
+//      same line (finds new ones without anyone listing them);
+//   2. modifier rules that only set the background of a white-text element
+//      declared elsewhere (`.status-ok`, `.w-normal .gauge-badge`, `.a-good`).
+//      Each pattern must match at least once, so a rename cannot make this vacuous.
+console.log("\nColoured fills carrying white text — every stop AA (4.5:1):\n");
+
+const WHITE = "#ffffff";
+const BLUE_TOKENS = { "var(--blue)": light["--blue"], "var(--btn)": light["--btn"], "var(--accent)": light["--accent"] };
+const stopsIn = (bg) => [
+  ...[...bg.matchAll(/#[0-9a-fA-F]{6}\b|#[0-9a-fA-F]{3}\b/g)].map((m) => m[0]),
+  ...Object.entries(BLUE_TOKENS).filter(([v]) => bg.includes(v)).map(([, hex]) => hex),
+];
+const MODIFIERS = [
+  ["features/home.js", /^\.hub-water\.[\w-]+ \.hub-water-badge$/],
+  ["features/water.js", /^\.w-[\w-]+ \.gauge-badge$/],
+  ["features/water.js", /^\.status-[\w-]+$/],
+  ["features/fishing.js", /^\.f-[\w-]+ \.fbadge$/],
+  ["features/traffic.js", /^\.status-[\w-]+$/],
+  ["features/tropics.js", /^\.status-[\w-]+$/],
+  ["features/burnban.js", /^\.status-[\w-]+$/],
+  ["features/air.js", /^\.a-[\w-]+$/],
+];
+const STRUCTURAL = new Set([".status-icon", ".status-title", ".status-sub"]);
+const fills = []; // [where, selector, stop]
+for (const file of sources) {
+  const text = readFileSync(`src/${file}`, "utf8");
+  const mods = MODIFIERS.filter(([f]) => file.replace(/\\/g, "/") === f).map(([, re]) => re);
+  text.split("\n").forEach((line, i) => {
+    // Several rules can share a line (`.w-normal { … } .w-normal .gauge-badge { … }`).
+    for (const [, rawSel, body] of line.matchAll(/([^{}@]+?)\s*\{([^{}]*)\}/g)) {
+      const selector = rawSel.trim();
+      const bg = /(?:^|;)\s*background\s*:\s*([^;]+)/.exec(body)?.[1];
+      if (!bg) continue;
+      const whiteHere = /(?<![-a-z])color\s*:\s*#fff(?:fff)?\b/i.test(body);
+      const isModifier = mods.some((re) => re.test(selector)) && !STRUCTURAL.has(selector);
+      if (!whiteHere && !isModifier) continue;
+      for (const stop of stopsIn(bg)) fills.push([`${file}:${i + 1}`, selector, stop]);
+    }
+  });
+}
+for (const [f, re] of MODIFIERS) {
+  const hit = fills.some(([where, sel]) => where.startsWith(`${f}:`) && re.test(sel));
+  check(`modifier pattern still matches: ${f} ${re}`, hit, "renamed? update MODIFIERS so these fills stay measured");
+}
+const lowFills = fills.filter(([, , stop]) => ratio(WHITE, stop) < AA_TEXT);
+check(`${fills.length} fill stops under white text are AA`, lowFills.length === 0,
+  lowFills.map(([w, s, stop]) => `${w}  ${s}  ${stop} = ${ratio(WHITE, stop).toFixed(2)}:1`).join("\n          "));
+
+// Pollen category names are coloured TEXT on --card, in both themes, and at
+// 1.35rem/800 they are large text (3:1).
+const pollenText = readFileSync("src/features/pollen.js", "utf8");
+const pcats = [...pollenText.matchAll(/\.(c-[\w-]+) \.pcat \{ color:(#[0-9a-fA-F]{6}); \}/g)];
+check("pollen category colours found", pcats.length >= 4, `found ${pcats.length}`);
+for (const [, cls, hex] of pcats) {
+  for (const [theme, t] of [["light", light], ["dark", dark]]) {
+    const r = ratio(hex, t["--card"]);
+    check(`${theme}: pollen .${cls} label on --card clears 3:1 (large text)`, r >= AA_UI, `${hex} = ${r.toFixed(2)}:1`);
+  }
+}
+
 console.log(
   failed === 0
     ? "\nContrast OK — every readable token measures AA, and --accent carries no body text.\n"

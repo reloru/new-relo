@@ -358,8 +358,8 @@ export function homeHtml(weather, water, news, cal, tropics, burnban, lang) {
   const title = T(lang, "Crosby, TX — Weather, Water, News & Schools", "Crosby, TX — Clima, agua, noticias y escuelas");
   const desc = T(
     lang,
-    "The front page for Crosby, Texas: live National Weather Service conditions, river and bayou flood levels, local headlines, and the Crosby ISD school calendar. Fast, ad-free, no trackers.",
-    "La página principal de Crosby, Texas: condiciones en vivo del Servicio Meteorológico Nacional, niveles de inundación de ríos y arroyos, titulares locales y el calendario escolar de Crosby ISD. Rápida, sin anuncios, sin rastreadores."
+    "Crosby, Texas front page: live NWS weather, river and bayou flood levels, local headlines, and the Crosby ISD calendar. Fast, ad-free, no trackers.",
+    "Portada de Crosby, Texas: clima del NWS en vivo, niveles de inundación, titulares locales y calendario de Crosby ISD. Rápida, sin anuncios ni rastreadores."
   );
   return `<!DOCTYPE html>
 <html lang="${T(lang, "en", "es-MX")}">
@@ -377,7 +377,7 @@ ${sharedHead(lang)}
 ${hreflangTags("/")}
 ${JSONLD_SITE}
 <style>${BASE_CSS}
-  .hub-hero { display:flex; align-items:center; gap:1rem; background:linear-gradient(135deg,var(--blue),var(--accent)); color:#fff; border-radius:16px; padding:1.1rem 1.3rem; margin-top:0.8rem; flex-wrap:wrap; }
+  .hub-hero { display:flex; align-items:center; gap:1rem; background:linear-gradient(135deg,var(--blue),var(--btn)); color:#fff; border-radius:16px; padding:1.1rem 1.3rem; margin-top:0.8rem; flex-wrap:wrap; }
   .hub-hero .hero-icon { border-radius:12px; background:rgba(255,255,255,0.12); flex:none; }
   .hub-hero-now { flex:1 1 auto; min-width:0; }
   .hub-temp { margin:0; font-size:3rem; font-weight:800; line-height:1; }
@@ -405,10 +405,10 @@ ${JSONLD_SITE}
   .hub-news a { color:var(--ink); text-decoration:none; }
   .hub-news a:hover { color:var(--link); text-decoration:underline; }
   .hub-water { margin:0.3rem 0 0.4rem; }
-  .hub-water-badge { display:inline-block; font-size:0.9rem; font-weight:800; padding:0.3rem 0.7rem; border-radius:999px; color:#fff; background:var(--muted); }
-  .hub-water.w-normal .hub-water-badge { background:#1f8b4c; }
-  .hub-water.w-action .hub-water-badge { background:#b8860b; }
-  .hub-water.w-minor .hub-water-badge { background:#c85a08; }
+  .hub-water-badge { display:inline-block; font-size:0.9rem; font-weight:800; padding:0.3rem 0.7rem; border-radius:999px; color:#fff; background:#5b6470; }
+  .hub-water.w-normal .hub-water-badge { background:#187a40; }
+  .hub-water.w-action .hub-water-badge { background:#8f6800; }
+  .hub-water.w-minor .hub-water-badge { background:#bf5608; }
   .hub-water.w-moderate .hub-water-badge { background:#b5301f; }
   .hub-water.w-major .hub-water-badge { background:#6f1fa0; }
   .hub-water-detail { margin:0; font-size:0.85rem; color:var(--muted); }
@@ -428,7 +428,7 @@ ${JSONLD_SITE}
   .tb-title { margin:0; font-weight:800; font-size:1.05rem; }
   .tb-detail { margin:0.35rem 0 0; font-size:0.9rem; opacity:0.95; }
   .tb-link { margin:0.45rem 0 0; font-size:0.88rem; font-weight:700; }
-  .burnban-banner { display:block; background:linear-gradient(135deg,#b3400d,#e2621a); color:#fff; text-decoration:none; border-radius:12px; padding:0.85rem 1.05rem; margin-top:0.8rem; }
+  .burnban-banner { display:block; background:linear-gradient(135deg,#b3400d,#c15416); color:#fff; text-decoration:none; border-radius:12px; padding:0.85rem 1.05rem; margin-top:0.8rem; }
   .burnban-banner:hover .bb-link { text-decoration:underline; }
   .bb-title { margin:0; font-weight:800; font-size:1.05rem; }
   .bb-detail { margin:0.35rem 0 0; font-size:0.9rem; opacity:0.95; }

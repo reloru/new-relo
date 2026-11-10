@@ -158,7 +158,7 @@ ${hreflangTags("/weather")}
 ${JSONLD_SITE}
 <style>${BASE_CSS}
   ${ALERT_BANNER_CSS}
-  .hero { display:flex; align-items:center; gap:1rem; background:linear-gradient(135deg,var(--blue),var(--accent)); color:#fff; border-radius:16px; padding:1.1rem 1.3rem; margin-top:0.5rem; }
+  .hero { display:flex; align-items:center; gap:1rem; background:linear-gradient(135deg,var(--blue),var(--btn)); color:#fff; border-radius:16px; padding:1.1rem 1.3rem; margin-top:0.5rem; }
   .hero-h1 { margin:0 0 0.15rem; font-size:1rem; font-weight:600; opacity:0.9; letter-spacing:0.01em; }
   .hero-icon { border-radius:12px; background:rgba(255,255,255,0.12); flex:none; }
   .hero-temp { margin:0; font-size:3.4rem; font-weight:800; line-height:1; }

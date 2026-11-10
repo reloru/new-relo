@@ -49,9 +49,18 @@ export async function scheduled(event, env, ctx) {
       // keep them from the previous snapshot so "peak today" lasts until
       // midnight. A failed read only loses the carry, never the refresh.
       const prev = await env.WEATHER.get(KV_KEY, "json").catch(() => null);
+      // AQI and UV ride inside the weather fetch and come back null when their
+      // upstream fails, so they need their own health rows to be seen. Judged on
+      // the fresh fetch, before the UV carry-over can fill in yesterday's rows.
+      const airOk = data.aqi != null;
+      const uvOk = data.uv != null;
       data.uv = carryUvToday(data.uv, prev?.uv);
       await env.WEATHER.put(KV_KEY, JSON.stringify(data));
       run.ok("weather");
+      if (airOk) run.ok("air");
+      else run.failed("air", "AQI fetch returned nothing (AirNow and Open-Meteo both failed; see Worker logs)");
+      if (uvOk) run.ok("uv");
+      else run.failed("uv", "EPA UV fetch returned nothing (see Worker logs)");
       // After a fresh forecast, wake push subscribers for any NEW severe
       // warning. Independent of the writes below; a push failure is logged and
       // never blocks the cache refresh (own try/catch inside).
@@ -63,6 +72,9 @@ export async function scheduled(event, env, ctx) {
     } catch (e) {
       console.error("Cron weather refresh failed:", e && e.stack);
       run.failed("weather", e);
+      // AQI and UV are fetched inside the same call, so they were not stored either.
+      run.failed("air", e);
+      run.failed("uv", e);
     }
     // Refresh the Crosby ISD school calendar at most ~every 24h — it changes
     // rarely (a handful of new events a month, not per day) and the Worker CAN

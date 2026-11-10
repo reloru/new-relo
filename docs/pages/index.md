@@ -77,7 +77,7 @@ than naming one.
 
 ## Meta
 
-- Title and description are per-language, built in `homeHtml`
+- Title and description are per-language, built in `homeHtml`. The description is kept under ~155 characters (EN 147, ES 155) so search results show it whole
 - OG title/description/type; `og:url` = canonical
 - `<meta name="msvalidate.01">` — the Bing Webmaster verification, which lives on
   the root because that is the URL Bing has on file. Do not move it.

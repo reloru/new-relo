@@ -535,9 +535,9 @@ ${JSONLD_SITE}
   .status-icon { font-size:2.4rem; line-height:1; flex:none; }
   .status-title { margin:0; font-size:1.5rem; font-weight:800; line-height:1.1; }
   .status-sub { margin:0.35rem 0 0; font-size:0.98rem; opacity:0.95; }
-  .status-ok { background:linear-gradient(135deg,#1f8b4c,#2eb86a); }
-  .status-ban { background:linear-gradient(135deg,#b3400d,#e2621a); }
-  .status-unknown { background:linear-gradient(135deg,#5b6470,#7a8494); }
+  .status-ok { background:linear-gradient(135deg,#15693a,#1e8649); }
+  .status-ban { background:linear-gradient(135deg,#b3400d,#c15416); }
+  .status-unknown { background:linear-gradient(135deg,#5b6470,#6b7585); }
   .intro { color:var(--muted); margin:0.6rem 0 0; }
   .fw { margin-top:1.4rem; }
   .fw h2 { font-size:1.15rem; margin:0 0 0.3rem; }

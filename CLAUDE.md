@@ -285,6 +285,14 @@ hstspreload.org is an owner decision, never a session's — reasons in
   `.alert-banner`). `scripts/test-contrast.mjs` enforces all of this in CI as
   **"Check colour contrast"** — it measures the real tokens out of `BASE_CSS`
   and fails on any new `color:var(--accent)`.
+  **Coloured fills under white text** (status banners, the AQI hero, the
+  gauge/fishing/hub badges, the burn-ban banner, the two blue heroes) must
+  clear 4.5:1 at **every gradient stop**, because each carries normal-size text
+  that sits over the light end. The same test measures them straight from the
+  feature files: any rule with `color:#fff` and a hard-coded background, plus
+  the modifier rules listed in its `MODIFIERS` table. The blue heroes run
+  `--blue` → `--btn`, not `--accent`, for this reason. Badge bases use fixed
+  `#5b6470`, not `var(--muted)`, which turns light gray in dark mode.
 - Chrome: `topbar(current, lang)` renders the site header, with a
   visually-hidden skip-to-content link (`.skip-link`) targeting
   `<main id="main">` on every page. ≤920px collapses nav into a CSS-only

@@ -574,7 +574,7 @@ export function openApiSpec() {
             note: { type: "string", description: "Fixed guidance on reading `hoursSinceChange`, not a status field — its value never varies. A large gap is a fault only when the upstream should have moved; a quiet tropics basin or a weekend with no pollen count correctly holds still." },
             feeds: {
               type: "object",
-              description: "One entry per cached feed, keyed by name.",
+              description: "One entry per cached feed, keyed by name. `air` and `uv` are tracked separately from `weather` even though they are stored inside its cache entry, so a failed or frozen AQI or UV source shows on its own row.",
               additionalProperties: { $ref: "#/components/schemas/HealthFeed" },
             },
             error: { type: "string", description: "Present only when the refresh record itself could not be read, e.g. the KV binding is missing. The response is still 200." },
