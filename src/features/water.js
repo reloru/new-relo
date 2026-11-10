@@ -212,7 +212,7 @@ ${JSONLD_SITE}
   .status-icon { font-size:2.4rem; line-height:1; flex:none; }
   .status-title { margin:0; font-size:1.5rem; font-weight:800; line-height:1.1; }
   .status-sub { margin:0.35rem 0 0; font-size:0.98rem; opacity:0.95; }
-  .status-ok { background:linear-gradient(135deg,#1f8b4c,#2eb86a); }
+  .status-ok { background:linear-gradient(135deg,#15693a,#1e8649); }
   .status-alert { background:linear-gradient(135deg,#a3271b,#d44230); }
   .gauges { display:grid; gap:0.7rem; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); margin-top:1rem; }
   .gauge { background:var(--card); border-radius:12px; padding:0.85rem 1rem; box-shadow:0 1px 3px rgba(0,0,0,0.07); border-left:5px solid var(--muted); }
@@ -220,15 +220,15 @@ ${JSONLD_SITE}
   .gauge-head h2 { margin:0; font-size:1rem; }
   .gauge-head a { color:var(--ink); text-decoration:none; }
   .gauge-head a:hover { text-decoration:underline; }
-  .gauge-badge { flex:none; font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.03em; padding:0.15rem 0.5rem; border-radius:999px; color:#fff; background:var(--muted); white-space:nowrap; }
+  .gauge-badge { flex:none; font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.03em; padding:0.15rem 0.5rem; border-radius:999px; color:#fff; background:#5b6470; white-space:nowrap; }
   .gauge-stage { margin:0.5rem 0 0; font-size:1.9rem; font-weight:800; line-height:1; }
   .gauge-stage .u { font-size:0.9rem; font-weight:600; opacity:0.7; }
   .gauge-flow { font-size:0.85rem; font-weight:600; color:var(--muted); }
   .gauge-meta { margin:0.3rem 0 0; font-size:0.82rem; color:var(--muted); }
   .gauge-th { margin:0.4rem 0 0; font-size:0.78rem; color:var(--muted); }
-  .w-normal { border-left-color:#2eb86a; } .w-normal .gauge-badge { background:#1f8b4c; }
-  .w-action { border-left-color:#e0a800; } .w-action .gauge-badge { background:#b8860b; }
-  .w-minor { border-left-color:#e8720c; } .w-minor .gauge-badge { background:#c85a08; }
+  .w-normal { border-left-color:#2eb86a; } .w-normal .gauge-badge { background:#187a40; }
+  .w-action { border-left-color:#e0a800; } .w-action .gauge-badge { background:#8f6800; }
+  .w-minor { border-left-color:#e8720c; } .w-minor .gauge-badge { background:#bf5608; }
   .w-moderate { border-left-color:#d44230; } .w-moderate .gauge-badge { background:#b5301f; }
   .w-major { border-left-color:#8e2ec2; } .w-major .gauge-badge { background:#6f1fa0; }
   .w-monitored { border-left-color:var(--accent); } .w-monitored .gauge-badge { background:var(--btn); }

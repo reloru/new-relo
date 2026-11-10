@@ -99,7 +99,7 @@ hours old is the frozen-feed signature:
 ```
 
 There is no single threshold, which is why the endpoint reports the number and
-declines to grade it. Judge it per feed: hours for `weather`/`water`/`traffic`,
+declines to grade it. Judge it per feed: hours for `weather`/`air`/`water`/`traffic`, a day for `uv`,
 a day for `pollen`, longer for `calendar` and a quiet `tropics` basin. `news`
 legitimately goes quiet in a small town.
 
@@ -154,6 +154,28 @@ Worker IPs, so that key is written out-of-band by a Claude routine; nothing in
 the Worker ever attempts that fetch, and reporting a fabricated attempt would be
 worse than reporting none. Its **content** is still tracked — see below.
 
+## `air` and `uv` are rows carved out of `weather`
+
+Air quality (AirNow, falling back to Open-Meteo) and the EPA UV index have no
+KV key of their own: `fetchWeather()` fetches them alongside the forecast and
+stores them as `weather.aqi` and `weather.uv`. Each of those fetches is
+failure-tolerant — it logs and returns `null` rather than failing the weather
+refresh — so before 2026-11-10 a dead or frozen AQI or UV feed was invisible:
+`weather` kept reporting `ok: true`, and its `dataChangedAt` kept moving
+because the hourly forecast changes every tick.
+
+So each gets its own row, defined in `FEEDS` with `part: "aqi"` / `part: "uv"`:
+
+- **`ok`** is set by the cron from the fresh fetch: `false`, with an `error`,
+  when the value came back `null`. UV is judged *before* the evening carry-over
+  (`carryUvToday`) fills in today's earlier rows, so a failed fetch cannot pass
+  as a success on the strength of yesterday's data. A failure of the whole
+  weather refresh fails both rows too, with the same error.
+- **`dataChangedAt`** fingerprints only that field, not the whole entry, so it
+  moves only when the AQI or UV content moves. The stamp is still the weather
+  entry's `updated`, since that is when the changed content landed.
+- All three rows share one KV read per tick.
+
 ## `dataChangedAt` is the one that catches real failures
 
 `lastAttempt` and `dataChangedAt` answer different questions, and the gap
@@ -170,8 +192,8 @@ throughout. The owner noticed, not the monitoring.
 So the cron fingerprints each cached entry every tick (FNV-1a over the JSON with
 the entry's own `updated` write-stamp removed) and stamps `changedAt` only when
 the fingerprint moves. A successful refresh that re-stores identical content
-leaves `dataChangedAt` alone. That closes issue #156 generically — for all eight
-feeds at once, rather than as a per-feed content-stamp check.
+leaves `dataChangedAt` alone. That closes issue #156 generically — for every
+feed at once, rather than as a per-feed content-stamp check.
 
 Three details worth knowing:
 

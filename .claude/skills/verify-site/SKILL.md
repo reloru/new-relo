@@ -91,8 +91,10 @@ Report anything off:
   field says why.
 - `hoursSinceCronRun` well past **0.25** — the cron itself has stopped. Check
   this first: it explains every other field at once.
-- `hoursSinceAttempt` large for `weather`/`water`/`fishing`/`traffic` (every
-  tick, so expect ≤0.25) means that feed stopped being attempted.
+- `hoursSinceAttempt` large for `weather`/`air`/`uv`/`water`/`fishing`/`traffic`
+  (every tick, so expect ≤0.25) means that feed stopped being attempted.
+  `air` and `uv` are attempted with `weather` and stored inside its entry, but
+  report their own `ok` and content changes.
   `calendar` (~24h), `tropics` (~1h in season / ~24h off-season), `pollen`
   (weekday mornings only), and `burnban` (~4h) are throttled, so lagging is
   normal for them; `news` is `null` by design (written out-of-band).

@@ -104,6 +104,59 @@ console.log("\n/api/health:\n");
   assert("cronLastRun records the tick itself", typeof body.cronLastRun, "string");
 }
 
+// --- 2b. air and uv: rows carved out of the weather entry -------------------
+//
+// AQI and UV are stored inside `weather` and fail to null without failing the
+// weather refresh. Their rows must track their OWN content: a frozen AQI under a
+// forecast that changes every tick is exactly the case the weather row hides.
+
+{
+  const aqi = { usAqi: 42, dominant: "ozone" };
+  const uv = { hourly: [{ date: "2026-11-10", hour: 12, value: 4 }] };
+  const env = fakeKv({ weather: { updated: ISO(60_000), periods: [1], aqi, uv } });
+  const t1 = cronRunRecorder(); t1.ok("weather"); t1.ok("air"); t1.ok("uv");
+  await recordCronRun(env, t1);
+  const first = record(env).feeds;
+
+  // Next tick: forecast changed, AQI and UV identical.
+  env.store.set("weather", JSON.stringify({ updated: ISO(0), periods: [2], aqi, uv }));
+  const t2 = cronRunRecorder(); t2.ok("weather"); t2.ok("air"); t2.ok("uv");
+  await recordCronRun(env, t2);
+  const second = record(env).feeds;
+
+  assert("forecast moves, AQI/UV identical -> weather changes, air and uv hold", {
+    weather: second.weather.changedAt !== first.weather.changedAt,
+    air: second.air.changedAt === first.air.changedAt,
+    uv: second.uv.changedAt === first.uv.changedAt,
+    airSeeded: !!first.air.changedAt, uvSeeded: !!first.uv.changedAt,
+  }, { weather: true, air: true, uv: true, airSeeded: true, uvSeeded: true });
+
+  // Next tick: AQI moves.
+  env.store.set("weather", JSON.stringify({ updated: ISO(0), periods: [2], aqi: { ...aqi, usAqi: 55 }, uv }));
+  const t3 = cronRunRecorder(); t3.ok("weather"); t3.ok("air"); t3.ok("uv");
+  await recordCronRun(env, t3);
+  const third = record(env).feeds;
+  assert("AQI moves -> air changes, uv holds", {
+    air: third.air.changedAt !== second.air.changedAt,
+    uv: third.uv.changedAt === second.uv.changedAt,
+  }, { air: true, uv: true });
+}
+
+{
+  // An AQI outage: weather refresh succeeds, air reports the failure on its own.
+  const env = fakeKv({ weather: { updated: ISO(0), periods: [1], aqi: null, uv: null } });
+  const run = cronRunRecorder();
+  run.ok("weather");
+  run.failed("air", "AQI fetch returned nothing");
+  run.failed("uv", "EPA UV fetch returned nothing");
+  await recordCronRun(env, run);
+  const { body } = await healthReport(env);
+  assert("AQI/UV outage under a healthy forecast -> weather ok, air and uv not", {
+    weather: body.feeds.weather.ok, air: body.feeds.air.ok, uv: body.feeds.uv.ok,
+    airError: body.feeds.air.error, airChanged: body.feeds.air.dataChangedAt,
+  }, { weather: true, air: false, uv: false, airError: "AQI fetch returned nothing", airChanged: null });
+}
+
 {
   // Throttled feeds (calendar/tropics/pollen ~hourly to ~6h) fetch on only some
   // ticks. "Last time it tried" must survive the ticks where it did not try —

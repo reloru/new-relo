@@ -46,8 +46,18 @@ export const CRON_STATUS_KV_KEY = "cron_status";
 // The feed table: a name and the KV key holding its cached data. That is the
 // whole per-feed configuration — /api/health reports one entry per row and the
 // cron fingerprints one row per tick.
+//
+// `part` names a field of the entry to fingerprint instead of the whole entry.
+// Air quality and UV have no KV key of their own: fetchWeather() fetches them in
+// parallel with the forecast and stores them as `weather.aqi` and `weather.uv`.
+// Both fetches are failure-tolerant (null on error), so a dead AirNow/Open-Meteo
+// or EPA feed left `weather` reporting ok:true with a moving dataChangedAt —
+// the hourly forecast changes every tick and hid them. Their own rows make a
+// failed or frozen air/UV feed visible on its own.
 export const FEEDS = [
   { name: "weather", kvKey: KV_KEY },
+  { name: "air", kvKey: KV_KEY, part: "aqi" },
+  { name: "uv", kvKey: KV_KEY, part: "uv" },
   { name: "water", kvKey: WATER_KV_KEY },
   { name: "fishing", kvKey: FISHING_KV_KEY },
   { name: "traffic", kvKey: TRAFFIC_KV_KEY },
@@ -180,6 +190,13 @@ export async function recordCronRun(env, recorder) {
     const prev = (await env.WEATHER.get(CRON_STATUS_KV_KEY, "json"))?.feeds || {};
     const attempts = recorder.attempts();
     const feeds = {};
+    // Several rows can share one KV key (air and uv live inside `weather`), so
+    // read each key once per tick.
+    const reads = new Map();
+    const read = (key) => {
+      if (!reads.has(key)) reads.set(key, env.WEATHER.get(key, "json").catch(() => null));
+      return reads.get(key);
+    };
 
     await Promise.all(
       FEEDS.map(async (feed) => {
@@ -195,13 +212,9 @@ export async function recordCronRun(env, recorder) {
         // Fingerprint whatever is in KV right now, regardless of who put it
         // there — that is what makes this work for the routine-owned `news` key
         // as well as the seven the cron writes.
-        let value = null;
-        try {
-          value = await env.WEATHER.get(feed.kvKey, "json");
-        } catch {
-          value = null; // unreadable or corrupt: leave the last change stamp alone
-        }
-        const hash = fingerprint(value);
+        // Unreadable or corrupt reads as null: leave the last change stamp alone.
+        const value = await read(feed.kvKey);
+        const hash = fingerprint(feed.part ? value?.[feed.part] : value);
         const changed = hash != null && hash !== was.hash;
 
         feeds[feed.name] = {

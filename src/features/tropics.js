@@ -547,13 +547,13 @@ ${JSONLD_SITE}
   .status-icon { font-size:2.4rem; line-height:1; flex:none; }
   .status-title { margin:0; font-size:1.5rem; font-weight:800; line-height:1.1; }
   .status-sub { margin:0.35rem 0 0; font-size:0.98rem; opacity:0.95; }
-  .status-ok { background:linear-gradient(135deg,#1f8b4c,#2eb86a); }
+  .status-ok { background:linear-gradient(135deg,#15693a,#1e8649); }
   .status-storm { background:linear-gradient(135deg,#6f1fa0,#8e2ec2); }
   /* Amber, not red: an area at 40% is something to be aware of, not a threat.
      Both stops clear 4.5:1 against the white text (6.86 and 4.67), which the
      older panel gradients on this site do not. */
   .status-watch { background:linear-gradient(135deg,#8a4a00,#a86412); }
-  .status-unknown { background:linear-gradient(135deg,#5b6470,#7a8494); }
+  .status-unknown { background:linear-gradient(135deg,#5b6470,#6b7585); }
   .watch { display:grid; gap:0.7rem; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); margin-top:0.9rem; }
   .dz { background:var(--card); border-radius:12px; padding:0.75rem 0.9rem; box-shadow:0 1px 3px rgba(0,0,0,0.07); border-left:5px solid #a86412; }
   .dz h3 { margin:0 0 0.35rem; font-size:1rem; }

@@ -175,7 +175,7 @@ ${JSONLD_SITE}
   .status-icon { font-size:2.6rem; line-height:1; flex:none; }
   .status-title { margin:0; font-size:1.7rem; font-weight:800; line-height:1.1; }
   .status-sub { margin:0.35rem 0 0; font-size:1rem; opacity:0.95; }
-  .status-ok { background:linear-gradient(135deg,#1f8b4c,#2eb86a); color:#fff; }
+  .status-ok { background:linear-gradient(135deg,#15693a,#1e8649); color:#fff; }
   .status-alert { background:linear-gradient(135deg,#a3271b,#d44230); color:#fff; }
 
   /* Active-alert detail cards (only shown when alerts exist). */

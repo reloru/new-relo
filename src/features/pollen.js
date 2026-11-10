@@ -341,11 +341,11 @@ ${JSONLD_SITE}
   .pcat { margin:0.25rem 0 0; font-size:1.35rem; font-weight:800; line-height:1.1; }
   .pcount { margin:0.3rem 0 0; font-size:0.95rem; color:var(--muted); }
   .punit { font-size:0.8rem; }
-  .c-none { --pg:#9aa4af; } .c-none .pcat { color:#5b6770; }
+  .c-none { --pg:#9aa4af; } .c-none .pcat { color:#6f7a84; }
   .c-low { --pg:#1f8b4c; } .c-low .pcat { color:#1f8b4c; }
   .c-med { --pg:#b58900; } .c-med .pcat { color:#9a7400; }
   .c-heavy { --pg:#d9480f; } .c-heavy .pcat { color:#d9480f; }
-  .c-extreme { --pg:#c92a2a; } .c-extreme .pcat { color:#c92a2a; }
+  .c-extreme { --pg:#c92a2a; } .c-extreme .pcat { color:#d63a3a; }
   .species { display:grid; gap:0.7rem; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); margin-top:0.8rem; }
   .sp { background:var(--card); border-radius:12px; padding:0.75rem 1rem; box-shadow:0 1px 3px rgba(0,0,0,0.07); }
   .sp h3 { margin:0 0 0.3rem; font-size:0.95rem; }
