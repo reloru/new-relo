@@ -124,6 +124,12 @@ see `docs/README.md`.
   keeps serving during the gap, and a rollback redeploys old code onto the
   new schema. Wrangler asks for confirmation before applying and answers
   itself "yes" in a non-interactive shell, so the step needs no flag.
+- **Check the record** (`node scripts/test-record.mjs`) — in the required job.
+  Every writer in `src/record.js` plus the real `scheduled()` against SQLite:
+  replays change nothing, a day's maximum is the maximum, a cancelled event
+  ends when it was cancelled, an event that crosses New Year keeps its year,
+  and a failing database is reported on `/api/health` without costing the
+  cache its refresh. See `docs/ops/record.md`.
 - **Check site metrics and privacy claim** (`node scripts/test-site-metrics.mjs`)
   — in the required job. Runs the page-request counters against SQLite with
   the repo's real `migrations/` applied (`scripts/lib/d1-stub.mjs`), so it

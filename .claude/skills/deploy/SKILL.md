@@ -31,6 +31,7 @@ node scripts/check-module-refs.mjs
 node scripts/check-renders.mjs
 node scripts/test-routes.mjs
 node scripts/test-site-metrics.mjs
+node scripts/test-record.mjs
 node scripts/test-health.mjs
 ```
 `node --check` catches syntax errors but NOT a missing or renamed export — the

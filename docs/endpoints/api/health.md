@@ -55,6 +55,22 @@ The endpoint reports facts and does not grade them.
 }
 ```
 
+### `record`
+
+Alongside `feeds`, the body carries one more object once the cron has run with
+the D1 database bound:
+
+```json
+"record": { "lastAttempt": "…", "hoursSinceAttempt": 0.1, "ok": true }
+```
+
+It reports whether the cron's last writes to the record (`docs/ops/record.md`)
+succeeded, with an `error` string naming the tables that failed when they did
+not. It is deliberately not a row in `feeds`: the record has no upstream and no
+"data changed" time of its own, and a row there would say something `feeds`
+exists to never say. With Workers Logs off this is the only place a failing
+database shows.
+
 ## Timestamps
 
 Every stamp is **US Central, 12-hour, with the weekday, seconds, and the zone**:

@@ -37,7 +37,9 @@ The parallel tree for operational config that isn't a page or an endpoint —
 CI/CD, GitHub repo/branch-protection settings, domain/DNS attachment,
 DNS-AID, the MCP Registry listing, the Anthropic connector-directory
 submission packet (`anthropic-directory.md`), email auth (SPF/DKIM/DMARC), analytics
-(there is none — `analytics.md` records why and how it was removed), the
+(no browser script; `analytics.md` records the aggregate server-side counts
+and how the old Cloudflare beacon was removed), the record kept in D1
+(`record.md`), the
 Cloudflare zone's load-bearing quirks (`cloudflare-zone.md`), and the
 out-of-band news pipeline. Same no-history rule as `pages/`/`endpoints/`:
 one topic, one file, current state only.
