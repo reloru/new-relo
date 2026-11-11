@@ -14,6 +14,7 @@
 import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
+import { d1Stub } from "./d1-stub.mjs";
 
 const ROOT = new URL("../../", import.meta.url).pathname;
 export const SRC = join(ROOT, "src");
@@ -57,6 +58,7 @@ export function kvStub(values) {
 }
 
 // createHarness({ mutate(values) }) -> { worker, env, kv, get(path, init) }.
+// env.DB is an in-memory SQLite database with migrations/ applied.
 // Network is disabled: a page that reaches for an upstream fails loudly instead
 // of quietly depending on the internet.
 export async function createHarness({ mutate } = {}) {
@@ -67,6 +69,8 @@ export async function createHarness({ mutate } = {}) {
   globalThis.fetch = async (u) => { throw new Error(`network disabled in tests: ${typeof u === "string" ? u : u.url}`); };
   const env = {
     WEATHER: kv,
+    DB: d1Stub(),
+    SITE_METRICS: "on",
     ASSETS: { fetch: async () => new Response("asset", { headers: { "content-type": "image/png" } }) },
     MCP_METRICS: "off",
     ADMIN_KEY: "test-admin-key",

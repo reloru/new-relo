@@ -25,12 +25,27 @@
     }
   ],
 
+  // The record: everything the site keeps beyond the latest snapshot. Schema
+  // lives in migrations/ and is applied by the deploy job before the Worker
+  // ships (`wrangler d1 migrations apply crosby-record --remote`).
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "crosby-record",
+      "database_id": "b1cc6848-276e-4259-98b9-1c5edb486d5a",
+      "migrations_dir": "migrations"
+    }
+  ],
+
   // Kill switch for the aggregate /mcp usage counters. Anything other than
   // "on" makes them inert at every call site (see src/mcp/metrics.js), so the
   // feature can be shipped dark or disabled with a redeploy rather than a
   // code change.
+  // SITE_METRICS is the same switch for the aggregate page-request counts
+  // (src/metrics.js): anything other than "on" and nothing is counted.
   "vars": {
-    "MCP_METRICS": "on"
+    "MCP_METRICS": "on",
+    "SITE_METRICS": "on"
   },
 
   // Refresh the cached weather every 15 minutes.

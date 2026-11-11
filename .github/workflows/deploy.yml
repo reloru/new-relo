@@ -51,6 +51,14 @@ jobs:
       # or a Spanish page that links to an English one. Pure node, no install.
       - name: Check routes
         run: node scripts/test-routes.mjs
+      # /privacy states exactly what the page-request counts store. This sends
+      # requests carrying an address header, a full user agent, a referring URL
+      # with a search term and a probe path through the real Worker, then reads
+      # the whole table back and fails if any of it is there. Runs on SQLite
+      # with the repo's real migrations, so a migration that does not parse
+      # fails here, before the deploy job tries to apply it. Pure node.
+      - name: Check site metrics and privacy claim
+        run: node scripts/test-site-metrics.mjs
       # /api/health is the status relation of every api-catalog entry, and a
       # regression there is invisible by construction: a broken health check
       # still returns a cheerful 200. This drives the real cron recorder, writer
@@ -184,6 +192,20 @@ jobs:
       cancel-in-progress: false
     steps:
       - uses: actions/checkout@v7
+      # Schema first, code second: the Worker about to ship may read a table
+      # the previous one never needed. Applying is idempotent — with nothing
+      # pending it is a no-op — and migrations here are additive only, so the
+      # Worker still running during the gap is unaffected. A failure stops the
+      # job before the deploy step, leaving the old Worker on the old schema.
+      - name: Apply D1 migrations
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: "4"
+          command: d1 migrations apply crosby-record --remote
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
       - name: Deploy via Wrangler
         uses: cloudflare/wrangler-action@v4
         with:

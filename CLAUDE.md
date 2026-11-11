@@ -237,8 +237,8 @@ hstspreload.org is an owner decision, never a session's — reasons in
 
 ## Conventions
 - Plain Workers, ES modules (`export default { fetch, scheduled }`). No
-  framework and no runtime dependencies — standard `fetch`, Workers KV and the
-  static-assets binding only.
+  framework and no runtime dependencies — standard `fetch`, Workers KV, D1 and
+  the static-assets binding only.
 - Layout: `src/index.js` is the entry point Wrangler resolves via `wrangler.jsonc`'s
   `main`. It is deliberately thin (~50 lines): the two Worker handlers plus the
   response wrapper. **The route table is `src/router.js`**, **the list of pages is
@@ -404,18 +404,33 @@ Crosby/nearby-town headlines on a higher bar; clairic reads announced-event date
 sits on top of the regex gates; it only ever falls back to the regex result, never
 aborts the run. `NEWS_AI=0` turns it off; `node scripts/test-news-ai.mjs` pins it.
 
-## Analytics — none for visitors
+## Analytics — no browser script; aggregate server-side counts
 **No analytics script ships, and the CSP allows no third-party script origin at
-all.** The one counter that exists is server-side and counts MCP protocol calls,
-not visitors — `docs/ops/analytics.md` has the scope and the reason `/privacy`
-was left unchanged. Cloudflare Web Analytics was auto-injected at the zone edge (never in this
-repo) until it was deleted 2026-08-19. Two traps, both in
-`docs/ops/analytics.md`: the beacon is **invisible to a default-UA `curl`**
-(Cloudflare only injects it for browser-looking requests, so check with a real
-browser UA + HTML `Accept`), and `/privacy` + `/about` state "no third-party
-analytics scripts" in BOTH languages — that claim and the CSP are one change, so
-adding any vendor means editing `src/pages/privacy.js`, `src/pages/about.js` and
+all.** The server keeps two sets of aggregate totals and nothing that identifies
+a visitor: page requests (`src/metrics.js` → D1 table `hits`, owner decision
+2026-11-11) and MCP protocol calls (`src/mcp/metrics.js` → KV). Page totals are
+keyed by day, registered path, an agent label, a referrer *category* and the
+status; IP addresses, user-agent strings, referring URLs, search terms and
+query strings are never stored. Read them with
+`curl -s 'https://crosbynews.com/api/site-usage?key=<ADMIN_KEY>&format=txt'`.
+**`/privacy`'s "Analytics and page counts" section is a claim about that table,
+in both languages** — `scripts/test-site-metrics.mjs` fails if an address, a
+user agent, a search term or a raw path can be read back from it, or if the
+table's columns change. Change the code and the text together. Two older traps
+in `docs/ops/analytics.md`: Cloudflare's Web Analytics beacon (deleted
+2026-08-19) was **invisible to a default-UA `curl`**, and `/privacy` + `/about`
+state "no third-party analytics scripts" — adding any browser-side vendor means
+editing `src/pages/privacy.js`, `src/pages/about.js` and
 `contentSecurityPolicy()` together.
+
+## D1 — the record
+`wrangler.jsonc` binds the D1 database `crosby-record` as `env.DB`. Schema lives
+in `migrations/NNNN_name.sql` and is applied by the deploy job before the Worker
+ships; **migrations are additive only** (see `docs/ops/ci-cd.md`). Tests run
+against real SQL: `scripts/lib/d1-stub.mjs` puts Node's built-in SQLite behind
+the D1 client API with the repo's migrations applied, and `createHarness()`
+hands it to the Worker as `env.DB`. Query production with
+`npx wrangler d1 execute crosby-record --remote --command "SELECT …"`.
 
 ## Cloudflare zone gotchas
 **Cloudflare can rewrite a response after the Worker returns it, and nothing in

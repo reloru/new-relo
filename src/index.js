@@ -12,6 +12,7 @@ import { SITE } from "./config.js";
 import { contentSecurityPolicy } from "./discovery.js";
 import { routeRequest } from "./router.js";
 import { PAGE_PATHS } from "./registry.js";
+import { recordHit } from "./metrics.js";
 import { scheduled } from "./cron.js";
 
 // PAGE_PATHS (registry.js) is every content path in both languages. The
@@ -65,6 +66,9 @@ export default {
       const existing = r.headers.get("link");
       r.headers.set("link", existing ? `${existing}, ${canonical}` : canonical);
     }
+    // Aggregate page-request counts (src/metrics.js). Not awaited and cannot
+    // throw: the response never waits on, or is affected by, bookkeeping.
+    recordHit(request, r.status, env, ctx);
     return r;
   },
 

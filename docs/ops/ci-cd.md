@@ -114,7 +114,20 @@ see `docs/README.md`.
   only, after BOTH checks pass (`needs: [check, build]`). Has a
   `concurrency: { group: deploy-production, cancel-in-progress: false }`
   guard so two quick squash-merges deploy in order instead of racing
-  (wrangler is last-write-wins).
+  (wrangler is last-write-wins). **Two steps, in this order:** `Apply D1
+  migrations` (`wrangler d1 migrations apply crosby-record --remote`), then
+  `Deploy via Wrangler`. Schema goes first because the Worker about to ship
+  may read a table the previous one never needed. Applying is idempotent — a
+  no-op when nothing is pending — and a failure stops the job before the
+  deploy, leaving the old Worker on the old schema. **Migrations must be
+  additive** (new tables, new columns with defaults): the previous Worker
+  keeps serving during the gap, and a rollback redeploys old code onto the
+  new schema. Wrangler asks for confirmation before applying and answers
+  itself "yes" in a non-interactive shell, so the step needs no flag.
+- **Check site metrics and privacy claim** (`node scripts/test-site-metrics.mjs`)
+  — in the required job. Runs the page-request counters against SQLite with
+  the repo's real `migrations/` applied (`scripts/lib/d1-stub.mjs`), so it
+  doubles as the gate that a migration parses. See `docs/ops/analytics.md`.
 
 ## `wranglerVersion` pin
 
