@@ -72,10 +72,17 @@ export function waterState(g, lang) {
   return { cls: "w-monitored", label: T(lang, "Monitored", "Monitoreado") };
 }
 
-// Fetch each gauge, extract a compact record. Per-gauge try/catch so one bad
-// gauge never sinks the batch; throw only if EVERY gauge failed, so the cron
-// aborts-without-writing on a total NWPS outage and the last snapshot survives.
-export async function fetchWater() {
+// Fetch each gauge once and return both what the pages need now and what the
+// record keeps. Per-gauge try/catch so one bad gauge never sinks the batch;
+// throw only if EVERY gauge failed, so the cron aborts-without-writing on a
+// total NWPS outage and the last snapshot survives.
+//
+//   snapshot  { updated, gauges }  — the KV value behind /water.
+//   history   [{ lid, name, usgsId, crests, impacts }] — NOAA's historic crests
+//             and flood-impact statements, which arrive in the same response.
+//             They go to D1 (src/record.js), never to KV: they change a few
+//             times a decade and would triple the snapshot.
+export async function fetchWaterFull() {
   const results = await Promise.all(
     WATER_GAUGES.map(async (g) => {
       try {
@@ -92,24 +99,41 @@ export async function fetchWater() {
           if (s != null) thresholds[k] = s;
         }
         return {
-          lid: g.lid,
-          name: d.name || g.en,
-          usgsId: d.usgsId || null,
-          stage: waterNum(obs.primary),
-          stageUnit: obs.primaryUnit || "ft",
-          flow: g.noFlow ? null : waterNum(obs.secondary), // kcfs
-          category: obs.floodCategory || "unknown",
-          validTime: obs.validTime || null,
-          thresholds,
+          gauge: {
+            lid: g.lid,
+            name: d.name || g.en,
+            usgsId: d.usgsId || null,
+            stage: waterNum(obs.primary),
+            stageUnit: obs.primaryUnit || "ft",
+            flow: g.noFlow ? null : waterNum(obs.secondary), // kcfs
+            category: obs.floodCategory || "unknown",
+            validTime: obs.validTime || null,
+            thresholds,
+          },
+          history: {
+            lid: g.lid,
+            name: d.name || g.en,
+            usgsId: d.usgsId || null,
+            crests: Array.isArray(d.flood?.crests?.historic) ? d.flood.crests.historic : [],
+            impacts: Array.isArray(d.flood?.impacts) ? d.flood.impacts : [],
+          },
         };
       } catch {
         return null;
       }
     })
   );
-  const gauges = results.filter(Boolean);
-  if (!gauges.length) throw new Error("NWPS: all gauge fetches failed");
-  return { updated: new Date().toISOString(), gauges };
+  const ok = results.filter(Boolean);
+  if (!ok.length) throw new Error("NWPS: all gauge fetches failed");
+  return {
+    snapshot: { updated: new Date().toISOString(), gauges: ok.map((r) => r.gauge) },
+    history: ok.map((r) => r.history),
+  };
+}
+
+// The snapshot alone, for the cold-cache path.
+export async function fetchWater() {
+  return (await fetchWaterFull()).snapshot;
 }
 
 // Read the cached water levels, self-healing on a cold/malformed entry (the

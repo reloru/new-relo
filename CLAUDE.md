@@ -424,6 +424,17 @@ editing `src/pages/privacy.js`, `src/pages/about.js` and
 `contentSecurityPolicy()` together.
 
 ## D1 — the record
+**The KV cache holds *now*; D1 holds everything after it.** `src/record.js`
+files each cron tick's observations (alerts and their VTEC events, each gauge's
+daily summary and NOAA's crest history, the pollen count, the day's peak AQI,
+burn-ban periods) with idempotent upserts, after the cache writes and isolated
+from them — a database failure shows as `record.ok: false` on `/api/health` and
+never costs a page its refresh. Tables, scopes, limits and the archive backfill
+(`scripts/backfill-nws-events.mjs`) are in `docs/ops/record.md`. Two rules:
+record only what a source published or the site observed (never infer or fill
+a gap), and state the limits wherever the data is shown (polygon warnings from
+2007-10-01 only; zone products cover whatever the zone covered then).
+
 `wrangler.jsonc` binds the D1 database `crosby-record` as `env.DB`. Schema lives
 in `migrations/NNNN_name.sql` and is applied by the deploy job before the Worker
 ships; **migrations are additive only** (see `docs/ops/ci-cd.md`). Tests run

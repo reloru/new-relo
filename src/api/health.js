@@ -158,6 +158,17 @@ export async function healthReport(env) {
     };
   }
 
+  // The record: whether the cron's last writes to the D1 database succeeded.
+  // Not a feed — it has no upstream and no "data changed" time of its own.
+  if (cron?.record) {
+    body.record = {
+      lastAttempt: centralStamp(cron.record.at),
+      hoursSinceAttempt: hoursSince(cron.record.at, now),
+      ok: typeof cron.record.ok === "boolean" ? cron.record.ok : null,
+      ...(cron.record.error ? { error: cron.record.error } : {}),
+    };
+  }
+
   return { httpStatus: 200, body };
 }
 
@@ -187,7 +198,8 @@ export function cronRunRecorder() {
 export async function recordCronRun(env, recorder) {
   try {
     const at = new Date().toISOString();
-    const prev = (await env.WEATHER.get(CRON_STATUS_KV_KEY, "json"))?.feeds || {};
+    const prevAll = await env.WEATHER.get(CRON_STATUS_KV_KEY, "json");
+    const prev = prevAll?.feeds || {};
     const attempts = recorder.attempts();
     const feeds = {};
     // Several rows can share one KV key (air and uv live inside `weather`), so
@@ -230,7 +242,11 @@ export async function recordCronRun(env, recorder) {
       }),
     );
 
-    await env.WEATHER.put(CRON_STATUS_KV_KEY, JSON.stringify({ at, feeds }));
+    // The record (D1) is not a cached feed, so it has no content hash to
+    // track — only whether this tick's writes succeeded.
+    const record = attempts.record || prevAll?.record || null;
+
+    await env.WEATHER.put(CRON_STATUS_KV_KEY, JSON.stringify({ at, feeds, ...(record ? { record } : {}) }));
   } catch (e) {
     console.error("cron status write failed:", e && e.stack);
   }

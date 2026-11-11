@@ -27,7 +27,7 @@
 import { KV_KEY, TZ } from "./config.js";
 import { fetchWeather } from "./features/weather.js";
 import { fetchCalendar, CALENDAR_KV_KEY } from "./features/calendar.js";
-import { fetchWater, WATER_KV_KEY } from "./features/water.js";
+import { fetchWaterFull, WATER_KV_KEY } from "./features/water.js";
 import { fetchFishing, FISHING_KV_KEY } from "./features/fishing.js";
 import { fetchTropics, TROPICS_KV_KEY } from "./features/tropics.js";
 import { fetchTraffic, TRAFFIC_KV_KEY } from "./features/traffic.js";
@@ -38,12 +38,15 @@ import { pushSevereAlerts } from "./push.js";
 import { cronRunRecorder, recordCronRun } from "./api/health.js";
 import { mcpRollUp } from "./mcp/metrics.js";
 import { pruneHits } from "./metrics.js";
+import { recordAlerts, recordAqi, recordGauges, recordGaugeHistory, hasGaugeHistory, recordPollen, recordBurnBan } from "./record.js";
 
 export async function scheduled(event, env, ctx) {
     // Refresh the weather cache. News is NOT fetched here — it's written to the
     // KV "news" key out-of-band by scripts/fetch-news.mjs (a Claude routine),
     // because Google News blocks Worker IPs. The Worker only renders that key.
     const run = cronRunRecorder();
+    // What this tick observed, kept for the record written at the end.
+    const seen = {};
     try {
       const data = await fetchWeather(env);
       // EPA's UV product drops today's daytime hours at its ~7 PM rollover;
@@ -57,6 +60,7 @@ export async function scheduled(event, env, ctx) {
       const uvOk = data.uv != null;
       data.uv = carryUvToday(data.uv, prev?.uv);
       await env.WEATHER.put(KV_KEY, JSON.stringify(data));
+      seen.weather = data;
       run.ok("weather");
       if (airOk) run.ok("air");
       else run.failed("air", "AQI fetch returned nothing (AirNow and Open-Meteo both failed; see Worker logs)");
@@ -98,7 +102,10 @@ export async function scheduled(event, env, ctx) {
     // fetchWater() throws on a total NWPS outage, so we skip the write and the
     // last good snapshot survives. Independent try/catch from the above.
     try {
-      await env.WEATHER.put(WATER_KV_KEY, JSON.stringify(await fetchWater()));
+      const { snapshot, history } = await fetchWaterFull();
+      await env.WEATHER.put(WATER_KV_KEY, JSON.stringify(snapshot));
+      seen.water = snapshot;
+      seen.waterHistory = history;
       run.ok("water");
     } catch (e) {
       console.error("Cron water refresh failed:", e && e.stack);
@@ -183,7 +190,9 @@ export async function scheduled(event, env, ctx) {
         // freeze in the throttle added to stop one.
         const throttled = Number.isFinite(sinceWrite) && sinceWrite <= 3600 * 1000;
         if ((!cur || !cur.groups || !cur.countDate || cur.countDate !== today) && !throttled) {
-          await env.WEATHER.put(POLLEN_KV_KEY, JSON.stringify(await fetchPollen()));
+          const fresh = await fetchPollen();
+          await env.WEATHER.put(POLLEN_KV_KEY, JSON.stringify(fresh));
+          seen.pollen = fresh;
           run.ok("pollen");
         }
       }
@@ -206,13 +215,19 @@ export async function scheduled(event, env, ctx) {
         // burnbanHistory carries the status-history stamps forward off the
         // PREVIOUS entry, so the write has to be built from `cur` — a bare
         // fetchBurnBan() result would reset "since when" on every refresh.
-        await env.WEATHER.put(BURNBAN_KV_KEY, JSON.stringify(burnbanHistory(cur, await fetchBurnBan())));
+        const fresh = burnbanHistory(cur, await fetchBurnBan());
+        await env.WEATHER.put(BURNBAN_KV_KEY, JSON.stringify(fresh));
+        seen.burnban = fresh;
         run.ok("burnban");
       }
     } catch (e) {
       console.error("Cron burnban refresh failed:", e && e.stack);
       run.failed("burnban", e);
     }
+    // File what this tick observed in the record (src/record.js). After every
+    // cache write, so the record can never cost a live page its refresh.
+    await recordTick(env, seen, run);
+
     // Fold the per-isolate MCP counters into the durable record. Its own
     // try/catch, and deliberately NOT a `run` feed: this is not a content feed,
     // and a fake row in /api/health's table would cost that endpoint the
@@ -236,4 +251,51 @@ export async function scheduled(event, env, ctx) {
 
     // Last, so a failure here can never affect the refreshes it describes.
     await recordCronRun(env, run);
+}
+
+// Write this tick's observations to D1. Each writer is isolated, so one
+// failing table does not stop the others, and the outcome is reported as the
+// `record` row on /api/health — with Workers Logs off, that row is the only
+// place a failing database would show.
+async function recordTick(env, seen, run) {
+  if (!env.DB) return;
+  const errors = [];
+  const step = async (name, fn) => {
+    try {
+      await fn();
+    } catch (e) {
+      errors.push(`${name}: ${(e && e.message) || e}`);
+      console.error(`Cron record (${name}) failed:`, e && e.stack);
+    }
+  };
+  const now = new Date();
+  const topOfHour = now.getUTCMinutes() < 15;
+
+  if (seen.weather) {
+    await step("alerts", () => recordAlerts(env, seen.weather.alerts));
+    await step("air quality", () => recordAqi(env, seen.weather));
+  }
+  if (seen.water) {
+    await step("gauges", () => recordGauges(env, seen.water));
+    // Crests and impact statements change a few times a decade: once a day,
+    // or at once when the tables are still empty.
+    await step("gauge history", async () => {
+      if ((now.getUTCHours() === 10 && topOfHour) || !(await hasGaugeHistory(env))) await recordGaugeHistory(env, seen.waterHistory);
+    });
+  }
+  // Pollen and the burn ban are fetched only when due, so the cached value is
+  // also filed once an hour: that seeds the record after a deploy and keeps a
+  // count from being missed when the fetch and the first write straddle one.
+  const cached = async (key) => (topOfHour ? env.WEATHER.get(key, "json").catch(() => null) : null);
+  await step("pollen", async () => {
+    const pollen = seen.pollen || (await cached(POLLEN_KV_KEY));
+    if (pollen) await recordPollen(env, pollen);
+  });
+  await step("burn ban", async () => {
+    const ban = seen.burnban || (await cached(BURNBAN_KV_KEY));
+    if (ban) await recordBurnBan(env, ban);
+  });
+
+  if (errors.length) run.failed("record", new Error(errors.join("; ")));
+  else run.ok("record");
 }
