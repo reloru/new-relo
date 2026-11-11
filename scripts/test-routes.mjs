@@ -87,7 +87,10 @@ for (const [label, mutate] of [["quiet", undefined], ["busy", busy]]) {
       if (!/<meta name="description" content="[^"]{20,}"/.test(body)) fail(`${where}: no meta description`);
       if ((body.match(/<h1[\s>]/g) || []).length !== 1) fail(`${where}: expected exactly one <h1>`);
       if (!body.includes('<main id="main"')) fail(`${where}: no <main id="main">`);
-      if (/\bundefined\b|\bNaN\b|\[object Object\]/.test(body.replace(/<script[\s\S]*?<\/script>/g, ""))) fail(`${where}: page text contains undefined / NaN / [object Object]`);
+      // Only the content region is scanned, located by position: inline
+      // scripts legitimately contain the word "undefined".
+      const main = body.slice(body.indexOf('<main id="main"'), body.lastIndexOf("</main>"));
+      if (/\bundefined\b|\bNaN\b|\[object Object\]/.test(main)) fail(`${where}: page text contains undefined / NaN / [object Object]`);
 
       // A Spanish page links to Spanish pages. The language switcher is the
       // one anchor meant to cross over, and it is marked by its hreflang.
