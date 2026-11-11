@@ -5,7 +5,7 @@ Upcoming district events grouped by month, plus one-tap subscribe links.
 | | |
 |---|---|
 | **Handlers** | `calendarHtml(data, lang)` / `calendarMarkdown(data, lang)` — `src/features/calendar.js` |
-| **Route** | `routeRequest` (`src/router.js`) → `page === "/calendar"` |
+| **Route** | `PAGE_HANDLERS["/calendar"]` (`src/router.js`) |
 | **Spanish** | `/es/calendar` |
 | **Cache** | `public, max-age=1800` |
 | **Negotiation** | `Accept: text/markdown` or `?format=md`; `Vary: Accept` |

@@ -6,7 +6,7 @@ Crosby) from the Texas A&M Forest Service.
 | | |
 |---|---|
 | **Handlers** | `burnbanHtml(data, lang)` / `burnbanMarkdown(data, lang)` — `src/features/burnban.js` |
-| **Route** | `routeRequest` (`src/router.js`) → `page === "/burn-ban"` |
+| **Route** | `PAGE_HANDLERS["/burn-ban"]` (`src/router.js`) |
 | **Spanish** | `/es/burn-ban` |
 | **Cache** | `public, max-age=1800` |
 | **Negotiation** | `Accept: text/markdown` or `?format=md`; `Vary: Accept` |

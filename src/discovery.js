@@ -5,11 +5,13 @@
 // cannot disagree. contentSecurityPolicy() uses the same trick for the three
 // inline page scripts.
 //
-// llmsTxt() and CROSBY_WEATHER_SKILL are two of the five hand-maintained places
-// that name the MCP tools in prose and go stale silently.
+// The page and endpoint lists in llmsTxt() and sitemapXml() come from
+// registry.js. llmsTxt() and CROSBY_WEATHER_SKILL still name the MCP tools in
+// prose by hand.
 
 import { SITE } from "./config.js";
 import { esPath } from "./i18n.js";
+import { PAGES, ENDPOINTS } from "./registry.js";
 import { HOME_SCRIPT, NEWS_ADMIN_SCRIPT, PUSH_CLIENT_SCRIPT } from "./assets/client-scripts.js";
 // /llms.txt — concise site summary for LLMs (llmstxt.org spec).
 export function llmsTxt() {
@@ -21,26 +23,7 @@ crosbynews.com is an independent weather and news site for Crosby, TX (northeast
 
 ## Pages
 
-- [Home](${SITE}/): The Crosby, TX front page — current conditions, water levels, local news, and school events at a glance, linking into each full section.
-- [Weather](${SITE}/weather): Current conditions, 12-hour hourly strip, and 7-day forecast for Crosby, TX.
-- [Hourly](${SITE}/hourly): Full 48-hour hour-by-hour forecast table grouped by day.
-- [Radar](${SITE}/radar): Live NWS KHGX (Houston-Galveston) radar loop covering Crosby and northeast Harris County.
-- [Alerts](${SITE}/alerts): Active NWS weather alerts for Crosby, TX plus a plain-language severe-weather guide.
-- [Water Levels](${SITE}/water): Live river and bayou levels with NWS flood stages for Cedar Bayou, the San Jacinto River, Luce Bayou and other waters that flood the Crosby / NE Harris County area.
-- [Fishing Conditions](${SITE}/fishing): Live USGS water conditions — temperature, dissolved oxygen, pH, and clarity — for the waters people fish near Crosby: Lake Houston, the San Jacinto River forks, the Trinity River, and nearby bayous.
-- [Tropics](${SITE}/tropics): Active Atlantic tropical storms and hurricanes from the NOAA National Hurricane Center, the areas it is watching for development with their formation chances, plus what hurricane season means for Crosby — an all-clear only when there are neither.
-- [Pollen & Mold](${SITE}/pollen): The Houston Health Department's measured daily pollen and mold count (tree, weed, and grass pollen plus mold spores, National Allergy Bureau scale) with the species actually counted — a real measurement, published weekday mornings, regionally valid for Crosby.
-- [Air Quality](${SITE}/air): Measured US Air Quality Index (AQI) for the Houston-Galveston-Brazoria reporting area that includes Crosby, from EPA/AirNow monitors, with a per-pollutant breakdown and health guidance (Open-Meteo modeled fallback when AirNow isn't reporting).
-- [News](${SITE}/news): Recent local headlines about Crosby, TX and nearby communities, filtered for relevance.
-- [Roads & Traffic](${SITE}/traffic): Live traffic incidents and scheduled lane closures for US-90, FM-2100, FM-1942, and the Crosby stretch of IH-10 East, from Houston TranStar, with links to the live traffic cameras.
-- [School Calendar](${SITE}/calendar): Upcoming Crosby ISD school calendar events (first day, holidays, no-school/early-release days, testing, athletics) rendered from the district's public iCal feed, plus one-tap subscribe links.
-- [Burn Ban Status](${SITE}/burn-ban): Current outdoor-burning ban status for Harris County, TX (which includes Crosby) from the Texas A&M Forest Service — countywide only, no sub-county resolution.
-- [Emergency Resources](${SITE}/emergency): Emergency contacts for Crosby, TX — 911 and non-emergency numbers, power outage and gas leak reporting, the CAER industrial-incident line, live flood and road conditions, evacuation-zone lookup, shelters, and disaster assistance.
-- [About](${SITE}/about): What this site is, where its data comes from, how often it updates, and how it's built.
-- [Developers & Agents](${SITE}/developers): The public JSON API, OpenAPI spec, MCP server, RSS feeds, agent skills, and Markdown views — all in one place, no authentication.
-- [Privacy](${SITE}/privacy): Privacy policy — no cookies, no trackers, no personal data.
-- [Contact](${SITE}/contact): How to reach us — general inquiries and security reporting.
-- [Sitemap](${SITE}/sitemap): Human-readable site map with every page and endpoint.
+${PAGES.map((p) => `- [${p.name.en}](${SITE}${p.path === "/" ? "/" : p.path}): ${p.llms}`).join("\n")}
 
 ## Languages
 
@@ -50,17 +33,7 @@ Every page is also available in Mexican Spanish (es-MX) under the /es prefix —
 
 Every page supports \`Accept: text/markdown\` (or \`?format=md\`) for a clean markdown rendering.
 
-- REST API: \`GET ${SITE}/api/weather\` — JSON with current conditions, hourly, 7-day forecast, alerts, sun times, the EPA UV index, and a measured air-quality index from EPA/AirNow monitors (Houston metro reporting area; \`measured:true\`, with an Open-Meteo modeled fallback). No auth.
-- Air quality API: \`GET ${SITE}/api/air\` — the measured AQI + per-pollutant breakdown (JSON).
-- News API: \`GET ${SITE}/api/news\` — recent Crosby-area headlines (JSON).
-- School calendar API: \`GET ${SITE}/api/calendar\` — upcoming Crosby ISD events (JSON).
-- Water levels API: \`GET ${SITE}/api/water\` — river/bayou stage + NWS flood stages (JSON).
-- Fishing API: \`GET ${SITE}/api/fishing\` — USGS water conditions (temperature, dissolved oxygen, pH, turbidity) for the waters people fish near Crosby (JSON).
-- Tropics API: \`GET ${SITE}/api/tropics\` — active Atlantic tropical cyclones from the NOAA NHC, plus unnamed areas under watch with formation chances (JSON; an empty storms array alone does NOT mean a quiet basin — read \`disturbances\` too, where null means the outlook was unreadable).
-- Traffic API: \`GET ${SITE}/api/traffic\` — incidents and lane closures on Crosby's roads from Houston TranStar (JSON; empty arrays = quiet roads).
-- Pollen API: \`GET ${SITE}/api/pollen\` — the Houston Health Department's measured daily pollen and mold count (JSON; weekday mornings).
-- Burn ban API: \`GET ${SITE}/api/burn-ban\` — Harris County's current outdoor-burning ban status from the Texas A&M Forest Service (JSON; countywide only).
-- OpenAPI spec: \`${SITE}/openapi.json\`
+${ENDPOINTS.filter((e) => e.group === "api").map((e) => `- ${e.name.en}: \`GET ${SITE}${e.path}\` — ${e.llms}`).join("\n")}
 - MCP server (Streamable HTTP): \`${SITE}/mcp\` — tools: \`get_current_conditions\`, \`get_forecast\`, \`get_alerts\`, \`get_tropical_outlook\`, \`get_pollen\`, \`get_burn_ban\`, \`get_air_quality\`, \`get_river_levels\`, \`get_fishing\`, \`get_traffic\`, \`get_crosby_news\`, \`get_school_events\`, \`get_emergency_contacts\`, \`get_radar\`
 - MCP server card: \`${SITE}/.well-known/mcp/server-card.json\`
 
@@ -70,12 +43,7 @@ Source data is U.S. government public domain (NWS). No authentication required. 
 
 ## Optional
 
-- [Alerts RSS](${SITE}/alerts.xml): Active NWS weather alerts as an RSS 2.0 feed (empty when all clear).
-- [News RSS](${SITE}/news.xml): Curated Crosby-area headlines as an RSS 2.0 feed.
-- [Weather badge](${SITE}/badge.svg): Hotlinkable live SVG badge — current temperature, conditions, feels-like, and an alert flag.
-- [Sitemap](${SITE}/sitemap.xml): All pages in both languages, with hreflang alternates.
-- [API catalog](${SITE}/.well-known/api-catalog): Machine-readable index of the API endpoints (RFC 9727 linkset).
-- [Security contact](${SITE}/.well-known/security.txt): How to report a security issue (RFC 9116).
+${ENDPOINTS.filter((e) => e.group === "optional").map((e) => `- [${e.name.en}](${SITE}${e.path}): ${e.llms}`).join("\n")}
 `;
 }
 
@@ -137,31 +105,6 @@ Sitemap: ${SITE}/sitemap.xml
 // Spanish versions together, the same pairing the in-page hreflang tags assert.
 export function sitemapXml() {
   const today = new Date().toISOString().slice(0, 10);
-  const pages = [
-    { path: "/", changefreq: "hourly", priority: "1.0", lastmod: true },
-    { path: "/weather", changefreq: "hourly", priority: "0.9", lastmod: true },
-    { path: "/hourly", changefreq: "hourly", priority: "0.8", lastmod: true },
-    { path: "/radar", changefreq: "daily", priority: "0.7" },
-    { path: "/alerts", changefreq: "hourly", priority: "0.7" },
-    { path: "/water", changefreq: "hourly", priority: "0.7" },
-    { path: "/tropics", changefreq: "daily", priority: "0.6" },
-    { path: "/pollen", changefreq: "daily", priority: "0.6" },
-    { path: "/air", changefreq: "hourly", priority: "0.6" },
-    { path: "/fishing", changefreq: "hourly", priority: "0.6" },
-    { path: "/news", changefreq: "daily", priority: "0.6" },
-    { path: "/traffic", changefreq: "hourly", priority: "0.6" },
-    { path: "/calendar", changefreq: "daily", priority: "0.6" },
-    { path: "/burn-ban", changefreq: "daily", priority: "0.5" },
-    { path: "/emergency", changefreq: "monthly", priority: "0.5" },
-    { path: "/about", changefreq: "monthly", priority: "0.5" },
-    { path: "/developers", changefreq: "monthly", priority: "0.4" },
-    { path: "/privacy", changefreq: "monthly", priority: "0.3" },
-    { path: "/contact", changefreq: "monthly", priority: "0.3" },
-    { path: "/sitemap", changefreq: "monthly", priority: "0.3" },
-    // The MCP explainer. Indexable on purpose (so AI Overviews can cite it as
-    // a supporting link) — which only works if a crawler can find it.
-    { path: "/mcp", changefreq: "monthly", priority: "0.4" },
-  ];
   const entry = (loc, page) => {
     const en = SITE + page.path;
     const es = SITE + esPath(page.path);
@@ -169,15 +112,15 @@ export function sitemapXml() {
       `\n    <xhtml:link rel="alternate" hreflang="en-US" href="${en}"/>` +
       `\n    <xhtml:link rel="alternate" hreflang="es-MX" href="${es}"/>` +
       `\n    <xhtml:link rel="alternate" hreflang="x-default" href="${en}"/>`;
-    const lastmod = page.lastmod ? `\n    <lastmod>${today}</lastmod>` : "";
+    const lastmod = page.sitemap.lastmod ? `\n    <lastmod>${today}</lastmod>` : "";
     return `  <url>
     <loc>${loc}</loc>${lastmod}
-    <changefreq>${page.changefreq}</changefreq>
-    <priority>${page.priority}</priority>${alts}
+    <changefreq>${page.sitemap.changefreq}</changefreq>
+    <priority>${page.sitemap.priority}</priority>${alts}
   </url>`;
   };
   const urls = [];
-  for (const page of pages) {
+  for (const page of PAGES) {
     urls.push(entry(SITE + page.path, page));
     urls.push(entry(SITE + esPath(page.path), page));
   }

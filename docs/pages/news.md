@@ -6,7 +6,7 @@ here** — it only reads the `news` KV key, which is written out-of-band.
 | | |
 |---|---|
 | **Handlers** | `newsHtml(data, lang, admin)` / `newsMarkdown(data, lang)` — `src/features/news.js` |
-| **Route** | `routeRequest` (`src/router.js`) → `page === "/news"` |
+| **Route** | `PAGE_HANDLERS["/news"]` (`src/router.js`) |
 | **Spanish** | `/es/news` |
 | **Cache** | `public, max-age=900` — or `private, no-store` in the admin view |
 | **Negotiation** | `Accept: text/markdown` or `?format=md`; `Vary: Accept` |

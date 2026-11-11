@@ -136,75 +136,11 @@ for (const file of await jsFiles(SRC)) {
 // Let the async handlers above settle before judging.
 await new Promise((r) => setImmediate(r));
 
-// --- phase 2: Spanish pages must link to Spanish pages ----------------------
-//
-// `/es` is one page set rendered with lang="es", so a link written as a bare
-// English path silently strands the reader back in English. Every internal link
-// to a BILINGUAL content path (i.e. one in PAGE_PATHS) must use its /es form
-// when rendered in Spanish.
-//
-// This is a repeat offender rather than a hypothetical. /mcp began life as an
-// endpoint and became a page; the /sitemap entry kept using the non-localizing
-// `extLk` helper meant for English-only endpoints, so a Spanish reader browsing
-// the site map was handed the English MCP page. Found by the owner, not by any
-// check — hence this one.
-//
-// Links to English-only surfaces (the APIs, feeds, assets, .well-known) are
-// correct as bare paths and are simply not in PAGE_PATHS, so they never match.
-const { PAGE_PATHS } = await import(pathToFileURL(join(SRC, "index.js")).href);
-const BILINGUAL = new Set([...PAGE_PATHS].filter((p) => !p.startsWith("/es")));
-
-// Deliberate exceptions, each one a real decision rather than an oversight.
-const ES_LINK_ALLOW = [
-  // The Spanish MCP explainer exists to tell readers the PROTOCOL is English-only
-  // and to connect to /mcp, never /es/mcp. Its English links are the whole point.
-  { file: "mcp/server.js", path: "/mcp" },
-  // /developers lists /mcp as the ENDPOINT, where the label is the URL itself and
-  // a POST to /es/mcp 404s — localizing it would document a broken endpoint. That
-  // alone is not sufficient justification, though: clicking an anchor is a GET,
-  // and the Spanish note used to advertise "un GET muestra una página explicativa"
-  // while handing over the English one. The exception is allowed because the
-  // Spanish page now carries a SEPARATE, clearly-labelled /es/mcp link beside it,
-  // so the explainer is reachable in Spanish. Remove that link and this exception
-  // stops being honest.
-  { file: "pages/developers.js", path: "/mcp" },
-];
-const allowed = (rel, p) => ES_LINK_ALLOW.some((a) => rel.endsWith(a.file) && a.path === p);
-
-// Match whole anchors, not bare hrefs. The language toggle in topbar() is an
-// English link on every Spanish page BY DESIGN — it is the switcher — and it is
-// the one anchor that should point across languages. It is identifiable by its
-// hreflang, so skip exactly that rather than special-casing 20 paths. (Scanning
-// bare hrefs instead flagged all 18 Spanish pages on the first run: every hit
-// was the toggle, and the one real bug was buried among them.)
-const linkProblems = [];
-for (const { rel, name, html } of esHtml) {
-  const seen = new Set();
-  for (const m of html.matchAll(/<a\s[^>]*href="(\/[^"#?]*)"[^>]*>/g)) {
-    const [tag, href] = [m[0], m[1]];
-    if (/hreflang="en-US"/.test(tag)) continue; // the language switcher
-    const p = href.replace(/\/$/, "") || "/";
-    if (seen.has(p) || !BILINGUAL.has(p) || allowed(rel, p)) continue;
-    seen.add(p);
-    linkProblems.push(`${rel} -> ${name}(lang="es") links "${p}" instead of its /es form`);
-  }
-}
-if (linkProblems.length) {
-  console.error(`\nSpanish pages linking to English pages (${linkProblems.length}):\n`);
-  for (const p of linkProblems) console.error(`  ${p}`);
-  console.error("\nUse the localizing link helper, or add a documented exception to ES_LINK_ALLOW.\n");
-  process.exit(1);
-}
-
-// A page renderer that never returned HTML was never really checked, and the
-// pass above says nothing about it. Fail rather than report a green gate over
-// a page whose body did not run.
-if (uncovered.length) {
-  console.error(`\nPage renderers that never produced HTML (${uncovered.length}) — the gate did not cover them:\n`);
-  for (const u of uncovered) console.error(`  ${u.rel} → ${u.name}(lang="${u.lang}") ${u.why}`);
-  console.error("\nGive the renderer its own call shape above, next to radarHtml/HOME.\n");
-  process.exit(1);
-}
+// Whether every page actually renders, and whether Spanish pages link to
+// Spanish pages, is scripts/test-routes.mjs's job: it requests each registered
+// page through the real Worker in both languages. This script stays the wide,
+// shallow sweep — every exported renderer, API shaper and discovery surface,
+// called with stub data, looking only for names that do not resolve.
 
 if (failures.length) {
   console.error(`\nUnresolved references in ${failures.length} render path(s):\n`);
@@ -216,4 +152,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log(`Renderers OK — ${calls} calls across both languages, no ReferenceError; ${esHtml.length} Spanish pages link to Spanish pages.`);
+console.log(`Renderers OK — ${calls} calls across both languages, no ReferenceError (${uncovered.length} Html renderer call(s) did not return a page with stub data; scripts/test-routes.mjs renders every registered page for real).`);

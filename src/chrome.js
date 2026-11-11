@@ -4,6 +4,7 @@
 
 import { T, esPath } from "./i18n.js";
 import { esc, fullTime } from "./lib/format.js";
+import { PAGES, SECTIONS } from "./registry.js";
 
 // Site header with cross-page nav. `current` is the active EN path key for
 // aria-current; `lang` selects English vs Spanish labels and the /es hrefs, and
@@ -21,13 +22,27 @@ export function topbar(current, lang = "en") {
   const toggle = es
     ? `<a class="lang" hreflang="en-US" lang="en" href="${current}">English</a>`
     : `<a class="lang" hreflang="es-MX" lang="es" href="${esPath(current)}">Español</a>`;
+  // The links come from the registry, in its order. A group label is emitted
+  // whenever the section's nav heading changes; Home sits above the first one.
+  const navLabel = (p) => SECTIONS.find((sec) => sec.id === p.section).nav;
+  const items = [];
+  let heading = null;
+  for (const p of PAGES) {
+    if (!p.nav) continue;
+    const h = navLabel(p);
+    if (p.path !== "/" && h.en !== heading) {
+      heading = h.en;
+      items.push(group(t(h.en, h.es)));
+    }
+    items.push(link(p.path, t(p.nav.en, p.nav.es), p.nav.desktop ? undefined : "m-only"));
+  }
   return `<header class="topbar">
   <a class="skip-link" href="#main">${t("Skip to content", "Saltar al contenido")}</a>
   <a class="brand" href="${es ? "/es" : "/"}">crosbynews.com</a>
   <nav>
     <details class="nav-menu">
       <summary aria-label="${t("Menu", "Menú")}">&#9776;</summary>
-      <div class="nav-links">${link("/", t("Home", "Inicio"))} ${group(t("Weather", "Clima"))} ${link("/weather", t("Weather", "Clima"))} ${link("/hourly", t("Hourly", "Por hora"), "m-only")} ${link("/radar", t("Radar", "Radar"))} ${link("/alerts", t("Alerts", "Alertas"))} ${link("/water", t("Water Levels", "Niveles de agua"))} ${link("/fishing", t("Fishing", "Pesca"), "m-only")} ${link("/tropics", t("Tropics", "Trópicos"), "m-only")} ${link("/pollen", t("Pollen", "Polen"), "m-only")} ${link("/air", t("Air Quality", "Calidad del aire"), "m-only")} ${link("/burn-ban", t("Burn Ban", "Prohibición de quemas"), "m-only")} ${group(t("Community", "Comunidad"))} ${link("/news", t("News", "Noticias"))} ${link("/traffic", t("Traffic", "Tráfico"), "m-only")} ${link("/calendar", t("School Calendar", "Calendario escolar"))} ${group(t("More", "Más"))} ${link("/emergency", t("Emergency", "Emergencias"), "m-only")} ${link("/about", t("About", "Acerca de"))} ${link("/developers", t("Developers", "Desarrolladores"), "m-only")}</div>
+      <div class="nav-links">${items.join(" ")}</div>
     </details>
     ${toggle}
   </nav>
@@ -46,7 +61,7 @@ export function footer({ page, lang = "en", source, data }) {
   ${T(lang, "Updated", "Actualizado")} ${esc(fullTime(data.updated, lang))} CT &middot; ${T(lang, "refreshes every 15 minutes.", "se actualiza cada 15 minutos.")}`
     : source;
 
-  const links = `<div class="footer-links">${lk("/", T(lang, "Home", "Inicio"))} &middot; ${lk("/emergency", T(lang, "Emergency", "Emergencias"))} &middot; ${lk("/about", T(lang, "About", "Acerca de"))} &middot; ${lk("/developers", T(lang, "Developers", "Desarrolladores"))} &middot; ${lk("/privacy", T(lang, "Privacy", "Privacidad"))} &middot; ${lk("/contact", T(lang, "Contact", "Contacto"))} &middot; ${lk("/sitemap", T(lang, "Sitemap", "Mapa del sitio"))} &middot; <a href="${mdHref}">${T(lang, "View as Markdown", "Ver en Markdown")}</a></div>`;
+  const links = `<div class="footer-links">${PAGES.filter((p) => p.footer).map((p) => lk(p.path, T(lang, p.footer.en, p.footer.es))).join(" &middot; ")} &middot; <a href="${mdHref}">${T(lang, "View as Markdown", "Ver en Markdown")}</a></div>`;
 
   const disclaimer = `<div class="footer-disclaimer">${T(lang, "crosbynews.com is an independent project and is not affiliated with the National Weather Service, NOAA, or any government agency.", "crosbynews.com es un proyecto independiente y no está afiliado al Servicio Meteorológico Nacional, la NOAA ni ninguna agencia gubernamental.")}</div>`;
 

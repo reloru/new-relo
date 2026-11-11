@@ -241,8 +241,8 @@ hstspreload.org is an owner decision, never a session's — reasons in
   static-assets binding only.
 - Layout: `src/index.js` is the entry point Wrangler resolves via `wrangler.jsonc`'s
   `main`. It is deliberately thin (~50 lines): the two Worker handlers plus the
-  response wrapper. **The route table is `src/router.js`** and **the cron is
-  `src/cron.js`**; everything else lives in `src/features/` (one vertical slice
+  response wrapper. **The route table is `src/router.js`**, **the list of pages is
+  `src/registry.js`**, and **the cron is `src/cron.js`**; everything else lives in `src/features/` (one vertical slice
   per data source: fetch + loader + renderers + API shape together),
   `src/pages/` (the static pages), `src/lib/` (format, derived math, http),
   `src/mcp/`, `src/api/`, plus `config.js`, `i18n.js`, `chrome.js`, `seo.js`,
@@ -345,7 +345,7 @@ invariants that cut across pages.
   (API, MCP protocol, assets, `.well-known`) are English-only and never carry the
   prefix. The one exception is `/es/mcp`, a Spanish HUMAN explainer page —
   GET/HEAD only, a POST there 404s; the protocol lives only at `/mcp`.
-  **A Spanish page must link to Spanish pages.** `scripts/check-renders.mjs`
+  **A Spanish page must link to Spanish pages.** `scripts/test-routes.mjs`
   enforces it: any anchor on an `/es` page pointing at a path in `PAGE_PATHS`
   must use the `/es` form. The language toggle is exempt (identified by
   `hreflang="en-US"`), and deliberate exceptions live in that script's
@@ -373,21 +373,24 @@ invariants that cut across pages.
   good data instead of wiping it. Key ownership and cadence are in `/kv`'s SKILL.md
   and in each page's file.
 - **Canonical `Link` headers** are added centrally in the `fetch` wrapper from
-  `PAGE_PATHS` (the 21 English content paths + their `/es` counterparts, 42
-  total), so `?format=md` variants consolidate onto one URL. `/mcp` and
+  `PAGE_PATHS` (derived from `src/registry.js`: every English content path +
+  its `/es` counterpart), so `?format=md` variants consolidate onto one URL. `/mcp` and
   `/es/mcp` are in that set, and in `sitemapXml()`. `PAGE_PATHS` matches on
   pathname, not method, so a `POST /mcp` JSON-RPC response also carries the
   canonical `Link` header — inert for MCP clients.
-- **Adding a page** means touching, in the same PR: the handler (its `<head>`
-  calls `sharedHead(lang)`, and `scripts/test-icons.mjs`'s `PAGES` gets its
-  call shape — the test fails until it does), `PAGE_PATHS`,
-  `sitemapXml()`, `llmsTxt()`, `topbar()`, the `/sitemap` page, and a new
-  `docs/pages/<page>.md`. Adding a public endpoint: the handler,
-  `openApiSpec()`, `apiCatalog()`, `llmsTxt()`, `README.md`, `/developers`,
-  **the `/sitemap` page** (`src/pages/sitemap.js` — BOTH the HTML list and the
-  markdown one), and `docs/endpoints/…`. **The `/sitemap` page is the one
-  nothing points at** — none of these lists is generated or cross-checked by
-  CI, so adding an endpoint and skipping one of them fails silently.
+- **`src/registry.js` is the one list of pages and public endpoints.** The
+  canonical path set, the header nav, the footer links, `/sitemap.xml`, the
+  page and endpoint lists in `/llms.txt`, and the `/sitemap` page are all
+  generated from it. **Adding a page** is: one `PAGES` entry, one handler in
+  `PAGE_HANDLERS` (`src/router.js` — the module throws at load if the two
+  disagree), the renderer whose `<head>` calls `sharedHead(lang)`, and a new
+  `docs/pages/<page>.md`. **Adding a public endpoint** is: the route, one
+  `ENDPOINTS` entry, `openApiSpec()`, `apiCatalog()`, `README.md`,
+  `/developers`, and `docs/endpoints/…`. `scripts/test-routes.mjs` ("Check
+  routes" in CI) requests every registered page through the real Worker in
+  both languages and fails on a page that is registered but not served, an
+  `/api/*` endpoint missing from either spec, or a Spanish page linking to an
+  English one.
 
 ## News pipeline (runs OUTSIDE the Worker)
 Full filter-logic detail (relevance gates, dedup, crime-family capping) and

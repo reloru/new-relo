@@ -5,13 +5,13 @@ human-readable page — see `docs/pages/sitemap.md`.
 
 | | |
 |---|---|
-| **Builder** | `sitemapXml()` (`src/discovery.js`) |
+| **Builder** | `sitemapXml()` (`src/discovery.js`), from `PAGES` in `src/registry.js` |
 | **Content-type** | `application/xml; charset=utf-8` |
 | **Cache** | `public, max-age=3600` |
 
 ## Contents
 
-21 content pages **× 2 languages = 42 `<url>` entries**. Each carries
+Every page in `src/registry.js` **× 2 languages** (21 pages, 42 `<url>` entries today), in registry order. Each carries
 `changefreq`, `priority`, `xhtml:link` hreflang alternates (`en-US`, `es-MX`,
 `x-default` → English), and — for `/`, `/weather` and `/hourly` — a `<lastmod>`
 of the current date, computed at request time.

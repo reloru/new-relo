@@ -6,7 +6,7 @@ measured, Crosby-area-relevant number, not a model.
 | | |
 |---|---|
 | **Handlers** | `pollenHtml(data, lang)` / `pollenMarkdown(data, lang)` — `src/features/pollen.js` |
-| **Route** | `routeRequest` (`src/router.js`) → `page === "/pollen"` |
+| **Route** | `PAGE_HANDLERS["/pollen"]` (`src/router.js`) |
 | **Spanish** | `/es/pollen` |
 | **Cache** | `public, max-age=1800` |
 | **Negotiation** | `Accept: text/markdown` or `?format=md`; `Vary: Accept` |

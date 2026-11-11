@@ -6,7 +6,7 @@ watching for development, plus what hurricane season actually means for Crosby.
 | | |
 |---|---|
 | **Handlers** | `tropicsHtml(data, lang)` / `tropicsMarkdown(data, lang)` — `src/features/tropics.js` |
-| **Route** | `routeRequest` (`src/router.js`) → `page === "/tropics"` |
+| **Route** | `PAGE_HANDLERS["/tropics"]` (`src/router.js`) |
 | **Spanish** | `/es/tropics` |
 | **Cache** | `public, max-age=900` |
 | **Negotiation** | `Accept: text/markdown` or `?format=md`; `Vary: Accept` |

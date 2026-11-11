@@ -72,7 +72,7 @@ correct for them — they are English-only endpoints — and was wrong here from
 moment `/mcp` gained a Spanish counterpart. Reported by the owner 2026-08-05.
 
 Two links to `/mcp` from Spanish pages are deliberate and are allow-listed in
-`scripts/check-renders.mjs`:
+`scripts/test-routes.mjs` (`ES_LINK_ALLOW`):
 
 - **this page's own** `/mcp` references — the Idioma section exists to say the
   protocol is English-only and to connect to `/mcp`, never `/es/mcp`

@@ -54,6 +54,18 @@ see `docs/README.md`.
   so far found a new way to be wrong. **The two-language sweep is the
   point** — roughly half the site's render branches never execute under
   `lang="en"`, which is why `/hourly` was fine while `/es/hourly` was down.
+- **Check routes** (`node scripts/test-routes.mjs`) — also in the required
+  job. Runs the real Worker (`src/index.js`) in node against a snapshot of the
+  production cache (`scripts/fixtures/kv/`, clock frozen at the snapshot) and
+  requests **every page in `src/registry.js`, in both languages, as HTML and
+  as Markdown**, twice: on the quiet snapshot and on a busy variant (active
+  warning, gauge in flood, named storm, road incident). Fails on a registered
+  page that is not served, a wrong canonical or hreflang, a page missing from
+  `/sitemap.xml`, `llms.txt` or the `/sitemap` page, an `/api/*` endpoint
+  missing from either spec, or **a Spanish page linking to an English page**
+  (deliberate exceptions live in its `ES_LINK_ALLOW`). `check-renders` remains
+  the wide, shallow sweep for unresolved names; this is the one that proves
+  each page renders. Shared plumbing is `scripts/lib/harness.mjs`.
 - **Five content/behaviour checks**, all inside the required `Syntax check`
   job, all pure node with no install. Each exists because its failure mode is
   a **cheerful green**: the code runs, the page returns 200, and only the

@@ -7,7 +7,7 @@ home, and every sub-page's back-link ("← Back to the forecast") points here.
 | | |
 |---|---|
 | **Handlers** | `renderHtml(data, lang)` / `renderMarkdown(data, lang)` — `src/features/weather.js` |
-| **Route** | `routeRequest` (`src/router.js`) → `page === "/weather"` |
+| **Route** | `PAGE_HANDLERS["/weather"]` (`src/router.js`) |
 | **Spanish** | `/es/weather`, same handlers, `lang="es"` |
 | **Cache** | `public, max-age=300` |
 | **Negotiation** | `Accept: text/markdown` or `?format=md`; `Vary: Accept` |
