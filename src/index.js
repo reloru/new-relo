@@ -5,21 +5,20 @@
 // src/router.js and the cron is src/cron.js.
 //
 // fetch():     dispatch, then stamp every response with the security headers
-//              and — for the 42 content paths — the canonical Link header.
+//              and — for every content path — the canonical Link header.
 // scheduled(): refresh the cron-owned KV keys.
 
 import { SITE } from "./config.js";
 import { contentSecurityPolicy } from "./discovery.js";
 import { routeRequest } from "./router.js";
+import { PAGE_PATHS } from "./registry.js";
 import { scheduled } from "./cron.js";
 
-// `Link: rel="canonical"` header in the wrapper below, so the content-negotiated
-// `?format=md` variants — and the http→https pair — consolidate onto one URL for
-// crawlers that read the HTTP layer (reinforces the in-HTML <link rel="canonical">).
-export const PAGE_PATHS = new Set([
-  "/", "/weather", "/hourly", "/radar", "/alerts", "/water", "/fishing", "/tropics", "/pollen", "/air", "/traffic", "/news", "/calendar", "/burn-ban", "/emergency", "/about", "/developers", "/privacy", "/contact", "/sitemap", "/mcp",
-  "/es", "/es/weather", "/es/hourly", "/es/radar", "/es/alerts", "/es/water", "/es/fishing", "/es/tropics", "/es/pollen", "/es/air", "/es/traffic", "/es/news", "/es/calendar", "/es/burn-ban", "/es/emergency", "/es/about", "/es/developers", "/es/privacy", "/es/contact", "/es/sitemap", "/es/mcp",
-]);
+// PAGE_PATHS (registry.js) is every content path in both languages. The
+// wrapper below stamps those responses with `Link: rel="canonical"`, so the
+// content-negotiated `?format=md` variants consolidate onto one URL for
+// crawlers that read the HTTP layer (reinforcing the in-HTML canonical link).
+export { PAGE_PATHS };
 
 // The two `/mcp` paths live in PAGE_PATHS for the canonical Link header, but
 // they are NOT read-only documents and keep their own method handling in the

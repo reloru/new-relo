@@ -5,17 +5,17 @@
 //      reach of the mapping below.
 //   2. The /es mapping then rewrites `path` to an English `page` + a lang flag,
 //      so ONE set of handlers serves both languages and they cannot drift.
-//   3. Content pages match on `page`.
-//   4. Anything else 404s; `/` falls through to the hub.
+//   3. Content pages are looked up in PAGE_HANDLERS and served by servePage().
+//   4. Anything else 404s.
 //
-// Moving a branch across the /es boundary changes which language it serves.
+// Which pages exist is decided by registry.js; PAGE_HANDLERS says how each is
+// loaded and rendered, and the module refuses to load if the two disagree.
 // The security headers and the canonical Link header are added by the fetch
 // wrapper in index.js, not here.
 
 import { ICON_ASSET_PATHS, ICON_ALIASES, MANIFEST } from "./assets/icons.js";
 import { SW_SCRIPT } from "./assets/sw-script.js";
-import { KV_KEY, TZ, SITE } from "./config.js";
-import { footer } from "./chrome.js";
+import { TZ, SITE } from "./config.js";
 import { linkHeader, conditional } from "./lib/http.js";
 import { centralStamp } from "./lib/format.js";
 import { airHtml, airMarkdown, apiAir } from "./features/air.js";
@@ -30,7 +30,7 @@ import { radarHtml, radarMarkdown } from "./features/radar.js";
 import { hourlyHtml, hourlyMarkdown } from "./features/hourly.js";
 import { alertsHtml, alertsMarkdown, alertsRss } from "./features/alerts.js";
 import { loadNews, isAdmin, newsHtml, newsMarkdown, newsRss, apiNews, NEWS_BLOCKLIST_KV_KEY } from "./features/news.js";
-import { loadCalendar, calendarHtml, calendarMarkdown, apiCalendar, upcomingEvents } from "./features/calendar.js";
+import { loadCalendar, calendarHtml, calendarMarkdown, apiCalendar } from "./features/calendar.js";
 import { loadWater, waterHtml, waterMarkdown, apiWater } from "./features/water.js";
 import { loadFishing, fishingHtml, fishingMarkdown, apiFishing } from "./features/fishing.js";
 import { loadTropics, tropicsHtml, tropicsMarkdown, apiTropics } from "./features/tropics.js";
@@ -44,6 +44,7 @@ import { apiCatalog, openApiSpec } from "./api/openapi.js";
 import { healthReport } from "./api/health.js";
 import { llmsTxt, robotsTxt, sitemapXml, CROSBY_WEATHER_SKILL, agentSkillsIndex } from "./discovery.js";
 import { pushEndpointAllowed, pushKeyFor } from "./push.js";
+import { PAGES, pageFor } from "./registry.js";
 
 export async function routeRequest(request, env, ctx) {
     const url = new URL(request.url);
@@ -416,198 +417,8 @@ export async function routeRequest(request, env, ctx) {
       return jsonRes({ ok: true, blocked: !restoring });
     }
 
-    if (path === "/api/weather") {
-      try {
-        const { data, cache } = await loadWeather(env);
-        // Seed includes the CT calendar date because `sun` in the body
-        // changes with it even when the cache stamp doesn't.
-        const ctDate = new Date().toLocaleDateString("en-CA", { timeZone: TZ });
-        return conditional(request, `${data.updated ?? "none"}|${ctDate}`, () => JSON.stringify(apiWeather(data)), {
-          "content-type": "application/json; charset=utf-8",
-          "access-control-allow-origin": "*",
-          "cache-control": "public, max-age=300",
-          link: `<${SITE}/openapi.json>; rel="service-desc"; type="application/json"`,
-          "x-cache": cache,
-        });
-      } catch (err) {
-        return new Response(JSON.stringify({ error: "upstream_unavailable", message: err && err.message }), {
-          status: 502,
-          headers: { "content-type": "application/json; charset=utf-8", "access-control-allow-origin": "*" },
-        });
-      }
-    }
-
-    // Local news as JSON — same read-only KV data the /news page renders.
-    if (path === "/api/news") {
-      try {
-        const data = await loadNews(env);
-        return conditional(request, data.updated ?? "none", () => JSON.stringify(apiNews(data)), {
-          "content-type": "application/json; charset=utf-8",
-          "access-control-allow-origin": "*",
-          "cache-control": "public, max-age=900",
-          link: `<${SITE}/openapi.json>; rel="service-desc"; type="application/json"`,
-        });
-      } catch (err) {
-        return new Response(JSON.stringify({ error: "unavailable", message: err && err.message }), {
-          status: 502,
-          headers: { "content-type": "application/json; charset=utf-8", "access-control-allow-origin": "*" },
-        });
-      }
-    }
-
-    // Water levels as JSON — same cron-owned KV data as /water.
-    if (path === "/api/water") {
-      try {
-        const data = await loadWater(env);
-        return conditional(request, data.updated ?? "none", () => JSON.stringify(apiWater(data)), {
-          "content-type": "application/json; charset=utf-8",
-          "access-control-allow-origin": "*",
-          "cache-control": "public, max-age=300",
-          link: `<${SITE}/openapi.json>; rel="service-desc"; type="application/json"`,
-        });
-      } catch (err) {
-        return new Response(JSON.stringify({ error: "unavailable", message: err && err.message }), {
-          status: 502,
-          headers: { "content-type": "application/json; charset=utf-8", "access-control-allow-origin": "*" },
-        });
-      }
-    }
-
-    // Fishing conditions as JSON — same cron-owned KV data as /fishing.
-    if (path === "/api/fishing") {
-      try {
-        const data = await loadFishing(env);
-        return conditional(request, data.updated ?? "none", () => JSON.stringify(apiFishing(data)), {
-          "content-type": "application/json; charset=utf-8",
-          "access-control-allow-origin": "*",
-          "cache-control": "public, max-age=300",
-          link: `<${SITE}/openapi.json>; rel="service-desc"; type="application/json"`,
-        });
-      } catch (err) {
-        return new Response(JSON.stringify({ error: "unavailable", message: err && err.message }), {
-          status: 502,
-          headers: { "content-type": "application/json; charset=utf-8", "access-control-allow-origin": "*" },
-        });
-      }
-    }
-
-    // Atlantic tropical outlook as JSON — same cron-owned KV data as /tropics.
-    // An empty storms array is the normal quiet-basin state.
-    if (path === "/api/tropics") {
-      try {
-        const data = await loadTropics(env);
-        return conditional(request, data.updated ?? "none", () => JSON.stringify(apiTropics(data)), {
-          "content-type": "application/json; charset=utf-8",
-          "access-control-allow-origin": "*",
-          "cache-control": "public, max-age=900",
-          link: `<${SITE}/openapi.json>; rel="service-desc"; type="application/json"`,
-        });
-      } catch (err) {
-        return new Response(JSON.stringify({ error: "unavailable", message: err && err.message }), {
-          status: 502,
-          headers: { "content-type": "application/json; charset=utf-8", "access-control-allow-origin": "*" },
-        });
-      }
-    }
-
-    // Crosby-area road incidents and lane closures as JSON — same cron-owned
-    // KV data as /traffic. Empty arrays are quiet roads; null means that feed
-    // was unreachable at the last refresh.
-    if (path === "/api/traffic") {
-      try {
-        const data = await loadTraffic(env);
-        return conditional(request, data.updated ?? "none", () => JSON.stringify(apiTraffic(data)), {
-          "content-type": "application/json; charset=utf-8",
-          "access-control-allow-origin": "*",
-          "cache-control": "public, max-age=300",
-          link: `<${SITE}/openapi.json>; rel="service-desc"; type="application/json"`,
-        });
-      } catch (err) {
-        return new Response(JSON.stringify({ error: "unavailable", message: err && err.message }), {
-          status: 502,
-          headers: { "content-type": "application/json; charset=utf-8", "access-control-allow-origin": "*" },
-        });
-      }
-    }
-
-    // Houston Health Department pollen & mold count as JSON — same cron-owned
-    // KV data as /pollen. countDate is the CT calendar day the count is for
-    // (weekday mornings only; weekends serve Friday's count).
-    if (path === "/api/pollen") {
-      try {
-        const data = await loadPollen(env);
-        return conditional(request, `${data.countDate ?? "none"}|${data.updated ?? "none"}`, () => JSON.stringify(apiPollen(data)), {
-          "content-type": "application/json; charset=utf-8",
-          "access-control-allow-origin": "*",
-          "cache-control": "public, max-age=1800",
-          link: `<${SITE}/openapi.json>; rel="service-desc"; type="application/json"`,
-        });
-      } catch (err) {
-        return new Response(JSON.stringify({ error: "unavailable", message: err && err.message }), {
-          status: 502,
-          headers: { "content-type": "application/json; charset=utf-8", "access-control-allow-origin": "*" },
-        });
-      }
-    }
-
-    // Harris County burn-ban status as JSON — same cron-owned KV data as
-    // /burn-ban. Countywide only, no sub-county resolution.
-    if (path === "/api/burn-ban") {
-      try {
-        const data = await loadBurnBan(env);
-        return conditional(request, `${data.status ?? "none"}|${data.updated ?? "none"}`, () => JSON.stringify(apiBurnBan(data)), {
-          "content-type": "application/json; charset=utf-8",
-          "access-control-allow-origin": "*",
-          "cache-control": "public, max-age=1800",
-          link: `<${SITE}/openapi.json>; rel="service-desc"; type="application/json"`,
-        });
-      } catch (err) {
-        return new Response(JSON.stringify({ error: "unavailable", message: err && err.message }), {
-          status: 502,
-          headers: { "content-type": "application/json; charset=utf-8", "access-control-allow-origin": "*" },
-        });
-      }
-    }
-
-    // Air quality as JSON — the measured AQI from the weather cache (AirNow /
-    // Open-Meteo fallback). ETag keys on the weather refresh stamp.
-    if (path === "/api/air") {
-      try {
-        const { data } = await loadWeather(env);
-        return conditional(request, `${data.updated ?? "none"}|${data.aqi?.measured ? "m" : "o"}`, () => JSON.stringify(apiAir(data)), {
-          "content-type": "application/json; charset=utf-8",
-          "access-control-allow-origin": "*",
-          "cache-control": "public, max-age=600",
-          link: `<${SITE}/openapi.json>; rel="service-desc"; type="application/json"`,
-        });
-      } catch (err) {
-        return new Response(JSON.stringify({ error: "unavailable", message: err && err.message }), {
-          status: 502,
-          headers: { "content-type": "application/json; charset=utf-8", "access-control-allow-origin": "*" },
-        });
-      }
-    }
-
-    // Crosby ISD school calendar as JSON — same cron-owned KV data as /calendar.
-    // The `upcomingEvents` cutoff moves with time, so the seed carries the CT
-    // date to stay honest across day boundaries.
-    if (path === "/api/calendar") {
-      try {
-        const data = await loadCalendar(env);
-        const ctDate = new Date().toLocaleDateString("en-CA", { timeZone: TZ });
-        return conditional(request, `${data.updated ?? "none"}|${ctDate}`, () => JSON.stringify(apiCalendar(data)), {
-          "content-type": "application/json; charset=utf-8",
-          "access-control-allow-origin": "*",
-          "cache-control": "public, max-age=1800",
-          link: `<${SITE}/openapi.json>; rel="service-desc"; type="application/json"`,
-        });
-      } catch (err) {
-        return new Response(JSON.stringify({ error: "unavailable", message: err && err.message }), {
-          status: 502,
-          headers: { "content-type": "application/json; charset=utf-8", "access-control-allow-origin": "*" },
-        });
-      }
-    }
+    // The public JSON API: the same KV data the pages render.
+    if (Object.hasOwn(API_ROUTES, path)) return serveApi(API_ROUTES[path], request, env);
 
     // Proxy NWS weather icons through our (crawlable) origin. NWS's robots.txt
     // disallows all crawling, so hotlinked icons can't be indexed; serving them
@@ -652,79 +463,6 @@ export async function routeRequest(request, env, ctx) {
     const lang = isEs ? "es" : "en";
     const page = isEs ? (path === "/es" || path === "/es/" ? "/" : path.slice(3)) : path;
 
-    // About page — content-negotiated like the homepage (HTML, or Markdown for
-    // agents via Accept: text/markdown / ?format=md). Static, so cache longer.
-    if (page === "/about") {
-      const accept = (request.headers.get("accept") || "").toLowerCase();
-      const wantsMarkdown = accept.includes("text/markdown") || url.searchParams.get("format") === "md";
-      if (wantsMarkdown) {
-        return new Response(aboutMarkdown(lang), {
-          headers: { "content-type": "text/markdown; charset=utf-8", "cache-control": "public, max-age=3600", vary: "Accept" },
-        });
-      }
-      return new Response(aboutHtml(lang), {
-        headers: { "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=3600", vary: "Accept" },
-      });
-    }
-
-    // Developers & agents page — the API/MCP/feeds detail that used to live on
-    // /about. Same static content-negotiated treatment.
-    if (page === "/developers") {
-      const accept = (request.headers.get("accept") || "").toLowerCase();
-      const wantsMarkdown = accept.includes("text/markdown") || url.searchParams.get("format") === "md";
-      if (wantsMarkdown) {
-        return new Response(developersMarkdown(lang), {
-          headers: { "content-type": "text/markdown; charset=utf-8", "cache-control": "public, max-age=3600", vary: "Accept" },
-        });
-      }
-      return new Response(developersHtml(lang), {
-        headers: { "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=3600", vary: "Accept" },
-      });
-    }
-
-    // Emergency resources page — a static directory of official emergency
-    // contacts (911, outages, flooding, shelters, recovery). Same static
-    // content-negotiated treatment as /about.
-    if (page === "/emergency") {
-      const accept = (request.headers.get("accept") || "").toLowerCase();
-      const wantsMarkdown = accept.includes("text/markdown") || url.searchParams.get("format") === "md";
-      if (wantsMarkdown) {
-        return new Response(emergencyMarkdown(lang), {
-          headers: { "content-type": "text/markdown; charset=utf-8", "cache-control": "public, max-age=3600", vary: "Accept" },
-        });
-      }
-      return new Response(emergencyHtml(lang), {
-        headers: { "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=3600", vary: "Accept" },
-      });
-    }
-
-    // Radar page — the radar image is a separate proxy; loadWeather() is a
-    // cheap KV read so the footer can show the same freshness line as the
-    // other weather pages.
-    if (page === "/radar") {
-      const accept = (request.headers.get("accept") || "").toLowerCase();
-      const wantsMarkdown = accept.includes("text/markdown") || url.searchParams.get("format") === "md";
-      try {
-        const { data } = await loadWeather(env);
-        const bodyText = wantsMarkdown ? radarMarkdown(lang) : radarHtml(lang, data);
-        return new Response(bodyText, {
-          headers: {
-            "content-type": `${wantsMarkdown ? "text/markdown" : "text/html"}; charset=utf-8`,
-            "cache-control": "public, max-age=3600",
-            vary: "Accept",
-          },
-        });
-      } catch (err) {
-        return new Response(wantsMarkdown ? radarMarkdown(lang) : radarHtml(lang), {
-          headers: {
-            "content-type": `${wantsMarkdown ? "text/markdown" : "text/html"}; charset=utf-8`,
-            "cache-control": "public, max-age=3600",
-            vary: "Accept",
-          },
-        });
-      }
-    }
-
     // Proxy the NWS KHGX radar loop through our origin so it's crawlable and
     // edge-cached. Locked to two fixed upstream images (not an open proxy):
     // the animated loop, or — with ?still=1 — the latest single frame, for
@@ -748,346 +486,220 @@ export async function routeRequest(request, env, ctx) {
       return new Response(res.body, { status: 200, headers });
     }
 
-    // Hourly forecast page — full multi-day table from the cached NWS data.
-    if (page === "/hourly") {
-      const accept = (request.headers.get("accept") || "").toLowerCase();
-      const wantsMarkdown = accept.includes("text/markdown") || url.searchParams.get("format") === "md";
-      try {
-        const { data } = await loadWeather(env);
-        const bodyText = wantsMarkdown ? hourlyMarkdown(data, lang) : hourlyHtml(data, lang);
-        return new Response(bodyText, {
-          headers: {
-            "content-type": `${wantsMarkdown ? "text/markdown" : "text/html"}; charset=utf-8`,
-            "cache-control": "public, max-age=300",
-            vary: "Accept",
-          },
-        });
-      } catch (err) {
-        return new Response(renderError(err, "the National Weather Service"), { status: 502, headers: { "content-type": "text/html; charset=utf-8" } });
-      }
-    }
-
-    // Alerts hub — active NWS alerts plus an evergreen severe-weather guide.
-    if (page === "/alerts") {
-      const accept = (request.headers.get("accept") || "").toLowerCase();
-      const wantsMarkdown = accept.includes("text/markdown") || url.searchParams.get("format") === "md";
-      try {
-        const [{ data }, burnban] = await Promise.all([loadWeather(env), loadBurnBan(env).catch(() => ({ status: null }))]);
-        const bodyText = wantsMarkdown ? alertsMarkdown(data, lang, burnban) : alertsHtml(data, lang, burnban);
-        return new Response(bodyText, {
-          headers: {
-            "content-type": `${wantsMarkdown ? "text/markdown" : "text/html"}; charset=utf-8`,
-            "cache-control": "public, max-age=300",
-            vary: "Accept",
-          },
-        });
-      } catch (err) {
-        return new Response(renderError(err, "the National Weather Service"), { status: 502, headers: { "content-type": "text/html; charset=utf-8" } });
-      }
-    }
-
-    // Local news — aggregated + relevance-filtered headlines about Crosby, TX.
-    if (page === "/news") {
-      const accept = (request.headers.get("accept") || "").toLowerCase();
-      const wantsMarkdown = accept.includes("text/markdown") || url.searchParams.get("format") === "md";
-      // Admin nuke view: a valid ?admin=<secret> shows every article (blocked
-      // ones dimmed) with Hide/Restore buttons. HTML only, never cached.
-      const adminOn = !wantsMarkdown && isAdmin(env, url.searchParams.get("admin"));
-      try {
-        const data = await loadNews(env, adminOn ? { includeBlocked: true } : undefined);
-        const bodyText = wantsMarkdown ? newsMarkdown(data, lang) : newsHtml(data, lang, adminOn);
-        return new Response(bodyText, {
-          headers: {
-            "content-type": `${wantsMarkdown ? "text/markdown" : "text/html"}; charset=utf-8`,
-            "cache-control": adminOn ? "private, no-store" : "public, max-age=900",
-            vary: "Accept",
-          },
-        });
-      } catch (err) {
-        return new Response(renderError(err, "our news source"), { status: 502, headers: { "content-type": "text/html; charset=utf-8" } });
-      }
-    }
-
-    // River and bayou levels — cron + KV, NWS flood stages from NOAA's NWPS.
-    if (page === "/water") {
-      const accept = (request.headers.get("accept") || "").toLowerCase();
-      const wantsMarkdown = accept.includes("text/markdown") || url.searchParams.get("format") === "md";
-      try {
-        const data = await loadWater(env);
-        const bodyText = wantsMarkdown ? waterMarkdown(data, lang) : waterHtml(data, lang);
-        return new Response(bodyText, {
-          headers: {
-            "content-type": `${wantsMarkdown ? "text/markdown" : "text/html"}; charset=utf-8`,
-            "cache-control": "public, max-age=300",
-            vary: "Accept",
-          },
-        });
-      } catch (err) {
-        return new Response(renderError(err, "NOAA's river gauges"), { status: 502, headers: { "content-type": "text/html; charset=utf-8" } });
-      }
-    }
-
-    // Fishing conditions — cron + KV like /water; USGS real-time water quality
-    // for the waters people fish near Crosby.
-    if (page === "/fishing") {
-      const accept = (request.headers.get("accept") || "").toLowerCase();
-      const wantsMarkdown = accept.includes("text/markdown") || url.searchParams.get("format") === "md";
-      try {
-        const data = await loadFishing(env);
-        const bodyText = wantsMarkdown ? fishingMarkdown(data, lang) : fishingHtml(data, lang);
-        return new Response(bodyText, {
-          headers: {
-            "content-type": `${wantsMarkdown ? "text/markdown" : "text/html"}; charset=utf-8`,
-            "cache-control": "public, max-age=300",
-            vary: "Accept",
-          },
-        });
-      } catch (err) {
-        return new Response(renderError(err, "the U.S. Geological Survey"), { status: 502, headers: { "content-type": "text/html; charset=utf-8" } });
-      }
-    }
-
-    // Atlantic tropical outlook — cron + KV like /water; shows storm cards
-    // only when something is active, an all-clear panel otherwise.
-    if (page === "/tropics") {
-      const accept = (request.headers.get("accept") || "").toLowerCase();
-      const wantsMarkdown = accept.includes("text/markdown") || url.searchParams.get("format") === "md";
-      try {
-        const data = await loadTropics(env);
-        const bodyText = wantsMarkdown ? tropicsMarkdown(data, lang) : tropicsHtml(data, lang);
-        return new Response(bodyText, {
-          headers: {
-            "content-type": `${wantsMarkdown ? "text/markdown" : "text/html"}; charset=utf-8`,
-            "cache-control": "public, max-age=900",
-            vary: "Accept",
-          },
-        });
-      } catch (err) {
-        return new Response(renderError(err, "the National Hurricane Center"), { status: 502, headers: { "content-type": "text/html; charset=utf-8" } });
-      }
-    }
-
-    // Roads & traffic — cron + KV like /water; incidents on the Crosby
-    // corridors from Houston TranStar, with an evergreen high-water guide.
-    if (page === "/traffic") {
-      const accept = (request.headers.get("accept") || "").toLowerCase();
-      const wantsMarkdown = accept.includes("text/markdown") || url.searchParams.get("format") === "md";
-      try {
-        const data = await loadTraffic(env);
-        const bodyText = wantsMarkdown ? trafficMarkdown(data, lang) : trafficHtml(data, lang);
-        return new Response(bodyText, {
-          headers: {
-            "content-type": `${wantsMarkdown ? "text/markdown" : "text/html"}; charset=utf-8`,
-            "cache-control": "public, max-age=300",
-            vary: "Accept",
-          },
-        });
-      } catch (err) {
-        return new Response(renderError(err, "Houston TranStar"), { status: 502, headers: { "content-type": "text/html; charset=utf-8" } });
-      }
-    }
-
-    // Pollen & mold — cron + KV like /tropics; the Houston Health Department's
-    // measured daily count with an evergreen allergy guide.
-    if (page === "/pollen") {
-      const accept = (request.headers.get("accept") || "").toLowerCase();
-      const wantsMarkdown = accept.includes("text/markdown") || url.searchParams.get("format") === "md";
-      try {
-        const data = await loadPollen(env);
-        const bodyText = wantsMarkdown ? pollenMarkdown(data, lang) : pollenHtml(data, lang);
-        return new Response(bodyText, {
-          headers: {
-            "content-type": `${wantsMarkdown ? "text/markdown" : "text/html"}; charset=utf-8`,
-            "cache-control": "public, max-age=1800",
-            vary: "Accept",
-          },
-        });
-      } catch (err) {
-        return new Response(renderError(err, "the Houston Health Department"), { status: 502, headers: { "content-type": "text/html; charset=utf-8" } });
-      }
-    }
-
-    // Harris County burn-ban status — cron + KV like /tropics; countywide
-    // status from the Texas A&M Forest Service.
-    if (page === "/burn-ban") {
-      const accept = (request.headers.get("accept") || "").toLowerCase();
-      const wantsMarkdown = accept.includes("text/markdown") || url.searchParams.get("format") === "md";
-      try {
-        // Weather rides along failure-tolerant: it only ever ADDS the
-        // "right now" strip, so a weather-cache hiccup must degrade this page
-        // to its county-status form rather than 502 it.
-        const [data, wx] = await Promise.all([
-          loadBurnBan(env),
-          loadWeather(env).then((r) => r.data).catch(() => null),
-        ]);
-        const bodyText = wantsMarkdown ? burnbanMarkdown(data, lang, wx) : burnbanHtml(data, lang, wx);
-        return new Response(bodyText, {
-          headers: {
-            "content-type": `${wantsMarkdown ? "text/markdown" : "text/html"}; charset=utf-8`,
-            "cache-control": "public, max-age=1800",
-            vary: "Accept",
-          },
-        });
-      } catch (err) {
-        return new Response(renderError(err, "the Texas A&M Forest Service"), { status: 502, headers: { "content-type": "text/html; charset=utf-8" } });
-      }
-    }
-
-    // Air quality — renders the AQI folded into the weather cache (AirNow
-    // measured / Open-Meteo modeled fallback); no separate KV key.
-    if (page === "/air") {
-      const accept = (request.headers.get("accept") || "").toLowerCase();
-      const wantsMarkdown = accept.includes("text/markdown") || url.searchParams.get("format") === "md";
-      try {
-        const { data } = await loadWeather(env);
-        const bodyText = wantsMarkdown ? airMarkdown(data, lang) : airHtml(data, lang);
-        return new Response(bodyText, {
-          headers: {
-            "content-type": `${wantsMarkdown ? "text/markdown" : "text/html"}; charset=utf-8`,
-            "cache-control": "public, max-age=600",
-            vary: "Accept",
-          },
-        });
-      } catch (err) {
-        return new Response(renderError(err, "the air-quality monitors"), { status: 502, headers: { "content-type": "text/html; charset=utf-8" } });
-      }
-    }
-
-    if (page === "/calendar") {
-      const accept = (request.headers.get("accept") || "").toLowerCase();
-      const wantsMarkdown = accept.includes("text/markdown") || url.searchParams.get("format") === "md";
-      try {
-        const data = await loadCalendar(env);
-        const bodyText = wantsMarkdown ? calendarMarkdown(data, lang) : calendarHtml(data, lang);
-        return new Response(bodyText, {
-          headers: {
-            "content-type": `${wantsMarkdown ? "text/markdown" : "text/html"}; charset=utf-8`,
-            "cache-control": "public, max-age=1800",
-            vary: "Accept",
-          },
-        });
-      } catch (err) {
-        return new Response(renderError(err, "the Crosby ISD calendar"), { status: 502, headers: { "content-type": "text/html; charset=utf-8" } });
-      }
-    }
-
-    if (page === "/privacy") {
-      const accept = (request.headers.get("accept") || "").toLowerCase();
-      const wantsMarkdown = accept.includes("text/markdown") || url.searchParams.get("format") === "md";
-      if (wantsMarkdown) {
-        return new Response(privacyMarkdown(lang), {
-          headers: { "content-type": "text/markdown; charset=utf-8", "cache-control": "public, max-age=3600", vary: "Accept" },
-        });
-      }
-      return new Response(privacyHtml(lang), {
-        headers: { "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=3600", vary: "Accept" },
-      });
-    }
-
-    if (page === "/contact") {
-      const accept = (request.headers.get("accept") || "").toLowerCase();
-      const wantsMarkdown = accept.includes("text/markdown") || url.searchParams.get("format") === "md";
-      if (wantsMarkdown) {
-        return new Response(contactMarkdown(lang), {
-          headers: { "content-type": "text/markdown; charset=utf-8", "cache-control": "public, max-age=3600", vary: "Accept" },
-        });
-      }
-      return new Response(contactHtml(lang), {
-        headers: { "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=3600", vary: "Accept" },
-      });
-    }
-
-    if (page === "/sitemap") {
-      const accept = (request.headers.get("accept") || "").toLowerCase();
-      const wantsMarkdown = accept.includes("text/markdown") || url.searchParams.get("format") === "md";
-      if (wantsMarkdown) {
-        return new Response(sitemapPageMarkdown(lang), {
-          headers: { "content-type": "text/markdown; charset=utf-8", "cache-control": "public, max-age=3600", vary: "Accept" },
-        });
-      }
-      return new Response(sitemapPageHtml(lang), {
-        headers: { "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=3600", vary: "Accept" },
-      });
-    }
-
-    // The full forecast — what the root used to serve, now at its own URL so
-    // the root can be a hub. Content-negotiated like every content page.
-    if (page === "/weather") {
-      try {
-        const [{ data, cache }, burnban] = await Promise.all([loadWeather(env), loadBurnBan(env).catch(() => ({ status: null }))]);
-        const accept = (request.headers.get("accept") || "").toLowerCase();
-        const wantsMarkdown = accept.includes("text/markdown") || url.searchParams.get("format") === "md";
-        if (wantsMarkdown) {
-          const md = renderMarkdown(data, lang, burnban);
-          return new Response(md, {
-            headers: {
-              "content-type": "text/markdown; charset=utf-8",
-              "cache-control": "public, max-age=300",
-              vary: "Accept",
-              link: linkHeader("/weather", lang),
-              "x-markdown-tokens": String(Math.ceil(md.length / 4)),
-              "x-cache": cache,
-            },
-          });
-        }
-        return new Response(renderHtml(data, lang, burnban), {
-          headers: { "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=300", vary: "Accept", link: linkHeader("/weather", lang), "x-cache": cache },
-        });
-      } catch (err) {
-        return new Response(renderError(err, "the National Weather Service"), { status: 502, headers: { "content-type": "text/html; charset=utf-8" } });
-      }
-    }
-
-    // Otherwise only the root (and its /es counterpart) serves the hub.
-    if (page !== "/") {
+    const handler = Object.hasOwn(PAGE_HANDLERS, page) ? PAGE_HANDLERS[page] : null;
+    if (!handler) {
       return new Response("Not found", { status: 404, headers: { "content-type": "text/plain; charset=utf-8" } });
     }
+    return servePage(pageFor(page), handler, { request, env, url, lang, md: wantsMarkdown(request, url) });
+}
 
-    try {
-      // The hub summarizes every section, so it loads all six datasets — in
-      // parallel, so one slow source can't serially block the front page. Each
-      // loader self-heals on a cold cache; a rejected one shouldn't blank the
-      // whole page, so failures degrade to an empty shape.
+// Markdown is negotiated on every content page: `Accept: text/markdown` or
+// `?format=md`.
+function wantsMarkdown(request, url) {
+  const accept = (request.headers.get("accept") || "").toLowerCase();
+  return accept.includes("text/markdown") || url.searchParams.get("format") === "md";
+}
+
+// --- content pages ----------------------------------------------------------
+//
+// One entry per registry page. `c` is the request context
+// { request, env, url, lang, md }.
+//
+//   load(c)            Optional. Returns the data the renderers take. A throw
+//                      becomes a 502 error page naming `source`.
+//   html(data, lang, c), md(data, lang, c)
+//                      The two representations of the same content.
+//   source             Who to name on the error page when load() throws.
+//   headers(data, c, body)
+//                      Optional extra response headers.
+//   cacheControl(c)    Optional override of the registry's max-age.
+const weatherData = async (c) => (await loadWeather(c.env)).data;
+const NO_BAN = () => ({ status: null });
+
+// / and /weather advertise the Markdown alternate and the API in a Link
+// header, report whether the weather cache was warm, and size the Markdown.
+const hubHeaders = (enPath) => (data, c, body) => ({
+  link: linkHeader(enPath, c.lang),
+  ...(c.md ? { "x-markdown-tokens": String(Math.ceil(body.length / 4)) } : {}),
+  "x-cache": data.cache,
+});
+
+const PAGE_HANDLERS = {
+  // The hub summarizes every section, so it loads all six datasets — in
+  // parallel, so one slow source can't serially block the front page. Each
+  // loader self-heals on a cold cache; a rejected one shouldn't blank the
+  // whole page, so failures degrade to an empty shape.
+  "/": {
+    source: "a data source",
+    load: async ({ env }) => {
       const [wRes, water, news, cal, tropics, burnban] = await Promise.all([
         loadWeather(env).catch(() => ({ data: { hourly: [], periods: [], alerts: [], updated: null }, cache: "miss-warmfail" })),
         loadWater(env).catch(() => ({ gauges: [] })),
         loadNews(env).catch(() => ({ items: [] })),
         loadCalendar(env).catch(() => ({ events: [] })),
         loadTropics(env).catch(() => ({ storms: [] })),
-        loadBurnBan(env).catch(() => ({ status: null })),
+        loadBurnBan(env).catch(NO_BAN),
       ]);
-      const weather = wRes.data;
+      return { weather: wRes.data, cache: wRes.cache, water, news, cal, tropics, burnban };
+    },
+    html: (d, lang) => homeHtml(d.weather, d.water, d.news, d.cal, d.tropics, d.burnban, lang),
+    md: (d, lang) => homeMarkdown(d.weather, d.water, d.news, d.cal, d.tropics, d.burnban, lang),
+    headers: hubHeaders("/"),
+  },
+  "/weather": {
+    source: "the National Weather Service",
+    load: async ({ env }) => {
+      const [{ data, cache }, burnban] = await Promise.all([loadWeather(env), loadBurnBan(env).catch(NO_BAN)]);
+      return { data, cache, burnban };
+    },
+    html: (d, lang) => renderHtml(d.data, lang, d.burnban),
+    md: (d, lang) => renderMarkdown(d.data, lang, d.burnban),
+    headers: hubHeaders("/weather"),
+  },
+  "/hourly": { source: "the National Weather Service", load: weatherData, html: hourlyHtml, md: hourlyMarkdown },
+  // The radar image is a separate proxy; the weather cache only feeds the
+  // footer's freshness line, so the page renders without it rather than 502.
+  "/radar": {
+    load: (c) => weatherData(c).catch(() => undefined),
+    html: (data, lang) => radarHtml(lang, data),
+    md: (data, lang) => radarMarkdown(lang),
+  },
+  "/alerts": {
+    source: "the National Weather Service",
+    load: async ({ env }) => {
+      const [{ data }, burnban] = await Promise.all([loadWeather(env), loadBurnBan(env).catch(NO_BAN)]);
+      return { data, burnban };
+    },
+    html: (d, lang) => alertsHtml(d.data, lang, d.burnban),
+    md: (d, lang) => alertsMarkdown(d.data, lang, d.burnban),
+  },
+  "/water": { source: "NOAA's river gauges", load: ({ env }) => loadWater(env), html: waterHtml, md: waterMarkdown },
+  "/fishing": { source: "the U.S. Geological Survey", load: ({ env }) => loadFishing(env), html: fishingHtml, md: fishingMarkdown },
+  "/tropics": { source: "the National Hurricane Center", load: ({ env }) => loadTropics(env), html: tropicsHtml, md: tropicsMarkdown },
+  "/pollen": { source: "the Houston Health Department", load: ({ env }) => loadPollen(env), html: pollenHtml, md: pollenMarkdown },
+  // The AQI is folded into the weather cache (AirNow measured / Open-Meteo
+  // modeled fallback); there is no separate KV key.
+  "/air": { source: "the air-quality monitors", load: weatherData, html: airHtml, md: airMarkdown },
+  "/burn-ban": {
+    source: "the Texas A&M Forest Service",
+    // Weather rides along failure-tolerant: it only ever ADDS the "right now"
+    // strip, so a weather-cache hiccup must degrade this page to its
+    // county-status form rather than 502 it.
+    load: async ({ env }) => {
+      const [data, wx] = await Promise.all([loadBurnBan(env), loadWeather(env).then((r) => r.data).catch(() => null)]);
+      return { data, wx };
+    },
+    html: (d, lang) => burnbanHtml(d.data, lang, d.wx),
+    md: (d, lang) => burnbanMarkdown(d.data, lang, d.wx),
+  },
+  "/news": {
+    source: "our news source",
+    // Admin nuke view: a valid ?admin=<secret> shows every article (blocked
+    // ones dimmed) with Hide/Restore buttons. HTML only, never cached.
+    load: (c) => {
+      c.admin = !c.md && isAdmin(c.env, c.url.searchParams.get("admin"));
+      return loadNews(c.env, c.admin ? { includeBlocked: true } : undefined);
+    },
+    html: (data, lang, c) => newsHtml(data, lang, c.admin),
+    md: newsMarkdown,
+    cacheControl: (c) => (c.admin ? "private, no-store" : null),
+  },
+  "/traffic": { source: "Houston TranStar", load: ({ env }) => loadTraffic(env), html: trafficHtml, md: trafficMarkdown },
+  "/calendar": { source: "the Crosby ISD calendar", load: ({ env }) => loadCalendar(env), html: calendarHtml, md: calendarMarkdown },
+  "/emergency": { html: (_, lang) => emergencyHtml(lang), md: (_, lang) => emergencyMarkdown(lang) },
+  "/about": { html: (_, lang) => aboutHtml(lang), md: (_, lang) => aboutMarkdown(lang) },
+  "/privacy": { html: (_, lang) => privacyHtml(lang), md: (_, lang) => privacyMarkdown(lang) },
+  "/contact": { html: (_, lang) => contactHtml(lang), md: (_, lang) => contactMarkdown(lang) },
+  "/sitemap": { html: (_, lang) => sitemapPageHtml(lang), md: (_, lang) => sitemapPageMarkdown(lang) },
+  "/developers": { html: (_, lang) => developersHtml(lang), md: (_, lang) => developersMarkdown(lang) },
+};
 
-      const accept = (request.headers.get("accept") || "").toLowerCase();
-      const wantsMarkdown = accept.includes("text/markdown") || url.searchParams.get("format") === "md";
+// The registry and the handler table must describe the same pages. Checked
+// when the module loads, so a page added to one and not the other fails every
+// test and the dry-run build's import, not a single URL in production.
+for (const p of PAGES) {
+  if (!p.custom && !PAGE_HANDLERS[p.path]) throw new Error(`registry page ${p.path} has no handler in router.js`);
+}
+for (const path of Object.keys(PAGE_HANDLERS)) {
+  if (!pageFor(path) || pageFor(path).custom) throw new Error(`router.js handles ${path}, which registry.js does not list as a shared-handler page`);
+}
 
-      if (wantsMarkdown) {
-        const md = homeMarkdown(weather, water, news, cal, tropics, burnban, lang);
-        return new Response(md, {
-          headers: {
-            "content-type": "text/markdown; charset=utf-8",
-            "cache-control": "public, max-age=300",
-            vary: "Accept",
-            link: linkHeader("/", lang),
-            "x-markdown-tokens": String(Math.ceil(md.length / 4)),
-            "x-cache": wRes.cache,
-          },
-        });
-      }
+async function servePage(page, handler, c) {
+  let data;
+  try {
+    data = handler.load ? await handler.load(c) : undefined;
+  } catch (err) {
+    return new Response(renderError(err, handler.source), { status: 502, headers: { "content-type": "text/html; charset=utf-8" } });
+  }
+  let body;
+  try {
+    body = c.md ? handler.md(data, c.lang, c) : handler.html(data, c.lang, c);
+  } catch (err) {
+    return new Response(renderError(err, handler.source || "a data source"), { status: 502, headers: { "content-type": "text/html; charset=utf-8" } });
+  }
+  return new Response(body, {
+    headers: {
+      "content-type": `${c.md ? "text/markdown" : "text/html"}; charset=utf-8`,
+      "cache-control": (handler.cacheControl && handler.cacheControl(c)) || `public, max-age=${page.maxAge}`,
+      vary: "Accept",
+      ...(handler.headers ? handler.headers(data, c, body) : {}),
+    },
+  });
+}
 
-      return new Response(homeHtml(weather, water, news, cal, tropics, burnban, lang), {
-        headers: {
-          "content-type": "text/html; charset=utf-8",
-          "cache-control": "public, max-age=300",
-          vary: "Accept",
-          link: linkHeader("/", lang),
-          "x-cache": wRes.cache,
-        },
-      });
-    } catch (err) {
-      return new Response(renderError(err, "a data source"), {
-        status: 502,
-        headers: { "content-type": "text/html; charset=utf-8" },
-      });
-    }
+// --- JSON API ---------------------------------------------------------------
+//
+// Each route reads the same cached data as its page and answers a conditional
+// GET. `seed` must change whenever the body would: it becomes the ETag.
+const ctDate = () => new Date().toLocaleDateString("en-CA", { timeZone: TZ });
+const stamp = (d) => d.updated ?? "none";
+
+const API_ROUTES = {
+  "/api/weather": {
+    maxAge: 300, error: "upstream_unavailable",
+    load: (env) => loadWeather(env),
+    // The CT calendar date is in the seed because `sun` in the body changes
+    // with it even when the cache stamp doesn't.
+    seed: (r) => `${stamp(r.data)}|${ctDate()}`,
+    body: (r) => apiWeather(r.data),
+    headers: (r) => ({ "x-cache": r.cache }),
+  },
+  "/api/news": { maxAge: 900, load: (env) => loadNews(env), seed: stamp, body: apiNews },
+  "/api/water": { maxAge: 300, load: (env) => loadWater(env), seed: stamp, body: apiWater },
+  "/api/fishing": { maxAge: 300, load: (env) => loadFishing(env), seed: stamp, body: apiFishing },
+  // An empty storms array is the normal quiet-basin state.
+  "/api/tropics": { maxAge: 900, load: (env) => loadTropics(env), seed: stamp, body: apiTropics },
+  // Empty arrays are quiet roads; null means that feed was unreachable.
+  "/api/traffic": { maxAge: 300, load: (env) => loadTraffic(env), seed: stamp, body: apiTraffic },
+  // countDate is the CT calendar day the count is for (weekday mornings only;
+  // weekends serve Friday's count).
+  "/api/pollen": { maxAge: 1800, load: (env) => loadPollen(env), seed: (d) => `${d.countDate ?? "none"}|${stamp(d)}`, body: apiPollen },
+  "/api/burn-ban": { maxAge: 1800, load: (env) => loadBurnBan(env), seed: (d) => `${d.status ?? "none"}|${stamp(d)}`, body: apiBurnBan },
+  "/api/air": {
+    maxAge: 600,
+    load: async (env) => (await loadWeather(env)).data,
+    seed: (d) => `${stamp(d)}|${d.aqi?.measured ? "m" : "o"}`,
+    body: apiAir,
+  },
+  // `upcomingEvents` moves with time, so the seed carries the CT date to stay
+  // honest across day boundaries.
+  "/api/calendar": { maxAge: 1800, load: (env) => loadCalendar(env), seed: (d) => `${stamp(d)}|${ctDate()}`, body: apiCalendar },
+};
+
+async function serveApi(route, request, env) {
+  try {
+    const data = await route.load(env);
+    return conditional(request, route.seed(data), () => JSON.stringify(route.body(data)), {
+      "content-type": "application/json; charset=utf-8",
+      "access-control-allow-origin": "*",
+      "cache-control": `public, max-age=${route.maxAge}`,
+      link: `<${SITE}/openapi.json>; rel="service-desc"; type="application/json"`,
+      ...(route.headers ? route.headers(data) : {}),
+    });
+  } catch (err) {
+    return new Response(JSON.stringify({ error: route.error || "unavailable", message: err && err.message }), {
+      status: 502,
+      headers: { "content-type": "application/json; charset=utf-8", "access-control-allow-origin": "*" },
+    });
+  }
 }

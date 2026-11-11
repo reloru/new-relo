@@ -43,6 +43,14 @@ jobs:
       # 502. This runs every renderer in BOTH languages, which is ground truth.
       - name: Check renderers (both languages)
         run: node scripts/check-renders.mjs
+      # src/registry.js is the one list of pages; this is what makes it binding.
+      # Every registered page is requested through the real Worker in both
+      # languages and both representations, against a snapshot of production
+      # data in a quiet state and a busy one. Fails on a page that is registered
+      # but not served, missing from /sitemap.xml, llms.txt or the /sitemap page,
+      # or a Spanish page that links to an English one. Pure node, no install.
+      - name: Check routes
+        run: node scripts/test-routes.mjs
       # /api/health is the status relation of every api-catalog entry, and a
       # regression there is invisible by construction: a broken health check
       # still returns a cheerful 200. This drives the real cron recorder, writer

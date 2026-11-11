@@ -7,7 +7,7 @@ nav restructure.
 | | |
 |---|---|
 | **Handlers** | `homeHtml(weather, water, news, cal, tropics, lang)` / `homeMarkdown(…)` — `src/features/home.js` |
-| **Route** | `routeRequest` (`src/router.js`) fallthrough after every other `page` check; anything else 404s |
+| **Route** | `PAGE_HANDLERS["/"]` (`src/router.js`); an unregistered path 404s |
 | **Spanish** | `/es` (not `/es/`) — same handlers, `lang="es"` |
 | **Cache** | `public, max-age=300` |
 | **Negotiation** | `Accept: text/markdown` or `?format=md`; `Vary: Accept` |

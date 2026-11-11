@@ -29,7 +29,6 @@ import { readFile, readdir } from "node:fs/promises";
 import { join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
 import { checkIcons, decodePng, decodeIco, PUBLIC_DIR, ICONS } from "./build-icons.mjs";
-import { DATA } from "./render-fixture.mjs";
 
 const SRC = new URL("../src/", import.meta.url).pathname;
 const SITE = "https://crosbynews.com";
@@ -112,41 +111,25 @@ if (!["standalone", "fullscreen", "minimal-ui"].includes(MANIFEST.display)) fail
 if (MANIFEST.prefer_related_applications) fail("manifest prefer_related_applications would divert install to the Play Store");
 
 // --- 4. every page's head --------------------------------------------------
-async function jsFiles(dir) {
-  const out = [];
-  for (const e of await readdir(dir, { withFileTypes: true })) {
-    const p = join(dir, e.name);
-    if (e.isDirectory()) out.push(...(await jsFiles(p)));
-    else if (e.name.endsWith(".js")) out.push(p);
-  }
-  return out;
-}
-// Call shapes, mirroring scripts/check-renders.mjs. Listed rather than guessed,
-// and checked for completeness below, so a new page cannot slip past.
-const PAGES = {
-  homeHtml: (l) => [DATA, DATA, DATA, DATA, DATA, DATA, l],
-  renderHtml: (l) => [DATA, l], hourlyHtml: (l) => [DATA, l], radarHtml: (l) => [l, DATA],
-  alertsHtml: (l) => [DATA, l], waterHtml: (l) => [DATA, l], fishingHtml: (l) => [DATA, l],
-  tropicsHtml: (l) => [DATA, l], pollenHtml: (l) => [DATA, l], airHtml: (l) => [DATA, l],
-  trafficHtml: (l) => [DATA, l], newsHtml: (l) => [DATA, l, false], calendarHtml: (l) => [DATA, l],
-  burnbanHtml: (l) => [DATA, l, DATA], emergencyHtml: (l) => [l], aboutHtml: (l) => [l],
-  developersHtml: (l) => [l], privacyHtml: (l) => [l], contactHtml: (l) => [l],
-  sitemapPageHtml: (l) => [l], mcpInfoHtml: (l) => [l],
-};
-const renderers = {};
-for (const f of await jsFiles(SRC)) {
-  if (f.endsWith("index.js") && relative(SRC, f) === "index.js") continue;
-  const mod = await import(pathToFileURL(f).href);
-  for (const [name, fn] of Object.entries(mod)) if (typeof fn === "function" && /Html$/.test(name)) renderers[name] = fn;
-}
-for (const name of Object.keys(renderers)) if (!PAGES[name]) fail(`${name} is a page renderer this test does not cover — add its call shape to PAGES`);
-for (const name of Object.keys(PAGES)) if (!renderers[name]) fail(`PAGES lists ${name}, which no module exports`);
-
+// Every page in registry.js, in both languages, through the real Worker — so a
+// new page is covered the moment it is registered, with no list to extend here.
+const { createHarness } = await import("./lib/harness.mjs");
+const { PAGES } = await import(pathToFileURL(join(SRC, "registry.js")).href);
+const { esPath } = await import(pathToFileURL(join(SRC, "i18n.js")).href);
+const harness = await createHarness();
 const docs = [];
-for (const [name, args] of Object.entries(PAGES)) {
-  for (const lang of ["en", "es"]) if (renderers[name]) docs.push({ label: `${name}(${lang})`, html: renderers[name](...args(lang)), manifest: true });
+for (const page of PAGES) {
+  for (const lang of ["en", "es"]) {
+    const path = lang === "es" ? esPath(page.path) : page.path;
+    const r = await harness.get(path, { headers: { accept: "text/html" } });
+    if (r.status !== 200) { fail(`${path}: status ${r.status}`); continue; }
+    docs.push({ label: path, html: await r.text(), manifest: true });
+  }
 }
-for (const lang of ["en", "es"]) docs.push({ label: `newsHtml(${lang}, admin)`, html: renderers.newsHtml(DATA, lang, true), manifest: false });
+for (const path of ["/news", "/es/news"]) {
+  const r = await harness.get(`${path}?admin=${harness.env.ADMIN_KEY}`, { headers: { accept: "text/html" } });
+  docs.push({ label: `${path} (admin)`, html: await r.text(), manifest: false });
+}
 const { renderError } = await import(pathToFileURL(join(SRC, "features/home.js")).href);
 const origError = console.error;
 console.error = () => {};
