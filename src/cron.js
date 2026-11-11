@@ -37,6 +37,7 @@ import { ctDateStr, carryUvToday } from "./features/air.js";
 import { pushSevereAlerts } from "./push.js";
 import { cronRunRecorder, recordCronRun } from "./api/health.js";
 import { mcpRollUp } from "./mcp/metrics.js";
+import { pruneHits } from "./metrics.js";
 
 export async function scheduled(event, env, ctx) {
     // Refresh the weather cache. News is NOT fetched here — it's written to the
@@ -221,6 +222,16 @@ export async function scheduled(event, env, ctx) {
       await mcpRollUp(env);
     } catch (e) {
       console.error("Cron MCP metrics rollup failed:", e && e.stack);
+    }
+
+    // Drop page-request totals past retention. Once a day is plenty, so it
+    // runs on the first tick of the 09:00 UTC hour. Not a `run` feed, for the
+    // same reason the MCP rollup is not.
+    try {
+      const now = new Date();
+      if (now.getUTCHours() === 9 && now.getUTCMinutes() < 15) await pruneHits(env);
+    } catch (e) {
+      console.error("Cron site-metrics prune failed:", e && e.stack);
     }
 
     // Last, so a failure here can never affect the refreshes it describes.

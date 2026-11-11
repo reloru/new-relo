@@ -45,6 +45,7 @@ import { healthReport } from "./api/health.js";
 import { llmsTxt, robotsTxt, sitemapXml, CROSBY_WEATHER_SKILL, agentSkillsIndex } from "./discovery.js";
 import { pushEndpointAllowed, pushKeyFor } from "./push.js";
 import { PAGES, pageFor } from "./registry.js";
+import { siteUsageReport, siteUsageText } from "./metrics.js";
 
 export async function routeRequest(request, env, ctx) {
     const url = new URL(request.url);
@@ -347,6 +348,33 @@ export async function routeRequest(request, env, ctx) {
       // other secret-gated routes.
       if (url.searchParams.get("format") === "txt") {
         return new Response(mcpUsageText(report), {
+          headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "private, no-store" },
+        });
+      }
+      return jsonRes(report);
+    }
+
+    // Aggregate page-request counts — owner-only, same gate and same shape as
+    // /api/mcp-usage. The numbers identify nobody (see src/metrics.js); what
+    // is private is how much the site is used. Reads D1, never writes.
+    if (path === "/api/site-usage") {
+      const jsonRes = (obj, status) =>
+        new Response(JSON.stringify(obj, null, 2), {
+          status: status || 200,
+          headers: { "content-type": "application/json; charset=utf-8", "cache-control": "private, no-store" },
+        });
+      if (!env.ADMIN_KEY) return jsonRes({ error: "admin_unavailable" }, 503);
+      if (!isAdmin(env, url.searchParams.get("key"))) return jsonRes({ error: "unauthorized" }, 401);
+      if (!env.DB) return jsonRes({ error: "database_unavailable" }, 503);
+      let report;
+      try {
+        report = await siteUsageReport(env, url.searchParams.get("days"));
+      } catch (err) {
+        console.error("site usage report failed:", err && err.stack);
+        return jsonRes({ error: "read_failed" }, 500);
+      }
+      if (url.searchParams.get("format") === "txt") {
+        return new Response(siteUsageText(report), {
           headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "private, no-store" },
         });
       }

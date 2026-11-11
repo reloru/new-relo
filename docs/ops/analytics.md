@@ -1,11 +1,11 @@
 # Analytics
 
-Current expected state of visitor measurement for crosbynews.com. Overwritten in
+Current expected state of measurement for crosbynews.com. Overwritten in
 place — no history; see `docs/README.md`.
 
-**Nothing counts visitors. No script of any kind runs in a reader's browser to
-measure them, and nothing at the edge profiles them.** One server-side counter
-does exist, and it does not count visitors: see *MCP usage counters* below.
+**No script of any kind runs in a reader's browser to count or profile them, and
+nothing identifies a visitor.** The server keeps two sets of aggregate totals:
+page requests (below) and MCP protocol calls (further down).
 
 ## What the site ships
 
@@ -19,6 +19,56 @@ does exist, and it does not count visitors: see *MCP usage counters* below.
   must move together**: `PRIVACY`/`PRIVACY_ES` (`src/pages/privacy.js`),
   `ABOUT`/`ABOUT_ES` (`src/pages/about.js`), and the CSP are one change, not
   four.
+
+## Page-request counts — added 2026-11-11
+
+Owner decision, 2026-11-11: count page requests in aggregate, server-side, so
+the search work has something to be measured against. Search Console and Bing
+had too little data to report anything, and Cloudflare withholds the referrer
+field on this zone's plan, so before this nothing could say whether anyone
+arrived from a search result.
+
+`src/metrics.js` adds one to a total for every GET/HEAD response. The total is
+keyed by exactly these, in the D1 table `hits` (`migrations/0001_hits.sql`):
+
+| Column | Values |
+|---|---|
+| `day` | Central calendar day |
+| `path` | a registered page or listed endpoint, else a bucket: `(other)`, `(api-other)`, `(well-known)`, `(icons)`. A request path is never stored as written — most 404s are probes for `/.env` and the like |
+| `agent` | `browser`, a named crawler (`googlebot`, `bingbot`, `oai-searchbot`, `claudebot`, …), `script`, or `unknown` |
+| `verified` | for a named crawler: `2` Cloudflare's verified-bot signal was on the request, `1` the request came from a network that operator crawls from (Google AS15169, Microsoft AS8075, Apple AS714/AS6185), `0` the name is only what the user agent claims |
+| `ref` | a referrer category — `google`, `bing`, `duckduckgo`, `chatgpt`, `perplexity`, `claude`, `gemini`, `facebook`, `nextdoor`, …, `other-site`, `internal`, `none`. Read from the `Referer` host or a `utm_source` that names an existing category |
+| `status` | HTTP status |
+| `n` | the count |
+
+**Not stored, ever:** IP addresses, user-agent strings, referring URLs or hosts,
+search terms, query strings, cookies, any identifier, or any row describing a
+single request. The user agent, the network number and the `Referer` header are
+read once to pick a label. Every label comes from a closed set, so nothing a
+caller sends can add a new value.
+
+**Why `verified` exists.** In the 30 days before this shipped, most requests
+carrying a crawler's name were scanners probing for secrets under a borrowed
+user agent. An unverified `googlebot` is not Google; only `verified >= 1` rows
+say anything about a search engine.
+
+Mechanics: each isolate batches a few seconds of counts and writes them with
+`n = n + ?` upserts in `ctx.waitUntil`, so the response never waits and there is
+no read on the request path. A failed write is put back and carried by the next
+flush. The cron deletes totals older than `RETAIN_DAYS` (400) once a day.
+`SITE_METRICS` in `wrangler.jsonc` is the kill switch: anything but `"on"` and
+nothing is counted.
+
+Read it with `GET /api/site-usage?key=<ADMIN_KEY>` (add `&format=txt` for a
+phone, `&days=N` for the window) — see `docs/endpoints/api/site-usage.md`.
+
+`/privacy` describes all of this under **"Analytics and page counts"**, in both
+languages, including the 13-month retention. **That section is a claim about
+`src/metrics.js` and the `hits` table.** `scripts/test-site-metrics.mjs` pins
+it: it pushes an address header, a full user agent, a referring URL with a
+search term and a probe path through the real Worker and fails if any of them
+can be read back from the table, and it fails if the table's columns change.
+A new column means re-reading the privacy text.
 
 ## MCP usage counters — added 2026-09-20
 
@@ -62,10 +112,8 @@ connector directory, whose policy requires a privacy policy explaining the
 remote service's collection, usage and retention
 (`docs/ops/anthropic-directory.md`).
 
-The Analytics section's *"There are none … nothing loads in your browser to
-count, profile, or report your visit"* stays as it was and remains literally
-true: it is about a **reader's browser**, and a reader of a page is never
-counted. `/about` was left unchanged for the same reason.
+`/about` still says, truthfully, that there is no analytics script and nothing
+loads in the reader's browser to count them.
 
 The precedent behind keeping these in lockstep: the Cloudflare beacon below ran
 for months while `/privacy` denied it. **The MCP section is now a claim about
@@ -129,9 +177,9 @@ back off rather than retrying tight.
 
 ## What still observes traffic
 
-The `/mcp` usage counters above, and Cloudflare's own aggregate server-side
-request logs, kept as part of serving the site the way any host does. That is not a browser-side tracker, carries no analytics
-identifier, and is disclosed in the `/privacy` Analytics section. Zone analytics
+The page-request counts and the `/mcp` usage counters above, and Cloudflare's
+own aggregate server-side request logs, kept as part of serving the site the way any host does. That is not a browser-side tracker, carries no analytics
+identifier, and is disclosed in the `/privacy` "Analytics and page counts" section. Zone analytics
 in the Cloudflare dashboard are derived from those logs and need no script.
 
 ## Workers Logs — off since 2026-10-07
@@ -139,13 +187,14 @@ in the Cloudflare dashboard are derived from those logs and need no script.
 `observability.enabled` is `false` in `wrangler.jsonc`. Until then the Worker
 persisted Workers Logs with invocation logs on, so every request URL was
 recorded **with its query string** (`redact_query_string` was `false`) — which on
-`/news?admin=` and `/api/mcp-usage?key=` is the `ADMIN_KEY`. Retention was 3 days
+`/news?admin=`, `/api/mcp-usage?key=` and `/api/site-usage?key=` is the `ADMIN_KEY`. Retention was 3 days
 on Free and 7 on Paid.
 
 This is the Worker's own log persistence, separate from the zone-level request
 logs above, and nothing depends on it:
 
 - the MCP usage counters live in KV (`mcp_metrics`, `mcpm:*`);
+- the page-request counts live in D1 (`hits`);
 - `/api/health` reads the `cron_status` KV key.
 
 What it costs is diagnostics. Every `console.error` in the Worker (the cron's

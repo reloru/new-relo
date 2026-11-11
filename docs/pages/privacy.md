@@ -25,14 +25,16 @@ Static, from the `PRIVACY` object. Sections cover:
 - Third-party data sources — requests go to *us*, and we fetch upstream
   server-side, so the visitor's browser never contacts NWS, EPA, USGS, TranStar
   or the rest
-- Analytics posture — **there is no analytics script at all.** Cloudflare Web
-  Analytics was auto-injected at the zone edge until 2026-08-19, when the site
-  was deleted; the CSP no longer allows `static.cloudflareinsights.com` or
-  `cloudflareinsights.com`. The section says so, and names Cloudflare's ordinary
-  server-side request logging as the one thing that remains. Full detail in
-  `docs/ops/analytics.md`. Adding analytics back means changing this section, the
-  matching `/about` block, and the CSP together — the claim and the code must
-  move as one
+- "Analytics and page counts" — **there is no analytics script at all**, and the
+  section says so. It then discloses the server-side page-request totals
+  (`src/metrics.js`): the five things a total is keyed by, that no IP address,
+  user-agent string, referring address, search term, cookie or identifier is
+  stored, that there is no per-request record, and the 13-month retention. It
+  ends by naming Cloudflare's ordinary server-side request logging. **This
+  section is a claim about the `hits` table** and is pinned by
+  `scripts/test-site-metrics.mjs`; full detail in `docs/ops/analytics.md`.
+  Adding a browser-side vendor would mean changing this section, the matching
+  `/about` block, and the CSP together — the claim and the code must move as one
   The list names every upstream a page or MCP tool reads, including the Texas
   A&M Forest Service (burn ban)
 - **Push notifications** — only an anonymous push subscription is stored, no
