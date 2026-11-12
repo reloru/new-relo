@@ -20,6 +20,7 @@ import { topbar, footer } from "../chrome.js";
 import { openApiSpec } from "../api/openapi.js";
 import { JSONLD_SITE, sharedHead } from "../seo.js";
 import { llmsTxt, CROSBY_WEATHER_SKILL } from "../discovery.js";
+import { HISTORY_TOOLS, runHistoryTool } from "./history-tools.js";
 import { loadWeather } from "../features/weather.js";
 import { loadWater, waterState, waterCatLabel, WATER_FLOOD_CATS, apiWater } from "../features/water.js";
 import { loadFishing, apiFishing } from "../features/fishing.js";
@@ -46,7 +47,7 @@ export const MCP_SUPPORTED_VERSIONS = ["2025-03-26", "2025-06-18"];
 // Version moves in lockstep with `server.json`'s registry version on any
 // tool-set change — they drifted apart (1.2.0 vs 1.4.0) when `get_air_quality`
 // and `get_fishing` shipped without a bump, so both now carry the same number.
-export const MCP_SERVER_INFO = { name: "crosbynews-weather", version: "1.7.3", title: "Crosby, TX Weather" };
+export const MCP_SERVER_INFO = { name: "crosbynews-weather", version: "1.8.0", title: "Crosby, TX Weather" };
 export const MCP_CORS = {
   "access-control-allow-origin": "*",
   "access-control-allow-methods": "POST, OPTIONS",
@@ -539,6 +540,7 @@ export function mcpTools() {
       inputSchema: { type: "object", properties: {}, additionalProperties: false },
       annotations: MCP_READ_ONLY,
     },
+    ...HISTORY_TOOLS(MCP_READ_ONLY),
   ];
   // The directory reads `annotations.title`, not the top-level `title`; derive it so the two cannot drift.
   return tools.map((t) => ({
@@ -959,6 +961,8 @@ export const MCP_TOOL_SOURCES = {
   get_river_levels: ["NWS river-gauge", "/water"],
   get_fishing: ["USGS water-conditions", "/fishing"],
   get_traffic: ["Houston TranStar traffic", "/traffic"],
+  get_flood_history: ["flood-record", "/water"],
+  get_warning_history: ["warning-record", "/history"],
 };
 
 // Per-argument advice appended to a validation error, so the caller learns
@@ -1031,6 +1035,8 @@ export async function mcpCallTool(name, args, env) {
 }
 
 async function runTool(name, args, env) {
+  // The record tools read D1, not KV.
+  if (name === "get_flood_history" || name === "get_warning_history") return runHistoryTool(name, env);
   // News, calendar, water, and tropics tools read their own KV keys — handled
   // first so they don't pay for (or fail on) a weather load they never use.
   if (name === "get_tropical_outlook") {

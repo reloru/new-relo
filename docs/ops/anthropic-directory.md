@@ -151,7 +151,7 @@ Seven acknowledgments. The facts behind each:
 npx -y @modelcontextprotocol/inspector --cli https://crosbynews.com/mcp --transport http --method tools/list --strict
 ```
 
-Expected: 14 tools, and `--strict` (schema-portability checks) reporting
+Expected: 16 tools, and `--strict` (schema-portability checks) reporting
 **0 warnings**. Nullable `outputSchema` fields are `anyOf`
 branches (`{anyOf: [{type: "string"}, {type: "null"}]}`), never
 `type: ["string","null"]` — a type array is legal JSON Schema, but dialects

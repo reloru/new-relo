@@ -51,11 +51,15 @@ or no response at all if it had no `id`.
 
 ## Tools
 
-Fourteen: `get_current_conditions`, `get_forecast` (optional `hours` 1–48, the
+Sixteen: `get_current_conditions`, `get_forecast` (optional `hours` 1–48, the
 full KV hourly supply), `get_alerts`, `get_tropical_outlook`, `get_pollen`,
 `get_burn_ban`, `get_air_quality`, `get_crosby_news`, `get_school_events`,
 `get_river_levels`, `get_traffic`, `get_fishing`, `get_emergency_contacts`,
-`get_radar`.
+`get_radar`, and two that read the D1 record instead of KV:
+`get_flood_history` (`src/mcp/history-tools.js`, built on `loadGaugePage`) and
+`get_warning_history` (built on `loadHistory`), so each agrees with its page by
+construction. `scripts/test-mcp-server.mjs` fails if any tool name is missing
+from llms.txt, the agent skill, `/developers` (both languages) or README.
 
 - Every tool carries `MCP_READ_ONLY` annotations (`readOnlyHint: true`,
   `openWorldHint: false`) so clients can skip per-call confirmation, plus

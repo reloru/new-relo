@@ -96,6 +96,16 @@ const get = async (path, accept = "text/html") => {
   h.env.DB = real;
 }
 
+{
+  const r = await h.get("/mcp", { method: "POST", headers: { "content-type": "application/json", accept: "application/json, text/event-stream" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "get_warning_history", arguments: {} } }) });
+  const res = (await r.json()).result;
+  ok(!res.isError, "get_warning_history answers");
+  const sc = res.structuredContent;
+  ok(sc.totals.tornado === 3 && sc.totals.severeThunderstorm === 2 && sc.totals.flashFlood === 1, `tool totals match the page (got ${JSON.stringify(sc.totals)})`);
+  ok(JSON.stringify(sc.byYear.find((y) => y.year === 2021)) === JSON.stringify({ year: 2021, tornado: 1, severeThunderstorm: 1, flashFlood: 0, floodWarning: 0, floodAdvisory: 0 }), "the tool uses Central-time years");
+  has(res.content[0].text, "2021-05-18", "tornado dates in the text are Central dates");
+}
+
 if (failures.length) {
   console.error(`\nHistory checks failed (${failures.length}):\n  ${failures.join("\n  ")}\n`);
   process.exit(1);

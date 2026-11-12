@@ -506,9 +506,12 @@ in Cloudflare DNS / external registries:
   `curl -s 'https://crosbynews.com/api/mcp-usage?key=<ADMIN_KEY>&format=txt'`.
 - **MCP Registry** (`docs/ops/mcp-registry.md`) — the `/mcp` server is
   published as `com.crosbynews/weather`. **Five hand-maintained places name
-  the tools and go stale silently when a tool is added** — `CROSBY_WEATHER_SKILL`,
-  `llmsTxt()`, `DEVELOPERS`/`DEVELOPERS_ES`'s "MCP server" section, and
-  `README.md`. (`mcpServerCard()` and the MCP `initialize` instructions
+  the tools** — `CROSBY_WEATHER_SKILL`, `llmsTxt()`,
+  `DEVELOPERS`/`DEVELOPERS_ES`'s "MCP server" section, and `README.md` —
+  and `scripts/test-mcp-server.mjs` now fails if any tool name is missing from
+  any of them. The two record tools (`get_flood_history`,
+  `get_warning_history`, `src/mcp/history-tools.js`) read D1 through the same
+  loaders as their pages. (`mcpServerCard()` and the MCP `initialize` instructions
   derive/don't need updating — see the ops file.) Bump `server.json`'s
   `version` in the same PR as any tool-set change; publishing is a separate,
   manual step.

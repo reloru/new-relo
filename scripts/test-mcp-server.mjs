@@ -157,6 +157,19 @@ try {
     const sj = JSON.parse(readFileSync(new URL("../server.json", import.meta.url), "utf8"));
     check("server.json version matches MCP_SERVER_INFO", sj.version === MCP_SERVER_INFO.version, `${sj.version} vs ${MCP_SERVER_INFO.version}`);
   }
+
+  // The prose lists of tools are written by hand (deriving them would import
+  // the MCP server into modules it imports). They went stale every time a tool
+  // shipped, so every tool name must appear in each one.
+  {
+    const { llmsTxt, CROSBY_WEATHER_SKILL } = await import("../src/discovery.js");
+    const { developersHtml } = await import("../src/pages/developers.js");
+    const readme = (await import("node:fs")).readFileSync(new URL("../README.md", import.meta.url), "utf8");
+    const lists = { "llms.txt": llmsTxt(), "agent skill": CROSBY_WEATHER_SKILL, "/developers": developersHtml("en"), "/es/developers": developersHtml("es"), "README.md": readme };
+    for (const t of mcpTools()) {
+      for (const [where, text] of Object.entries(lists)) check(`${t.name} is named in ${where}`, text.includes(t.name));
+    }
+  }
 } finally {
   globalThis.fetch = realFetch;
   console.error = realError;

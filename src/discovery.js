@@ -34,7 +34,7 @@ Every page is also available in Mexican Spanish (es-MX) under the /es prefix —
 Every page supports \`Accept: text/markdown\` (or \`?format=md\`) for a clean markdown rendering.
 
 ${ENDPOINTS.filter((e) => e.group === "api").map((e) => `- ${e.name.en}: \`GET ${SITE}${e.path}\` — ${e.llms}`).join("\n")}
-- MCP server (Streamable HTTP): \`${SITE}/mcp\` — tools: \`get_current_conditions\`, \`get_forecast\`, \`get_alerts\`, \`get_tropical_outlook\`, \`get_pollen\`, \`get_burn_ban\`, \`get_air_quality\`, \`get_river_levels\`, \`get_fishing\`, \`get_traffic\`, \`get_crosby_news\`, \`get_school_events\`, \`get_emergency_contacts\`, \`get_radar\`
+- MCP server (Streamable HTTP): \`${SITE}/mcp\` — tools: \`get_current_conditions\`, \`get_forecast\`, \`get_alerts\`, \`get_tropical_outlook\`, \`get_pollen\`, \`get_burn_ban\`, \`get_air_quality\`, \`get_river_levels\`, \`get_fishing\`, \`get_traffic\`, \`get_crosby_news\`, \`get_school_events\`, \`get_emergency_contacts\`, \`get_radar\`, \`get_flood_history\`, \`get_warning_history\`
 - MCP server card: \`${SITE}/.well-known/mcp/server-card.json\`
 
 ## Data policy
@@ -201,8 +201,11 @@ MCP server (Streamable HTTP, JSON-RPC):
 - GET https://crosbynews.com/api/fishing - water conditions (temperature,
   dissolved oxygen, pH, clarity) for the waters people fish near Crosby, from
   USGS real-time monitoring (JSON); MCP tool: get_fishing
-- MCP-only tools: get_emergency_contacts (Crosby emergency directory) and
-  get_radar (latest NWS KHGX radar still, returned as an inline image)
+- MCP-only tools: get_emergency_contacts (Crosby emergency directory),
+  get_radar (latest NWS KHGX radar still, returned as an inline image),
+  get_flood_history (each nearby river gauge's historic crests against
+  today's flood stages, and its river flood warnings) and get_warning_history
+  (NWS warnings that covered Crosby, by type and year)
 
 ## Notes
 
