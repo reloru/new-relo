@@ -11,6 +11,7 @@ import { BASE_CSS } from "../assets/base-css.js";
 import { topbar, footer } from "../chrome.js";
 import { JSONLD_SITE, sharedHead } from "../seo.js";
 import { gaugePagePath } from "../registry.js";
+import { fetchUsgsOgc } from "./fishing.js";
 
 // Crosby's defining hazard is flooding. This renders live stage + flood-
 // category for the waters that flood Crosby / NE Harris County, from NOAA/NWS
@@ -143,6 +144,28 @@ export async function fetchWaterFull() {
     snapshot: { updated: new Date().toISOString(), gauges: ok.map((r) => r.gauge) },
     history: ok.map((r) => r.history),
   };
+}
+
+// USGS annual peaks for one site: the highest flow and gauge height of each
+// water year, as USGS publishes them in its peaks collection. Flow (00060) and
+// height (00065) arrive as separate rows sharing a date; a peak USGS dates
+// only to the month or year cannot be matched to a crest and is skipped.
+export async function fetchUsgsPeaks(env, usgsId) {
+  const res = await fetchUsgsOgc(`https://api.waterdata.usgs.gov/ogcapi/v0/collections/peaks/items?monitoring_location_id=USGS-${encodeURIComponent(usgsId)}&f=json&limit=1000`, env);
+  const byDay = new Map();
+  for (const f of (await res.json()).features || []) {
+    const p = f?.properties || {};
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(p.time || "") || !Number.isFinite(Number(p.water_year))) continue;
+    const v = p.value === null || p.value === "" || p.value === undefined ? null : Number(p.value);
+    if (v !== null && !Number.isFinite(v)) continue;
+    const row = byDay.get(p.time) || { day: p.time, waterYear: Number(p.water_year), flow: null, stage: null, flowQualifier: null, stageQualifier: null };
+    const q = Array.isArray(p.qualifier) && p.qualifier.length ? JSON.stringify(p.qualifier) : null;
+    if (p.parameter_code === "00060") Object.assign(row, { flow: v, flowQualifier: q });
+    else if (p.parameter_code === "00065") Object.assign(row, { stage: v, stageQualifier: q });
+    else continue;
+    byDay.set(p.time, row);
+  }
+  return [...byDay.values()].sort((a, b) => (a.day < b.day ? -1 : 1));
 }
 
 // The snapshot alone, for the cold-cache path.

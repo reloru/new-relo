@@ -29,7 +29,7 @@ entry with `gauge:`) once the record gives it content.
 | Lede: gauge id, how many crests NOAA lists and since when, the highest one against today's stages | D1 `gauge_crests` + `water` KV thresholds | quotable |
 | Current level: stage, flood-category badge, distance to action stage, reading time | `water` KV | `data-nosnippet` |
 | Flood stages defined today | `water` KV thresholds | quotable |
-| Highest recorded crests (every crest on the current datum, highest first) with today's-stage comparison, flow, NOAA's code | D1 `gauge_crests` | quotable |
+| Highest recorded crests (every crest on the current datum, highest first) with today's-stage comparison, NOAA flow, USGS flow, status | D1 `gauge_crests`, `gauge_peaks` | quotable |
 | Crests on an older gauge datum (newest first, never compared) | D1 `gauge_crests.old_datum = 1` | quotable |
 | What NOAA says happens at each level (highest first; English on `/es`, marked `lang="en"`) | D1 `gauge_meta.impacts` | quotable |
 | River flood warnings for this gauge | D1 `nws_events`, `scope = 'gauge'`, `nwsli = lid` — filed live from NWS flood products since 2026-11-12, IEM archive before | quotable |
@@ -51,11 +51,25 @@ stages, so its crest table has no comparison column.
   that calendar date, never converted to Central (which would move it back a
   day). A crest with a real time is shown in Central time. A genuine crest at
   exactly 00:00 UTC would be shown date-only; none is known.
-- **NOAA's one-letter code is shown as published.** NWPS puts it in a field
-  named `preliminary` and its API documentation defines no values. The page
-  says that and claims no meaning.
-- **Crest flow of 0 was stored as NULL** (unknown) by `recordGaugeHistory()`
-  and shows as a dash. No flow column at all on the two `noFlow` gauges.
+- **Status** is NWS's crest status, from the letter NWPS sends in its
+  `preliminary` field: P Preliminary, O Official, R Record (`crestStatus()`).
+  The mapping is inferred: NWS's HydroBase Crest History screen offers exactly
+  those three statuses and the field comes from the IHFS `crest.prelim`
+  column, but no NWS document prints the letters beside the words. R sits only
+  on each gauge's highest crest. An unexpected letter is shown as sent. By the
+  owner's decision (2026-11-12) the page carries no note about the mapping.
+- **USGS flow** is USGS's annual peak flow (D1 `gauge_peaks`, from
+  `api.waterdata.usgs.gov` collection `peaks`), shown beside a crest only when
+  that water year's peak falls on the crest's date: NOAA's own date for a
+  date-only crest, the Central date for a timed one (`crestDay()`). The column
+  appears only when at least one crest in the table has a match. At Cedar
+  Bayou the two agencies' Harvey flows differ (NOAA 45,125 cfs, USGS 10,600
+  cfs); both are shown, each named. A one-line note explains the column's
+  dashes.
+- **NOAA crest flow of 0 was stored as NULL** (unknown) by
+  `recordGaugeHistory()` and shows as a dash. The two `noFlow` gauges have no
+  NOAA flow column (NOAA's figure there is not a measured flow); USGS's own
+  peak flows still show where USGS published them (Sheldon, 2021 onward).
 - **River flood warnings: live since 2026-11-12, archive before.** The cron
   files them from NWS's own flood products (`recordRiverWarnings()`,
   `docs/ops/record.md`); earlier ones come from the IEM archive. The page says

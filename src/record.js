@@ -321,6 +321,26 @@ export async function recordGaugeHistory(env, history, nowIso = new Date().toISO
   return stmts.length;
 }
 
+// USGS annual peaks for one gauge (src/features/water.js fetchUsgsPeaks).
+// Replayed in full each time: USGS revises peaks, so a re-read overwrites.
+export async function recordUsgsPeaks(env, lid, usgsId, peaks, nowIso = new Date().toISOString()) {
+  if (!env?.DB || !Array.isArray(peaks) || !peaks.length) return 0;
+  const stmt = env.DB.prepare(
+    `INSERT INTO gauge_peaks (lid, usgs_id, day, water_year, flow, stage, flow_qualifier, stage_qualifier, recorded)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT (lid, day) DO UPDATE SET usgs_id = excluded.usgs_id, water_year = excluded.water_year, flow = excluded.flow,
+       stage = excluded.stage, flow_qualifier = excluded.flow_qualifier, stage_qualifier = excluded.stage_qualifier, recorded = excluded.recorded`,
+  );
+  const stmts = peaks.map((p) => stmt.bind(lid, usgsId, p.day, p.waterYear, p.flow ?? null, p.stage ?? null, p.flowQualifier ?? null, p.stageQualifier ?? null, nowIso));
+  for (let i = 0; i < stmts.length; i += 50) await env.DB.batch(stmts.slice(i, i + 50));
+  return stmts.length;
+}
+
+export async function hasUsgsPeaks(env) {
+  if (!env?.DB) return true;
+  return !!(await env.DB.prepare("SELECT 1 AS x FROM gauge_peaks LIMIT 1").first());
+}
+
 export async function hasGaugeHistory(env) {
   if (!env?.DB) return true; // nothing to fill
   return !!(await env.DB.prepare("SELECT 1 AS x FROM gauge_meta LIMIT 1").first());

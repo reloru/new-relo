@@ -217,6 +217,11 @@ globalThis.fetch = async (u) => {
   const m = url.match(/nwps\/v1\/gauges\/(\w+)/);
   if (m) return new Response(JSON.stringify(nwps(m[1])), { headers: { "content-type": "application/json" } });
   if (/api\.weather\.gov\/products\/types\/FL[WS]\/locations\/HGX$/.test(url)) return new Response(JSON.stringify({ "@graph": url.includes("FLW") ? [{ id: "c1", issuanceTime: "2026-11-11T09:00:00+00:00" }] : [] }));
+  if (url.includes("api.waterdata.usgs.gov/ogcapi/v0/collections/peaks/items")) return new Response(JSON.stringify({ features: [
+    { properties: { parameter_code: "00060", value: "10600", time: "2017-08-28", water_year: 2017, qualifier: ["EVENT"] } },
+    { properties: { parameter_code: "00065", value: "59.06", time: "2017-08-28", water_year: 2017 } },
+    { properties: { parameter_code: "00060", value: "1200", time: "1973-06", water_year: 1973 } },
+  ] }));
   if (url.endsWith("/products/c1")) return new Response(JSON.stringify({ issuanceTime: "2026-11-11T09:00:00+00:00", productText: "/O.NEW.KHGX.FL.W.0200.261111T0900Z-261113T0000Z/\n/SHLT2.1.ER.261111T0900Z.261112T0000Z.261112T1200Z.NO/\n" }));
   throw new Error("upstream down in test: " + url);
 };
@@ -230,6 +235,11 @@ eq((await cdb.prepare("SELECT COUNT(*) AS c FROM gauge_crests").first("c")), 6, 
 const status1 = JSON.parse(cronH.kv.store.get("cron_status"));
 eq(status1.record?.ok, true, "cron_status reports the record write succeeded");
 eq(await cdb.prepare("SELECT nwsli FROM nws_events WHERE scope = 'gauge' AND etn = 200").first("nwsli"), "SHLT2", "the cron files river flood warnings from NWS's flood products");
+eq(await cdb.prepare("SELECT COUNT(*) AS c FROM gauge_peaks").first("c"), 6, "the cron seeds USGS peaks for every gauge, one row per dated peak (a month-only date is skipped)");
+eq(await cdb.prepare("SELECT flow, stage, flow_qualifier FROM gauge_peaks WHERE day = '2017-08-28' LIMIT 1").first(), { flow: 10600, stage: 59.06, flow_qualifier: '["EVENT"]' }, "flow and height of one peak share its row");
+const peaksBefore = (await cdb.prepare("SELECT * FROM gauge_peaks ORDER BY lid").all()).results;
+await R.recordUsgsPeaks(cronH.env, peaksBefore[0].lid, peaksBefore[0].usgs_id, [{ day: "2017-08-28", waterYear: 2017, flow: 10600, stage: 59.06, flowQualifier: '["EVENT"]' }], peaksBefore[0].recorded);
+eq((await cdb.prepare("SELECT * FROM gauge_peaks ORDER BY lid").all()).results, peaksBefore, "replaying a peak changes nothing");
 const ixSignals = JSON.parse(cronH.kv.store.get("indexnow_state") || "{}").signals || {};
 eq([ixSignals.history, ixSignals.gaugeWarnings], ["1|0", "SHLT2:1"], "the cron hands IndexNow the record's counts for /history and the gauge pages");
 

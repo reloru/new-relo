@@ -27,7 +27,7 @@
 import { KV_KEY, TZ } from "./config.js";
 import { fetchWeather } from "./features/weather.js";
 import { fetchCalendar, CALENDAR_KV_KEY } from "./features/calendar.js";
-import { fetchWaterFull, WATER_KV_KEY, WATER_GAUGES } from "./features/water.js";
+import { fetchWaterFull, fetchUsgsPeaks, WATER_KV_KEY, WATER_GAUGES } from "./features/water.js";
 import { fetchFishing, FISHING_KV_KEY } from "./features/fishing.js";
 import { fetchTropics, TROPICS_KV_KEY } from "./features/tropics.js";
 import { fetchTraffic, TRAFFIC_KV_KEY } from "./features/traffic.js";
@@ -39,7 +39,7 @@ import { cronRunRecorder, recordCronRun } from "./api/health.js";
 import { mcpRollUp } from "./mcp/metrics.js";
 import { pruneHits } from "./metrics.js";
 import { indexNowTick } from "./indexnow.js";
-import { recordAlerts, recordAqi, recordGauges, recordGaugeHistory, hasGaugeHistory, recordPollen, recordBurnBan, recordRiverWarnings, gaugeWarningCounts, historyCount } from "./record.js";
+import { recordAlerts, recordAqi, recordGauges, recordGaugeHistory, hasGaugeHistory, recordPollen, recordBurnBan, recordRiverWarnings, gaugeWarningCounts, historyCount, recordUsgsPeaks, hasUsgsPeaks } from "./record.js";
 
 export async function scheduled(event, env, ctx) {
     // Refresh the weather cache. News is NOT fetched here — it's written to the
@@ -292,6 +292,14 @@ async function recordTick(env, seen, run) {
     // or at once when the tables are still empty.
     await step("gauge history", async () => {
       if ((now.getUTCHours() === 10 && topOfHour) || !(await hasGaugeHistory(env))) await recordGaugeHistory(env, seen.waterHistory);
+    });
+    // USGS annual peaks change once a year at most: on the same daily tick, or
+    // at once while the table is empty. One request per gauge.
+    await step("usgs peaks", async () => {
+      if (!((now.getUTCHours() === 10 && topOfHour) || !(await hasUsgsPeaks(env)))) return;
+      for (const g of seen.water.gauges) {
+        if (g.usgsId) await recordUsgsPeaks(env, g.lid, g.usgsId, await fetchUsgsPeaks(env, g.usgsId));
+      }
     });
   }
   // River flood warnings for the tracked gauges, from NWS's own products; and

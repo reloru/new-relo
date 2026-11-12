@@ -46,7 +46,7 @@ export const cToF = (c) => Math.round((c * 9) / 5 + 32);
 // per-key rate limit, though our ~4 requests/hour never come close); retry
 // once, after a short delay, before treating it as a real outage. Anything
 // else fails fast.
-async function fetchUsgsOgc(url, env) {
+export async function fetchUsgsOgc(url, env) {
   for (let attempt = 0; ; attempt++) {
     const res = await fetch(url, {
       headers: { "User-Agent": "crosbynews.com", Accept: "application/json", "X-Api-Key": env.USGS_API_KEY || "" },

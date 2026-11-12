@@ -33,11 +33,25 @@ db.exec(`
     (2019, 'HGX', 'FL', 'W', 98, 'gauge', 'Flood Warning', '2019-09-19T19:00:00.000Z', '2019-09-22T13:43:00.000Z', 'iem', 'SHLT2', NULL),
     (2008, 'HGX', 'FL', 'W', 3, 'gauge', 'Flood Warning', '2008-02-18T17:04:00.000Z', '2008-02-20T00:00:00.000Z', 'iem', 'NCET2', NULL),
     (2024, 'HGX', 'SV', 'W', 200, 'point', 'Severe Thunderstorm Warning', '2024-05-16T23:00:00.000Z', '2024-05-17T00:00:00.000Z', 'iem', NULL, NULL);
+  INSERT INTO gauge_crests (lid, occurred, stage, flow, quality, old_datum) VALUES
+    ('NCET2', '2021-05-25T03:00:00.000Z', 60.5, NULL, 'O', 0);
+  INSERT INTO gauge_peaks (lid, usgs_id, day, water_year, flow, stage, flow_qualifier, stage_qualifier, recorded) VALUES
+    ('HCDT2', '08067500', '2017-08-28', 2017, 10600, 59.06, '["EVENT"]', NULL, '2026-11-12T10:00:00Z'),
+    ('HCDT2', '08067500', '2019-09-19', 2019, 5890, 57.07, NULL, NULL, '2026-11-12T10:00:00Z'),
+    ('HCDT2', '08067500', '2018-03-01', 2018, 999, 40.0, NULL, NULL, '2026-11-12T10:00:00Z'),
+    ('SHLT2', '08072050', '2017-08-29', 2017, 270000, 28.72, NULL, NULL, '2026-11-12T10:00:00Z'),
+    ('NCET2', '08070200', '2021-05-24', 2021, 7777, 60.5, NULL, NULL, '2026-11-12T10:00:00Z'),
+    ('NCET2', '08070200', '2021-05-25', 2021, 8888, 60.5, NULL, NULL, '2026-11-12T10:00:00Z');
   INSERT INTO gauge_daily (lid, day, max_stage, max_at, min_stage, last_stage, last_at, max_flow, max_rank, readings) VALUES
     ('HCDT2', '2026-11-10', 36.61, '2026-11-10T15:00:00.000Z', 36.5, 36.53, '2026-11-11T03:30:00.000Z', 0.1, 0, 38),
     ('HCDT2', '2026-11-09', 54.0, '2026-11-09T12:00:00.000Z', 53.0, 53.5, '2026-11-09T23:00:00.000Z', 2.0, 2, 40);
 `);
 
+// The table row whose crest cell holds `stage` (the lede repeats some stages).
+const rowOf = (html, stage) => {
+  const at = html.indexOf(`<td class="num">${stage}</td>`);
+  return at < 0 ? "" : html.slice(at, html.indexOf("</tr>", at));
+};
 const get = async (path, accept = "text/html") => {
   const r = await h.get(path, { headers: { accept } });
   const body = await r.text();
@@ -63,7 +77,19 @@ const get = async (path, accept = "text/html") => {
   lacks(ranked, "28.33 ft", "old-datum crest ranked among current-datum crests");
   lacks(main, "25.07 ft below action stage", "old-datum crest (28.33) compared with action stage (50.4)");
   has(main, "since 1994, 1 of them measured on an older gauge datum", "intro counts the old-datum crest");
-  has(main, "(on this gauge: O, P, R)", "NOAA's codes are listed as published");
+  // Status words, NOAA's flow and USGS's peak flow side by side.
+  const harvey = rowOf(main, "58.99 ft");
+  has(harvey, '<td class="num">45,125</td><td class="num">10,600</td><td>Record</td>', "Harvey: NOAA flow, USGS flow, Record");
+  const imelda = rowOf(main, "56.93 ft");
+  has(imelda, '<td class="num">5,654</td><td class="num">5,890</td><td>Preliminary</td>', "Imelda: both flows, Preliminary");
+  const jun2016 = rowOf(main, "50.4 ft");
+  has(jun2016, '<td class="num">—</td><td class="num">—</td><td>Official</td>', "no flows on record: two dashes, Official");
+  lacks(main, "999", "a USGS peak on a date with no crest is not shown");
+  lacks(main, "NOAA code", "the old code column");
+  lacks(main, "one-letter code", "the old letter note");
+  has(main, "USGS flow is the annual peak flow USGS publishes", "the USGS column is explained");
+  const oldTable = main.slice(main.indexOf("Crests on an older gauge datum"), main.indexOf("River flood warnings"));
+  lacks(oldTable, "USGS flow (cfs)", "no USGS column on a table with no USGS peaks");
   // The site's own daily record, newest first, with a flood day labelled.
   ok(main.indexOf("Nov 10, 2026") < main.indexOf("Nov 9, 2026"), "daily rows newest first");
   has(main, "Minor flooding", "a daily max_rank of 2 reads as minor flooding");
@@ -94,8 +120,9 @@ const get = async (path, accept = "text/html") => {
   ok(main.indexOf("Major lowland flooding begins.") < main.indexOf("Minor lowland flooding begins."), "impacts sorted highest stage first");
   has(main, "No. 98 of 2019", "the gauge's river flood warning");
   has(main, "1 in the record, newest first", "warning count");
-  lacks(main, "389,000", "flow shown for a gauge whose flow is not a measured river flow");
-  lacks(main, "Flow (cfs)", "flow column on a no-flow gauge");
+  lacks(main, "389,000", "NOAA's flow shown for a gauge where it is not a measured flow");
+  lacks(main, "NOAA flow (cfs)", "NOAA flow column on a no-flow gauge");
+  has(main, '<td class="num">270,000</td><td>Record</td>', "USGS's own peak flow is shown on a no-flow gauge");
   const es = (await get("/es/water/san-jacinto-sheldon")).main;
   has(es, '<span lang="en">Major lowland flooding begins.</span>', "NOAA's statement stays in English, marked as English");
 }
@@ -114,7 +141,12 @@ const get = async (path, accept = "text/html") => {
 {
   const { r, body } = await get("/water/cedar-bayou-crosby", "text/markdown");
   ok(/^text\/markdown/.test(r.headers.get("content-type") || ""), "markdown content-type");
-  has(body, "| 1 | 58.99 ft | Aug 28, 2017, 2:15 AM CT | 5.59 ft above minor flood stage | 45,125 | R |", "markdown crest row");
+  has(body, "| 1 | 58.99 ft | Aug 28, 2017, 2:15 AM CT | 5.59 ft above minor flood stage | 45,125 | 10,600 | Record |", "markdown crest row");
+  has((await get("/es/water/cedar-bayou-crosby")).main, "<td>Récord</td>", "Spanish status");
+  // A timed crest matches the USGS peak on its Central date, not its UTC date.
+  const nc = (await get("/water/east-fork-new-caney")).main;
+  const may = rowOf(nc, "60.5 ft");
+  ok(may.includes("7,777") && !may.includes("8,888"), "03:00 UTC May 25 is May 24 in Central time: matched to the May 24 peak");
 }
 
 // --- /water links each card with a page, and only those ---
@@ -155,6 +187,8 @@ const get = async (path, accept = "text/html") => {
   ok(!res.isError, "get_flood_history answers");
   const cedar = res.structuredContent.gauges.find((g) => g.id === "HCDT2");
   ok(cedar.highestCrests[0].againstTodaysStages === "5.59 ft above minor flood stage", "the tool states Harvey at Cedar Bayou as the page does");
+  ok(JSON.stringify([cedar.highestCrests[0].status, cedar.highestCrests[0].noaaFlowCfs, cedar.highestCrests[0].usgsFlowCfs]) === JSON.stringify(["Record", 45125, 10600]), "the tool carries status and both flows");
+  ok(res.structuredContent.gauges.find((g) => g.id === "SHLT2").highestCrests[0].noaaFlowCfs === null, "no NOAA flow from a no-flow gauge in the tool either");
   ok(cedar.crestCount === 5 && cedar.oldDatumCrestCount === 1, `crest counts include the old-datum crest once (got ${cedar.crestCount}/${cedar.oldDatumCrestCount})`);
   ok(res.structuredContent.gauges.find((g) => g.id === "HSJT2").highestCrests[0].date === "2017-08-29", "a date-only crest stays a date");
   ok(res.structuredContent.gauges.find((g) => g.id === "SHLT2").riverFloodWarnings === 1, "warning count per gauge");
