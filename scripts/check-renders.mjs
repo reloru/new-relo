@@ -45,7 +45,7 @@ async function jsFiles(dir) {
 // Passing them (data, lang) makes `lang` an object, which is truthy-but-not-"es",
 // so they render English twice and the Spanish branch never executes: a silent
 // halving of coverage on exactly the pages this script exists to protect.
-const ONE_ARG_LANG = /^(about|contact|privacy|emergency|sitemapPage|developers|mcpInfo)(Html|Markdown)$/;
+const ONE_ARG_LANG = /^(about|contact|privacy|emergency|sitemapPage|developers|mcpInfo|methods)(Html|Markdown)$/;
 // Pure discovery surfaces: no data, no language.
 const NO_ARG = /^(llmsTxt|robotsTxt|sitemapXml|openApiSpec|apiCatalog|agentSkillsIndex|contentSecurityPolicy)$/;
 // The hub takes its six datasets separately: (weather, water, news, cal, tropics,
