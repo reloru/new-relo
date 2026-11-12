@@ -145,10 +145,18 @@ re-folds it and doubles the numbers. Deleting the whole key is recoverable only
 in the sense that counting restarts from zero; there is no other copy. Deleting
 an `mcpm:*` shard loses at most ten minutes of one isolate's counts.
 
-`indexnow_state` (cron-owned) holds the last value of each IndexNow signal and
-the last submission's outcome. Deleting it makes the next tick resubmit every
-page; editing a signal makes the next tick report that page as changed. See
+`indexnow_state` (cron-owned) holds the last value of each IndexNow signal,
+the page list last submitted (`known`), and the last submission's outcome with
+every endpoint's answer (`last.attempts`). Deleting it makes the next tick
+resubmit every page; editing a signal makes the next tick report that page as
+changed; removing a path from `known` resubmits that page once. See
 `docs/ops/search.md`.
+
+`river_products` (cron-owned) lists the ids of the NWS flood products (FLW/FLS,
+office HGX) the cron has already read for river flood warnings, last 300.
+Deleting it only makes the next tick re-read whatever products NWS still lists;
+every write is an upsert, so nothing is double-counted. See
+`docs/ops/record.md`.
 
 Read it through `/api/mcp-usage` rather than raw KV when you just want the
 numbers — it merges the unfolded shards, which a bare `get` does not.

@@ -17,7 +17,7 @@
 //
 // Schema: migrations/0002_record.sql.
 
-import { TZ } from "./config.js";
+import { TZ, NWS_HEADERS } from "./config.js";
 
 export const ctDay = (d) => new Date(d).toLocaleDateString("en-CA", { timeZone: TZ });
 
@@ -126,6 +126,100 @@ export async function recordAlerts(env, alerts, nowIso = new Date().toISOString(
   }
   if (stmts.length) await env.DB.batch(stmts);
   return stmts.length;
+}
+
+// --- river flood warnings ---------------------------------------------------
+//
+// A river flood warning is issued for a forecast point, which NWS names by its
+// location id (the same NWS LID the gauges use: HCDT2, SHLT2, ...). The alert
+// API does not carry it, but the product text does: each segment's VTEC line
+// is followed by a hydrologic VTEC line that starts with the point's id —
+//
+//   /O.NEW.KHGX.FL.W.0078.240503T0857Z-240508T1200Z/
+//   /SHLT2.2.ER.240503T0857Z.240505T0600Z.240507T0000Z.NR/
+//
+// So the cron reads the Houston office's flood products (FLW issues a
+// warning, FLS follows it up) and files each warning for a tracked gauge as a
+// 'gauge' event. Before this ran, the only source was the IEM archive.
+export const RIVER_PRODUCTS_KV_KEY = "river_products";
+// The first day this site recorded river flood warnings itself.
+export const RIVER_WARNINGS_OBSERVED_FROM = "2026-11-12";
+const NWS_API = "https://api.weather.gov";
+const RIVER_PRODUCT_TYPES = ["FLW", "FLS"];
+const RIVER_OFFICE = "HGX";
+const MAX_PRODUCTS_PER_TICK = 20;
+const SEEN_KEPT = 300;
+const PVTEC_SRC = `/[OTEX]\\.[A-Z]{3}\\.[A-Z]{4}\\.[A-Z]{2}\\.[A-Z]\\.\\d{4}\\.${STAMP}-${STAMP}/`;
+const PAIR_RE = new RegExp(`(${PVTEC_SRC})\\s*\\n\\s*/([A-Z0-9]{5})\\.[0-3NU]\\.[A-Z]{2}\\.`, "g");
+
+// Every (VTEC, forecast point) pair in a product's text.
+export function parseRiverProduct(text) {
+  const out = [];
+  for (const m of String(text || "").matchAll(PAIR_RE)) {
+    const vtec = parseVtec(m[1]);
+    if (vtec) out.push({ vtec, nwsli: m[2] });
+  }
+  return out;
+}
+
+const nwsJson = async (url) => {
+  const res = await fetch(url, { headers: { ...NWS_HEADERS, Accept: "application/ld+json" } });
+  if (!res.ok) throw new Error(`${url} -> HTTP ${res.status}`);
+  return res.json();
+};
+
+// File the river flood warnings in any flood product not read before.
+// `gauges` is the set of NWS LIDs this site tracks. Returns how many warning
+// messages were filed. Products are marked read only after their rows are
+// written, so a failure is retried on the next tick (every write is an upsert).
+export async function recordRiverWarnings(env, gauges, { fetchJson = nwsJson, nowIso = new Date().toISOString() } = {}) {
+  if (!env?.DB || !env?.WEATHER) return 0;
+  const state = (await env.WEATHER.get(RIVER_PRODUCTS_KV_KEY, "json").catch(() => null)) || {};
+  const seen = new Set(Array.isArray(state.seen) ? state.seen : []);
+  const listings = await Promise.all(RIVER_PRODUCT_TYPES.map((t) => fetchJson(`${NWS_API}/products/types/${t}/locations/${RIVER_OFFICE}`)));
+  const fresh = listings
+    .flatMap((l) => (Array.isArray(l?.["@graph"]) ? l["@graph"] : []))
+    .filter((p) => typeof p?.id === "string" && !seen.has(p.id))
+    .sort((a, b) => (String(a.issuanceTime) < String(b.issuanceTime) ? -1 : 1))
+    .slice(0, MAX_PRODUCTS_PER_TICK);
+
+  const stmt = env.DB.prepare(
+    `INSERT INTO nws_events (year, wfo, phenomena, significance, etn, scope, name, issued, expires, source, nwsli, tags)
+     VALUES (?1, ?2, 'FL', 'W', ?3, 'gauge', 'Flood Warning', ?4, ?5, 'observed', ?6, NULL)
+     ON CONFLICT (year, wfo, phenomena, significance, etn) DO UPDATE SET
+       scope = 'gauge', nwsli = excluded.nwsli,
+       issued = MIN(nws_events.issued, excluded.issued),
+       expires = CASE WHEN ?7 = 1 THEN excluded.expires
+                      WHEN nws_events.expires IS NULL OR excluded.expires > nws_events.expires THEN excluded.expires
+                      ELSE nws_events.expires END`,
+  );
+  const stmts = [];
+  for (const item of fresh) {
+    const product = await fetchJson(`${NWS_API}/products/${item.id}`);
+    const sent = product?.issuanceTime || item.issuanceTime || nowIso;
+    for (const { vtec, nwsli } of parseRiverProduct(product?.productText)) {
+      if (vtec.phenomena !== "FL" || vtec.significance !== "W" || !gauges.has(nwsli)) continue;
+      const ended = vtec.action === "CAN" || vtec.action === "EXP";
+      const year = await eventYear(env, vtec, { sent }, nowIso);
+      const issued = new Date(vtec.begins || sent).toISOString();
+      const expires = ended ? new Date(sent).toISOString() : vtec.ends ? new Date(vtec.ends).toISOString() : null;
+      stmts.push(stmt.bind(year, vtec.wfo, vtec.etn, issued, expires, nwsli, ended ? 1 : 0));
+    }
+  }
+  if (stmts.length) await env.DB.batch(stmts);
+  if (fresh.length) {
+    for (const p of fresh) seen.add(p.id);
+    await env.WEATHER.put(RIVER_PRODUCTS_KV_KEY, JSON.stringify({ seen: [...seen].slice(-SEEN_KEPT), at: nowIso }));
+  }
+  return stmts.length;
+}
+
+// How many river flood warnings the record holds per gauge, "lid:n|...": the
+// IndexNow signal for the gauge pages.
+export async function gaugeWarningCounts(env) {
+  if (!env?.DB) return undefined;
+  const rows = (await env.DB.prepare("SELECT nwsli, COUNT(*) AS n FROM nws_events WHERE scope = 'gauge' AND nwsli IS NOT NULL GROUP BY nwsli ORDER BY nwsli").all()).results || [];
+  return rows.map((r) => `${r.nwsli}:${r.n}`).join("|");
 }
 
 // --- gauges -----------------------------------------------------------------

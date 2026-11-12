@@ -57,6 +57,11 @@ const SIGNALS = {
     of: (_, seen) => (Array.isArray(seen.waterHistory) ? seen.waterHistory.map((h) => `${h.lid}:${(h.crests || []).length}`).sort().join("|") : undefined),
     pagesFor: gaugesChanged,
   },
+  // How many river flood warnings the record holds for each gauge.
+  gaugeWarnings: {
+    of: (_, seen) => (typeof seen.gaugeWarnings === "string" ? seen.gaugeWarnings : undefined),
+    pagesFor: gaugesChanged,
+  },
   // Which storms and watched areas exist, not the outlook's issue time.
   tropics: { pages: ["/tropics"], of: (_, seen) => (seen.tropics ? [...(seen.tropics.storms || []).map((s) => s.id), ...(seen.tropics.disturbances || []).map((d) => d.id || d.area)].sort().join("|") || "none" : undefined) },
 };
@@ -73,10 +78,12 @@ export async function indexNowTick(env, status, seen, nowIso = new Date().toISOS
   const signals = { ...(state?.signals || {}) };
   const changedPages = [];
   const why = [];
+  let firstSeen = false;
   for (const [name, def] of Object.entries(SIGNALS)) {
     const value = def.of(status, seen);
     if (value === undefined || value === null) continue; // not observed this tick
-    if (signals[name] !== undefined && signals[name] !== value) {
+    if (signals[name] === undefined) firstSeen = true;
+    else if (signals[name] !== value) {
       const pages = def.pagesFor ? def.pagesFor(signals[name], value) : def.pages;
       if (pages.length) {
         changedPages.push(...pages);
@@ -98,6 +105,9 @@ export async function indexNowTick(env, status, seen, nowIso = new Date().toISOS
   const pending = state?.pending;
   const retryDue = pending && pending.tries < MAX_TRIES && Date.parse(nowIso) - Date.parse(state.last?.at ?? 0) >= RETRY_AFTER_MS;
   if (!first && !changedPages.length && !unseen.length && !retryDue) {
+    // A signal seen for the first time is stored now, or its first change
+    // would go unnoticed until some other page happened to be submitted.
+    if (firstSeen) await env.WEATHER.put(INDEXNOW_STATE_KV_KEY, JSON.stringify({ ...state, signals }));
     return null;
   }
 

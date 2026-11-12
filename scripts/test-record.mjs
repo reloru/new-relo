@@ -122,6 +122,64 @@ await R.recordBurnBan(h.env, { status: "Yes", startDate: null }, "2027-03-02T15:
 eq((await all("SELECT started, start_source FROM burnban_periods ORDER BY started")).at(-1), { started: "2027-03-02", start_source: "observed" }, "a ban with no official start date is dated by observation and says so");
 eq(await R.recordBurnBan(h.env, { status: null }), 0, "an unknown status records nothing");
 
+// --- river flood warnings from NWS products -----------------------------------
+// The product text written out the way NWS publishes it: each segment's VTEC
+// line, then the hydrologic VTEC line naming the forecast point.
+const FLW = [
+  "FLWHGX", "",
+  "TXC201-121200-",
+  "/O.NEW.KHGX.FL.W.0101.261112T0900Z-261115T1200Z/",
+  "/HCDT2.1.ER.261112T0900Z.261113T1800Z.261114T1200Z.NO/",
+  "Cedar Bayou Near Crosby affecting Harris County.", "",
+  "TXC339-121200-",
+  "/O.NEW.KHGX.FL.W.0102.261112T0900Z-261116T0000Z/",
+  "/XXXT2.1.ER.261112T0900Z.261113T1800Z.261114T1200Z.NO/",
+  "A point this site does not track.", "",
+  "/O.NEW.KHGX.FL.Y.0103.261112T0900Z-261113T0000Z/",
+  "/NCET2.N.ER.261112T0900Z.261112T1800Z.261113T0000Z.NO/",
+].join("\n");
+const FLS_CAN = "FLSHGX\n/O.CAN.KHGX.FL.W.0101.000000T0000Z-261115T1200Z/\n/HCDT2.1.ER.261112T0900Z.261113T1800Z.261114T0300Z.NR/\n";
+const products = new Map([["p1", { issuanceTime: "2026-11-12T09:00:00+00:00", productText: FLW }]]);
+const listing = { FLW: [{ id: "p1", issuanceTime: "2026-11-12T09:00:00+00:00" }], FLS: [] };
+let productFetches = 0;
+const fetchJson = async (url) => {
+  const t = url.match(/types\/(FLW|FLS)\/locations\/HGX$/);
+  if (t) return { "@graph": listing[t[1]] };
+  const id = url.split("/").pop();
+  productFetches++;
+  if (!products.has(id)) throw new Error("HTTP 503");
+  return products.get(id);
+};
+const tracked = new Set(["HCDT2", "SHLT2", "HSJT2", "HFFT2", "GMKT2", "NCET2"]);
+const gaugeRows = () => all("SELECT year, etn, scope, nwsli, issued, expires, source FROM nws_events WHERE phenomena = 'FL' ORDER BY etn");
+eq(R.parseRiverProduct(FLW).map((x) => [x.vtec.phenomena + "." + x.vtec.significance, x.vtec.etn, x.nwsli]), [["FL.W", 101, "HCDT2"], ["FL.W", 102, "XXXT2"], ["FL.Y", 103, "NCET2"]], "every VTEC line is paired with the forecast point that follows it");
+eq(await R.recordRiverWarnings(h.env, tracked, { fetchJson, nowIso: "2026-11-12T09:10:00Z" }), 1, "only a warning for a tracked gauge is filed");
+eq(await gaugeRows(), [{ year: 2026, etn: 101, scope: "gauge", nwsli: "HCDT2", issued: "2026-11-12T09:00:00.000Z", expires: "2026-11-15T12:00:00.000Z", source: "observed" }], "filed as a gauge event, observed, with its VTEC times");
+productFetches = 0;
+eq(await R.recordRiverWarnings(h.env, tracked, { fetchJson, nowIso: "2026-11-12T09:25:00Z" }), 0, "a product already read is not read again");
+eq(productFetches, 0, "…and is not even fetched");
+products.set("p2", { issuanceTime: "2026-11-14T03:00:00+00:00", productText: FLS_CAN });
+listing.FLS = [{ id: "p2", issuanceTime: "2026-11-14T03:00:00+00:00" }, { id: "p3", issuanceTime: "2026-11-14T04:00:00+00:00" }];
+let threw = false;
+try { await R.recordRiverWarnings(h.env, tracked, { fetchJson, nowIso: "2026-11-14T04:10:00Z" }); } catch { threw = true; }
+ok(threw, "an unreadable product fails the step, so it is reported");
+eq((await gaugeRows())[0].expires, "2026-11-15T12:00:00.000Z", "…and nothing from that tick is half-written");
+products.set("p3", { issuanceTime: "2026-11-14T04:00:00+00:00", productText: "nothing relevant" });
+await R.recordRiverWarnings(h.env, tracked, { fetchJson, nowIso: "2026-11-14T04:25:00Z" });
+eq((await gaugeRows())[0].expires, "2026-11-14T03:00:00.000Z", "the next tick retries it: a cancellation ends the warning when it was sent");
+eq(JSON.parse(h.kv.store.get(R.RIVER_PRODUCTS_KV_KEY)).seen, ["p1", "p2", "p3"], "read products are remembered");
+// A warning this site also received as an alert keeps the gauge it is for.
+await R.recordAlerts(h.env, [{ id: "urn:fl", event: "Flood Warning", sent: "2026-11-12T09:01:00Z", geocode: { UGC: ["TXC201"] }, parameters: { VTEC: ["/O.CON.KHGX.FL.W.0101.000000T0000Z-261115T1200Z/"] } }], "2026-11-12T09:05:00Z");
+eq((await gaugeRows())[0].scope + " " + (await gaugeRows())[0].nwsli, "gauge HCDT2", "an alert for the same event does not overwrite its gauge");
+// …and one the site received as an alert FIRST gains its gauge when the product is read.
+await R.recordAlerts(h.env, [{ id: "urn:fl2", event: "Flood Warning", sent: "2026-11-16T10:00:00Z", geocode: { UGC: ["TXC201"] }, parameters: { VTEC: ["/O.NEW.KHGX.FL.W.0110.261116T1000Z-261118T0000Z/"] } }], "2026-11-16T10:05:00Z");
+eq(await one("SELECT scope, nwsli FROM nws_events WHERE etn = 110"), { scope: "county", nwsli: null }, "an alert alone files a county event with no gauge");
+products.set("p4", { issuanceTime: "2026-11-16T10:00:00+00:00", productText: "/O.NEW.KHGX.FL.W.0110.261116T1000Z-261118T0000Z/\n/SHLT2.1.ER.261116T1000Z.261117T0000Z.261117T1200Z.NO/\n" });
+listing.FLW = [{ id: "p4", issuanceTime: "2026-11-16T10:00:00+00:00" }];
+await R.recordRiverWarnings(h.env, tracked, { fetchJson, nowIso: "2026-11-16T10:10:00Z" });
+eq(await one("SELECT scope, nwsli FROM nws_events WHERE etn = 110"), { scope: "gauge", nwsli: "SHLT2" }, "reading the product then files it under its gauge");
+eq(await R.gaugeWarningCounts(h.env), "HCDT2:1|SHLT2:1", "per-gauge counts for IndexNow");
+
 // --- the cron, end to end ---------------------------------------------------
 // Real scheduled() with stubbed upstreams: the cache is refreshed AND the same
 // tick lands in the record; then the database fails and the cache still does.
@@ -134,6 +192,8 @@ globalThis.fetch = async (u) => {
   const url = typeof u === "string" ? u : u.url;
   const m = url.match(/nwps\/v1\/gauges\/(\w+)/);
   if (m) return new Response(JSON.stringify(nwps(m[1])), { headers: { "content-type": "application/json" } });
+  if (/api\.weather\.gov\/products\/types\/FL[WS]\/locations\/HGX$/.test(url)) return new Response(JSON.stringify({ "@graph": url.includes("FLW") ? [{ id: "c1", issuanceTime: "2026-11-11T09:00:00+00:00" }] : [] }));
+  if (url.endsWith("/products/c1")) return new Response(JSON.stringify({ issuanceTime: "2026-11-11T09:00:00+00:00", productText: "/O.NEW.KHGX.FL.W.0200.261111T0900Z-261113T0000Z/\n/SHLT2.1.ER.261111T0900Z.261112T0000Z.261112T1200Z.NO/\n" }));
   throw new Error("upstream down in test: " + url);
 };
 const quiet = console.error;
@@ -145,6 +205,7 @@ eq((await cdb.prepare("SELECT COUNT(*) AS c FROM gauge_daily").first("c")), 6, "
 eq((await cdb.prepare("SELECT COUNT(*) AS c FROM gauge_crests").first("c")), 6, "the cron seeds crest history when the table is empty");
 const status1 = JSON.parse(cronH.kv.store.get("cron_status"));
 eq(status1.record?.ok, true, "cron_status reports the record write succeeded");
+eq(await cdb.prepare("SELECT nwsli FROM nws_events WHERE scope = 'gauge' AND etn = 200").first("nwsli"), "SHLT2", "the cron files river flood warnings from NWS's flood products");
 
 cdb.batch = async () => { throw new Error("D1 is down"); };
 const before = cronH.kv.store.get("water");
@@ -164,5 +225,5 @@ if (failures.length) {
   console.error(`\nRecord checks failed (${failures.length}):\n  ${failures.join("\n  ")}\n`);
   process.exit(1);
 }
-console.log("Record OK — events, gauges, pollen, air and burn-ban periods are replay-safe and true to their inputs; a database failure is reported and never costs the cache its refresh.");
+console.log("Record OK — events, river flood warnings, gauges, pollen, air and burn-ban periods are replay-safe and true to their inputs; a database failure is reported and never costs the cache its refresh.");
 process.exit(0);
