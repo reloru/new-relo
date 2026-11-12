@@ -67,7 +67,7 @@ const SECTIONS = [
   {
     h: ["Burn bans", "Prohibiciones de quemas"],
     pages: ["/burn-ban"],
-    p: [["Current status follows the Texas A&M Forest Service's statewide map, to which counties report; the Forest Service does not issue the ban. Past bans list where each date came from: the county's own release for a start, and, because the county posts no lift notices, the news outlet that reported the county's statement for an end.", "El estado actual sigue el mapa estatal del Servicio Forestal de Texas A&M, al que reportan los condados; el Servicio Forestal no emite la prohibición. Las prohibiciones anteriores indican de dónde viene cada fecha: el comunicado del condado para el inicio y, como el condado no publica cuándo se levanta, el medio que reportó la declaración del condado para el fin."]],
+    p: [["Current status follows the Texas A&M Forest Service's statewide map, to which counties report; the Forest Service does not issue the ban. Past bans list where each date came from: the county's own release for a start, and, because the county's ReadyHarris site lists no lift notice, the news outlet that reported the county's statement for an end.", "El estado actual sigue el mapa estatal del Servicio Forestal de Texas A&M, al que reportan los condados; el Servicio Forestal no emite la prohibición. Las prohibiciones anteriores indican de dónde viene cada fecha: el comunicado del condado para el inicio y, como el sitio ReadyHarris del condado no lista avisos de levantamiento, el medio que reportó la declaración del condado para el fin."]],
   },
   {
     h: ["Tropics, traffic, fishing waters", "Trópicos, tráfico, aguas de pesca"],

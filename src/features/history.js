@@ -101,7 +101,7 @@ export async function loadHistory(env) {
     rows(env.DB, "SELECT phenomena, significance, issued FROM nws_events WHERE scope = 'zone' AND significance = 'W' ORDER BY issued"),
     rows(env.DB, "SELECT nwsli, COUNT(*) AS n, MIN(issued) AS first, MAX(issued) AS last FROM nws_events WHERE scope = 'gauge' GROUP BY nwsli ORDER BY n DESC, nwsli"),
     rows(env.DB, "SELECT COUNT(*) AS n, MIN(first_seen) AS first FROM alerts"),
-    rows(env.DB, "SELECT MAX(issued) AS last FROM nws_events"),
+    rows(env.DB, "SELECT MAX(x) AS last FROM (SELECT MAX(issued) AS x FROM nws_events UNION ALL SELECT MAX(first_seen) AS x FROM alerts)"),
   ]);
   const scopeFirst = (scope) => grouped.filter((g) => g.scope === scope).map((g) => g.first).sort()[0] || null;
   return {
@@ -117,11 +117,11 @@ export async function loadHistory(env) {
   };
 }
 
-// For /sitemap.xml: the newest event in the record, the same instant the
-// page's Last-Modified carries.
+// For /sitemap.xml: the newest event issued or alert received, the same
+// instant the page's Last-Modified carries.
 export async function historyLastmod(env) {
   if (!env.DB) return null;
-  return (await rows(env.DB, "SELECT MAX(issued) AS last FROM nws_events"))[0]?.last ?? null;
+  return (await rows(env.DB, "SELECT MAX(x) AS last FROM (SELECT MAX(issued) AS x FROM nws_events UNION ALL SELECT MAX(first_seen) AS x FROM alerts)"))[0]?.last ?? null;
 }
 
 // --- content ----------------------------------------------------------------

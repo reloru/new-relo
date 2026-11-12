@@ -93,6 +93,13 @@ Workers share egress addresses. A submission that fails on both is kept in
 meanwhile folded in; it is never retried every tick. `/api/health` shows
 `indexNow.attempts`, each endpoint's status or error, in order.
 
+**Status (2026-11-12):** both endpoints answer the Worker with 429 on every
+attempt, while the same key and URLs get 200 from both when sent from a
+session, so the refusal is aimed at Workers' shared egress addresses, not the
+key or the site. New pages were submitted by hand from a session. If it
+persists, the fix is to submit from somewhere other than the Worker (for
+example a scheduled GitHub Actions job reading `indexnow_state.pending`).
+
 ## Tested
 
 `scripts/test-freshness.mjs` ("Check freshness signals" in CI): every page in

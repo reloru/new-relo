@@ -283,6 +283,18 @@ eq(health.indexNow?.attempts?.map((a) => a.endpoint), ["api.indexnow.org", "www.
   eq([added?.why, posts.at(-1)?.body.urlList], ["new pages", [SITE + "/water/lake-houston", SITE + "/es/water/lake-houston"]], "a page never submitted is submitted once");
   posts.length = 0;
   eq(await IX.indexNowTick(h2.env, st2, withHistory({ HCDT2: 30, SHLT2: 35 }), "2026-11-11T08:00:00.000Z"), null, "…and not again");
+  // A pending reason is not repeated when the same reason comes up again.
+  answer = 429;
+  const st3 = JSON.parse(h2.kv.store.get(IX.INDEXNOW_STATE_KV_KEY));
+  st3.known = st3.known.filter((p) => p !== "/history");
+  h2.kv.store.set(IX.INDEXNOW_STATE_KV_KEY, JSON.stringify(st3));
+  await IX.indexNowTick(h2.env, st2, withHistory({ HCDT2: 31, SHLT2: 35 }), "2026-11-11T08:05:00.000Z"); // two reasons pending: crests, new pages
+  const st4 = JSON.parse(h2.kv.store.get(IX.INDEXNOW_STATE_KV_KEY));
+  st4.known = st4.known.filter((p) => p !== "/methods");
+  h2.kv.store.set(IX.INDEXNOW_STATE_KV_KEY, JSON.stringify(st4));
+  const again2 = await IX.indexNowTick(h2.env, st2, withHistory({ HCDT2: 31, SHLT2: 35 }), "2026-11-11T08:10:00.000Z");
+  eq(again2?.why, "crests, new pages", "a reason already pending is not listed twice");
+  answer = 200;
 }
 
 if (failures.length) {
