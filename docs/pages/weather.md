@@ -36,6 +36,16 @@ nearby-ozone cross-reference. The three non-NWS calls are failure-tolerant — e
 degrades to `null` rather than blocking the NWS refresh. 48 hourly periods are
 kept; this page slices 12.
 
+**UV has two EPA products and a fallback between them.** `fetchUv()` reads the
+hourly forecast (`getEnvirofactsUVHOURLY`); when that fails it reads the daily
+one (`getEnvirofactsUVDAILY`, a single row: the forecast day's peak) and
+returns `{ hourly: [], daily: { date, peak }, degraded }`. `uvPeakOn()` uses
+hourly rows when a date has them and the daily peak otherwise, so the
+homepage's UV row survives an hourly outage; there is no current-hour value in
+that state and nothing invents one. Added after EPA's hourly product answered
+404 for every Texas ZIP for more than a day from 2026-11-10 while the daily
+product stayed up.
+
 Derived in-Worker, not NWS fields: `feelsLikeF()` (heat index / wind chill, shown
 only when ≥ 3°F from air temp) and `sunTimes()`.
 
