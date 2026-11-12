@@ -115,7 +115,7 @@ export async function indexNowTick(env, status, seen, nowIso = new Date().toISOS
 
   const fresh = bothLanguages([...new Set([...unseen, ...changedPages])]);
   const urls = [...new Set([...(pending?.urls || []), ...fresh])];
-  const reason = [...new Set([...(pending ? [pending.why] : []), ...(first ? ["first run"] : why)])].join(", ");
+  const reason = [...new Set([...(pending ? String(pending.why).split(", ") : []), ...(first ? ["first run"] : why)])].join(", ");
   // Every endpoint's answer is kept: the last one alone hid what the first
   // said when both refused.
   const last = { at: nowIso, ok: false, status: null, urls: urls.length, why: reason, attempts: [] };

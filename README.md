@@ -113,7 +113,11 @@ the Anthropic connector-directory submission packet is
 
 ## Stack
 
-- **Cloudflare Workers** (ES modules) + **Workers KV** for the cached forecast.
+- **Cloudflare Workers** (ES modules) + **Workers KV** for the latest copy of
+  each feed, and **D1** (`crosby-record`) for the record: NWS events since
+  2005 (archive) and as received, NOAA gauge crests, the site's daily gauge
+  readings, pollen counts, daily air quality, burn-ban periods, and aggregate
+  page counts. Schema in `migrations/`, applied by CI before each deploy.
 - **Workers static assets** for the binary files only — the PNG app icons,
   `favicon.ico` and the link-preview image in `public/`, drawn by
   `scripts/build-icons.mjs`.
@@ -126,8 +130,10 @@ the Anthropic connector-directory submission packet is
   slower cadence, the tropical outlook (~1h June–November hurricane season,
   ~24h the rest of the year), the pollen count (weekday mornings only, once
   that day's count posts), the burn-ban status (~4h) and the school calendar
-  (~24h). Local news is the exception: it is written out-of-band, because
-  Google News blocks Worker IPs.
+  (~24h). Each tick then files what it saw in D1 and reads the Houston office's
+  river flood products for warnings at the tracked gauges. Pages whose state
+  changed are submitted to IndexNow. Local news is the exception: it is written
+  out-of-band, because Google News blocks Worker IPs.
 - Data: U.S. National Weather Service (public domain), NOAA NWPS and NHC,
   EPA (UV), EPA/AirNow (measured air quality, Open-Meteo modeled fallback),
   the Houston Health Department (pollen & mold), the Texas A&M Forest Service
@@ -141,6 +147,12 @@ npm install
 npx wrangler dev      # run locally
 npx wrangler deploy   # deploy (CI also deploys on push to main)
 ```
+
+Checks (all pure Node, no network): `node --check` over `src/`, then every
+`scripts/test-*.mjs` and `scripts/check-*.mjs` step in
+`.github/workflows/deploy.yml`, then `npx wrangler deploy --dry-run`. The tests
+run the real Worker against `scripts/fixtures/kv/` and an in-memory SQLite copy
+of D1 with the migrations applied.
 
 ## License
 

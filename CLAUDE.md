@@ -1,557 +1,226 @@
 # crosbynews.com — Cloudflare Worker
 
-## Working with this repo
-- This is a **live, complete, self-maintaining** production site. Make targeted
-  changes only — don't rebuild it.
-- After deploying, verify against the live site with `curl` (deploys land in
-  ~10–40s) — check the headers/routes you touched. **Sample more than once:** a
-  new Worker version reaches Cloudflare's edges over a minute or two, so a single
-  curl can return the OLD page from a colo that has not rolled over yet
-  (`CLAUDE_NOTES.md` has the full propagation gotcha + sampling script).
-- **Keep this file current:** when you change a route, a behavior, or an
-  invariant that lives outside the Worker, update CLAUDE.md in the same PR.
-- **Where state lives, by kind:** `docs/pages/<page>.md` (one file per content
-  page — handler, content, data source, canonical URL, sitemap presence, meta,
-  CSP) and `docs/endpoints/` (same, for non-page routes) — **a PR that changes
-  any of that MUST update the matching file in the same PR.** `docs/ops/<topic>.md`
-  is the same rule for cross-cutting operational config that isn't a page or
-  endpoint (CI, GitHub settings, domain/DNS, MCP registry, email auth, news
-  pipeline). All three record **current expected state**, not history —
-  overwrite them, don't append. Dated write-ups go in `docs/audit/` or
-  `docs/investigations/` instead, and are never edited in place.
-  `CLAUDE_NOTES.md` (repo root) is a current-state catch-all for anything that
-  doesn't fit those categories. `docs/README.md` explains the full split.
+A live production site for Crosby, Texas: current conditions and forecasts,
+and a dated **record** of the town's weather, floods, burn bans and school
+dates, with the live pages as its newest entry. One Worker serves every page
+in English and Mexican Spanish, a JSON API, an MCP server and RSS feeds.
 
-## Agent operating notes (process, not site mechanics)
-Not about the Worker's behavior — about working this repo session-to-session
-as a coding agent. A human reading for site behavior can skip this section.
-Narrower tooling trivia (exact `gh` install steps, curl/JSON gotchas) lives in
-`CLAUDE_NOTES.md`, not here — this keeps only the rules that apply regardless
-of tooling specifics.
+This file holds the invariants an agent would otherwise break. Detail lives in
+`docs/`: `docs/pages/<page>.md` (one per content page), `docs/endpoints/`
+(non-page routes) and `docs/ops/<topic>.md` (cross-cutting config) record
+**current expected state** — overwrite them in the same PR as the change they
+describe. Dated write-ups go in `docs/audit/` or `docs/investigations/` and are
+never edited. `CLAUDE_NOTES.md` holds tooling trivia. `docs/README.md` explains
+the split.
 
-- **`TaskList`/`TaskCreate` do NOT persist across sessions.** **The persistent
-  backlog is GitHub Issues** — queryable/writable via `mcp__github__*`
-  (`list_issues`, `issue_write`, …). Prefer filing backlog items as Issues
-  (labeled `backlog`) over encoding them into a trigger prompt or CLAUDE.md.
-- **Verify a new external upstream before writing any feature code against
-  it.** A sandbox/container `curl` succeeding is not sufficient proof — Google
-  News answers fine from a container but 503s the deployed Worker's IPs (why
-  the news pipeline runs out-of-band; see `docs/ops/news-pipeline.md`). Pattern
-  used for NHC/EPA/Open-Meteo: add a temporary `/debug-<name>-canary` route,
-  `npx wrangler deploy` it for real (not `wrangler dev` — must be the actual
-  edge runtime + egress IPs), curl the live URL for a real 200 + body, then
-  `git restore` and redeploy clean before building on it.
-- **A check that reuses the code under test cannot falsify it.** A 2026-08-05
-  audit wrongly concluded HHD had stopped publishing pollen counts because it
-  probed for "missing" days by GENERATING candidate URLs from the same date
-  pattern the parser uses — inheriting the exact bug it existed to find. When
-  checking whether a parser is missing data, **extract what the upstream
-  actually serves with a deliberately looser pattern and diff against our
-  parse** — never re-derive the expected input from our own logic.
-- **`AskUserQuestion` can fail silently in automated/routine-driven sessions**
-  (no human available to answer synchronously). When genuinely blocked on a
-  decision only the user can make, don't retry the tool — lay out the
-  tradeoffs in your response text and end the turn.
-- **A backgrounded command's trailing cleanup fires against a file it has
-  never seen.** Mutation-checking a test by editing a source file and restoring
-  it in a trailing `cp /tmp/x.bak src/...` is safe only while the command runs
-  to completion in the foreground. On 2026-08-25 one such check hung on a
-  deliberately pathological ReDoS input, the harness moved it to the
-  background, and it fired its restore minutes later over a file that had since
-  gained two merged PRs' worth of work — reverting 163 lines of
-  `src/features/tropics.js` into an unrelated commit and to production.
-  `git status` was clean because the overwrite landed before `git add -A`, so
-  nothing looked wrong; **the diff stat was the only tell.** Restore from
-  **git**, not a `/tmp` copy (`git checkout -- <file>`), and read
-  `git show --stat HEAD` before pushing a commit that touched several files.
-- **`.claude/skills/*/SKILL.md` files drift independently of CLAUDE.md** —
-  nothing forces them to be touched when a feature ships (`/kv`'s SKILL.md
-  once went two feature-cycles describing three keys after a fourth shipped).
-  When a change touches something a skill describes, grep the skills
-  directory too, not just this file.
+## Checks, build, deploy
 
-## Claude Code PR workflow (merge autonomy)
-Owner policy (set 2026-07-14): a Claude Code session owns its PR end-to-end
-and does not wait for human approval at any step.
+| | |
+|---|---|
+| Syntax | `find src -name '*.js' -print0 \| xargs -0 -n1 node --check` |
+| Tests | every `node scripts/test-*.mjs` and `node scripts/check-*.mjs` listed in `.github/workflows/deploy.yml` (pure Node, no install, no network) |
+| Build | `npx wrangler deploy --dry-run` |
+| Deploy | CI deploys on push to `main` (D1 migrations first). By hand: `npx wrangler deploy` |
+| Live check | `/verify-site` (reads the page list from the live `/sitemap.xml`) |
 
-- **One independent change per PR**, verified live before the next one starts,
-  rather than batching several features into one.
-- **Audit findings are the exception (owner policy, set 2026-08-26): fold a
-  whole audit's findings into ONE PR, two at the most.** A site audit yields a
-  spread of small doc corrections and one or two real fixes; opening a PR per
-  finding is the wrong unit of review for them. This applies to non-critical
-  findings — anything critical still ships on its own, immediately.
-- **Implement, then verify for real** — `node --check` and the dry-run build
-  must pass, and the change itself gets exercised (live `curl` after a deploy,
-  `wrangler dev`, or a committed test script), not just syntax-checked.
-- **Document in the same PR** — update CLAUDE.md, the relevant `docs/`
-  state file, and any `.claude/skills/` file the change makes stale.
-- **Squash-merge to `main` yourself** once correctness and doc-currency are
-  verified; no additional approval required. The merge gates are the required
-  `Syntax check` **and `Build check (dry-run)`** jobs, and the branch must be up
-  to date with `main` first (`strict` is on — see `docs/ops/ci-cd.md`).
-- **Post-merge, verify the deploy** — confirm CI's deploy job landed, then run
-  `/verify-site` (it already encodes the full live-site checklist: routes →
-  200, one-hop canonicalization, security headers, markdown negotiation,
-  unknown-path 404 — don't re-derive those checks ad hoc). Report status
-  plainly: Worker live, routes answering, KV readable.
-- **Branch cleanup now happens on its own.** "Automatically delete head
-  branches" is **ON**, so a squash-merge deletes its own head branch. A
-  session still **cannot** delete a branch or write repo settings itself —
-  the cloud git proxy and GitHub API both 403 those paths — so don't retry
-  those writes; the auto-delete setting is what does the work.
-- **Merge method is squash by *convention*, not enforced.** All three methods
-  remain enabled on the repo, so nothing stops a stray merge commit. Always
-  choose squash when merging (see `docs/ops/ci-cd.md` for the branch-divergence
-  gotcha this creates).
+- **Two required checks: "Syntax check" and "Build check (dry-run)".** Never
+  rename either job: branch protection keys on the names. `strict` is on, so a
+  PR must be up to date with `main`. Details: `docs/ops/ci-cd.md`.
+- Tokens: `CLOUDFLARE_API_TOKEN` (deploy, D1, KV) or `CLOUDFLARE_ZONE_API_TOKEN`,
+  paired with `CLOUDFLARE_ACCOUNT_ID`. Never `wrangler login`. A permission
+  error after adding a new binding means the token lacks it: say so, a session
+  cannot widen it.
+- `compatibility_date` may only be raised, never guessed.
+- `wrangler kv …` defaults to local state: always pass `--remote`. Local KV
+  persists in `.wrangler/state`; `rm -rf` it for a cold start.
+- A new Worker version reaches every edge over 1–2 minutes: **sample a live
+  check several times** before calling it either way.
 
-## Repo skills (.claude/)
-Committed Claude Code skills live under `.claude/skills/<name>/SKILL.md` — the
-directory name becomes the `/command`. Current skills:
-- `/verify-site` — curl health-check of the live deploy: every content page
-  listed in the live `/sitemap.xml` (generated from the registry), in **both
-  languages**, returns 200 and is substantive, plus security headers,
-  one-hop canonicalization, markdown negotiation, unknown-path 404. Read-only.
-  The both-languages sweep matters — roughly half the render branches never
-  execute under `lang="en"`, and an English-only pass let `/es/hourly` sit 502
-  in production for two deploys.
-- `/deploy` — syntax-check every file under `src/`, surface branch/working-tree
-  state, `npx wrangler deploy`, then verify the live site.
-- `/kv` — inspect/edit the production `WEATHER` KV namespace, always with
-  `--remote` (the KV gotcha below). Knows all nine content keys; read commands
-  are pre-authorized, put/delete are not.
+## Working method
 
-## Deploy
-- Deploy with `npx wrangler deploy`. Never run `wrangler login`.
-- **Use `CLOUDFLARE_ZONE_API_TOKEN` for anything scoped to this Worker/domain** —
-  deploy, KV, and any future D1/R2/Queues bindings. Pair it with
-  `CLOUDFLARE_ACCOUNT_ID`, **not a zone id**: wrangler has no
-  `CLOUDFLARE_ZONE_ID` concept. Reach for the plain `CLOUDFLARE_API_TOKEN`
-  (account-scoped, narrower) only for genuinely account-level work. Both are
-  set in the cloud environment.
-- This repo is the source of truth. Cloud sessions deploy from committed code,
-  so commit before expecting a deploy to reflect a change.
-- If a deploy fails with an auth/permission error right after you add a new
-  binding (D1, Queues, Vectorize, etc.) even with `CLOUDFLARE_ZONE_API_TOKEN`,
-  it's a genuinely missing permission on that token — widening it requires the
-  Cloudflare dashboard, which a session can't do itself, so say so rather than
-  retrying blind.
+- **One change per PR**, verified live before the next. A whole audit's
+  non-critical findings go in one PR (two at most). Squash-merge yourself once
+  both checks pass; the head branch auto-deletes. Squash is convention, not
+  enforced. After a merge: `git fetch origin main && git checkout -B <branch> origin/main`.
+- **Document in the same PR**: the matching `docs/` file, this file if an
+  invariant changed, and any `.claude/skills/*/SKILL.md` the change makes
+  stale (skills drift silently; grep them).
+- **Mutation-test every new check**: commit first, break the code, confirm the
+  test fails, restore with `git checkout -- <file>`. Never restore from a /tmp
+  copy, and never mutate uncommitted work (a restore from git discards it).
+  Read `git show --stat HEAD` before pushing a multi-file commit.
+- **A check that reuses the code under test cannot falsify it.** Assert literal
+  values written out by hand; to test a parser, extract from the upstream with a
+  looser pattern and diff.
+- **Verify a new upstream from the deployed Worker before building on it**: a
+  temporary `/debug-<name>-canary` route, `npx wrangler deploy`, curl it live,
+  then restore from git and redeploy. A container curl proves nothing (Google
+  News answers containers and refuses Worker IPs).
+- **The persistent backlog is GitHub Issues** (label `backlog`); session task
+  lists do not persist. `AskUserQuestion` can fail silently in automated
+  sessions: lay out the decision in text instead of retrying.
+- Live verification uses a bot User-Agent, e.g.
+  `Mozilla/5.0 (compatible; CrosbyNewsVerifyBot/1.0; +https://crosbynews.com/)`,
+  so it is not counted as browser traffic.
 
-## CI / GitHub Actions
-Full detail — job breakdown, wrangler-action pin reasoning, branch-protection
-ruleset contents — lives in `docs/ops/ci-cd.md`. The facts an agent must not
-violate:
-- `.github/workflows/deploy.yml` has two required checks: **"Syntax check"**
-  (covers every file under `src/` via `node --check`, plus the cross-module-
-  reference and both-language renderer checks, and the unit gates such as
-  `Check app icons`) and **"Build check (dry-run)"**
-  (`npm ci` + `wrangler deploy --dry-run`). **Don't rename either job** —
-  branch protection keys on the exact names.
-- `strict_required_status_checks_policy` is on: a PR must be up to date with
-  `main` before it can merge.
-- `compatibility_date` can only safely be RAISED, never guessed — a raise is
-  the one change worth a local `npx wrangler dev` boot check; a `wrangler`
-  version bump only raises the ceiling, never violates it.
-- The deploy job runs on push to `main` only, guarded by
-  `concurrency: { group: deploy-production, cancel-in-progress: false }` so
-  concurrent squash-merges deploy in order.
-- After a squash-merge, never keep committing on the same branch without
-  reconciling first — `git fetch origin main && git merge -X ours origin/main`
-  before opening the next PR from a long-lived feature branch.
-- A **second workflow**, `.github/workflows/claude.yml`, runs the `@claude`
-  assistant (`anthropics/claude-code-action@v1`, auth via the
-  `CLAUDE_CODE_OAUTH_TOKEN` repo secret — unrelated to the Cloudflare
-  tokens). Runs on a GitHub-hosted runner, **not** through the Claude Code
-  session's GitHub proxy — none of the GraphQL/repo-scoping/credential-
-  substitution restrictions in `docs/ops/github-security.md` apply to it.
-  Deliberately unconstrained on tools: bare `Bash`, no turn cap.
-  **`allowed_bots` is `"github-actions[bot]"` and nothing else — never
-  `"*"`**, which would hand any bot on this public repo full shell access.
-  A cloud session's comments do NOT need it and never did: they trigger as
-  `reloru` (the bot badge in the UI is `performed_via_github_app`, not the
-  actor). The single entry exists only so `pollen-watch.yml`'s issue can
-  reach Claude.
-  **The loop guard is now the SHAPE of the allowed path, not the absence of
-  the entry.** The job `if:` admits a bot only on `issues` + `opened` +
-  the `pollen-watch` label; Claude answers by commenting, so its replies —
-  under `claude[bot]` or under the `github.token` fallback's
-  `github-actions[bot]` — can never satisfy it. `if:` and `allowed_bots`
-  are a pair: change both or the path is dead. It cannot push to `main` —
-  the ruleset is the backstop, not the token scope.
-- A **third workflow**, `.github/workflows/pollen-watch.yml`, runs weekdays at
-  17:00 UTC and files a `pollen-watch`-labelled issue when HHD's index
-  advertises a pollen count newer than `/api/pollen` serves. Not a staleness
-  alarm — it compares HHD's human-readable link text against our slug-derived
-  `countDate`, so weekends and City of Houston holidays can't trigger it. See
-  `docs/pages/pollen.md`; the comparison lives in
-  `.github/scripts/pollen-watch.mjs` and deliberately does **not** import from
-  `src/`. **It matches any `pollen-mold` href anywhere on the index, not just
-  under `/services/pollen-mold/`** — scoping it to the section was a shared blind
-  spot with the selector it exists to falsify, and HHD does publish pollen pages
-  at the root (found 2026-09-17). **It excludes "projected" entries**, which is
-  what makes that wider scope safe: HHD's projected counts carry an NAB category
-  with no grains/m³ number, `/pollen` is measured-only (`measured: true`), and a
-  projection dated ahead of the newest measured count would otherwise report a
-  missed count every time. **The issue mentions `@claude` and self-escalates** (2026-09-09): it
-  posts as `github-actions[bot]`, which `claude.yml` admits on exactly that one
-  event shape — see the `allowed_bots` note above. So a missed count opens an
-  issue *and* puts Claude on it without waiting for a human.
-  **The label is load-bearing, not cosmetic.** `claude.yml`'s `if:` keys on
-  `pollen-watch` being present at creation, so `gh issue create --label` must
-  set it in the create call (a label added afterwards fires `labeled`, which the
-  guard excludes). Renaming the label silently kills the escalation — grep
-  `claude.yml` before touching it.
+## Layout
 
-## GitHub security settings
-Full detail — on/off inventory, the three-way 403 taxonomy, why the toggles
-can't be flipped from a session — lives in `docs/ops/github-security.md`. The
-short version: **nothing in `package.json` ships to production** (the deployed
-artifact is the esbuild bundle rooted at `src/index.js`; a Dependabot alert
-here is not a live-site vulnerability), so the real threat model is
-supply-chain compromise of the deploy token, not a runtime CVE. Dependabot
-alerts/security-updates, CodeQL default setup, and secret scanning are on;
-`vulnerability-alerts`/`automated-security-fixes`/private-vulnerability-reporting
-toggles are dashboard-only for this session (egress-proxy + GitHub App
-permission limits, not a token problem — don't retry with a different token).
+- `src/index.js` — entry: `fetch` (dispatch, then security headers and the
+  canonical `Link` header) and `scheduled`. Thin by design.
+- `src/router.js` — the route table, `PAGE_HANDLERS`, `servePage()`, the JSON
+  `API_ROUTES`. `src/registry.js` — **the one list of pages and endpoints**.
+  `src/cron.js` — the 15-minute cron. `src/record.js` — D1 writers.
+- `src/features/` — one slice per data source (fetch, loader, renderers, API
+  shape); `src/pages/` — static pages; `src/lib/`, `src/mcp/`, `src/api/`.
+- `src/assets/` — inline client assets as template literals whose escapes
+  belong to the **shipped** string. Edit content, never framing; verify bytes,
+  not syntax (the CSP publishes SHA-256s of `HOME_SCRIPT`, `PUSH_CLIENT_SCRIPT`
+  and `NEWS_ADMIN_SCRIPT`; `/sw.js` is `SW_SCRIPT` verbatim).
+- `public/` — binary icons and the `og:image`, written by
+  `node scripts/build-icons.mjs` (never hand-edit; `test-icons` checks). Served
+  by Workers static assets with `run_worker_first: true`. **No icon is an SVG.**
+- `migrations/` — D1 schema, **additive only**, applied by the deploy job.
+- No framework, no runtime dependencies: `fetch`, KV, D1, static assets.
 
-## Domain
-Full detail — subdomain/preview settings, HSTS layering — lives in
-`docs/ops/domain.md`. The one invariant that matters day-to-day: hard
-canonicalization runs via a single Cloudflare Redirect rule
-(`(http.host eq "www.crosbynews.com") or (not ssl and http.host eq "crosbynews.com")`
-→ `https://crosbynews.com` + path, 301, one hop). It lives in the
-zone/dashboard, not `wrangler.jsonc` or `fetch()` — don't try to reproduce it
-in the Worker. The one exception is the trailing slash: `routeRequest()`
-(`src/router.js`) 301s any path ending in `/` to its slash-less form (query
-kept), so `/weather/` → `/weather`.
-Both clauses are host-scoped because the zone also serves subdomains that are
-not this Worker; "Always Use HTTPS" upgrades those on their own host, so it
-must stay ON. A bare `(not ssl)` (the rule's form until 2026-11-09) sends them
-to the apex — see `docs/ops/domain.md`.
+## Pages and routes
 
-**HSTS is not preloaded, by decision (2026-11-09).** The zone's HSTS copy is
-the one browsers get; neither it nor the Worker's fallback line carries
-`preload`, because hstspreload.org treats that word as a standing request for
-inclusion that anyone may submit. Switching zone Preload on or submitting to
-hstspreload.org is an owner decision, never a session's — reasons in
-`docs/ops/cloudflare-zone.md`.
+- **Adding a page:** one `PAGES` entry in `src/registry.js`, a handler in
+  `PAGE_HANDLERS` (the router throws at load if the two disagree), a renderer
+  whose `<head>` calls `sharedHead(lang)`, and `docs/pages/<page>.md`. Nav,
+  footer, `/sitemap.xml`, `/sitemap`, llms.txt and the canonical set follow
+  from the registry. Gauge pages are `PAGES` entries with a `gauge:` field and
+  share one handler.
+- **Adding a public endpoint:** the route, an `ENDPOINTS` entry,
+  `openApiSpec()`, `apiCatalog()`, `README.md`, `/developers`,
+  `docs/endpoints/…`. `test-routes` cross-checks the specs.
+- **`/es` is one handler set with a `lang` flag**, not a second site. A Spanish
+  page links only Spanish pages (`test-routes` enforces; exceptions in
+  `ES_LINK_ALLOW`). API, MCP, assets and `.well-known` are English-only;
+  `/es/mcp` is a human explainer and 404s a POST.
+- **Never machine-translate third-party text.** Short NWS phrases, period
+  names, directions, pollen categories, NHC classes, school titles and NWS
+  product names go through hand-written dictionaries with English fallback.
+  NWS forecast prose, alert text and NOAA impact statements stay in English.
+- **Never render `hourly[0]` as "now"**: `currentHourly(data)` picks the period
+  covering the clock.
+- Every content page is Markdown-negotiated (`Accept: text/markdown` or
+  `?format=md`, `Vary: Accept`) from the same content as its HTML.
+- Pages are GET/HEAD only (405 otherwise); unknown paths 404; a trailing slash
+  301s to the slash-less path. Hard canonicalization (www → apex, http → https)
+  is one Cloudflare Redirect rule in the zone, not the Worker
+  (`docs/ops/domain.md`).
 
-## Conventions
-- Plain Workers, ES modules (`export default { fetch, scheduled }`). No
-  framework and no runtime dependencies — standard `fetch`, Workers KV, D1 and
-  the static-assets binding only.
-- Layout: `src/index.js` is the entry point Wrangler resolves via `wrangler.jsonc`'s
-  `main`. It is deliberately thin (~50 lines): the two Worker handlers plus the
-  response wrapper. **The route table is `src/router.js`**, **the list of pages is
-  `src/registry.js`**, and **the cron is `src/cron.js`**; everything else lives in `src/features/` (one vertical slice
-  per data source: fetch + loader + renderers + API shape together),
-  `src/pages/` (the static pages), `src/lib/` (format, derived math, http),
-  `src/mcp/`, `src/api/`, plus `config.js`, `i18n.js`, `chrome.js`, `seo.js`,
-  `discovery.js`, `push.js`. **`src/assets/`
-  holds the inline client-side assets** (`icons.js`, `sw-script.js`,
-  `base-css.js`, `client-scripts.js`, plus the generated
-  `apple-touch-icon.js`) — template literals whose escape sequences
-  belong to the *shipped* string, not to the source file. Move or edit their
-  content, never their framing: reformatting silently ships broken client JS
-  that `node --check` cannot see, because to the Worker it is all just a string.
-  When touching them, verify the bytes, not the syntax — the CSP header
-  publishes the SHA-256 of `HOME_SCRIPT`, `PUSH_CLIENT_SCRIPT` and
-  `NEWS_ADMIN_SCRIPT`, and `/sw.js` is `SW_SCRIPT` verbatim, so a before/after
-  digest comparison against the live site is a complete check.
-- Security headers: the `fetch` wrapper stamps every response with HSTS,
-  `X-Frame-Options: SAMEORIGIN`, CSP (homepage inline script allow-listed by
-  hash — see `contentSecurityPolicy()`), `Cross-Origin-Opener-Policy`,
-  `X-Content-Type-Options: nosniff`,
-  `Referrer-Policy: strict-origin-when-cross-origin`, and a `Permissions-Policy`
-  denying geolocation/camera/microphone and opting out of the Topics API.
-- Content: live data from the U.S. National Weather Service (api.weather.gov)
-  for Crosby, TX (lat 29.9119, lon -95.0608). NWS requires a `User-Agent` on
-  every request — we send "crosbynews.com". Feature-specific data-source detail
-  (UV, AQI, derived "feels like"/sun-times math, the pollen HTML-scrape
-  fragility) lives in each feature's `docs/pages/<page>.md` — see `/weather.md`,
-  `/air.md`, `/pollen.md` — not duplicated here.
-- Caching: the cron (`*/15 * * * *`) writes the forecast + active alerts to the
-  WEATHER KV namespace under key "weather" as JSON, and refreshes seven other
-  keys on various cadences (see `## KV gotcha` below and `/kv`'s SKILL.md for
-  the full list and throttle intervals). `fetch()` serves the cache and falls
-  back to a live fetch + warm on a cold cache.
-- Styling: an inline `<style>` block in the rendered HTML — no build step.
-  **Three blue tokens, and they are not interchangeable:**
-  `--accent` is **decoration only** (gradients, badge fills, large display
-  numerals) — it measures 3.6–4.3:1 on the four surfaces, below WCAG AA, so it
-  must never carry body text; `--link` is coloured text and flips per theme;
-  `--btn` is a surface under white text and deliberately does **not** flip (a
-  light `--btn` would fail its own label). `main a` in `BASE_CSS` colours every
-  in-content link, so an anchor needs a rule only to opt *out* (`.hub-cta`,
-  `.alert-banner`). `scripts/test-contrast.mjs` enforces all of this in CI as
-  **"Check colour contrast"** — it measures the real tokens out of `BASE_CSS`
-  and fails on any new `color:var(--accent)`.
-  **Coloured fills under white text** (status banners, the AQI hero, the
-  gauge/fishing/hub badges, the burn-ban banner, the two blue heroes) must
-  clear 4.5:1 at **every gradient stop**, because each carries normal-size text
-  that sits over the light end. The same test measures them straight from the
-  feature files: any rule with `color:#fff` and a hard-coded background, plus
-  the modifier rules listed in its `MODIFIERS` table. The blue heroes run
-  `--blue` → `--btn`, not `--accent`, for this reason. Badge bases use fixed
-  `#5b6470`, not `var(--muted)`, which turns light gray in dark mode.
-- Chrome: `topbar(current, lang)` renders the site header, with a
-  visually-hidden skip-to-content link (`.skip-link`) targeting
-  `<main id="main">` on every page. ≤920px collapses nav into a CSS-only
-  hamburger (native `<details>`, no JS); one markup serves both layouts via
-  `display:none`. **Invariant:** desktop relies on
-  `.nav-menu::details-content { content-visibility: visible }` to keep the
-  links inline — Chromium hides closed-`<details>` content otherwise
-  (`display:contents` does NOT override it), so removing that rule makes the
-  desktop nav disappear except brand + Español. `footer({ page, lang, source,
-  data })` renders a shared footer with source attribution and a links row;
-  weather pages also show an alert-status + freshness line.
-- SEO/structured data: every HTML page emits schema.org JSON-LD (`JSONLD_SITE`
-  sitewide plus per-page nodes). Kept deliberately honest — no schema for the
-  forecast (no truthful type exists) and no fake ratings/FAQ.
-- Binary files (the app icons, `favicon.ico`, the `og:image`) live in
-  `public/` and are served through **Workers static assets** — the `ASSETS`
-  binding in `wrangler.jsonc`, with `run_worker_first: true` so every request
-  still reaches the Worker and gets the security headers; the router hands
-  the icon paths (`ICON_ASSET_PATHS` in `src/assets/icons.js`) to
-  `env.ASSETS`. Text stays inline in the Worker as before. `public/` is
-  written by `node scripts/build-icons.mjs` from the art defined in that
-  script — regenerate, never hand-edit; `scripts/test-icons.mjs` fails CI if
-  the files drift from the art. Full detail in `docs/endpoints/app-icons.md`.
-- **No icon anywhere is an SVG** — not the tab icon, the manifest icons, the
-  touch icon or the notification art. iOS Add to Home Screen shows a letter
-  tile when the only icons it can find are SVG, and Chrome's WebAPK install
-  wants raster `any` icons at 192 and 512 plus a separate maskable one.
-- Shared head: `sharedHead(lang)` (`src/seo.js`) emits every tag the pages
-  have in common — viewport, theme-color, `og:site_name`, the absolute
-  `og:image` (512px PNG, with width/height/type/alt), `twitter:card`, the PNG
-  tab icons, the 180px `apple-touch-icon` **inlined as a data URI**, and the
-  manifest link. Every page and the error page call it; per-page tags
-  (charset first, title, description, og:title/description/type/url,
-  canonical, hreflang, JSON-LD) stay in the page. `/news?admin=` calls it
-  with `{ manifest: false }` and keeps the touch icon — see
-  `docs/pages/news.md`.
+## Data: the cache and the record
 
-## Pages & routes — where the per-page state lives
+- **KV holds now.** The cron writes one key per feed; `load*()` cold-warms a
+  missing or stale-shaped entry; a fetcher throws rather than store a partial
+  snapshot, so an outage keeps the last good data. Keys, owners and cadence:
+  `/kv`'s SKILL.md. `news` is written out-of-band by a routine
+  (`docs/ops/news-pipeline.md`: Google News blocks Worker IPs).
+- **D1 `crosby-record` (`env.DB`) holds everything after.** `src/record.js`
+  files each tick's observations with idempotent upserts, after the cache
+  writes and isolated from them (`record.ok` on `/api/health`). Two rules:
+  **record only what a source published or the site observed**, and **print
+  the limits wherever the data is shown**. Tables, scopes, the archive
+  backfill and hand-entered rows: `docs/ops/record.md`.
+- Pages built on D1 (`/history`, the gauge pages `/water/<gauge>`) compute every
+  count at request time and answer 502 on a D1 failure rather than render a
+  page with its history missing. `/burn-ban`'s past-bans table is the
+  exception: the page is live status first, so a D1 failure drops only the
+  table.
+- Crests are compared only with **today's** flood stages, and the page says so;
+  old-datum crests are never compared; a crest NOAA dates without a time stays
+  a calendar date.
+- River flood warnings are filed live from NWS's own flood products: the
+  hydrologic VTEC line names the gauge's NWS LID, which the alert API does
+  not carry. Before 2026-11-12 they come from the IEM archive.
+- Hand-entered rows (past burn bans) go through a committed script that
+  dry-runs by default (`scripts/seed-burnban-periods.mjs`) and must have every
+  date sourced; an open row would be closed by the cron.
+- Tests run the real Worker against `scripts/fixtures/kv/` and a real SQLite
+  D1 with the migrations applied (`scripts/lib/harness.mjs`, `d1-stub.mjs`).
+  Query production with
+  `npx wrangler d1 execute crosby-record --remote --command "SELECT …"`.
 
-Per-page and per-endpoint state — content blocks and the data feeding each,
-canonical URL, sitemap presence, meta and CSP expectations, locale handling —
-lives in `docs/pages/` (one file per content page) and `docs/endpoints/` (one
-file per non-page route). Start there rather than here; this file keeps only the
-invariants that cut across pages.
+## Search and freshness
 
-- **`/es` is not a second page set.** `lang` is a parameter threaded through the
-  render functions, and `routeRequest()` (`src/router.js`) strips the prefix before dispatch
-  (`page = path.slice(3)`, with `/es` and `/es/` both normalizing to `/`), so one
-  set of handlers serves both languages and they cannot drift. Non-page routes
-  (API, MCP protocol, assets, `.well-known`) are English-only and never carry the
-  prefix. The one exception is `/es/mcp`, a Spanish HUMAN explainer page —
-  GET/HEAD only, a POST there 404s; the protocol lives only at `/mcp`.
-  **A Spanish page must link to Spanish pages.** `scripts/test-routes.mjs`
-  enforces it: any anchor on an `/es` page pointing at a path in `PAGE_PATHS`
-  must use the `/es` form. The language toggle is exempt (identified by
-  `hreflang="en-US"`), and deliberate exceptions live in that script's
-  `ES_LINK_ALLOW`.
-- **Live third-party text is never machine-translated.** Short NWS conditions,
-  period names, wind and directions go through hand-written dictionaries
-  (`ES_SHORT`, `ES_PERIOD`, `ES_WEEKDAY`, `ES_DIR`); the same pattern covers
-  pollen categories, traffic types, NHC classifications, and Crosby ISD event
-  titles, each with an English fallback. **Free-form NWS `detailedForecast`
-  prose and ALL alert text stay in official English** (`ES_NWS_NOTE` says so on
-  the page). NWS exposes no Spanish forecast/alert API and paused its
-  experimental auto-translation in 2025; mistranslating a warning is unsafe.
-- **Never render `hourly[0]` as "now".** NWS's `forecastHourly` first period is
-  the product's generation hour and can lag the wall clock by 1h+ even with a
-  fresh cache. `currentHourly(data)` picks the period covering `Date.now()` and
-  feeds both heroes, both markdowns, `/api/weather` `current`, and the MCP
-  tools. Freshness labels show `data.updated` — when WE refreshed — never a
-  period start time.
-- **Every content page is markdown-negotiated**: `Accept: text/markdown` or
-  `?format=md`, with `Vary: Accept`. HTML and Markdown render from one content
-  object per page so they can't drift.
-- **The cron + KV pattern** backs every live-data page: the cron writes a KV key,
-  `load*()` cold-warms on a missing or stale-shaped entry, and the fetcher throws
-  rather than writing a partial snapshot — so an upstream outage keeps the last
-  good data instead of wiping it. Key ownership and cadence are in `/kv`'s SKILL.md
-  and in each page's file.
-- **Canonical `Link` headers** are added centrally in the `fetch` wrapper from
-  `PAGE_PATHS` (derived from `src/registry.js`: every English content path +
-  its `/es` counterpart), so `?format=md` variants consolidate onto one URL. `/mcp` and
-  `/es/mcp` are in that set, and in `sitemapXml()`. `PAGE_PATHS` matches on
-  pathname, not method, so a `POST /mcp` JSON-RPC response also carries the
-  canonical `Link` header — inert for MCP clients.
-- **`src/registry.js` is the one list of pages and public endpoints.** The
-  canonical path set, the header nav, the footer links, `/sitemap.xml`, the
-  page and endpoint lists in `/llms.txt`, and the `/sitemap` page are all
-  generated from it. **Adding a page** is: one `PAGES` entry, one handler in
-  `PAGE_HANDLERS` (`src/router.js` — the module throws at load if the two
-  disagree), the renderer whose `<head>` calls `sharedHead(lang)`, and a new
-  `docs/pages/<page>.md`. **Adding a public endpoint** is: the route, one
-  `ENDPOINTS` entry, `openApiSpec()`, `apiCatalog()`, `README.md`,
-  `/developers`, and `docs/endpoints/…`. `scripts/test-routes.mjs` ("Check
-  routes" in CI) requests every registered page through the real Worker in
-  both languages and fails on a page that is registered but not served, an
-  `/api/*` endpoint missing from either spec, or a Spanish page linking to an
-  English one.
+- **No relative times anywhere.** Stamps go through `dateStamp()`,
+  `clockStamp()` or `timeTag()` and carry `<time datetime>`: an ISO instant
+  for a stamp, a bare date for something that is a date.
+- **`data-nosnippet` on what goes stale within hours** (temperatures,
+  readings, active alerts, live status), never on a guide or the record.
+  Descriptions are 50–160 characters with no live value. `test-freshness`
+  enforces both.
+- ETags are a digest of the bytes; `Last-Modified` and sitemap `<lastmod>`
+  exist only where a real instant does (registry `feeds`, or a handler's
+  `lastmod(env)`).
+- **IndexNow fires on state changes only** (a category, a ban, an alert, a new
+  crest or record row), plus once for any page never submitted. A new stateful
+  page needs a signal in `src/indexnow.js`. Both endpoints currently answer the
+  Worker's shared egress with 429 (`attempts` on `/api/health`); retries are
+  hourly and bounded. `docs/ops/search.md`.
 
-## News pipeline (runs OUTSIDE the Worker)
-Full filter-logic detail (relevance gates, dedup, crime-family capping) and
-the fire-on-demand curl command live in `docs/ops/news-pipeline.md`. Short
-version: Google News RSS has the only real Crosby coverage but blocks Worker
-datacenter IPs, so `scripts/fetch-news.mjs` runs out-of-band on a Claude
-routine and writes straight to the WEATHER KV `news` key. The Worker only
-reads it (`loadNews()` is read-only, no cron involvement). A Workers AI layer
-(`scripts/news-ai.mjs`: clef vetoes non-stories/wrong places and rescues context-less
-Crosby/nearby-town headlines on a higher bar; clairic reads announced-event dates)
-sits on top of the regex gates; it only ever falls back to the regex result, never
-aborts the run. `NEWS_AI=0` turns it off; `node scripts/test-news-ai.mjs` pins it.
+## Look and markup
 
-## Analytics — no browser script; aggregate server-side counts
-**No analytics script ships, and the CSP allows no third-party script origin at
-all.** The server keeps two sets of aggregate totals and nothing that identifies
-a visitor: page requests (`src/metrics.js` → D1 table `hits`, owner decision
-2026-11-11) and MCP protocol calls (`src/mcp/metrics.js` → KV). Page totals are
-keyed by day, registered path, an agent label, a referrer *category* and the
-status; IP addresses, user-agent strings, referring URLs, search terms and
-query strings are never stored. Read them with
-`curl -s 'https://crosbynews.com/api/site-usage?key=<ADMIN_KEY>&format=txt'`.
-**`/privacy`'s "Analytics and page counts" section is a claim about that table,
-in both languages** — `scripts/test-site-metrics.mjs` fails if an address, a
-user agent, a search term or a raw path can be read back from it, or if the
-table's columns change. Change the code and the text together. Two older traps
-in `docs/ops/analytics.md`: Cloudflare's Web Analytics beacon (deleted
-2026-08-19) was **invisible to a default-UA `curl`**, and `/privacy` + `/about`
-state "no third-party analytics scripts" — adding any browser-side vendor means
-editing `src/pages/privacy.js`, `src/pages/about.js` and
-`contentSecurityPolicy()` together.
+- Inline `<style>` per page on `BASE_CSS`. **Three blues are not
+  interchangeable:** `--accent` is decoration only (fails AA as text), `--link`
+  is coloured text, `--btn` is a surface under white text and does not flip.
+  White text on any fill must clear 4.5:1 at every gradient stop; badge bases
+  use `#5b6470`. `test-contrast` measures the real rules.
+- The flood-category colours are `WATER_STATE_CSS` in `src/features/water.js`,
+  shared by `/water` and the gauge pages.
+- Desktop nav depends on `.nav-menu::details-content { content-visibility: visible }`;
+  removing it hides the desktop links.
+- JSON-LD is kept honest: no forecast schema, no fake ratings or FAQ.
 
-## /methods
-`/methods` (`src/pages/methods.js`) explains every data source and its limits
-in prose, both languages. Changing a data source or method means editing its
-section there too; it deliberately restates no count, list or cadence, so it
-cannot drift from them.
+## Privacy and analytics
 
-## Search — be exact about *when*
-A crawler's copy of a page is days to weeks old by the time it is shown in a
-result, so anything that reads as "now" is wrong by then. `docs/ops/search.md`
-has the full state; the rules that bind a change:
-- **No relative times in a page** ("10 min ago"). Every visible stamp goes
-  through `dateStamp()` / `clockStamp()` / `timeTag()` (`src/lib/format.js`),
-  which wrap it in `<time datetime>`.
-- **`data-nosnippet` goes on what is stale within hours** (temperatures,
-  readings, active alerts, live status panels) and never on a guide. A new
-  live block needs it; `scripts/test-freshness.mjs` fails if a temperature or
-  gauge reading is left quotable. Meta descriptions are 50–160 characters and
-  never carry a live value.
-- **Pages revalidate by content**: `servePage()` sends an ETag that is a digest
-  of the bytes, and a 304 for a match. `Last-Modified` and the sitemap's
-  `<lastmod>` exist only where a real instant does — a page's `feeds` in the
-  registry decide the sitemap date; a static page has none.
-- **IndexNow (`src/indexnow.js`) fires on a state change only** — a ban
-  lifted, an alert issued, a gauge changing category, a new NOAA crest — never
-  because numbers moved, plus once for any page it has not submitted before.
-  Outcome on `/api/health` as `indexNow` (every endpoint's answer in
-  `attempts`). A new stateful page needs a signal there.
+No browser analytics script, and the CSP allows no third-party script origin.
+Aggregate counts only: page requests in D1 `hits` (`src/metrics.js`) and MCP
+calls in KV (`src/mcp/metrics.js`); never an address, user agent, referring
+URL, search term or query string. `/privacy` describes both in both languages,
+and `test-site-metrics` holds the code to it: change the code and the text
+together. Reports: `/api/site-usage` and `/api/mcp-usage` (`?key=<ADMIN_KEY>&format=txt`).
+Audit the edge with a real browser UA and an HTML `Accept` header: Cloudflare
+once injected a tracker a default curl never saw (`docs/ops/cloudflare-zone.md`).
 
-## D1 — the record
-**The KV cache holds *now*; D1 holds everything after it.** `src/record.js`
-files each cron tick's observations (alerts and their VTEC events, each gauge's
-daily summary and NOAA's crest history, the pollen count, the day's peak AQI,
-burn-ban periods) with idempotent upserts, after the cache writes and isolated
-from them — a database failure shows as `record.ok: false` on `/api/health` and
-never costs a page its refresh. **`/history` and the gauge pages (`/water/<gauge>`,
-`src/features/gauge.js`, `docs/pages/water-gauges.md`) render from it** and
-compute every count at request time; a D1 failure there is a 502, never a page with its history missing. Crests are
-compared only with today's flood stages and say so; old-datum crests are never
-compared. River flood warnings for the gauges are filed live from NWS's own
-flood products (`recordRiverWarnings()`: the hydrologic VTEC line names the
-gauge, which the alert API does not), with the IEM archive before 2026-11-12. Tables, scopes, limits and the archive backfill
-(`scripts/backfill-nws-events.mjs`) are in `docs/ops/record.md`. Two rules:
-record only what a source published or the site observed (never infer or fill
-a gap), and state the limits wherever the data is shown (polygon warnings from
-2007-10-01 only; zone products cover whatever the zone covered then).
+## MCP server
 
-`wrangler.jsonc` binds the D1 database `crosby-record` as `env.DB`. Schema lives
-in `migrations/NNNN_name.sql` and is applied by the deploy job before the Worker
-ships; **migrations are additive only** (see `docs/ops/ci-cd.md`). Tests run
-against real SQL: `scripts/lib/d1-stub.mjs` puts Node's built-in SQLite behind
-the D1 client API with the repo's migrations applied, and `createHarness()`
-hands it to the Worker as `env.DB`. Query production with
-`npx wrangler d1 execute crosby-record --remote --command "SELECT …"`.
+- `/mcp` (Streamable HTTP, stateless), published as `com.crosbynews/weather`.
+  **Bump `MCP_SERVER_INFO.version` and `server.json` together** on any
+  tool-set change; publishing to the registry is a separate manual step.
+- Tool names are written by hand in `llmsTxt()`, `CROSBY_WEATHER_SKILL`,
+  `/developers` (both languages) and `README.md`; `test-mcp-server` fails if
+  any is missing one. The record tools (`src/mcp/history-tools.js`) use the
+  same loaders as their pages.
+- Arguments are validated, never clamped (`validateToolArgs()`); no `Origin`
+  check on `/mcp`. Not yet submitted to Anthropic's directory
+  (`docs/ops/anthropic-directory.md`); once listed, material tool changes need
+  a notice.
 
-## Cloudflare zone gotchas
-**Cloudflare can rewrite a response after the Worker returns it, and nothing in
-this repo can see that.** It injected an analytics tracker into every page for
-months while `/privacy` claimed otherwise. Two rules from
-`docs/ops/cloudflare-zone.md`: audit the edge by **bytes with a real browser UA
-and an HTML `Accept` header** (a default-UA `curl` sees nothing — that is what
-hid it), and **never hand-add a TXT record from a Cloudflare DCV-failure email**
-— this zone is a full setup, so Cloudflare places DCV tokens itself at the
-authoritative layer (they resolve without appearing in the DNS record list) and
-rotates them on every failure, so a pasted token is stale junk by the time you
-read it; diagnose from the pack's `validation_errors`, and leave the two existing
-`_acme-challenge` records alone. **Re-read the pack before changing any zone
-setting over a DCV email** — on 2026-09-11 the pack went `active` on its own eight
-minutes after it was last seen failing, and changing the Universal SSL CA (which
-re-issues the pack rather than retuning it) was applied hours later on that stale
-picture. That file records consequences only, not the zone's current security
-posture: this repo is public.
+## Outside the Worker
 
-## DNS-AID, MCP Registry, Email auth
-Three more `docs/ops/` topics, none of which live in the Worker — all lives
-in Cloudflare DNS / external registries:
-- **DNS-AID** (`docs/ops/dns-aid.md`) — SVCB records advertising the site to
-  agent discovery; reproduce with `node scripts/dns-aid.mjs`.
-- **MCP usage** — `POST /mcp` counts its own traffic in aggregate (method, tool,
-  outcome, client name; never addresses, user agents or arguments). Read it with
-  `curl -s 'https://crosbynews.com/api/mcp-usage?key=<ADMIN_KEY>&format=txt'`.
-- **MCP Registry** (`docs/ops/mcp-registry.md`) — the `/mcp` server is
-  published as `com.crosbynews/weather`. **Five hand-maintained places name
-  the tools** — `CROSBY_WEATHER_SKILL`, `llmsTxt()`,
-  `DEVELOPERS`/`DEVELOPERS_ES`'s "MCP server" section, and `README.md` —
-  and `scripts/test-mcp-server.mjs` now fails if any tool name is missing from
-  any of them. The two record tools (`get_flood_history`,
-  `get_warning_history`, `src/mcp/history-tools.js`) read D1 through the same
-  loaders as their pages. (`mcpServerCard()` and the MCP `initialize` instructions
-  derive/don't need updating — see the ops file.) Bump `server.json`'s
-  `version` in the same PR as any tool-set change; publishing is a separate,
-  manual step.
-- **Anthropic connector directory** (`docs/ops/anthropic-directory.md`) — the
-  submission packet: how the server meets each review requirement and every
-  portal field pre-filled. Submitting needs the owner's paid Claude account, not
-  a session. Three things the review checks that are easy to regress: tool
-  arguments are **validated, never clamped** (`validateToolArgs()`, an `isError`
-  result before any KV read); **no `Origin` check on `/mcp`** (a strict one
-  times out Claude's `initialize`); and `/privacy`'s MCP section is a claim
-  about `src/mcp/metrics.js` — change it with the code. Once listed, a material
-  tool or description change means notifying Anthropic (policy 3H).
-- **Email auth** (`docs/ops/email-auth.md`) — mail is iCloud-managed; DMARC
-  (`_dmarc.crosbynews.com`, `p=reject`) is the one record this repo owns,
-  reproducible with `node scripts/dmarc.mjs` (careful: re-running it as-is
-  drops a second `rua` recipient Cloudflare added out-of-band — PATCH the
-  live record instead of re-running the script unmodified).
+- **GitHub workflows:** `deploy.yml` (checks, migrations, deploy);
+  `claude.yml` (`@claude`; `allowed_bots` is exactly `"github-actions[bot]"`,
+  never `"*"`, and its `if:` admits a bot only on an `issues`/`opened` event
+  with the `pollen-watch` label — change the two together);
+  `pollen-watch.yml` (files a `pollen-watch`-labelled issue, label set at
+  creation, when HHD lists a measured count newer than `/api/pollen`). Detail:
+  `docs/ops/ci-cd.md`, `docs/pages/pollen.md`.
+- **Zone:** HSTS is deliberately not preloaded (owner decision). Never paste a
+  TXT record from a Cloudflare DCV email; re-read the certificate pack first.
+  `docs/ops/cloudflare-zone.md`, `docs/ops/domain.md`.
+- **DNS:** DMARC (`node scripts/dmarc.mjs` drops a second `rua` Cloudflare
+  added: PATCH instead), DNS-AID SVCB records (`node scripts/dns-aid.mjs`).
+  `docs/ops/email-auth.md`, `docs/ops/dns-aid.md`.
+- **GitHub security:** nothing in `package.json` ships; the threat model is the
+  deploy token. Several repo toggles are dashboard-only for a session.
+  `docs/ops/github-security.md`.
 
-## KV gotcha
-- `wrangler kv key get/put/list` default to *local* (miniflare) state. To read
-  or write the real production namespace, pass `--remote`. (A get without it can
-  say "Value not found" even when the deployed Worker is reading the key fine.)
-- **Local KV persists across runs** in `.wrangler/state/v3/kv/` (gitignored), so
-  a "fresh" `wrangler dev` is NOT a cold cache — it replays whatever the last
-  local run warmed, however many days ago. `rm -rf .wrangler/state` for a
-  genuinely cold start.
-- The WEATHER namespace holds nine content keys: `weather`, `calendar`, `water`,
-  `fishing`, `tropics`, `pollen`, `traffic`, and `burnban` (all cron-owned) and
-  `news` (routine-owned, Worker-read-only). Full key ownership/cadence table lives in
-  `/kv`'s SKILL.md. The cron also writes `cron_status` every tick (what
-  `/api/health` serves) and the Web Push state (`push_notified`, `push:*`) —
-  don't hand-edit either; deleting `push_notified` would re-notify every
-  active severe warning on the next tick.
-- **`mcp_metrics`** (cron-owned) holds the aggregate `/mcp` usage counts, folded
-  each tick from the transient **`mcpm:*`** shards the request path writes (one
-  per isolate per 10-minute bucket, self-expiring after 6h). Never hand-edit
-  `mcp_metrics`: its `rolledUpThrough` high-water mark is what stops a shard
-  being counted twice, so editing it downward re-folds and double-counts.
-  Served by `/api/mcp-usage`; see `docs/endpoints/api/mcp-usage.md`.
-- The **`news_blocklist`** key is worker-owned (written by the
-  `/api/news/delete` + `/api/news/restore` admin endpoints): articles the
-  owner hid via the `/news?admin=` nuke. Self-prunes entries older than 60
-  days.
+## KV keys an agent must not hand-edit
+
+`cron_status` (what `/api/health` serves), `push_notified` (deleting it
+re-notifies every active severe warning), `mcp_metrics` (its `rolledUpThrough`
+mark prevents double counting), `indexnow_state` and `river_products` (safe to
+delete, never to edit; see `/kv`). `news_blocklist` is written by the
+`/news?admin=` endpoints.
