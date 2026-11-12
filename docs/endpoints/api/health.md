@@ -180,6 +180,11 @@ refresh — so before 2026-11-10 a dead or frozen AQI or UV feed was invisible:
 `weather` kept reporting `ok: true`, and its `dataChangedAt` kept moving
 because the hourly forecast changes every tick.
 
+`uv` also reports `ok: false` while the site is serving EPA's **daily** UV peak
+because the hourly product is down ("EPA's hourly UV product is unavailable …
+showing EPA's daily peak forecast only"). The page has a UV number in that
+state; the row says the primary product does not.
+
 So each gets its own row, defined in `FEEDS` with `part: "aqi"` / `part: "uv"`:
 
 - **`ok`** is set by the cron from the fresh fetch: `false`, with an `error`,

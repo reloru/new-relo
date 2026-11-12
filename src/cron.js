@@ -64,7 +64,8 @@ export async function scheduled(event, env, ctx) {
       run.ok("weather");
       if (airOk) run.ok("air");
       else run.failed("air", "AQI fetch returned nothing (AirNow and Open-Meteo both failed; see Worker logs)");
-      if (uvOk) run.ok("uv");
+      if (uvOk && !data.uv.degraded) run.ok("uv");
+      else if (uvOk) run.failed("uv", `EPA's hourly UV product is unavailable (${data.uv.degraded}); showing EPA's daily peak forecast only`);
       else run.failed("uv", "EPA UV fetch returned nothing (see Worker logs)");
       // After a fresh forecast, wake push subscribers for any NEW severe
       // warning. Independent of the writes below; a push failure is logged and

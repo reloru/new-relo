@@ -22,7 +22,7 @@ import { JSONLD_SITE, sharedHead } from "../seo.js";
 // the previous day's evening hours, so consumers always filter by CT date.
 export const UV_ZIP = "77532"; // Crosby
 export const UV_MONTHS = { JAN: "01", FEB: "02", MAR: "03", APR: "04", MAY: "05", JUN: "06", JUL: "07", AUG: "08", SEP: "09", OCT: "10", NOV: "11", DEC: "12" };
-export async function fetchUv() {
+async function fetchUvHourly() {
   const res = await fetch(`https://data.epa.gov/efservice/getEnvirofactsUVHOURLY/ZIP/${UV_ZIP}/JSON`, {
     headers: { "User-Agent": "crosbynews.com", Accept: "application/json" },
   });
@@ -40,6 +40,42 @@ export async function fetchUv() {
   }
   if (!hourly.length) throw new Error("EPA UV: no parseable rows");
   return { hourly };
+}
+
+// EPA's DAILY product: one row, the forecast day's peak index. A separate
+// product from the hourly one, and it has stayed up while the hourly one was
+// down (2026-11-10: hourly answered 404 "could not be found for that location"
+// for every Texas and New York ZIP for over a day, while California ZIPs and
+// this daily product kept working).
+export function parseUvDaily(rows) {
+  const r = Array.isArray(rows) ? rows[0] : null;
+  const m = /^([A-Za-z]{3})\/(\d{2})\/(\d{4})$/.exec(String(r?.DATE || "").trim());
+  const mon = m && UV_MONTHS[m[1].toUpperCase()];
+  const peak = Number(r?.UV_INDEX);
+  if (!mon || !Number.isFinite(peak) || String(r.UV_INDEX).trim() === "") return null;
+  return { date: `${m[3]}-${mon}-${m[2]}`, peak };
+}
+async function fetchUvDaily() {
+  const res = await fetch(`https://data.epa.gov/efservice/getEnvirofactsUVDAILY/ZIP/${UV_ZIP}/JSON`, {
+    headers: { "User-Agent": "crosbynews.com", Accept: "application/json" },
+  });
+  if (!res.ok) throw new Error(`EPA daily UV request failed: ${res.status}`);
+  const daily = parseUvDaily(await res.json());
+  if (!daily) throw new Error("EPA daily UV: no parseable row");
+  return daily;
+}
+
+// The hourly product when EPA has it; otherwise the daily peak alone, marked
+// `degraded` so the cron can say so on /api/health. With only the daily peak
+// there is no current-hour value, and nothing invents one.
+export async function fetchUv() {
+  try {
+    return await fetchUvHourly();
+  } catch (hourlyError) {
+    const daily = await fetchUvDaily().catch(() => null);
+    if (!daily) throw hourlyError;
+    return { hourly: [], daily, degraded: (hourlyError && hourlyError.message) || "hourly product unavailable" };
+  }
 }
 
 // Current-hour and peak-of-today UV from the stored entries, matched on the
@@ -67,8 +103,11 @@ export function uvPeakOn(data, date) {
   const entries = data?.uv?.hourly;
   if (!Array.isArray(entries)) return null;
   const day = entries.filter((e) => e.date === date);
-  if (!day.some((e) => e.hour === 12) || !day.some((e) => e.hour === 13)) return null;
-  return Math.max(...day.map((e) => e.value));
+  if (day.some((e) => e.hour === 12) && day.some((e) => e.hour === 13)) return Math.max(...day.map((e) => e.value));
+  // No usable hourly rows for that date: EPA's own daily peak, if it is for
+  // the same date.
+  const daily = data.uv.daily;
+  return daily && daily.date === date && Number.isFinite(daily.peak) ? daily.peak : null;
 }
 export const uvPeakToday = (data) => uvPeakOn(data, ctDateStr(Date.now()));
 // Merge today's rows from the previous `uv` snapshot into a fresh fetch, for

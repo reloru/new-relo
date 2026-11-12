@@ -16,7 +16,7 @@
 //
 // Run: node scripts/test-uv-peak.mjs
 
-import { uvPeakToday, uvPeakOn, uvCurrent, carryUvToday } from "../src/features/air.js";
+import { uvPeakToday, uvPeakOn, uvCurrent, carryUvToday, parseUvDaily, fetchUv } from "../src/features/air.js";
 import { todayGlance } from "../src/features/home.js";
 
 let failed = 0;
@@ -82,6 +82,29 @@ check("2 PM Oct 14 → UV index 7 (High)", uvRow(NOON_OCT14, DAY_OCT14, "2026-10
 check("11 PM Oct 14 → UV tomorrow 7 (High)", uvRow(carried, EVE_OCT14, NIGHT), ["UV tomorrow", "7 (High)"]);
 check("11 PM Oct 14, es → UV mañana 7 (Alto)", uvRow(carried, EVE_OCT14, NIGHT, "es"), ["UV mañana", "7 (Alto)"]);
 check("evening before EPA has tomorrow → row hidden", uvRow(NOON_OCT14, EVE_OCT14, "2026-10-14T18:30:00-05:00"), null);
+
+// --- EPA's hourly product down, daily product up (2026-11-10, Texas ZIPs) ---
+// The real daily row as served that day.
+const DAILY = [{ ZIP_CODE: "77532", CITY: "Crosby", STATE: "TX", UV_INDEX: "3", UV_ALERT: "0", DATE: "Nov/11/2026" }];
+check("daily row parses", parseUvDaily(DAILY), { date: "2026-11-11", peak: 3 });
+check("empty daily index is not a peak of 0", parseUvDaily([{ UV_INDEX: "", DATE: "Nov/11/2026" }]), null);
+check("error body is not a row", parseUvDaily({ error: "The UV results could not be found for that location." }), null);
+const onlyDaily = { uv: { hourly: [], daily: { date: "2026-11-11", peak: 3 } } };
+check("daily peak answers for its own date", uvPeakOn(onlyDaily, "2026-11-11"), 3);
+check("…and for no other date", uvPeakOn(onlyDaily, "2026-11-12"), null);
+check("hourly rows win over the daily figure", uvPeakOn({ uv: { ...NOON_OCT14, daily: { date: "2026-10-14", peak: 9 } } }, "2026-10-14"), 7);
+const realFetch = globalThis.fetch;
+const respond = (hourly, daily) => async (u) => {
+  const r = String(u).includes("UVHOURLY") ? hourly : daily;
+  return new Response(JSON.stringify(r.body), { status: r.status });
+};
+const gone = { status: 404, body: { error: "The UV results could not be found for that location." } };
+globalThis.fetch = respond(gone, { status: 200, body: DAILY });
+const fell = await fetchUv();
+check("hourly 404 falls back to the daily peak, marked degraded", [fell.hourly.length, fell.daily, typeof fell.degraded], [0, { date: "2026-11-11", peak: 3 }, "string"]);
+globalThis.fetch = respond(gone, gone);
+check("both products down still throws", await fetchUv().then(() => "resolved", (e) => /404/.test(e.message)), true);
+globalThis.fetch = realFetch;
 
 console.log(failed ? `\n${failed} UV peak check(s) FAILED\n` : "\nUV peak OK — today's real peak survives the evening rollover, never 0 or null.\n");
 process.exit(failed ? 1 : 0);
