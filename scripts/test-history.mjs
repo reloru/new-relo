@@ -55,6 +55,8 @@ const get = async (path, accept = "text/html") => {
   has(main, "May 18, 2021, 10:31 PM CT", "tornado list in Central time");
   has(main, "tornado radar indicated", "tornado tag");
   has(main, "destructive damage threat, winds to 80 mph, hail to 0.75 in", "damage-threat list");
+  const damage = main.slice(main.indexOf("with a damage threat"), main.indexOf("Zone products"));
+  lacks(damage, "Dec 31, 2021", "a severe thunderstorm warning without a damage tag in the damage-threat list");
   has(main, "Hurricane Warning: 2 (Sep 11, 2008)", "rare zone warning carries its date once");
   has(main, "Freeze Warning: 3;", "common zone warning shows its count only");
   has(main, "since Nov 7, 2005", "zone record start, computed");

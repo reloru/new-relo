@@ -206,6 +206,8 @@ eq((await cdb.prepare("SELECT COUNT(*) AS c FROM gauge_crests").first("c")), 6, 
 const status1 = JSON.parse(cronH.kv.store.get("cron_status"));
 eq(status1.record?.ok, true, "cron_status reports the record write succeeded");
 eq(await cdb.prepare("SELECT nwsli FROM nws_events WHERE scope = 'gauge' AND etn = 200").first("nwsli"), "SHLT2", "the cron files river flood warnings from NWS's flood products");
+const ixSignals = JSON.parse(cronH.kv.store.get("indexnow_state") || "{}").signals || {};
+eq([ixSignals.history, ixSignals.gaugeWarnings], ["1|0", "SHLT2:1"], "the cron hands IndexNow the record's counts for /history and the gauge pages");
 
 cdb.batch = async () => { throw new Error("D1 is down"); };
 const before = cronH.kv.store.get("water");
