@@ -83,6 +83,13 @@ export const PAGES = [
     feeds: ["weather"],
   },
   {
+    path: "/history", section: "weather", maxAge: 3600,
+    name: { en: "Warning History", es: "Historial de avisos" },
+    nav: { en: "Warning History", es: "Historial de avisos", desktop: false },
+    desc: { en: "Every NWS warning that covered Crosby, TX: tornado, storm, flood, tropical and freeze warnings by type and year.", es: "Cada aviso del NWS que cubrió a Crosby, TX: tornados, tormentas, inundaciones, trópicos y heladas, por tipo y año." },
+    llms: "The National Weather Service warnings, watches and advisories that covered Crosby, TX — polygon warnings since 2007-10-01, forecast-zone and county products since 2005, river flood warnings for nearby gauges — counted by type and year from the site's own record, with method notes and limits.",
+  },
+  {
     path: "/water", section: "weather", maxAge: 300,
     name: { en: "Water Levels", es: "Niveles de agua" },
     nav: { en: "Water Levels", es: "Niveles de agua", desktop: true },
