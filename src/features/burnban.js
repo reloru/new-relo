@@ -424,8 +424,8 @@ export function banHistoryRows(periods, lang) {
 export function banHistoryNote(lang) {
   return T(
     lang,
-    "Bans before August 2023 are not listed: the ban that began June 28, 2022 is reported with two different end dates, and a second 2022 ban and earlier ones (one is reported for 2015) could not be dated from the county's releases. The county publishes its orders but not when a ban is lifted, so earlier lift dates are those news outlets reported from the county's statements.",
-    "Las prohibiciones anteriores a agosto de 2023 no aparecen: la que comenzó el 28 de junio de 2022 se reporta con dos fechas de fin distintas, y una segunda de 2022 y otras anteriores (se reporta una en 2015) no se pudieron fechar con los comunicados del condado. El condado publica sus órdenes pero no cuándo se levanta una prohibición, así que las fechas de fin anteriores son las que reportaron medios a partir de declaraciones del condado.",
+    "Bans before August 2023 are not listed: the ban that began June 28, 2022 is reported with two different end dates, and a second 2022 ban and earlier ones (one is reported for 2015) could not be dated from the county's releases. The county's ReadyHarris site posts the court's orders but lists no lift notice, so these lift dates are the ones news outlets reported from the county's statements.",
+    "Las prohibiciones anteriores a agosto de 2023 no aparecen: la que comenzó el 28 de junio de 2022 se reporta con dos fechas de fin distintas, y una segunda de 2022 y otras anteriores (se reporta una en 2015) no se pudieron fechar con los comunicados del condado. El sitio ReadyHarris del condado publica las órdenes de la corte pero no lista avisos de levantamiento, así que estas fechas de fin son las que reportaron medios a partir de declaraciones del condado.",
   );
 }
 

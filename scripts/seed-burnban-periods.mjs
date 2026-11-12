@@ -6,10 +6,12 @@
 //
 //   start  the county's own release on readyharris.org announcing the court's
 //          order (start_source 'order', its URL in `url`);
-//   end    the county published no lift notice on readyharris.org for any of
-//          these (every release on the site was read on 2026-11-12), so the
-//          end date is the one news outlets reported from the county's own
-//          statements (end_source 'news', outlet and URL in `note`).
+//   end    readyharris.org lists no lift notice for any of these (every
+//          release link on its 49 listing pages was checked on 2026-11-12;
+//          the county may have announced lifts elsewhere, e.g. the Fire
+//          Marshal's social media), so the end date is the one news outlets
+//          reported from the county's statements (end_source 'news', outlet
+//          and URL in `note`).
 //
 // Not entered, because a date could not be confirmed: the 2022 ban that began
 // June 28 (outlets disagree on Aug 22 or Aug 23 for its end), a second 2022 ban

@@ -86,6 +86,13 @@ const get = async (path, accept = "text/html") => {
   has((await get("/es/water/cedar-bayou-crosby")).main, 'href="/es/history"', "gauge pages link /history");
 }
 {
+  // A received alert newer than every event moves the date: the page shows it.
+  h.env.DB.raw.exec("INSERT INTO alerts (id, event, first_seen, last_seen) VALUES ('urn:a', 'Flood Advisory', '2026-11-11T05:00:00.000Z', '2026-11-11T05:00:00.000Z')");
+  const r = await h.get("/history", { headers: { accept: "text/html" } });
+  ok(r.headers.get("last-modified") === "Wed, 11 Nov 2026 05:00:00 GMT", `a received alert dates the page (got ${r.headers.get("last-modified")})`);
+  has(await r.text(), "1 alert messages so far", "the received alert is counted");
+}
+{
   const real = h.env.DB;
   h.env.DB = { prepare: () => { throw new Error("D1 down"); } };
   const quiet = console.error;

@@ -327,6 +327,8 @@ tools (`get_ci_status`, `get_workflow_run_details`, `download_job_log`).
 
 ## Branch workflow after a squash-merge
 
+A session cannot delete a branch or write repo settings: both the git proxy and the GitHub API answer 403. "Automatically delete head branches" is on, so a squash-merge removes its own head branch; don't retry those writes.
+
 PRs are squash-merged. After a squash-merge, the old branch diverges from
 main (its history is rewritten into one commit). Always branch fresh off
 `origin/main` before starting new work; never reuse a branch that was

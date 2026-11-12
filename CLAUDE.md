@@ -26,8 +26,9 @@ the split.
 - **Two required checks: "Syntax check" and "Build check (dry-run)".** Never
   rename either job: branch protection keys on the names. `strict` is on, so a
   PR must be up to date with `main`. Details: `docs/ops/ci-cd.md`.
-- Tokens: `CLOUDFLARE_API_TOKEN` (deploy, D1, KV) or `CLOUDFLARE_ZONE_API_TOKEN`,
-  paired with `CLOUDFLARE_ACCOUNT_ID`. Never `wrangler login`. A permission
+- Tokens: wrangler uses `CLOUDFLARE_API_TOKEN` with `CLOUDFLARE_ACCOUNT_ID`
+  (verified for deploy, D1 and KV on 2026-11-12); `CLOUDFLARE_ZONE_API_TOKEN`
+  is the wider zone-scoped token. Never `wrangler login`. A permission
   error after adding a new binding means the token lacks it: say so, a session
   cannot widen it.
 - `compatibility_date` may only be raised, never guessed.
@@ -42,6 +43,7 @@ the split.
   non-critical findings go in one PR (two at most). Squash-merge yourself once
   both checks pass; the head branch auto-deletes. Squash is convention, not
   enforced. After a merge: `git fetch origin main && git checkout -B <branch> origin/main`.
+  A session cannot delete branches or change repo settings (403): don't retry.
 - **Document in the same PR**: the matching `docs/` file, this file if an
   invariant changed, and any `.claude/skills/*/SKILL.md` the change makes
   stale (skills drift silently; grep them).
@@ -156,9 +158,9 @@ the split.
   `lastmod(env)`).
 - **IndexNow fires on state changes only** (a category, a ban, an alert, a new
   crest or record row), plus once for any page never submitted. A new stateful
-  page needs a signal in `src/indexnow.js`. Both endpoints currently answer the
-  Worker's shared egress with 429 (`attempts` on `/api/health`); retries are
-  hourly and bounded. `docs/ops/search.md`.
+  page needs a signal in `src/indexnow.js`. Each endpoint's answer is in
+  `attempts` on `/api/health`; failures retry hourly, bounded.
+  `docs/ops/search.md` has the current status.
 
 ## Look and markup
 

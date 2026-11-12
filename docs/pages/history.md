@@ -55,10 +55,10 @@ No `env.DB`, or any D1 error, is a 502 naming "the site's record".
 
 ## Dates
 
-`Last-Modified` and the sitemap `<lastmod>` are `MAX(issued)` over
-`nws_events`, via `historyLastmod()`. Known gap: a back-filled row older than
-the newest one changes the page without moving the date; backfills are rare
-and run by hand.
+`Last-Modified` and the sitemap `<lastmod>` are the newer of `MAX(issued)`
+over `nws_events` and `MAX(first_seen)` over `alerts`, via `historyLastmod()`.
+Known gap: a back-filled row older than the newest one changes the page
+without moving the date; backfills are rare and run by hand.
 
 ## IndexNow
 
