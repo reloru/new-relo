@@ -7,7 +7,7 @@
 import { SITE } from "../config.js";
 import { PAGES } from "../registry.js";
 import { RECORD_OBSERVED_FROM, ctDay } from "../record.js";
-import { loadGaugePage, crestVsStages, crestWhen } from "../features/gauge.js";
+import { loadGaugePage, crestVsStages, crestWhen, crestStatus } from "../features/gauge.js";
 import { loadHistory, yearTable, pointBy, eventName, POINT_COLUMNS, POLYGONS_OFFICIAL_FROM, ZONE } from "../features/history.js";
 
 const HIGHEST = 5;
@@ -46,7 +46,10 @@ export const HISTORY_TOOLS = (annotations) => [
                     when: { type: "string", description: "The same date for people: Central time when NOAA gives a time." },
                     stageFt: { type: "number" },
                     againstTodaysStages: { type: ["string", "null"] },
-                    noaaCode: { type: ["string", "null"], description: "NOAA's one-letter code, as published; NOAA does not define it." },
+                    status: { type: "string", description: "NWS crest status: Preliminary, Official or Record (\u2014 when none)." },
+                    noaaCode: { type: ["string", "null"], description: "The letter NWPS publishes for that status (P, O, R)." },
+                    noaaFlowCfs: { type: ["number", "null"], description: "Crest flow as NOAA publishes it; null when none, or on gauges where NOAA's figure is not a measured flow." },
+                    usgsFlowCfs: { type: ["number", "null"], description: "USGS's annual peak flow, when that year's peak falls on the crest's date." },
                   },
                 },
               },
@@ -99,7 +102,7 @@ export async function runHistoryTool(name, env) {
         floodStages: d.gauge?.thresholds ?? {},
         crestCount: d.crests.length + d.oldCrests.length,
         oldDatumCrestCount: d.oldCrests.length,
-        highestCrests: d.crests.slice(0, HIGHEST).map((c) => ({ date: dateOnly(c.occurred), when: crestWhen(c.occurred, "en").text, stageFt: c.stage, againstTodaysStages: crestVsStages(c.stage, d.gauge?.thresholds, "en"), noaaCode: c.quality ?? null })),
+        highestCrests: d.crests.slice(0, HIGHEST).map((c) => ({ date: dateOnly(c.occurred), when: crestWhen(c.occurred, "en").text, stageFt: c.stage, againstTodaysStages: crestVsStages(c.stage, d.gauge?.thresholds, "en"), status: crestStatus(c.quality, "en"), noaaCode: c.quality ?? null, noaaFlowCfs: d.noFlow ? null : (c.flow ?? null), usgsFlowCfs: c.usgsFlow ?? null })),
         riverFloodWarnings: d.warnings.length,
         latestRiverFloodWarning: d.warnings[0]?.issued ?? null,
       })),

@@ -24,7 +24,7 @@ import { topbar, footer } from "../chrome.js";
 import { JSONLD_SITE, sharedHead } from "../seo.js";
 import { SITE } from "../config.js";
 import { pageFor, gaugePagePath } from "../registry.js";
-import { FLOOD_RANK_NAME, RIVER_WARNINGS_OBSERVED_FROM } from "../record.js";
+import { FLOOD_RANK_NAME, RIVER_WARNINGS_OBSERVED_FROM, ctDay } from "../record.js";
 import { WATER_GAUGES, WATER_STATE_CSS, loadWater, waterState, waterContext, waterCatLabel, nwpsGaugeUrl } from "./water.js";
 
 const STAGE_KEYS = ["action", "minor", "moderate", "major"];
@@ -74,6 +74,15 @@ export function crestWhen(iso, lang) {
   return { text, html: timeTag(iso, text) };
 }
 
+// The calendar date a crest belongs to: NOAA's own date for a date-only
+// crest, the Central date for one with a time.
+export const crestDay = (iso) => (DATE_ONLY.test(iso) ? iso.slice(0, 10) : ctDay(iso));
+
+// NWS's crest statuses (Preliminary, Official, Record), by the letter NWPS
+// sends in its `preliminary` field. An unexpected letter is shown as sent.
+const CREST_STATUS = { P: ["Preliminary", "Preliminar"], O: ["Official", "Oficial"], R: ["Record", "Récord"] };
+export const crestStatus = (code, lang) => (code ? (CREST_STATUS[code] ? CREST_STATUS[code][lang === "es" ? 1 : 0] : code) : "—");
+
 const dayText = (day, lang) => new Date(`${day}T12:00:00Z`).toLocaleDateString(loc(lang), { timeZone: "UTC", weekday: "short", month: "short", day: "numeric", year: "numeric" });
 const ctDate = (iso, lang) => fmt(iso, { year: "numeric", month: "short", day: "numeric" }, lang);
 
@@ -94,7 +103,7 @@ export async function loadGaugePage(env, lid) {
   const meta = WATER_GAUGES.find((g) => g.lid === lid);
   if (!meta) throw new Error(`unknown gauge ${lid}`);
   if (!env.DB) throw new Error("the flood record is not available");
-  const [water, crests, gaugeMeta, warnings, archive, daily, dailyStats] = await Promise.all([
+  const [water, crests, gaugeMeta, warnings, archive, daily, dailyStats, peaks] = await Promise.all([
     loadWater(env),
     rows(env.DB, "SELECT occurred, stage, flow, quality, old_datum FROM gauge_crests WHERE lid = ? ORDER BY stage DESC, occurred DESC", lid),
     rows(env.DB, "SELECT impacts FROM gauge_meta WHERE lid = ?", lid),
@@ -102,13 +111,17 @@ export async function loadGaugePage(env, lid) {
     rows(env.DB, "SELECT MIN(issued) AS first FROM nws_events WHERE scope = 'gauge'"),
     rows(env.DB, "SELECT day, max_stage, max_at, min_stage, max_rank, readings FROM gauge_daily WHERE lid = ? ORDER BY day DESC LIMIT ?", lid, DAILY_ROWS),
     rows(env.DB, "SELECT COUNT(*) AS days, MIN(day) AS since FROM gauge_daily WHERE lid = ?", lid),
+    rows(env.DB, "SELECT day, flow FROM gauge_peaks WHERE lid = ? AND flow IS NOT NULL", lid),
   ]);
   const gauge = (water.gauges || []).find((g) => g.lid === lid) || null;
   let impacts = [];
   try {
     impacts = JSON.parse(gaugeMeta[0]?.impacts || "[]");
   } catch {}
-  const all = crests.map((c) => ({ occurred: c.occurred, stage: c.stage, flow: c.flow, quality: c.quality, oldDatum: !!c.old_datum }));
+  // USGS publishes one peak per water year; its flow belongs beside a crest
+  // only when the two fall on the same date.
+  const usgsFlow = new Map(peaks.map((p) => [p.day, p.flow]));
+  const all = crests.map((c) => ({ occurred: c.occurred, stage: c.stage, flow: c.flow, usgsFlow: usgsFlow.get(crestDay(c.occurred)) ?? null, quality: c.quality, oldDatum: !!c.old_datum }));
   return {
     lid,
     page: gaugePagePath(lid),
@@ -184,16 +197,6 @@ function stagesText(d, lang) {
   return defined.map((k) => `${waterCatLabel(k, lang)}: ${ft(th[k])} ft`).join(" · ");
 }
 
-function flagsText(d, lang) {
-  const letters = [...new Set([...d.crests, ...d.oldCrests].map((c) => c.quality).filter(Boolean))].sort();
-  if (!letters.length) return null;
-  return T(
-    lang,
-    `NOAA publishes each crest with a one-letter code in a field it names "preliminary" (on this gauge: ${letters.join(", ")}). Its documentation does not define the letters, so they are shown exactly as published.`,
-    `NOAA publica cada cresta con un código de una letra en un campo que llama "preliminary" (en este medidor: ${letters.join(", ")}). Su documentación no define las letras, así que se muestran tal como se publican.`,
-  );
-}
-
 function notes(d, lang) {
   const out = [
     T(
@@ -209,17 +212,20 @@ function notes(d, lang) {
     d.noFlow
       ? T(
           lang,
-          "No flow is shown for this gauge: its level is real, but USGS measures no river flow at it that a flow figure could stand for.",
-          "No se muestra caudal para este medidor: su nivel es real, pero el USGS no mide aquí un caudal fluvial que una cifra pudiera representar.",
+          "NOAA's crest flow is not shown for this gauge: its level is real, but NOAA's flow figure here does not match what USGS measures.",
+          "No se muestra el caudal de cresta de NOAA para este medidor: su nivel es real, pero la cifra de caudal de NOAA aquí no coincide con lo que mide el USGS.",
         )
       : T(
           lang,
-          "Crest flow is in cubic feet per second as NOAA publishes it. A dash means NOAA published no flow for that crest, or published zero, which this site treats as unknown.",
-          "El caudal de cresta está en pies cúbicos por segundo, como lo publica NOAA. Un guion significa que NOAA no publicó caudal para esa cresta, o publicó cero, que este sitio trata como desconocido.",
+          "NOAA flow is in cubic feet per second as NOAA publishes it with each crest; a dash means it published none, or zero, which this site treats as unknown.",
+          "El caudal NOAA está en pies cúbicos por segundo, como NOAA lo publica con cada cresta; un guion significa que no publicó ninguno, o publicó cero, que este sitio trata como desconocido.",
         ),
+    T(
+      lang,
+      "USGS flow is the annual peak flow USGS publishes for a gauge, shown when that year's peak falls on the crest's date; a dash means it does not.",
+      "El caudal USGS es el caudal máximo anual que publica el USGS para un medidor, mostrado cuando el máximo de ese año cae en la fecha de la cresta; un guion significa que no.",
+    ),
   ];
-  const flags = flagsText(d, lang);
-  if (flags) out.push(flags);
   if (d.oldCrests.length) {
     out.push(
       T(
@@ -256,7 +262,7 @@ function rankText(rank, hasStages, lang) {
   return hasStages ? T(lang, "Below action stage", "Debajo de la etapa de acción") : "—";
 }
 
-const flowText = (c, lang) => (typeof c.flow === "number" ? c.flow.toLocaleString(loc(lang)) : "—");
+const cfs = (v, lang) => (typeof v === "number" ? v.toLocaleString(loc(lang)) : "—");
 const warningId = (w, lang) => T(lang, `No. ${w.etn} of ${w.year}`, `Núm. ${w.etn} de ${w.year}`);
 
 // --- HTML ---------------------------------------------------------------------
@@ -271,17 +277,20 @@ export function gaugeHtml(d, lang) {
   const st = g ? waterState(g, lang) : { cls: "w-unknown", label: T(lang, "Unavailable", "No disponible") };
   const ctx = g ? waterContext(g, lang) : "";
 
-  const crestTable = (list, compare) => `<div class="tbl-wrap"><table class="tbl">
-      <thead><tr><th>#</th><th>${T(lang, "Crest", "Cresta")}</th><th>${T(lang, "Date", "Fecha")}</th>${compare ? `<th>${T(lang, "Against today's flood stages", "Frente a las etapas de hoy")}</th>` : ""}${d.noFlow ? "" : `<th>${T(lang, "Flow (cfs)", "Caudal (pie³/s)")}</th>`}<th>${T(lang, "NOAA code", "Código NOAA")}</th></tr></thead>
+  const crestTable = (list, compare) => {
+    const usgs = list.some((c) => c.usgsFlow != null);
+    return `<div class="tbl-wrap"><table class="tbl">
+      <thead><tr><th>#</th><th>${T(lang, "Crest", "Cresta")}</th><th>${T(lang, "Date", "Fecha")}</th>${compare ? `<th>${T(lang, "Against today's flood stages", "Frente a las etapas de hoy")}</th>` : ""}${d.noFlow ? "" : `<th>${T(lang, "NOAA flow (cfs)", "Caudal NOAA (pie³/s)")}</th>`}${usgs ? `<th>${T(lang, "USGS flow (cfs)", "Caudal USGS (pie³/s)")}</th>` : ""}<th>${T(lang, "Status", "Estado")}</th></tr></thead>
       <tbody>
 ${list
   .map(
     (c, i) =>
-      `        <tr><td>${i + 1}</td><td class="num">${esc(ft(c.stage))} ft</td><td>${crestWhen(c.occurred, lang).html}</td>${compare ? `<td>${esc(crestVsStages(c.stage, f.th, lang) ?? "—")}</td>` : ""}${d.noFlow ? "" : `<td class="num">${esc(flowText(c, lang))}</td>`}<td>${esc(c.quality ?? "—")}</td></tr>`,
+      `        <tr><td>${i + 1}</td><td class="num">${esc(ft(c.stage))} ft</td><td>${crestWhen(c.occurred, lang).html}</td>${compare ? `<td>${esc(crestVsStages(c.stage, f.th, lang) ?? "—")}</td>` : ""}${d.noFlow ? "" : `<td class="num">${esc(cfs(c.flow, lang))}</td>`}${usgs ? `<td class="num">${esc(cfs(c.usgsFlow, lang))}</td>` : ""}<td>${esc(crestStatus(c.quality, lang))}</td></tr>`,
   )
   .join("\n")}
       </tbody>
     </table></div>`;
+  };
 
   const crestsSection = d.crests.length
     ? `<h2>${T(lang, "Highest recorded crests", "Crestas más altas registradas")}</h2>
@@ -439,11 +448,12 @@ export function gaugeMarkdown(d, lang) {
   out.push(`- ${stagesText(d, lang)}`, "");
 
   const crestRows = (list, compare) => {
-    const head = ["#", T(lang, "Crest", "Cresta"), T(lang, "Date", "Fecha"), ...(compare ? [T(lang, "Against today's flood stages", "Frente a las etapas de hoy")] : []), ...(d.noFlow ? [] : [T(lang, "Flow (cfs)", "Caudal (pie³/s)")]), T(lang, "NOAA code", "Código NOAA")];
+    const usgs = list.some((c) => c.usgsFlow != null);
+    const head = ["#", T(lang, "Crest", "Cresta"), T(lang, "Date", "Fecha"), ...(compare ? [T(lang, "Against today's flood stages", "Frente a las etapas de hoy")] : []), ...(d.noFlow ? [] : [T(lang, "NOAA flow (cfs)", "Caudal NOAA (pie³/s)")]), ...(usgs ? [T(lang, "USGS flow (cfs)", "Caudal USGS (pie³/s)")] : []), T(lang, "Status", "Estado")];
     return [
       `| ${head.join(" | ")} |`,
       `|${head.map(() => "---").join("|")}|`,
-      ...list.map((c, i) => `| ${[i + 1, `${ft(c.stage)} ft`, crestWhen(c.occurred, lang).text, ...(compare ? [crestVsStages(c.stage, f.th, lang) ?? "—"] : []), ...(d.noFlow ? [] : [flowText(c, lang)]), c.quality ?? "—"].join(" | ")} |`),
+      ...list.map((c, i) => `| ${[i + 1, `${ft(c.stage)} ft`, crestWhen(c.occurred, lang).text, ...(compare ? [crestVsStages(c.stage, f.th, lang) ?? "—"] : []), ...(d.noFlow ? [] : [cfs(c.flow, lang)]), ...(usgs ? [cfs(c.usgsFlow, lang)] : []), crestStatus(c.quality, lang)].join(" | ")} |`),
     ];
   };
   if (d.crests.length) {

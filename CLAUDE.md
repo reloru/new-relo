@@ -132,7 +132,8 @@ the split.
   table.
 - Crests are compared only with **today's** flood stages, and the page says so;
   old-datum crests are never compared; a crest NOAA dates without a time stays
-  a calendar date.
+  a calendar date. USGS's annual peak flow (`gauge_peaks`) shows beside a crest
+  only when the dates match; both agencies' flows are shown, never merged.
 - River flood warnings are filed live from NWS's own flood products: the
   hydrologic VTEC line names the gauge's NWS LID, which the alert API does
   not carry. Before 2026-11-12 they come from the IEM archive.

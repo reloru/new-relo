@@ -47,7 +47,7 @@ export const MCP_SUPPORTED_VERSIONS = ["2025-03-26", "2025-06-18"];
 // Version moves in lockstep with `server.json`'s registry version on any
 // tool-set change — they drifted apart (1.2.0 vs 1.4.0) when `get_air_quality`
 // and `get_fishing` shipped without a bump, so both now carry the same number.
-export const MCP_SERVER_INFO = { name: "crosbynews-weather", version: "1.8.0", title: "Crosby, TX Weather" };
+export const MCP_SERVER_INFO = { name: "crosbynews-weather", version: "1.8.1", title: "Crosby, TX Weather" };
 export const MCP_CORS = {
   "access-control-allow-origin": "*",
   "access-control-allow-methods": "POST, OPTIONS",
