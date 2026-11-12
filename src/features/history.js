@@ -22,9 +22,9 @@ const PATH = "/history";
 export const POLYGONS_OFFICIAL_FROM = "2007-10-01";
 // The current definition of zone TXZ213 ("Inland Harris") took effect then.
 const ZONE_REDRAWN = "2026-04-16";
-const ZONE = "TXZ213";
+export const ZONE = "TXZ213";
 // The polygon warnings counted year by year, in column order.
-const POINT_COLUMNS = ["TO.W", "SV.W", "FF.W", "FA.W", "FA.Y"];
+export const POINT_COLUMNS = ["TO.W", "SV.W", "FF.W", "FA.W", "FA.Y"];
 
 // Hand-written Spanish names for the NWS products in the record, keyed by
 // VTEC phenomena.significance. Anything missing falls back to NWS's English
@@ -51,7 +51,7 @@ const ES_EVENT = {
   "CF.W": "Aviso de inundación costera", "CF.A": "Vigilancia de inundación costera", "CF.Y": "Advertencia de inundación costera", "CF.S": "Comunicado de inundación costera",
   "BH.S": "Comunicado de peligros en la playa", "RP.S": "Comunicado de corrientes de resaca",
 };
-const eventName = (r, lang) => (lang === "es" ? ES_EVENT[`${r.phenomena}.${r.significance}`] || r.name : r.name);
+export const eventName = (r, lang) => (lang === "es" ? ES_EVENT[`${r.phenomena}.${r.significance}`] || r.name : r.name);
 
 const SIG_ORDER = ["W", "A", "Y", "S"];
 const sigHeading = (sig, lang) =>
@@ -126,7 +126,7 @@ export async function historyLastmod(env) {
 
 // --- content ----------------------------------------------------------------
 
-function pointBy(d, key) {
+export function pointBy(d, key) {
   return d.point.filter((r) => `${r.phenomena}.${r.significance}` === key);
 }
 
@@ -180,7 +180,7 @@ function lede(d, lang) {
   return out;
 }
 
-function yearTable(d) {
+export function yearTable(d) {
   const counts = new Map();
   for (const r of d.point) {
     const key = `${r.phenomena}.${r.significance}`;

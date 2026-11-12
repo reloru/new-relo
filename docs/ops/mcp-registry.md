@@ -28,6 +28,7 @@ Overwritten in place — no history; see `docs/README.md`.
   string is prose about the data with no tool names in it. (This entry
   said "six" and counted those two until the 2026-08-01 audit;
   `src/mcp/server.js` and `src/discovery.js` had already said five.)
+  `scripts/test-mcp-server.mjs` checks every `mcpTools()` name appears in each of them (since 1.8.0).
 - **Namespace auth = DNS.** The `com.crosbynews` namespace is proven by a
   TXT record on the apex `crosbynews.com`: `v=MCPv1; k=ed25519;
   p=<base64 pubkey>` (added via the Cloudflare DNS API alongside the

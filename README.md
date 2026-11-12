@@ -89,8 +89,11 @@ Every page is content-negotiated — send `Accept: text/markdown` (or add
 - **MCP server** (Streamable HTTP) — `https://crosbynews.com/mcp`, with tools
   `get_current_conditions`, `get_forecast`, `get_alerts`, `get_tropical_outlook`,
   `get_air_quality`, `get_pollen`, `get_burn_ban`, `get_river_levels`, `get_fishing`,
-  `get_traffic`, `get_crosby_news`, `get_school_events`, `get_emergency_contacts`, and
-  `get_radar` (a live radar image, inline).
+  `get_traffic`, `get_crosby_news`, `get_school_events`, `get_emergency_contacts`,
+  `get_radar` (a live radar image, inline), and the two record tools
+  `get_flood_history` (each nearby gauge's historic crests against today's flood
+  stages, and its river flood warnings) and `get_warning_history` (NWS warnings
+  that covered Crosby, by type and year).
   Discovery card at
   [`/.well-known/mcp/server-card.json`](https://crosbynews.com/.well-known/mcp/server-card.json).
 - **[llms.txt](https://crosbynews.com/llms.txt)** — plain-language site summary

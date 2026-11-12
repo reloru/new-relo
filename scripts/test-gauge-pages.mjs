@@ -148,6 +148,18 @@ const get = async (path, accept = "text/html") => {
   has(xml, `<loc>${SITE}/water/east-fork-new-caney</loc>\n    <lastmod>2026-11-11T09:00:00.000Z</lastmod>`, "sitemap carries the same date");
 }
 
+// --- the MCP tool reads the same record ---
+{
+  const r = await h.get("/mcp", { method: "POST", headers: { "content-type": "application/json", accept: "application/json, text/event-stream" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "get_flood_history", arguments: {} } }) });
+  const res = (await r.json()).result;
+  ok(!res.isError, "get_flood_history answers");
+  const cedar = res.structuredContent.gauges.find((g) => g.id === "HCDT2");
+  ok(cedar.highestCrests[0].againstTodaysStages === "5.59 ft above minor flood stage", "the tool states Harvey at Cedar Bayou as the page does");
+  ok(cedar.crestCount === 5 && cedar.oldDatumCrestCount === 1, `crest counts include the old-datum crest once (got ${cedar.crestCount}/${cedar.oldDatumCrestCount})`);
+  ok(res.structuredContent.gauges.find((g) => g.id === "HSJT2").highestCrests[0].date === "2017-08-29", "a date-only crest stays a date");
+  ok(res.structuredContent.gauges.find((g) => g.id === "SHLT2").riverFloodWarnings === 1, "warning count per gauge");
+}
+
 if (failures.length) {
   console.error(`\nGauge page checks failed (${failures.length}):\n  ${failures.join("\n  ")}\n`);
   process.exit(1);
