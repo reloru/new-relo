@@ -35,6 +35,9 @@ export const SECTIONS = [
 //            shows. /sitemap.xml dates the page by when that data last
 //            changed. Omit for a static page, which then carries no date —
 //            an absent date is honest, a guessed one is not.
+//   gauge    NWPS location id, for a river-gauge page (served by the shared
+//            gauge handler in router.js and linked from its /water card).
+//            Such a page is dated in /sitemap.xml by its handler's lastmod().
 //   custom   true when router.js serves the path outside the shared page
 //            handler (the two /mcp explainers, which share a path with the
 //            protocol endpoint).
@@ -86,6 +89,35 @@ export const PAGES = [
     desc: { en: "Live river and bayou levels with NWS flood stages.", es: "Niveles de ríos y arroyos en vivo con las etapas de inundación del NWS." },
     llms: "Live river and bayou levels with NWS flood stages for Cedar Bayou, the San Jacinto River, Luce Bayou and other waters that flood the Crosby / NE Harris County area.",
     feeds: ["water"],
+  },
+  // One page per river gauge with a recorded flood history. `gauge` is the
+  // NWPS location id the page is about; router.js gives each one the shared
+  // gauge handler and /water links each card to its page. A gauge is listed
+  // here only once the record gives it content of its own (NOAA crests): Luce
+  // Bayou (HFFT2) and Goose Creek (GMKT2) have none yet.
+  {
+    path: "/water/cedar-bayou-crosby", section: "weather", maxAge: 900, gauge: "HCDT2",
+    name: { en: "Cedar Bayou near Crosby: flood history", es: "Cedar Bayou cerca de Crosby: historial de inundaciones" },
+    desc: { en: "Every crest NOAA lists for Cedar Bayou, its flood stages and warnings, and the current level.", es: "Cada cresta que NOAA registra para Cedar Bayou, sus etapas de inundación, avisos y el nivel actual." },
+    llms: "Cedar Bayou near Crosby (NWS gauge HCDT2): every historic crest NOAA publishes, each measured against today's flood stages, river flood warnings for the gauge, the site's own daily readings, and the current level.",
+  },
+  {
+    path: "/water/san-jacinto-sheldon", section: "weather", maxAge: 900, gauge: "SHLT2",
+    name: { en: "San Jacinto River near Sheldon: flood history", es: "Río San Jacinto cerca de Sheldon: historial de inundaciones" },
+    desc: { en: "Every crest NOAA lists for the San Jacinto near Sheldon, its flood stages and warnings, and the current level.", es: "Cada cresta que NOAA registra para el San Jacinto cerca de Sheldon, sus etapas, avisos y el nivel actual." },
+    llms: "San Jacinto River near Sheldon (NWS gauge SHLT2): every historic crest NOAA publishes against today's flood stages, NOAA's flood-impact statements, river flood warnings for the gauge, the site's daily readings, and the current level.",
+  },
+  {
+    path: "/water/lake-houston", section: "weather", maxAge: 900, gauge: "HSJT2",
+    name: { en: "San Jacinto River at Lake Houston: flood history", es: "Río San Jacinto en Lake Houston: historial de inundaciones" },
+    desc: { en: "Every crest NOAA lists for the Lake Houston gauge, and the current lake level.", es: "Cada cresta que NOAA registra para el medidor de Lake Houston y el nivel actual del lago." },
+    llms: "San Jacinto River at Lake Houston (NWS gauge HSJT2): every historic crest NOAA publishes for the lake gauge, the site's daily readings, and the current level. NWS defines no flood stages for this gauge.",
+  },
+  {
+    path: "/water/east-fork-new-caney", section: "weather", maxAge: 900, gauge: "NCET2",
+    name: { en: "East Fork San Jacinto near New Caney: flood history", es: "Bifurcación Este del San Jacinto cerca de New Caney: historial" },
+    desc: { en: "Every crest NOAA lists for the East Fork near New Caney, its flood stages and warnings, and the current level.", es: "Cada cresta que NOAA registra para la Bifurcación Este cerca de New Caney, sus etapas, avisos y el nivel actual." },
+    llms: "East Fork San Jacinto River near New Caney (NWS gauge NCET2), upstream of Lake Houston: every historic crest NOAA publishes against today's flood stages, NOAA's flood-impact statements, river flood warnings for the gauge, the site's daily readings, and the current level.",
   },
   {
     path: "/fishing", section: "weather", maxAge: 300,
@@ -270,6 +302,8 @@ export const ENDPOINTS = [
 
 const BY_PATH = new Map(PAGES.map((p) => [p.path, p]));
 export const pageFor = (enPath) => BY_PATH.get(enPath);
+// The English path of a gauge's page, or undefined for a gauge without one.
+export const gaugePagePath = (lid) => PAGES.find((p) => p.gauge === lid)?.path;
 
 // Every content URL path in both languages: the set the fetch wrapper stamps
 // with a canonical Link header and restricts to GET/HEAD.

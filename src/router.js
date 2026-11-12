@@ -32,6 +32,7 @@ import { alertsHtml, alertsMarkdown, alertsRss } from "./features/alerts.js";
 import { loadNews, isAdmin, newsHtml, newsMarkdown, newsRss, apiNews, NEWS_BLOCKLIST_KV_KEY } from "./features/news.js";
 import { loadCalendar, calendarHtml, calendarMarkdown, apiCalendar } from "./features/calendar.js";
 import { loadWater, waterHtml, waterMarkdown, apiWater } from "./features/water.js";
+import { loadGaugePage, gaugeHtml, gaugeMarkdown, gaugeLastmod } from "./features/gauge.js";
 import { loadFishing, fishingHtml, fishingMarkdown, apiFishing } from "./features/fishing.js";
 import { loadTropics, tropicsHtml, tropicsMarkdown, apiTropics } from "./features/tropics.js";
 import { loadTraffic, trafficHtml, trafficMarkdown, apiTraffic } from "./features/traffic.js";
@@ -73,7 +74,15 @@ export async function routeRequest(request, env, ctx) {
     }
     if (path === "/sitemap.xml") {
       const cronStatus = await env.WEATHER.get(CRON_STATUS_KV_KEY, "json").catch(() => null);
-      return new Response(sitemapXml(cronStatus), {
+      // Pages whose handler knows its own last-change instant (the gauge pages)
+      // are dated by it; a failed lookup leaves that page undated, never guessed.
+      const dates = {};
+      await Promise.all(
+        PAGES.filter((p) => PAGE_HANDLERS[p.path]?.lastmod).map(async (p) => {
+          dates[p.path] = await PAGE_HANDLERS[p.path].lastmod(env).catch(() => null);
+        }),
+      );
+      return new Response(sitemapXml(cronStatus, dates), {
         headers: { "content-type": "application/xml; charset=utf-8", "cache-control": "public, max-age=3600" },
       });
     }
@@ -547,6 +556,8 @@ function wantsMarkdown(request, url) {
 //   headers(data, c, body)
 //                      Optional extra response headers.
 //   cacheControl(c)    Optional override of the registry's max-age.
+//   lastmod(env)       Optional. The page's last-change instant for
+//                      /sitemap.xml, for a page not dated by its registry feeds.
 const weatherData = async (c) => (await loadWeather(c.env)).data;
 const NO_BAN = () => ({ status: null });
 
@@ -647,6 +658,20 @@ const PAGE_HANDLERS = {
   "/sitemap": { html: (_, lang) => sitemapPageHtml(lang), md: (_, lang) => sitemapPageMarkdown(lang) },
   "/developers": { html: (_, lang) => developersHtml(lang), md: (_, lang) => developersMarkdown(lang) },
 };
+
+// One handler serves every river-gauge page; the registry says which gauges
+// have one. A D1 failure is a 502 naming the record, not a page with its
+// history silently missing.
+for (const p of PAGES) {
+  if (!p.gauge) continue;
+  PAGE_HANDLERS[p.path] = {
+    source: "the site's flood record",
+    load: ({ env }) => loadGaugePage(env, p.gauge),
+    html: gaugeHtml,
+    md: gaugeMarkdown,
+    lastmod: (env) => gaugeLastmod(env, p.gauge),
+  };
+}
 
 // The registry and the handler table must describe the same pages. Checked
 // when the module loads, so a page added to one and not the other fails every

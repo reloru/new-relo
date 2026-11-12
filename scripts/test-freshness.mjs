@@ -23,6 +23,7 @@ const ok = (cond, what) => { if (!cond) failures.push(what); };
 
 const h = await createHarness();
 const status = JSON.parse(h.kv.store.get("cron_status"));
+const fixtureGaugesLM = JSON.parse(h.kv.store.get("water")).gauges;
 
 // --- conditional GET on every page, both representations --------------------
 for (const page of PAGES) {
@@ -46,7 +47,8 @@ for (const page of PAGES) {
 
       // Last-Modified exactly where the page shows cached data.
       const lm = first.headers.get("last-modified");
-      if (page.feeds) ok(lm && !Number.isNaN(Date.parse(lm)), `${where}: a data page sends Last-Modified`);
+      if (page.gauge) eq(lm, new Date(fixtureGaugesLM.find((g) => g.lid === page.gauge).validTime).toUTCString(), `${where}: a gauge page is dated by its gauge's latest reading`);
+      else if (page.feeds) ok(lm && !Number.isNaN(Date.parse(lm)), `${where}: a data page sends Last-Modified`);
       else if (page.path !== "/radar") ok(!lm, `${where}: a static page sends no Last-Modified (got ${lm})`);
 
       // A relative time is true only at the instant it is rendered.
@@ -133,8 +135,13 @@ for (const path of ["/", "/weather", "/hourly", "/es", "/es/weather"]) {
 const xml = await (await h.get("/sitemap.xml")).text();
 ok(!/<changefreq>|<priority>/.test(xml), "sitemap carries no changefreq/priority");
 const urls = Object.fromEntries([...xml.matchAll(/<url>\s*<loc>([^<]+)<\/loc>(?:\s*<lastmod>([^<]+)<\/lastmod>)?/g)].map((m) => [m[1].slice(SITE.length) || "/", m[2] || null]));
+const fixtureGauges = JSON.parse(h.kv.store.get("water")).gauges;
 for (const page of PAGES) {
-  const want = page.feeds ? page.feeds.map((f) => status.feeds[f]?.changedAt).filter(Boolean).sort().at(-1) : null;
+  // A gauge page is dated by its own gauge's latest reading (no crests are
+  // seeded here), not by the water feed as a whole.
+  const want = page.gauge
+    ? fixtureGauges.find((g) => g.lid === page.gauge).validTime
+    : page.feeds ? page.feeds.map((f) => status.feeds[f]?.changedAt).filter(Boolean).sort().at(-1) : null;
   for (const path of [page.path, esPath(page.path)]) {
     eq(urls[path] ?? null, want ? new Date(want).toISOString() : null, `sitemap lastmod for ${path}`);
   }
@@ -156,11 +163,14 @@ ok(/^[a-f0-9]{32}$/.test(IX.INDEXNOW_KEY), "the key is 32 hex characters");
 
 const posts = [];
 let answer = 200;
-globalThis.fetch = async (u, init) => {
-  posts.push({ url: String(u), body: JSON.parse(init.body) });
-  if (answer === "throw") throw new Error("network unreachable");
-  return new Response("", { status: answer });
+const fakeEndpoints = () => {
+  globalThis.fetch = async (u, init) => {
+    posts.push({ url: String(u), body: JSON.parse(init.body) });
+    if (answer === "throw") throw new Error("network unreachable");
+    return new Response("", { status: answer });
+  };
 };
+fakeEndpoints();
 const fx = (await import("./lib/harness.mjs")).loadFixtures;
 const data = await fx();
 const seen = () => ({ weather: structuredClone(data.weather), water: structuredClone(data.water), tropics: structuredClone(data.tropics) });
@@ -184,7 +194,7 @@ eq(posts.length, 0, "…and makes no request");
 const flood = seen();
 flood.water.gauges[0].category = "minor";
 const r1 = await IX.indexNowTick(h.env, status, flood, T0);
-eq(posts.at(-1)?.body.urlList, [SITE + "/water", SITE + "/es/water"], "a gauge entering flood submits /water in both languages");
+eq(posts.at(-1)?.body.urlList, [SITE + "/water", SITE + "/es/water", SITE + "/water/cedar-bayou-crosby", SITE + "/es/water/cedar-bayou-crosby"], "a gauge entering flood submits /water and that gauge's page, in both languages");
 eq(r1?.why, "water", "…and says why");
 
 const lifted = structuredClone(status);
@@ -226,6 +236,38 @@ posts.length = 0;
 eq(await IX.indexNowTick(h.env, lifted, again, "2026-11-12T12:00:00.000Z"), null, "retries stop after a bounded number of tries");
 const health = await (await h.get("/api/health")).json();
 eq([health.indexNow?.ok, health.indexNow?.why], [false, "alerts"], "/api/health reports the last submission");
+eq(health.indexNow?.attempts?.map((a) => a.endpoint), ["api.indexnow.org", "www.bing.com"], "/api/health lists every endpoint tried, not only the last");
+
+// Both endpoints' answers survive when both refuse.
+{
+  const h2 = await createHarness();
+  fakeEndpoints();
+  const st2 = JSON.parse(h2.kv.store.get("cron_status"));
+  posts.length = 0;
+  answer = 429;
+  const r = await IX.indexNowTick(h2.env, st2, seen(), T0);
+  eq(r?.attempts, [{ endpoint: "api.indexnow.org", status: 429 }, { endpoint: "www.bing.com", status: 429 }], "a double refusal records each endpoint's status");
+  answer = 200;
+
+  // A new crest NOAA adds is a new line in that gauge's record.
+  const withHistory = (counts) => ({ ...seen(), waterHistory: Object.entries(counts).map(([lid, n]) => ({ lid, crests: Array.from({ length: n }, () => ({})) })) });
+  await IX.indexNowTick(h2.env, st2, withHistory({ HCDT2: 29, SHLT2: 35 }), "2026-11-11T07:00:00.000Z");
+  posts.length = 0;
+  eq(await IX.indexNowTick(h2.env, st2, withHistory({ HCDT2: 29, SHLT2: 35 }), "2026-11-11T07:15:00.000Z"), null, "unchanged crest lists submit nothing");
+  const crest = await IX.indexNowTick(h2.env, st2, withHistory({ HCDT2: 30, SHLT2: 35 }), "2026-11-11T07:30:00.000Z");
+  eq([crest?.why, posts.at(-1)?.body.urlList], ["crests", [SITE + "/water/cedar-bayou-crosby", SITE + "/es/water/cedar-bayou-crosby"]], "a new crest submits that gauge's page only");
+
+  // A page added after the first run is submitted once, and only once.
+  const stored = JSON.parse(h2.kv.store.get(IX.INDEXNOW_STATE_KV_KEY));
+  eq(stored.known, PAGES.map((p) => p.path), "the submitted page list is stored");
+  stored.known = stored.known.filter((p) => p !== "/water/lake-houston");
+  h2.kv.store.set(IX.INDEXNOW_STATE_KV_KEY, JSON.stringify(stored));
+  posts.length = 0;
+  const added = await IX.indexNowTick(h2.env, st2, withHistory({ HCDT2: 30, SHLT2: 35 }), "2026-11-11T07:45:00.000Z");
+  eq([added?.why, posts.at(-1)?.body.urlList], ["new pages", [SITE + "/water/lake-houston", SITE + "/es/water/lake-houston"]], "a page never submitted is submitted once");
+  posts.length = 0;
+  eq(await IX.indexNowTick(h2.env, st2, withHistory({ HCDT2: 30, SHLT2: 35 }), "2026-11-11T08:00:00.000Z"), null, "…and not again");
+}
 
 if (failures.length) {
   console.error(`\nFreshness checks failed (${failures.length}):\n  ${[...new Set(failures)].slice(0, 40).join("\n  ")}\n`);

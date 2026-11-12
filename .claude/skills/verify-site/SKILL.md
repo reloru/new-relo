@@ -27,19 +27,28 @@ job. Report a mixed sample as "still propagating", never as a failure.
 
 ## 1. Routes return 200 — **both languages, every page**
 
-**Sweep all 21 content pages in BOTH languages. Not a spot-check.** Roughly half
+**Sweep every content page in BOTH languages. Not a spot-check.** Roughly half
 the site's render branches never execute under `lang="en"`, so an English-only
 pass proves nothing about `/es`. This is not hypothetical: `/es/hourly` served a
 502 in production across two deploys because `features/hourly.js` referenced
 `ES_NWS_NOTE`, which only the Spanish branch reaches, and the checklist here said
 "`/es` (Spanish spot-check)" — so `/es` was green while `/es/hourly` was down.
 
-English pages: `/`, `/weather`, `/hourly`, `/radar`, `/alerts`, `/water`,
-`/fishing`, `/tropics`, `/pollen`, `/air`, `/traffic`, `/news`, `/calendar`,
-`/burn-ban`, `/emergency`, `/about`, `/developers`, `/privacy`, `/contact`, `/sitemap`, `/mcp`.
+**Take the page list from the live `/sitemap.xml`, never from a list written
+here.** It is generated from `src/registry.js` and holds every page in both
+languages (the gauge pages under `/water/…` included), so it cannot fall behind
+the way a hand-kept list did. Send a bot-labelled User-Agent so verification is
+counted as automated traffic, not as browser visits:
 
-Spanish: the same 21 under `/es` — `/es`, `/es/weather`, … `/es/sitemap`,
-`/es/mcp`. (`/es` is the hub, not `/es/`.)
+```bash
+UA='Mozilla/5.0 (compatible; CrosbyNewsVerifyBot/1.0; +https://crosbynews.com/)'
+for u in $(curl -s -A "$UA" "$BASE/sitemap.xml" | grep -o '<loc>[^<]*' | cut -c6-); do
+  printf '%s %s\n' "$(curl -s -A "$UA" -H 'Accept: text/html' -o /tmp/p -w '%{http_code}' "$u")" "$u"
+  grep -q '<h1' /tmp/p || echo "  no <h1>: $u"
+done
+```
+
+(`/es` is the Spanish hub, not `/es/`.)
 
 Non-page routes: `/robots.txt`, `/sitemap.xml`, `/llms.txt`,
 `/api/weather`, `/api/health`, `/api/news`, `/api/calendar`, `/api/water`,

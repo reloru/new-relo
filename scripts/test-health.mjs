@@ -365,10 +365,18 @@ console.log("\n/api/health:\n");
 
   // A populated report and a bare one, so fields that appear on only one path
   // (a feed `error`, the top-level `error`) are both covered.
-  const populated = fakeKv({ water: { updated: ISO(0), gauges: [1] } });
+  const populated = fakeKv({
+    water: { updated: ISO(0), gauges: [1] },
+    indexnow_state: { last: { at: ISO(0), ok: false, status: 429, urls: 2, why: "water", endpoint: "www.bing.com", error: "x", attempts: [{ endpoint: "api.indexnow.org", status: 429 }, { endpoint: "www.bing.com", error: "x" }] } },
+  });
   const run = cronRunRecorder();
   run.failed("water", new Error("NWPS 503"));
+  run.failed("record", new Error("gauges: D1_ERROR"));
   await recordCronRun(populated, run);
+  if (!(await healthReport(populated)).body.record || !(await healthReport(populated)).body.indexNow) {
+    failures++;
+    console.log("  FAIL  schema walk did not cover the record and indexNow fields");
+  }
 
   for (const [label, env] of [["populated", populated], ["no binding", {}]]) {
     const { body } = await healthReport(env);
