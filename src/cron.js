@@ -38,6 +38,7 @@ import { pushSevereAlerts } from "./push.js";
 import { cronRunRecorder, recordCronRun } from "./api/health.js";
 import { mcpRollUp } from "./mcp/metrics.js";
 import { pruneHits } from "./metrics.js";
+import { indexNowTick } from "./indexnow.js";
 import { recordAlerts, recordAqi, recordGauges, recordGaugeHistory, hasGaugeHistory, recordPollen, recordBurnBan } from "./record.js";
 
 export async function scheduled(event, env, ctx) {
@@ -137,7 +138,9 @@ export async function scheduled(event, env, ctx) {
       const inSeason = ["Jun", "Jul", "Aug", "Sep", "Oct", "Nov"].includes(month);
       const threshold = inSeason ? 3600 * 1000 : 24 * 3600 * 1000;
       if (!cur || !Array.isArray(cur.storms) || age > threshold) {
-        await env.WEATHER.put(TROPICS_KV_KEY, JSON.stringify(await fetchTropics()));
+        const fresh = await fetchTropics();
+        await env.WEATHER.put(TROPICS_KV_KEY, JSON.stringify(fresh));
+        seen.tropics = fresh;
         run.ok("tropics");
       }
     } catch (e) {
@@ -250,8 +253,15 @@ export async function scheduled(event, env, ctx) {
       console.error("Cron site-metrics prune failed:", e && e.stack);
     }
 
-    // Last, so a failure here can never affect the refreshes it describes.
-    await recordCronRun(env, run);
+    // After everything it describes, so a failure here cannot affect it.
+    const status = await recordCronRun(env, run);
+
+    // Tell search engines about pages whose state changed this tick.
+    try {
+      await indexNowTick(env, status, seen);
+    } catch (e) {
+      console.error("Cron IndexNow failed:", e && e.stack);
+    }
 }
 
 // Write this tick's observations to D1. Each writer is isolated, so one

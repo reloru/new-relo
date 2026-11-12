@@ -169,6 +169,13 @@ export async function healthReport(env) {
     };
   }
 
+  // IndexNow: the last time a state change was submitted to search engines,
+  // and what the endpoint answered.
+  try {
+    const ix = (await env.WEATHER.get("indexnow_state", "json"))?.last;
+    if (ix) body.indexNow = { lastSubmission: centralStamp(ix.at), ok: ix.ok, httpStatus: ix.status, urls: ix.urls, why: ix.why, ...(ix.error ? { error: ix.error } : {}) };
+  } catch {}
+
   return { httpStatus: 200, body };
 }
 
@@ -246,8 +253,11 @@ export async function recordCronRun(env, recorder) {
     // track — only whether this tick's writes succeeded.
     const record = attempts.record || prevAll?.record || null;
 
-    await env.WEATHER.put(CRON_STATUS_KV_KEY, JSON.stringify({ at, feeds, ...(record ? { record } : {}) }));
+    const next = { at, feeds, ...(record ? { record } : {}) };
+    await env.WEATHER.put(CRON_STATUS_KV_KEY, JSON.stringify(next));
+    return next;
   } catch (e) {
     console.error("cron status write failed:", e && e.stack);
+    return null;
   }
 }

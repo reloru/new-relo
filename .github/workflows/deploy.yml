@@ -59,6 +59,13 @@ jobs:
       # fails here, before the deploy job tries to apply it. Pure node.
       - name: Check site metrics and privacy claim
         run: node scripts/test-site-metrics.mjs
+      # What a crawler is told about WHEN — ETags, Last-Modified, sitemap dates,
+      # IndexNow — are claims a search engine checks and stops trusting once
+      # one is wrong. Each is tested as a claim: a 304 only for matching bytes,
+      # a date only where a real instant exists, a submission only on a state
+      # change. Pure node, no network.
+      - name: Check freshness signals
+        run: node scripts/test-freshness.mjs
       # The record is what the durable pages are built on, and it fails by being
       # quietly WRONG: a day's maximum that is not the maximum, an event that
       # never ends, a replayed observation counted twice. Drives every writer

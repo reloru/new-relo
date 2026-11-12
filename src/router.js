@@ -41,11 +41,12 @@ import { homeHtml, homeMarkdown, renderError } from "./features/home.js";
 import { MCP_CORS, mcpHandle, mcpJson, rpcError, mcpServerCard, mcpInfoHtml, mcpInfoMarkdown } from "./mcp/server.js";
 import { mcpRecord, mcpBatchRecorded, mcpUsageReport, mcpUsageText } from "./mcp/metrics.js";
 import { apiCatalog, openApiSpec } from "./api/openapi.js";
-import { healthReport } from "./api/health.js";
+import { healthReport, CRON_STATUS_KV_KEY } from "./api/health.js";
 import { llmsTxt, robotsTxt, sitemapXml, CROSBY_WEATHER_SKILL, agentSkillsIndex } from "./discovery.js";
 import { pushEndpointAllowed, pushKeyFor } from "./push.js";
 import { PAGES, pageFor } from "./registry.js";
 import { siteUsageReport, siteUsageText } from "./metrics.js";
+import { INDEXNOW_KEY, INDEXNOW_KEY_PATH } from "./indexnow.js";
 
 export async function routeRequest(request, env, ctx) {
     const url = new URL(request.url);
@@ -61,13 +62,18 @@ export async function routeRequest(request, env, ctx) {
         headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "public, max-age=3600" },
       });
     }
+    // IndexNow ownership proof: the key, served at a path named after it.
+    if (path === INDEXNOW_KEY_PATH) {
+      return new Response(INDEXNOW_KEY, { headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "public, max-age=86400" } });
+    }
     if (path === "/llms.txt") {
       return new Response(llmsTxt(), {
         headers: { "content-type": "text/markdown; charset=utf-8", "cache-control": "public, max-age=3600" },
       });
     }
     if (path === "/sitemap.xml") {
-      return new Response(sitemapXml(), {
+      const cronStatus = await env.WEATHER.get(CRON_STATUS_KV_KEY, "json").catch(() => null);
+      return new Response(sitemapXml(cronStatus), {
         headers: { "content-type": "application/xml; charset=utf-8", "cache-control": "public, max-age=3600" },
       });
     }
@@ -665,14 +671,43 @@ async function servePage(page, handler, c) {
   } catch (err) {
     return new Response(renderError(err, handler.source || "a data source"), { status: 502, headers: { "content-type": "text/html; charset=utf-8" } });
   }
-  return new Response(body, {
-    headers: {
-      "content-type": `${c.md ? "text/markdown" : "text/html"}; charset=utf-8`,
-      "cache-control": (handler.cacheControl && handler.cacheControl(c)) || `public, max-age=${page.maxAge}`,
-      vary: "Accept",
-      ...(handler.headers ? handler.headers(data, c, body) : {}),
-    },
-  });
+  const headers = {
+    "content-type": `${c.md ? "text/markdown" : "text/html"}; charset=utf-8`,
+    "cache-control": (handler.cacheControl && handler.cacheControl(c)) || `public, max-age=${page.maxAge}`,
+    vary: "Accept",
+    ...(handler.headers ? handler.headers(data, c, body) : {}),
+  };
+  // An admin view is private and never revalidated.
+  if (c.admin) return new Response(body, { headers });
+
+  // Conditional GET. The validator is a digest of the bytes about to be sent,
+  // so it is right by construction for every page and both representations —
+  // nothing has to remember which inputs a page depends on. A crawler that
+  // still holds the current copy gets a body-less 304.
+  headers.etag = await bodyEtag(body);
+  // Last-Modified only where a real instant exists: the refresh time of the
+  // data the page shows. A static page sends none rather than a guess.
+  const modified = Date.parse(pageUpdated(data) ?? "");
+  if (Number.isFinite(modified)) headers["last-modified"] = new Date(modified).toUTCString();
+
+  const inm = c.request.headers.get("if-none-match");
+  if (inm && (inm.trim() === "*" || inm.split(",").map((x) => x.trim()).includes(headers.etag))) {
+    return new Response(null, { status: 304, headers });
+  }
+  return new Response(body, { headers });
+}
+
+async function bodyEtag(body) {
+  const digest = await crypto.subtle.digest("SHA-1", new TextEncoder().encode(body));
+  return `W/"${btoa(String.fromCharCode(...new Uint8Array(digest))).replace(/=+$/, "")}"`;
+}
+
+// The newest `updated` stamp among the datasets a handler loaded. Handlers
+// return either one dataset or an object holding several.
+function pageUpdated(data) {
+  if (!data || typeof data !== "object") return null;
+  const stamps = [data.updated, ...Object.values(data).map((v) => v && typeof v === "object" && v.updated)].filter((x) => typeof x === "string");
+  return stamps.length ? stamps.sort().at(-1) : null;
 }
 
 // --- JSON API ---------------------------------------------------------------

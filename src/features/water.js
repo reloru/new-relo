@@ -6,7 +6,7 @@
 // filtered by waterNum() so they never render as numbers.
 
 import { T, canonicalFor, hreflangTags } from "../i18n.js";
-import { esc, fullTime, clockTime } from "../lib/format.js";
+import { esc, fullTime, clockTime, dateStamp } from "../lib/format.js";
 import { BASE_CSS } from "../assets/base-css.js";
 import { topbar, footer } from "../chrome.js";
 import { JSONLD_SITE, sharedHead } from "../seo.js";
@@ -264,7 +264,7 @@ ${JSONLD_SITE}
 ${topbar("/water", lang)}
 <main id="main">
   <h1>${esc(title)}</h1>
-  <p class="intro">${T(lang, "Current water levels for the rivers and bayous that flood Crosby and northeast Harris County, with each gauge's National Weather Service flood stages. Readings and flood stages both come from the same NWS gauge, so they're directly comparable.", "Niveles de agua actuales de los ríos y arroyos que inundan Crosby y el noreste del condado de Harris, con las etapas de inundación del Servicio Meteorológico Nacional de cada medidor. Las lecturas y las etapas de inundación provienen del mismo medidor del NWS, por lo que son directamente comparables.")}${data.updated ? ` ${T(lang, "Updated", "Actualizado")} ${esc(fullTime(data.updated, lang))} CT.` : ""}</p>
+  <p class="intro">${T(lang, "Current water levels for the rivers and bayous that flood Crosby and northeast Harris County, with each gauge's National Weather Service flood stages. Readings and flood stages both come from the same NWS gauge, so they're directly comparable.", "Niveles de agua actuales de los ríos y arroyos que inundan Crosby y el noreste del condado de Harris, con las etapas de inundación del Servicio Meteorológico Nacional de cada medidor. Las lecturas y las etapas de inundación provienen del mismo medidor del NWS, por lo que son directamente comparables.")}${data.updated ? ` ${T(lang, "Updated", "Actualizado")} ${dateStamp(data.updated, lang)}.` : ""}</p>
   ${status}
   <div class="gauges">
 ${cards}

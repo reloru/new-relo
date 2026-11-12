@@ -3,7 +3,7 @@
 // links become a grouped hamburger menu at <=920px.
 
 import { T, esPath } from "./i18n.js";
-import { esc, fullTime } from "./lib/format.js";
+import { esc, fullTime, dateStamp } from "./lib/format.js";
 import { PAGES, SECTIONS } from "./registry.js";
 
 // Site header with cross-page nav. `current` is the active EN path key for
@@ -58,7 +58,7 @@ export function footer({ page, lang = "en", source, data }) {
 
   const weatherLine = WEATHER_PAGES.has(page) && data
     ? `${!(data.alerts ?? []).length ? T(lang, "No active weather alerts. ", "Sin alertas meteorológicas activas. ") : ""}${source}<br>
-  ${T(lang, "Updated", "Actualizado")} ${esc(fullTime(data.updated, lang))} CT &middot; ${T(lang, "refreshes every 15 minutes.", "se actualiza cada 15 minutos.")}`
+  ${T(lang, "Updated", "Actualizado")} ${dateStamp(data.updated, lang)} &middot; ${T(lang, "refreshes every 15 minutes.", "se actualiza cada 15 minutos.")}`
     : source;
 
   const links = `<div class="footer-links">${PAGES.filter((p) => p.footer).map((p) => lk(p.path, T(lang, p.footer.en, p.footer.es))).join(" &middot; ")} &middot; <a href="${mdHref}">${T(lang, "View as Markdown", "Ver en Markdown")}</a></div>`;

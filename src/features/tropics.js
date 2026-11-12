@@ -6,7 +6,7 @@
 // hurricane page.
 
 import { T, canonicalFor, hreflangTags, translateDir } from "../i18n.js";
-import { esc, fullTime } from "../lib/format.js";
+import { esc, fullTime, dateStamp } from "../lib/format.js";
 import { BASE_CSS } from "../assets/base-css.js";
 import { topbar, footer } from "../chrome.js";
 import { JSONLD_SITE, sharedHead } from "../seo.js";
@@ -464,7 +464,7 @@ export function tropicsHtml(data, lang) {
           <h2>&#127744; ${esc(tropicsClassLabel(s.classification, lang))} ${esc(s.name)}</h2>
         </div>
         <ul class="peek">${rows.join("")}</ul>
-        <p class="storm-meta">${s.lastUpdate ? `${T(lang, "NHC update", "Actualización del NHC")}: ${esc(fullTime(s.lastUpdate, lang))} CT &middot; ` : ""}<a href="${esc(s.advisoryUrl)}" target="_blank" rel="noopener">${T(lang, "Official NHC advisory", "Aviso oficial del NHC")}</a></p>
+        <p class="storm-meta">${s.lastUpdate ? `${T(lang, "NHC update", "Actualización del NHC")}: ${dateStamp(s.lastUpdate, lang)} &middot; ` : ""}<a href="${esc(s.advisoryUrl)}" target="_blank" rel="noopener">${T(lang, "Official NHC advisory", "Aviso oficial del NHC")}</a></p>
       </article>`;
     })
     .join("\n");
@@ -586,7 +586,7 @@ ${JSONLD_SITE}
 ${topbar("/tropics", lang)}
 <main id="main">
   <h1>${esc(title)}</h1>
-  <p class="intro">${T(lang, "Active Atlantic tropical systems from the National Hurricane Center, plus the areas it is watching for development, checked about every hour. Storm advisories and names stay in NHC's official English.", "Sistemas tropicales activos del Atlántico según el Centro Nacional de Huracanes, además de las zonas que vigila por posible desarrollo, consultados aproximadamente cada hora. Los avisos y nombres de tormentas se muestran en el inglés oficial del NHC.")}${data.updated ? ` ${T(lang, "Updated", "Actualizado")} ${esc(fullTime(data.updated, lang))} CT.` : ""}</p>
+  <p class="intro">${T(lang, "Active Atlantic tropical systems from the National Hurricane Center, plus the areas it is watching for development, checked about every hour. Storm advisories and names stay in NHC's official English.", "Sistemas tropicales activos del Atlántico según el Centro Nacional de Huracanes, además de las zonas que vigila por posible desarrollo, consultados aproximadamente cada hora. Los avisos y nombres de tormentas se muestran en el inglés oficial del NHC.")}${data.updated ? ` ${T(lang, "Updated", "Actualizado")} ${dateStamp(data.updated, lang)}.` : ""}</p>
   ${status}
   <p class="basin-note">${esc(tropicsBasinNote(data, lang))}</p>
   ${storms.length ? `<div class="storms">\n${cards}\n  </div>` : ""}

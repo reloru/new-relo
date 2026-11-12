@@ -103,8 +103,17 @@ Sitemap: ${SITE}/sitemap.xml
 // /sitemap.xml — every page in both languages. Each <url> carries xhtml:link
 // alternates (en-US, es-MX, x-default → English) so Google ties the English and
 // Spanish versions together, the same pairing the in-page hreflang tags assert.
-export function sitemapXml() {
-  const today = new Date().toISOString().slice(0, 10);
+//
+// <lastmod> is the moment the page's DATA last changed — `changedAt` in the
+// cron's status record, which moves only when a feed's content does, not every
+// time it is re-fetched. Google uses lastmod only while it proves accurate, so
+// a page with no such instant (the static ones) gets no lastmod at all.
+// No <changefreq> or <priority>: Google ignores both.
+export function sitemapXml(cronStatus) {
+  const changed = (page) => {
+    const stamps = (page.feeds || []).map((f) => cronStatus?.feeds?.[f]?.changedAt).filter((x) => typeof x === "string" && !Number.isNaN(Date.parse(x)));
+    return stamps.length ? new Date(stamps.sort().at(-1)).toISOString() : null;
+  };
   const entry = (loc, page) => {
     const en = SITE + page.path;
     const es = SITE + esPath(page.path);
@@ -112,11 +121,9 @@ export function sitemapXml() {
       `\n    <xhtml:link rel="alternate" hreflang="en-US" href="${en}"/>` +
       `\n    <xhtml:link rel="alternate" hreflang="es-MX" href="${es}"/>` +
       `\n    <xhtml:link rel="alternate" hreflang="x-default" href="${en}"/>`;
-    const lastmod = page.sitemap.lastmod ? `\n    <lastmod>${today}</lastmod>` : "";
+    const when = changed(page);
     return `  <url>
-    <loc>${loc}</loc>${lastmod}
-    <changefreq>${page.sitemap.changefreq}</changefreq>
-    <priority>${page.sitemap.priority}</priority>${alts}
+    <loc>${loc}</loc>${when ? `\n    <lastmod>${when}</lastmod>` : ""}${alts}
   </url>`;
   };
   const urls = [];
