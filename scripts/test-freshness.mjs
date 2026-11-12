@@ -84,7 +84,10 @@ for (const path of ["/", "/weather", "/hourly", "/alerts", "/water", "/fishing",
   const body = await (await h.get(path, { headers: { accept: "text/html" } })).text();
   const tags = [...body.matchAll(/<time datetime="([^"]+)">/g)].map((m) => m[1]);
   ok(tags.length > 0, `${path}: no <time datetime> stamp`);
-  ok(tags.every((t) => /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/.test(t)), `${path}: a <time datetime> is not an ISO instant`);
+  // An instant for a stamp, or a bare calendar date for something that is a
+  // date (a school holiday, a crest NOAA dated without a time): writing a
+  // date as an instant would invent a time and a zone.
+  ok(tags.every((t) => /^\d{4}-\d\d-\d\d(T\d\d:\d\d:\d\d\.\d{3}Z)?$/.test(t)), `${path}: a <time datetime> is neither an ISO instant nor a calendar date`);
 }
 
 // --- what a result snippet may quote ----------------------------------------
