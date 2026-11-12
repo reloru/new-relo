@@ -376,6 +376,59 @@ export function burnbanHistory(prev, next) {
 
 // Read the cached status, self-healing on a cold/malformed entry and
 // degrading to an unknown-status shape on total failure (mirrors loadTropics).
+// --- ban history (D1 burnban_periods) ------------------------------------------
+//
+// Every ban the record holds, newest first: the ones the cron saw start and
+// end, and the earlier ones entered by hand from the county's releases
+// (scripts/seed-burnban-periods.mjs). Loaded failure-tolerant: this page is a
+// live status page first, so a database problem drops this section and never
+// the status above it. null means "could not read", [] means "none recorded".
+export async function loadBurnBanPeriods(env) {
+  if (!env?.DB) return null;
+  try {
+    return (await env.DB.prepare("SELECT started, ended, start_source, end_source, note, url FROM burnban_periods ORDER BY started DESC").all()).results || [];
+  } catch (e) {
+    console.error("burn-ban history read failed:", e && e.stack);
+    return null;
+  }
+}
+
+const banDay = (day, lang) => new Date(`${day}T12:00:00Z`).toLocaleDateString(lang === "es" ? "es-MX" : "en-US", { timeZone: "UTC", year: "numeric", month: "short", day: "numeric" });
+const banDays = (a, b) => Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 86400000);
+// The first outlet + link in a hand-entered note ("as reported by X (url)").
+const reportedBy = (note) => {
+  const m = String(note || "").match(/reported by ([^(]+?) \((https?:\/\/[^)\s]+)\)/);
+  return m ? { outlet: m[1].trim(), url: m[2] } : null;
+};
+
+export function banHistoryRows(periods, lang) {
+  return (periods || []).map((p) => {
+    const start = banDay(p.started, lang);
+    const end = p.ended ? banDay(p.ended, lang) : T(lang, "in effect", "vigente");
+    const length = p.ended ? T(lang, `${banDays(p.started, p.ended)} days`, `${banDays(p.started, p.ended)} días`) : "";
+    const startSrc =
+      p.start_source === "order" ? { text: T(lang, "county release", "comunicado del condado"), url: p.url }
+      : p.start_source === "tfs" ? { text: T(lang, "Texas A&M Forest Service start date", "fecha de inicio del Servicio Forestal de Texas A&M"), url: null }
+      : { text: T(lang, "first seen by this site", "primera vez visto por este sitio"), url: null };
+    const news = p.end_source === "news" ? reportedBy(p.note) : null;
+    const endSrc =
+      !p.ended ? null
+      : news ? { text: T(lang, `as reported by ${news.outlet}`, `según ${news.outlet}`), url: news.url }
+      : p.end_source === "observed" ? { text: T(lang, "first seen lifted by this site", "visto levantado por este sitio"), url: null }
+      : p.end_source === "order" ? { text: T(lang, "county release", "comunicado del condado"), url: p.url }
+      : null;
+    return { start, end, length, startSrc, endSrc };
+  });
+}
+
+export function banHistoryNote(lang) {
+  return T(
+    lang,
+    "Bans before August 2023 are not listed: the ban that began June 28, 2022 is reported with two different end dates, and a second 2022 ban and earlier ones (one is reported for 2015) could not be dated from the county's releases. The county publishes its orders but not when a ban is lifted, so earlier lift dates are those news outlets reported from the county's statements.",
+    "Las prohibiciones anteriores a agosto de 2023 no aparecen: la que comenzó el 28 de junio de 2022 se reporta con dos fechas de fin distintas, y una segunda de 2022 y otras anteriores (se reporta una en 2015) no se pudieron fechar con los comunicados del condado. El condado publica sus órdenes pero no cuándo se levanta una prohibición, así que las fechas de fin anteriores son las que reportaron medios a partir de declaraciones del condado.",
+  );
+}
+
 export async function loadBurnBan(env) {
   let data = null;
   try {
@@ -456,7 +509,22 @@ export function apiBurnBan(data) {
   };
 }
 
-export function burnbanHtml(data, lang, weather) {
+function banHistoryHtml(periods, lang) {
+  if (!Array.isArray(periods) || !periods.length) return "";
+  const link = (x) => (x ? (x.url ? `<a href="${esc(x.url)}">${esc(x.text)}</a>` : esc(x.text)) : "");
+  return `<section class="bans">
+    <h2>${T(lang, "Past burn bans in Harris County", "Prohibiciones de quemas anteriores en el condado de Harris")}</h2>
+    <div class="tbl-wrap"><table class="tbl">
+      <thead><tr><th>${T(lang, "Began", "Comenzó")}</th><th>${T(lang, "Ended", "Terminó")}</th><th>${T(lang, "Length", "Duración")}</th><th>${T(lang, "Sources", "Fuentes")}</th></tr></thead>
+      <tbody>
+${banHistoryRows(periods, lang).map((r) => `        <tr><td>${esc(r.start)}</td><td>${esc(r.end)}</td><td>${esc(r.length || "—")}</td><td>${[link(r.startSrc), link(r.endSrc)].filter(Boolean).join("; ")}</td></tr>`).join("\n")}
+      </tbody>
+    </table></div>
+    <p class="note">${esc(banHistoryNote(lang))}</p>
+  </section>`;
+}
+
+export function burnbanHtml(data, lang, weather, periods) {
   const title = T(lang, "Harris County Burn Ban Status", "Estado de la prohibición de quemas del condado de Harris");
   const desc = T(
     lang,
@@ -531,6 +599,11 @@ ${sharedHead(lang)}
 ${hreflangTags("/burn-ban")}
 ${JSONLD_SITE}
 <style>${BASE_CSS}
+  .tbl-wrap { overflow-x:auto; margin-top:0.5rem; }
+  .tbl { border-collapse:collapse; font-size:0.88rem; width:100%; }
+  .tbl th, .tbl td { border:1px solid var(--line); padding:0.35rem 0.55rem; text-align:left; vertical-align:top; }
+  .tbl th { background:var(--card); }
+  .bans .note { font-size:0.85rem; color:var(--muted); }
   .status { display:flex; align-items:center; gap:1rem; border-radius:16px; padding:1.2rem 1.4rem; margin-top:0.8rem; color:#fff; }
   .status-icon { font-size:2.4rem; line-height:1; flex:none; }
   .status-title { margin:0; font-size:1.5rem; font-weight:800; line-height:1.1; }
@@ -616,6 +689,7 @@ ${checklist}
     <h2>${T(lang, "Frequently asked questions", "Preguntas frecuentes")}</h2>
 ${faq}
   </section>
+  ${banHistoryHtml(periods, lang)}
   <section class="res">
     <h2>${T(lang, "Resources", "Recursos")}</h2>
     <ul class="links">
@@ -628,7 +702,7 @@ ${footer({ page: "/burn-ban", lang, source: T(lang, `Burn ban data from the <a h
 </html>`;
 }
 
-export function burnbanMarkdown(data, lang, weather) {
+export function burnbanMarkdown(data, lang, weather, periods) {
   const known = data.status === "Yes" || data.status === "No";
   const out = [
     `# ${T(lang, "Harris County Burn Ban Status", "Estado de la prohibición de quemas del condado de Harris")}`,
@@ -686,6 +760,13 @@ export function burnbanMarkdown(data, lang, weather) {
     ""
   );
   for (const f of burnbanFaq(lang)) out.push(`### ${f.q}`, "", f.a, "");
+  if (Array.isArray(periods) && periods.length) {
+    out.push(`## ${T(lang, "Past burn bans in Harris County", "Prohibiciones de quemas anteriores en el condado de Harris")}`, "");
+    out.push(`| ${T(lang, "Began", "Comenzó")} | ${T(lang, "Ended", "Terminó")} | ${T(lang, "Length", "Duración")} | ${T(lang, "Sources", "Fuentes")} |`, "|---|---|---|---|");
+    const link = (x) => (x ? (x.url ? `[${x.text}](${x.url})` : x.text) : "");
+    for (const r of banHistoryRows(periods, lang)) out.push(`| ${r.start} | ${r.end} | ${r.length || "—"} | ${[link(r.startSrc), link(r.endSrc)].filter(Boolean).join("; ")} |`);
+    out.push("", banHistoryNote(lang), "");
+  }
   out.push(`## ${T(lang, "Resources", "Recursos")}`, "");
   for (const r of burnbanResources(lang)) {
     out.push(`- [${r.label}](${r.path ? canonicalFor(r.path, lang) : r.url}) — ${r.note}`);

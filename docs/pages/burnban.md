@@ -232,3 +232,25 @@ page where the guides stay excluded (`docs/ops/search.md` has the site-wide
 rule); revisit only with search-result evidence. The "Right now in Crosby"
 wind and humidity strip is also `data-nosnippet`, for the opposite reason: it
 is stale within the hour.
+
+## Past burn bans
+
+A "Past burn bans in Harris County" table (and Markdown section) lists every
+row of D1 `burnban_periods`, newest first: start, end ("in effect" while
+open), length in days, and where each date came from. Loaded by
+`loadBurnBanPeriods()`, failure-tolerant: a D1 error drops the table and
+never the live status (the page is a status page first).
+
+| Row kind | Start source | End source |
+|---|---|---|
+| Cron-observed (2026-09-17 onward) | `tfs` (Forest Service's own start date) or `observed` | `observed` (first tick seen lifted) |
+| Hand-entered (`scripts/seed-burnban-periods.mjs`) | `order`: the county's release on readyharris.org, URL in `url` | `news`: the county publishes no lift notices, so the date news outlets reported from the county's statements, outlet and URL in `note` |
+
+Entered: 2023-08-08 → 2023-10-10, 2024-10-08 → 2024-11-25,
+2025-10-16 → 2025-12-05, each start checked against its readyharris release
+(every release on that site was read on 2026-11-12; none is a lift notice).
+Not entered, and the page says so: the ban that began 2022-06-28 (outlets give
+Aug 22 and Aug 23 for its end), a second 2022 ban, and earlier bans (2015 is
+reported). Add one only with a dated source for both ends. Tested by
+`scripts/test-burnban-bans.mjs` ("Check burn-ban history table" in CI).
+
