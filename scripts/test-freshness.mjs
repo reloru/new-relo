@@ -85,6 +85,50 @@ for (const path of ["/", "/weather", "/hourly", "/alerts", "/water", "/fishing",
   ok(tags.every((t) => /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/.test(t)), `${path}: a <time datetime> is not an ISO instant`);
 }
 
+// --- what a result snippet may quote ----------------------------------------
+// data-nosnippet goes on what will be wrong by the time a crawler's copy is
+// shown (a temperature, a gauge reading, an active alert) and comes off what
+// will still be right (the guides, a dated status). Remove every nosnippet
+// element, then look at what is left.
+function snippetable(html) {
+  let main = html.slice(html.indexOf('<main id="main"'), html.lastIndexOf("</main>"));
+  for (;;) {
+    const m = /<(div|section|span)\b[^>]*\sdata-nosnippet[^>]*>/.exec(main);
+    if (!m) return main.replace(/<[^>]+>/g, " ");
+    const open = new RegExp(`<${m[1]}\\b`, "g"), close = new RegExp(`</${m[1]}>`, "g");
+    let depth = 1, at = m.index + m[0].length;
+    while (depth > 0) {
+      open.lastIndex = close.lastIndex = at;
+      const o = open.exec(main), c = close.exec(main);
+      if (!c) throw new Error("unbalanced nosnippet element");
+      if (o && o.index < c.index) { depth++; at = o.index + 1; } else { depth--; at = c.index + c[0].length; }
+    }
+    main = main.slice(0, m.index) + main.slice(at);
+  }
+}
+const quotable = async (path) => snippetable(await (await h.get(path, { headers: { accept: "text/html" } })).text());
+for (const path of ["/", "/weather", "/hourly", "/es", "/es/weather"]) {
+  ok(!/\d+\s*°/.test(await quotable(path)), `${path}: a temperature is quotable in a snippet`);
+}
+{
+  const water = await quotable("/water");
+  const g0 = JSON.parse(h.kv.store.get("water")).gauges[0];
+  ok(!water.includes(`${g0.stage}`), "/water: a live gauge reading is quotable");
+  ok(water.includes(`${g0.thresholds.action} ft`), "/water: flood stages stay quotable");
+  const air = await quotable("/air");
+  ok(!/Main pollutant/.test(air), "/air: the live AQI hero is quotable");
+  ok(/How to read the AQI/.test(air), "/air: the guide is not quotable");
+  ok(/Severe Weather Guide/.test(await quotable("/alerts")), "/alerts: the guide is not quotable");
+  ok(!/No active weather alerts for Crosby/.test(await quotable("/alerts")), "/alerts: the live alert status is quotable");
+  ok(/Hurricane season and Crosby/.test(await quotable("/tropics")), "/tropics: the guide is not quotable");
+  ok(!/Nothing active/.test(await quotable("/tropics")), "/tropics: the live basin status is quotable");
+  ok(/How to read the categories/.test(await quotable("/pollen")), "/pollen: the guide is not quotable");
+  ok(/When water covers the road/.test(await quotable("/traffic")), "/traffic: the guide is not quotable");
+  const ban = await quotable("/burn-ban");
+  ok(/Burn ban in effect/.test(ban) && /In effect since/.test(ban), "/burn-ban: the dated status is not quotable");
+  ok(!/Right now in Crosby/.test(ban), "/burn-ban: the live wind and humidity strip is quotable");
+}
+
 // --- sitemap dates ----------------------------------------------------------
 const xml = await (await h.get("/sitemap.xml")).text();
 ok(!/<changefreq>|<priority>/.test(xml), "sitemap carries no changefreq/priority");
@@ -163,13 +207,23 @@ const cleared = structuredClone(warned);
 cleared.weather.alerts = [];
 const refused = await IX.indexNowTick(h.env, lifted, cleared, T0);
 eq([refused?.ok, refused?.status], [false, 403], "a refused submission is recorded as failed");
+eq(posts.slice(-2).map((p) => new URL(p.url).host), ["api.indexnow.org", "www.bing.com"], "a refusal from the shared endpoint falls back to Bing's");
 posts.length = 0;
-eq(await IX.indexNowTick(h.env, lifted, cleared, T0), null, "a failed submission is not retried every tick");
+eq(await IX.indexNowTick(h.env, lifted, cleared, T0), null, "a failed submission is not retried on the next tick");
+eq(await IX.indexNowTick(h.env, lifted, cleared, "2026-11-11T05:45:00.000Z"), null, "…nor before an hour has passed");
+answer = 200;
+const retried = await IX.indexNowTick(h.env, lifted, cleared, "2026-11-11T06:01:00.000Z");
+eq([retried?.ok, posts.at(-1)?.body.urlList], [true, [SITE + "/alerts", SITE + "/es/alerts"]], "after an hour the failed URLs are submitted again");
+posts.length = 0;
+eq(await IX.indexNowTick(h.env, lifted, cleared, "2026-11-11T08:00:00.000Z"), null, "a retry that succeeded leaves nothing pending");
 answer = "throw";
 const again = structuredClone(cleared);
 again.weather.alerts = [{ id: "urn:x:another" }];
 const down = await IX.indexNowTick(h.env, lifted, again, T0);
-ok(down && down.ok === false && /unreachable/.test(down.error), "an unreachable endpoint is recorded, not thrown");
+ok(down && down.ok === false && /unreachable/.test(down.error), "unreachable endpoints are recorded, not thrown");
+for (let i = 0; i < 8; i++) await IX.indexNowTick(h.env, lifted, again, new Date(Date.parse(T0) + (i + 2) * 3600e3).toISOString());
+posts.length = 0;
+eq(await IX.indexNowTick(h.env, lifted, again, "2026-11-12T12:00:00.000Z"), null, "retries stop after a bounded number of tries");
 const health = await (await h.get("/api/health")).json();
 eq([health.indexNow?.ok, health.indexNow?.why], [false, "alerts"], "/api/health reports the last submission");
 

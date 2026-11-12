@@ -252,8 +252,8 @@ export function trafficHtml(data, lang) {
   const title = T(lang, "Crosby Roads & Traffic", "Caminos y tráfico de Crosby");
   const desc = T(
     lang,
-    "Live traffic incidents and scheduled lane closures for the roads Crosby, TX drives — US-90, FM-2100, FM-1942, and IH-10 East — from Houston TranStar, plus links to the live traffic cameras.",
-    "Incidentes de tráfico en vivo y cierres de carriles programados para los caminos de Crosby, TX — US-90, FM-2100, FM-1942 e IH-10 East — según Houston TranStar, más enlaces a las cámaras de tráfico en vivo."
+    "Traffic incidents and scheduled lane closures on the roads Crosby, TX drives — US-90, FM-2100, FM-1942 and IH-10 East — from Houston TranStar.",
+    "Incidentes de tráfico y cierres de carriles programados en los caminos de Crosby, TX — US-90, FM-2100, FM-1942 e IH-10 East — según Houston TranStar."
   );
 
   const status =
@@ -348,8 +348,10 @@ ${topbar("/traffic", lang)}
     "Traffic incidents and scheduled lane closures for the roads Crosby drives — US-90 (the Crosby Freeway), FM-2100, FM-1942, and the Crosby stretch of IH-10 East — from Houston TranStar, the region's official traffic agency. Lane and schedule details are shown in TranStar's official English.",
     "Incidentes de tráfico y cierres de carriles programados para los caminos que usa Crosby — US-90 (la autopista de Crosby), FM-2100, FM-1942 y el tramo de Crosby de IH-10 East — según Houston TranStar, la agencia oficial de tráfico de la región. Los detalles de carriles y horarios se muestran en el inglés oficial de TranStar."
   )}${data.updated ? ` ${T(lang, "Updated", "Actualizado")} ${dateStamp(data.updated, lang)}.` : ""}</p>
+  <div data-nosnippet>
   ${status}
   ${incidents?.length ? `<div class="incs">\n${incidentCards}\n  </div>` : ""}
+  </div>
   <h2 class="section-h">${T(lang, "Scheduled lane closures", "Cierres de carriles programados")}</h2>
   ${closureRows}
   <h2 class="section-h">${T(lang, "Live traffic cameras", "Cámaras de tráfico en vivo")}</h2>
@@ -359,7 +361,7 @@ ${topbar("/traffic", lang)}
     <li><a href="${transtarCameraPage("IH-10 East")}" target="_blank" rel="noopener">${T(lang, "IH-10 East cameras", "Cámaras de IH-10 East")}</a><br><span class="cl-meta">${esc(camList("IH-10 East"))}</span></li>
     <li><a href="${TRANSTAR_MAP_URL}" target="_blank" rel="noopener">${T(lang, "Live traffic map centered on Crosby", "Mapa de tráfico en vivo centrado en Crosby")}</a><br><span class="cl-meta">${T(lang, "incidents, closures, and cameras on one map", "incidentes, cierres y cámaras en un solo mapa")}</span></li>
   </ul>
-  <section class="guide" data-nosnippet>
+  <section class="guide">
     <h2>${T(lang, "When water covers the road", "Cuando el agua cubre el camino")}</h2>
     <p>${T(
       lang,

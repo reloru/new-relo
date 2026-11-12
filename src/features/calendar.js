@@ -220,7 +220,7 @@ export function calendarHtml(data, lang) {
     body = `<p class="none">${T(lang, "No upcoming events are posted right now — subscribe below and they'll appear as the district adds them.", "No hay eventos próximos publicados por ahora; suscríbete abajo y aparecerán conforme el distrito los agregue.")}</p>`;
   }
   const title = T(lang, "Crosby ISD School Calendar", "Calendario escolar de Crosby ISD");
-  const desc = T(lang, "Upcoming Crosby ISD school calendar events — first day of school, holidays, no-school and early-release days, testing windows, and campus activities — plus one-tap subscribe links. Source: Crosby ISD.", "Próximos eventos del calendario escolar de Crosby ISD: primer día de clases, días festivos, días sin clases y de salida temprana, exámenes y actividades de los planteles, además de enlaces de suscripción con un toque. Fuente: Crosby ISD.");
+  const desc = T(lang, "Upcoming Crosby ISD school calendar events — first day of school, holidays, no-school and early-release days, testing — with one-tap subscribe links.", "Próximos eventos del calendario de Crosby ISD: primer día de clases, días festivos, días sin clases y de salida temprana, exámenes, y cómo suscribirte.");
   return `<!DOCTYPE html>
 <html lang="${T(lang, "en", "es-MX")}">
 <head>

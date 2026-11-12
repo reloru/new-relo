@@ -9,7 +9,7 @@
 
 import { LAT, LON, TZ } from "../config.js";
 import { T, canonicalFor, hreflangTags } from "../i18n.js";
-import { esc, fmt } from "../lib/format.js";
+import { esc, fmt, dateStamp } from "../lib/format.js";
 import { BASE_CSS } from "../assets/base-css.js";
 import { topbar, footer } from "../chrome.js";
 import { JSONLD_SITE, sharedHead } from "../seo.js";
@@ -462,8 +462,8 @@ export function airHtml(weather, lang) {
   const title = T(lang, "Air Quality", "Calidad del aire");
   const desc = T(
     lang,
-    "Current air quality (AQI) for the Houston / Crosby, TX area — measured by EPA/AirNow monitors, with a per-pollutant breakdown and what the number means for your health.",
-    "Calidad del aire (AQI) actual para la zona de Houston / Crosby, TX — medida por monitores de EPA/AirNow, con desglose por contaminante y qué significa el número para tu salud."
+    "Air quality (AQI) for the Houston / Crosby, TX area, measured by EPA/AirNow monitors, with each pollutant and what the number means for your health.",
+    "Calidad del aire (AQI) para la zona de Houston / Crosby, TX, medida por monitores de EPA/AirNow, con cada contaminante y qué significa para tu salud."
   );
   const subCards = has && aqi.subIndices
     ? Object.entries(aqi.subIndices)
@@ -546,15 +546,15 @@ ${topbar("/air", lang)}
   )}</p>
   ${
     has
-      ? `<div class="aqi-hero ${band.cls}">
+      ? `<div class="aqi-hero ${band.cls}" data-nosnippet>
     <span class="aqi-num">${aqi.usAqi}</span>
     <div>
       <p class="aqi-cat">${esc(T(lang, band.en, band.es))}</p>
       <p class="aqi-sub">${aqi.dominant ? `${T(lang, "Main pollutant", "Contaminante principal")}: ${esc(aqiDominantLabel(aqi.dominant, lang))} &middot; ` : ""}${esc(aqiSourceTag(aqi, lang))}${aqi.observed ? ` &middot; ${esc(aqi.observed)}` : ""}</p>
     </div>
   </div>
-  <p class="stamp">${aqiSourceNote(aqi, lang)}</p>
-  ${subCards ? `<div class="pgrid">\n${subCards}\n  </div>` : ""}
+  <p class="stamp">${aqiSourceNote(aqi, lang)}${weather.updated ? ` ${T(lang, "Checked", "Verificado")} ${dateStamp(weather.updated, lang)}.` : ""}</p>
+  ${subCards ? `<div class="pgrid" data-nosnippet>\n${subCards}\n  </div>` : ""}
   ${nearbyOzoneCard(aqi.nearby, lang)}
   <section class="health">
     <h2>${T(lang, "What this means", "Qué significa")}</h2>
@@ -562,7 +562,7 @@ ${topbar("/air", lang)}
   </section>`
       : `<p class="stamp">${T(lang, "The air quality reading is temporarily unavailable — try again shortly.", "La lectura de calidad del aire no está disponible temporalmente — inténtalo de nuevo en un momento.")}</p>`
   }
-  <section class="guide" data-nosnippet>
+  <section class="guide">
     <h2>${T(lang, "How to read the AQI", "Cómo leer el AQI")}</h2>
     <div class="scale-wrap"><table class="scale">
       <tr><th>${T(lang, "AQI", "AQI")}</th><th>${T(lang, "Level", "Nivel")}</th><th>${T(lang, "What to do", "Qué hacer")}</th></tr>

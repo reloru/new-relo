@@ -84,7 +84,9 @@ for (const [label, mutate] of [["quiet", undefined], ["busy", busy]]) {
       if (!body.includes(`hreflang="en-US" href="${SITE + page.path}"`) || !body.includes(`hreflang="es-MX" href="${SITE + esPath(page.path)}"`)) fail(`${where}: hreflang pair missing or wrong`);
       if (!new RegExp(`<html lang="${lang === "es" ? "es-MX" : "en"}"`).test(body)) fail(`${where}: wrong <html lang>`);
       if (!/<title>[^<]{5,}<\/title>/.test(body)) fail(`${where}: no <title>`);
-      if (!/<meta name="description" content="[^"]{20,}"/.test(body)) fail(`${where}: no meta description`);
+      const description = (body.match(/<meta name="description" content="([^"]*)"/) || [])[1] || "";
+      const descriptionLength = description.replace(/&amp;/g, "&").replace(/&quot;/g, '"').length;
+      if (descriptionLength < 50 || descriptionLength > 160) fail(`${where}: meta description is ${descriptionLength} characters; keep it between 50 and 160 so results show it whole`);
       if ((body.match(/<h1[\s>]/g) || []).length !== 1) fail(`${where}: expected exactly one <h1>`);
       if (!body.includes('<main id="main"')) fail(`${where}: no <main id="main">`);
       // Only the content region is scanned, located by position: inline

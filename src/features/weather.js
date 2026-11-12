@@ -192,11 +192,15 @@ ${JSONLD_SITE}
 <body>
 ${topbar("/weather", lang)}
 <main id="main">
+  <div data-nosnippet>
   ${alertsBanner(data.alerts ?? [], lang)}
   ${renderHero(data, lang)}
+  </div>
   ${lang === "es" ? `<p class="lead nws-note">${ES_NWS_NOTE}</p>` : ""}
+  <div data-nosnippet>
   ${renderHourly((data.hourly ?? []).slice(0, 12), lang)}
   ${renderDaily(data.periods ?? [], lang)}
+  </div>
   <p class="lead"><a href="${lang === "es" ? "/es/hourly" : "/hourly"}">${T(lang, "Full 48-hour hourly forecast", "Pronóstico por hora de 48 horas")}</a> &middot; <a href="${lang === "es" ? "/es/radar" : "/radar"}">${T(lang, "Radar", "Radar")}</a> &middot; <a href="${lang === "es" ? "/es/water" : "/water"}">${T(lang, "Water levels", "Niveles de agua")}</a></p>
   ${burnban?.status === "Yes" ? `<p class="lead">&#128293; ${T(lang, "Harris County burn ban in effect.", "Prohibición de quemas vigente en el condado de Harris.")} <a href="${lang === "es" ? "/es/burn-ban" : "/burn-ban"}">${T(lang, "Details", "Detalles")} &rarr;</a></p>` : ""}
 </main>

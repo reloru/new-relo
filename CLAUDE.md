@@ -430,6 +430,11 @@ has the full state; the rules that bind a change:
 - **No relative times in a page** ("10 min ago"). Every visible stamp goes
   through `dateStamp()` / `clockStamp()` / `timeTag()` (`src/lib/format.js`),
   which wrap it in `<time datetime>`.
+- **`data-nosnippet` goes on what is stale within hours** (temperatures,
+  readings, active alerts, live status panels) and never on a guide. A new
+  live block needs it; `scripts/test-freshness.mjs` fails if a temperature or
+  gauge reading is left quotable. Meta descriptions are 50–160 characters and
+  never carry a live value.
 - **Pages revalidate by content**: `servePage()` sends an ETag that is a digest
   of the bytes, and a 304 for a match. `Last-Modified` and the sitemap's
   `<lastmod>` exist only where a real instant does — a page's `feeds` in the

@@ -173,7 +173,7 @@ export async function healthReport(env) {
   // and what the endpoint answered.
   try {
     const ix = (await env.WEATHER.get("indexnow_state", "json"))?.last;
-    if (ix) body.indexNow = { lastSubmission: centralStamp(ix.at), ok: ix.ok, httpStatus: ix.status, urls: ix.urls, why: ix.why, ...(ix.error ? { error: ix.error } : {}) };
+    if (ix) body.indexNow = { lastSubmission: centralStamp(ix.at), ok: ix.ok, httpStatus: ix.status, urls: ix.urls, why: ix.why, ...(ix.endpoint ? { endpoint: ix.endpoint } : {}), ...(ix.error ? { error: ix.error } : {}) };
   } catch {}
 
   return { httpStatus: 200, body };

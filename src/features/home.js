@@ -317,7 +317,7 @@ export function homeHtml(weather, water, news, cal, tropics, burnban, lang) {
   const bbUpdated = burnban?.updated ? `${T(lang, "Checked", "Verificado")} ${clockStamp(burnban.updated, lang)}` : "";
   const alertTypes = [...new Set(alerts.map((a) => a.event))];
   const cards = `<div class="hub-grid">
-      ${glanceTodayRows || glanceNowRows ? `<section class="hub-card">
+      ${glanceTodayRows || glanceNowRows ? `<section class="hub-card" data-nosnippet>
         <h2>${T(lang, "Today at a Glance", "Hoy de un vistazo")}</h2>
         <p class="hub-stamp">${glanceStamp(weather, lang)}</p>
         ${glanceTodayRows ? `<ul class="peek">${glanceTodayRows}</ul>` : ""}
@@ -325,18 +325,18 @@ export function homeHtml(weather, water, news, cal, tropics, burnban, lang) {
         ${glanceExplainers(lang, weather.aqi)}
         ${glanceSrc ? `<p class="glance-source">${glanceSrc}</p>` : ""}
       </section>` : ""}
-      <section class="hub-card">
+      <section class="hub-card" data-nosnippet>
         <h2><a href="${lk("/weather")}">${T(lang, "Weather", "Clima")}</a></h2>
         <ul class="peek">${dayPeek || `<li class="muted">${T(lang, "Forecast unavailable.", "Pronóstico no disponible.")}</li>`}</ul>
         <p class="hub-links"><a href="${lk("/hourly")}">${T(lang, "Hourly", "Por hora")}</a> &middot; <a href="${lk("/radar")}">Radar</a> &middot; <a href="${lk("/alerts")}">${T(lang, "Alerts", "Alertas")}</a></p>
       </section>
-      <section class="hub-card">
+      <section class="hub-card" data-nosnippet>
         <h2><a href="${lk("/alerts")}">${T(lang, "Alerts", "Alertas")}</a></h2>
         <p class="hub-water ${alerts.length ? "w-moderate" : "w-normal"}"><span class="hub-water-badge">${alerts.length ? `${alerts.length} ${T(lang, "Active", "Activas")}` : T(lang, "None", "Ninguna")}</span></p>
         <p class="hub-water-detail">${alerts.length ? esc(alertTypes.slice(0, 3).join(" · ")) + (alertTypes.length > 3 ? " …" : "") : T(lang, "No active weather alerts", "Sin alertas meteorológicas activas")}</p>
         ${alertsUpdated ? `<p class="hub-stamp">${alertsUpdated}</p>` : ""}
       </section>
-      <section class="hub-card">
+      <section class="hub-card" data-nosnippet>
         <h2><a href="${lk("/water")}">${T(lang, "Water Levels", "Niveles de agua")}</a></h2>
         <p class="hub-water ${ws.cls}"><span class="hub-water-badge">${esc(ws.label)}</span></p>
         ${WATER_FLOOD_CATS.some((c) => ws.cls === waterCatClass(c)) || ws.cls === "w-unknown" ? `<p class="hub-water-detail">${esc(ws.detail)}</p>` : ""}
@@ -455,10 +455,14 @@ ${JSONLD_SITE}
 ${topbar("/", lang)}
 <main id="main">
   <h1 class="visually-h1">${T(lang, "Crosby, Texas", "Crosby, Texas")}</h1>
+  <div data-nosnippet>
   ${alertsBanner(alerts, lang)}
   ${hubTropicsBanner(tropics, lang)}
+  </div>
   ${hubBurnBanBanner(burnban, lang)}
+  <div data-nosnippet>
   ${hero}
+  </div>
   ${cards}
 </main>
 ${footer({ page: "/", lang, source: T(lang, `Weather from the U.S. National Weather Service; water levels from NOAA/NWS; news aggregated from public sources.`, `Clima del Servicio Meteorológico Nacional de EE. UU.; niveles de agua de NOAA/NWS; noticias recopiladas de fuentes públicas.`), data: weather })}

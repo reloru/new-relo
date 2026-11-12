@@ -28,6 +28,33 @@ Google states it uses `lastmod` only while it is consistently accurate, and
 that an absent value is better than a guessed one. Both rules above follow
 from that.
 
+## What a result may quote (`data-nosnippet`)
+
+One rule, applied by how fast a value goes stale:
+
+| Changes over | Examples | Treatment |
+|---|---|---|
+| minutes to hours | temperature, forecast periods, the hourly table, active alerts, gauge readings and badges, AQI hero and pollutant tiles, fishing readings, traffic incidents, tropical status, the burn-ban page's wind/humidity strip | inside `data-nosnippet` — never quotable |
+| a day | the pollen count | quotable, and printed with its full date in `<time>` |
+| weeks or longer | burn-ban status (with "in effect since"), flood stages, lane-closure schedules, every guide and explainer | quotable — this is the content a result should show |
+
+Until 2026-11-12 it was the other way round: the guides were excluded and the
+live numbers were the only quotable text, on the reasoning that "the live
+status should win the snippet". For a status that holds for weeks (the burn
+ban) that reasoning stands and its placement is unchanged; for a temperature it
+puts a days-old number in a result as if it were current.
+
+`data-nosnippet` is only valid on `div`, `section` and `span`, so the banners
+(which are `<a>`) are wrapped rather than tagged. Meta descriptions are 50–160
+characters (enforced by `scripts/test-routes.mjs`) and never contain a live
+value.
+
+## Site name
+
+`crosbynews.com` everywhere a machine reads it: `WebSite.name`, `og:site_name`
+and the title suffix, with `alternateName: "Crosby News"`. Google picks a site
+name from these and falls back to the domain when they disagree.
+
 ## IndexNow
 
 Tells Bing (and the engines and assistants that draw on its index) to fetch a
@@ -51,9 +78,14 @@ A *signal* is a short string that changes exactly when a page's state does:
 
 Weather, fishing and traffic change every tick and are never submitted. A feed
 not fetched in a tick is "no information", not "changed to empty". The first
-run, with no stored state, submits every page once. A submission that fails is
-recorded and **not retried** — signals are stored regardless, so a refusing
-endpoint is not hit every 15 minutes.
+run, with no stored state, submits every page once.
+
+**Two endpoints, tried in order:** `api.indexnow.org`, then
+`www.bing.com/indexnow`. The shared endpoint answered the Worker's first
+submission with a 429 while accepting the same request from elsewhere —
+Workers share egress addresses. A submission that fails on both is kept in
+`pending` and retried **hourly, at most six times**, with anything that changed
+meanwhile folded in; it is never retried every tick.
 
 ## Tested
 
@@ -62,4 +94,6 @@ both languages and both representations revalidates with its own ETag and not
 with another's; changed data invalidates the old tag; data pages send
 `Last-Modified` and static ones do not; no page contains a relative time;
 sitemap dates equal `changedAt` and do not move on a no-change re-fetch; and
-IndexNow fires on each state change, on nothing else, and records a refusal.
+IndexNow fires on each state change, on nothing else, falls back and retries
+on a refusal; and, with every `data-nosnippet` element removed, no page leaves
+a temperature, gauge reading or live status quotable while each guide still is.

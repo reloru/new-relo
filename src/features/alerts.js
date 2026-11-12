@@ -159,7 +159,7 @@ export function alertsHtml(data, lang, burnban) {
 <meta charset="utf-8">
 <title>${T(lang, "Crosby, TX Weather Alerts", "Alertas meteorológicas de Crosby, TX")} &mdash; crosbynews.com</title>
 <meta name="robots" content="max-snippet:160">
-<meta name="description" content="${T(lang, "Active National Weather Service alerts, warnings, and watches for Crosby, Texas, plus a plain-language guide to what each severe-weather alert means and what to do.", "Alertas, avisos y vigilancias activas del Servicio Meteorológico Nacional para Crosby, Texas, además de una guía en lenguaje sencillo sobre qué significa cada alerta de clima severo y qué hacer.")}">
+<meta name="description" content="${T(lang, "Active National Weather Service alerts for Crosby, Texas, plus a plain-language guide to what each severe-weather alert means and what to do.", "Alertas activas del Servicio Meteorológico Nacional para Crosby, Texas, y una guía sencilla de qué significa cada alerta de clima severo y qué hacer.")}">
 <meta property="og:title" content="${T(lang, "Crosby, TX Weather Alerts", "Alertas meteorológicas de Crosby, TX")}">
 <meta property="og:description" content="${T(lang, "Active NWS alerts for Crosby, Texas and a plain-language severe-weather guide.", "Alertas activas del NWS para Crosby, Texas y una guía de clima severo en lenguaje sencillo.")}">
 <meta property="og:type" content="website">
@@ -209,7 +209,7 @@ ${JSONLD_SITE}
 ${topbar("/alerts", lang)}
 <main id="main">
   <h1>${T(lang, "Crosby, TX Weather Alerts", "Alertas meteorológicas de Crosby, TX")}</h1>
-  ${status}
+  <div data-nosnippet>${status}</div>
   <p class="intro"><a href="${lang === "es" ? "/es/weather" : "/weather"}">&larr; ${T(lang, "Back to the forecast", "Volver al pronóstico")}</a> &middot; <a href="${lang === "es" ? "/es/radar" : "/radar"}">Radar</a> &middot; <a href="${lang === "es" ? "/es/emergency" : "/emergency"}"><strong>${T(lang, "Emergency resources", "Recursos de emergencia")}</strong></a> &middot; ${T(lang, `Official source: <a href="https://www.weather.gov/hgx/">NWS Houston/Galveston</a>. In an emergency, call 911.`, `Fuente oficial: <a href="https://www.weather.gov/hgx/">NWS Houston/Galveston</a>. En una emergencia, llama al 911.`)}</p>
   ${burnban?.status === "Yes" ? `<p class="intro">&#128293; ${T(lang, "Harris County burn ban in effect.", "Prohibición de quemas vigente en el condado de Harris.")} <a href="${lang === "es" ? "/es/burn-ban" : "/burn-ban"}">${T(lang, "Details", "Detalles")} &rarr;</a></p>` : ""}
 
@@ -226,7 +226,7 @@ ${topbar("/alerts", lang)}
     <p class="push-status" role="status"></p>
   </section>
 
-  <div data-nosnippet>
+  <div>
   <h2 class="ref-head">${T(lang, "Severe Weather Guide", "Guía de clima severo")}</h2>
   <p class="ref-note">${T(lang, `The guide below explains common NWS alert types in plain language &mdash; what each one means and what to do if one is issued. It&rsquo;s here for reference; no action is needed when the status above shows &ldquo;All clear.&rdquo; If an alert is active for Crosby, the panel at the top of this page turns red and shows the full alert. In any emergency, call&nbsp;911 and follow guidance from local officials and the <a href="https://www.weather.gov/hgx/">NWS Houston/Galveston</a> office.`, `La guía siguiente explica en lenguaje sencillo los tipos de alerta más comunes del NWS: qué significa cada una y qué hacer si se emite. Está aquí como referencia; no se requiere ninguna acción cuando el estado de arriba indica «Todo despejado». Si hay una alerta activa para Crosby, el panel de la parte superior de esta página se vuelve rojo y muestra la alerta completa. En cualquier emergencia, llama al&nbsp;911 y sigue las indicaciones de las autoridades locales y de la <a href="https://www.weather.gov/hgx/">oficina del NWS en Houston/Galveston</a>.`)}</p>
   <div class="ref-grid">${guide}</div>

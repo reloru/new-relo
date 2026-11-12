@@ -13,7 +13,7 @@ import { BASE_CSS } from "../assets/base-css.js";
 import { topbar, footer } from "../chrome.js";
 import { JSONLD_SITE, sharedHead } from "../seo.js";
 
-import { esc, capFirst, dayLabel } from "../lib/format.js";
+import { esc, capFirst, dayLabel, fmt } from "../lib/format.js";
 
 // The Houston Health Department laboratory runs a National Allergy Bureau
 // counting station (a Burkard spore trap on the lab roof) and publishes a
@@ -298,8 +298,8 @@ export function pollenHtml(data, lang) {
   const titlePlain = T(lang, "Pollen & Mold", "Polen y moho");
   const desc = T(
     lang,
-    "Daily measured pollen and mold count for the Houston / Crosby, TX area from the Houston Health Department — tree, weed, and grass pollen and mold spores, with what's actually in the air.",
-    "Conteo diario medido de polen y moho para la zona de Houston / Crosby, TX del Departamento de Salud de Houston — polen de árboles, malezas y pastos y esporas de moho."
+    "The Houston Health Department's measured daily pollen and mold count for the Houston / Crosby, TX area: tree, weed and grass pollen and mold spores.",
+    "El conteo diario medido de polen y moho del Departamento de Salud de Houston para la zona de Houston / Crosby, TX: árboles, malezas, pastos y moho."
   );
   const hasCount = data.countDate && Object.keys(data.groups ?? {}).length > 0;
   const catClass = (g) => ["c-none", "c-low", "c-med", "c-heavy", "c-extreme"][pollenCatRank(g?.category)] ?? "c-none";
@@ -376,7 +376,7 @@ ${topbar("/pollen", lang)}
   )}</p>
   ${
     hasCount
-      ? `<p class="stamp">${T(lang, "Count for", "Conteo del")} <strong>${pollenDateLabel(data.countDate, lang)}</strong> &middot; ${T(lang, "new counts publish weekday mornings", "los nuevos conteos se publican entre semana por la mañana")}.</p>
+      ? `<p class="stamp">${T(lang, "Count for", "Conteo del")} <strong><time datetime="${esc(data.countDate)}">${esc(capFirst(fmt(`${data.countDate}T18:00:00Z`, { weekday: "long", month: "long", day: "numeric", year: "numeric" }, lang)))}</time></strong> &middot; ${T(lang, "new counts publish weekday mornings", "los nuevos conteos se publican entre semana por la mañana")}.</p>
   <div class="pgrid">
 ${cards}
   </div>`
@@ -393,7 +393,7 @@ ${speciesBlocks.join("\n")}
   </section>`
       : ""
   }
-  <section class="guide" data-nosnippet>
+  <section class="guide">
     <h2>${T(lang, "How to read the categories", "Cómo leer las categorías")}</h2>
     <p>${T(
       lang,

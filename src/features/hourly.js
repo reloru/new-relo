@@ -42,7 +42,7 @@ export function hourlyHtml(data, lang) {
       const sunLine = sun
         ? ` <span class="day-sun">${T(lang, "Sunrise", "Amanecer")} ${esc(clockTime(sun.sunrise, lang))} &middot; ${T(lang, "Sunset", "Atardecer")} ${esc(clockTime(sun.sunset, lang))}</span>`
         : "";
-      return `  <section class="day">
+      return `  <section class="day" data-nosnippet>
     <h2>${esc(capFirst(g.day))}${sunLine}</h2>
     <table>
       <thead><tr><th scope="col" class="c-time">${T(lang, "Time", "Hora")}</th><th scope="col" class="c-cond">${T(lang, "Conditions", "Condiciones")}</th><th scope="col" class="num c-temp">${T(lang, "Temp", "Temp")}</th><th scope="col" class="num c-feels feels-col">${T(lang, "Feels", "Sensación")}</th><th scope="col" class="num c-rain">${T(lang, "Rain", "Lluvia")}</th><th scope="col" class="c-wind">${T(lang, "Wind", "Viento")}</th></tr></thead>
@@ -58,7 +58,7 @@ ${rows}
 <head>
 <meta charset="utf-8">
 <title>${T(lang, "Crosby, TX Hourly Forecast", "Pronóstico por hora de Crosby, TX")} &mdash; crosbynews.com</title>
-<meta name="description" content="${T(lang, "Hour-by-hour weather forecast for Crosby, Texas for the next two days, from the U.S. National Weather Service: temperature, conditions, precipitation chance, and wind.", "Pronóstico del tiempo hora por hora para Crosby, Texas para los próximos dos días, del Servicio Meteorológico Nacional de EE. UU.: temperatura, condiciones, probabilidad de lluvia y viento.")}">
+<meta name="description" content="${T(lang, "Hour-by-hour forecast for Crosby, Texas for the next two days from the National Weather Service: temperature, conditions, rain chance, and wind.", "Pronóstico hora por hora para Crosby, Texas para los próximos dos días, del Servicio Meteorológico Nacional: temperatura, condiciones, lluvia y viento.")}">
 <meta property="og:title" content="${T(lang, "Crosby, TX Hourly Forecast", "Pronóstico por hora de Crosby, TX")}">
 <meta property="og:description" content="${T(lang, "Hour-by-hour forecast for Crosby, Texas from the National Weather Service.", "Pronóstico hora por hora para Crosby, Texas del Servicio Meteorológico Nacional.")}">
 <meta property="og:type" content="website">

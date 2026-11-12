@@ -182,8 +182,8 @@ export function fishingHtml(data, lang) {
   const title = T(lang, "Crosby, TX Fishing Conditions", "Condiciones de pesca de Crosby, TX");
   const desc = T(
     lang,
-    "Live water conditions — temperature, dissolved oxygen, pH, and clarity — for the waters people fish near Crosby, TX: Lake Houston, the San Jacinto River forks, the Trinity River, and nearby bayous, from USGS real-time monitoring.",
-    "Condiciones del agua en vivo — temperatura, oxígeno disuelto, pH y claridad — para las aguas donde se pesca cerca de Crosby, TX: Lake Houston, las bifurcaciones del río San Jacinto, el río Trinity y arroyos cercanos, del monitoreo en tiempo real del USGS."
+    "Water temperature, dissolved oxygen, pH and clarity for the waters people fish near Crosby, TX — Lake Houston, the San Jacinto and Trinity rivers — from USGS.",
+    "Temperatura del agua, oxígeno disuelto, pH y claridad de las aguas donde se pesca cerca de Crosby, TX — Lake Houston y los ríos San Jacinto y Trinity."
   );
   const sections = stations.length
     ? fishingGroups(stations)
@@ -205,7 +205,7 @@ export function fishingHtml(data, lang) {
         </article>`;
             })
             .join("\n");
-          return `    <section class="fw">
+          return `    <section class="fw" data-nosnippet>
       <h2>${esc(wName)}</h2>
 ${fishLine}
       <div class="fgrid">
@@ -263,7 +263,7 @@ ${topbar("/fishing", lang)}
   <h1>${esc(title)}</h1>
   <p class="intro">${T(lang, "Live water conditions for the waters people actually fish around Crosby — matched to the nearest U.S. Geological Survey real-time station. Dissolved oxygen and temperature are what most drive whether fish are active; the reading is from a nearby station, not your exact spot.", "Condiciones del agua en vivo para las aguas donde realmente se pesca cerca de Crosby — con la estación en tiempo real del USGS más cercana. El oxígeno disuelto y la temperatura son lo que más determina si los peces están activos; la lectura es de una estación cercana, no de tu punto exacto.")}${data.updated ? ` ${T(lang, "Updated", "Actualizado")} ${dateStamp(data.updated, lang)}.` : ""}</p>
 ${sections}
-  <section class="fguide" data-nosnippet>
+  <section class="fguide">
     <h2>${T(lang, "How to read it", "Cómo interpretarlo")}</h2>
     <ul>
       <li>${T(lang, "<strong>Dissolved oxygen (mg/L)</strong> — above 6 is healthy; 4&ndash;6 is moderate; below 4 the fish get sluggish. Summer afternoons and warm, still water run lowest.", "<strong>Oxígeno disuelto (mg/L)</strong> — más de 6 es saludable; 4&ndash;6 moderado; por debajo de 4 los peces se vuelven lentos. Las tardes de verano y el agua tibia y quieta son las más bajas.")}</li>
