@@ -68,3 +68,26 @@ Page chrome via `T()`; month, weekday and time formatting via the `cal*` helpers
 with `lang`. **Event titles stay in the district's official English**, with a
 small `ES_EVENT` dictionary for common recurring titles and an English fallback
 for everything else — the same policy as NWS text.
+
+## Key dates
+
+A "Key dates" box above the event list (and a `## Key dates` section in the
+Markdown) lists, from today on, the dates a family plans around:
+
+| Kind | Pattern on the event title (`KEY_RULES` in `src/features/calendar.js`) |
+|---|---|
+| No school / named break | `no school`, `student holiday`, `(winter|spring|thanksgiving|fall|christmas) break` |
+| Early release | `early release`, `early dismissal` |
+| End of grading period | `end of (the) grading period`, `end of semester` |
+| First / last day | `first day of school/classes`, `last day of school/classes` |
+
+Look-alikes are tested not to match ("12 Days of Christmas", "Winter Field
+Trip", observances such as Veteran's Day). An all-day DTEND is exclusive
+(RFC 5545). Days of one kind collapse; consecutive no-school days merge into
+one range, named after the break the district named in it. Nothing is
+inferred: a weekend inside a break is part of the range only if the district
+listed it. The box ends with the feed's last posted date ("currently runs
+through …") and says unposted dates are not listed. The district's feed drops
+past events, so this is upcoming-only by construction. Spanish labels are
+hand-written. Tested by `scripts/test-calendar-keys.mjs` ("Check calendar key
+dates" in CI).
