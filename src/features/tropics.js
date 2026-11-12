@@ -447,8 +447,8 @@ export function tropicsHtml(data, lang) {
   const title = T(lang, "Atlantic Tropical Weather", "Tiempo tropical del Atlántico");
   const desc = T(
     lang,
-    "Active Atlantic tropical storms and hurricanes from the National Hurricane Center, the areas it is watching for development, and what hurricane season means for Crosby, TX. Quiet-basin friendly: shows nothing scary when nothing is happening.",
-    "Tormentas tropicales y huracanes activos del Atlántico según el Centro Nacional de Huracanes, las zonas que vigila por posible desarrollo, y qué significa la temporada de huracanes para Crosby, TX."
+    "Atlantic tropical storms and hurricanes from the National Hurricane Center, the areas it is watching, and what hurricane season means for Crosby, TX.",
+    "Tormentas tropicales y huracanes del Atlántico según el Centro Nacional de Huracanes, las zonas que vigila y qué significa la temporada para Crosby, TX."
   );
   const cards = storms
     .map((s) => {
@@ -587,6 +587,7 @@ ${topbar("/tropics", lang)}
 <main id="main">
   <h1>${esc(title)}</h1>
   <p class="intro">${T(lang, "Active Atlantic tropical systems from the National Hurricane Center, plus the areas it is watching for development, checked about every hour. Storm advisories and names stay in NHC's official English.", "Sistemas tropicales activos del Atlántico según el Centro Nacional de Huracanes, además de las zonas que vigila por posible desarrollo, consultados aproximadamente cada hora. Los avisos y nombres de tormentas se muestran en el inglés oficial del NHC.")}${data.updated ? ` ${T(lang, "Updated", "Actualizado")} ${dateStamp(data.updated, lang)}.` : ""}</p>
+  <div data-nosnippet>
   ${status}
   <p class="basin-note">${esc(tropicsBasinNote(data, lang))}</p>
   ${storms.length ? `<div class="storms">\n${cards}\n  </div>` : ""}
@@ -597,7 +598,8 @@ ${topbar("/tropics", lang)}
 ${watchCards}
     </div>
   </section>` : ""}
-  <section class="guide" data-nosnippet>
+  </div>
+  <section class="guide">
     <h2>${T(lang, "Hurricane season and Crosby", "La temporada de huracanes y Crosby")}</h2>
     <p>${T(
       lang,

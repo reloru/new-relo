@@ -460,8 +460,8 @@ export function burnbanHtml(data, lang, weather) {
   const title = T(lang, "Harris County Burn Ban Status", "Estado de la prohibición de quemas del condado de Harris");
   const desc = T(
     lang,
-    "Is there a burn ban in Harris County, TX right now? Live outdoor-burning ban status for unincorporated Harris County — which includes Crosby — from the Texas A&M Forest Service, plus what Texas law still restricts when there is no ban.",
-    "¿Hay una prohibición de quemas en el condado de Harris, TX ahora mismo? Estado en vivo de la prohibición de quemas al aire libre para el condado de Harris no incorporado — que incluye a Crosby — según el Servicio Forestal de Texas A&M, y qué restringe la ley de Texas cuando no hay prohibición."
+    "Is there a burn ban in Harris County, TX? Outdoor-burning ban status for unincorporated Harris County, including Crosby, from the Texas A&M Forest Service.",
+    "¿Hay prohibición de quemas en el condado de Harris, TX? Estado para el área no incorporada, que incluye a Crosby, según el Servicio Forestal de Texas A&M."
   );
   const lk = (p) => (lang === "es" ? esPath(p) : p);
 
@@ -492,7 +492,7 @@ export function burnbanHtml(data, lang, weather) {
   // when the county status hasn't moved.
   const fw = burnbanFireWeather(weather, lang);
   const fwBlock = fw
-    ? `<section class="fw">
+    ? `<section class="fw" data-nosnippet>
     <h2>${T(lang, "Right now in Crosby", "Ahora mismo en Crosby")}</h2>
     ${fw.alerts.length ? `<p class="fw-alert">&#9888;&#65039; ${esc(fw.alerts.join(" · "))} &mdash; <a href="${lk("/alerts")}">${T(lang, "see alerts", "ver alertas")}</a></p>` : ""}
     ${fw.rows.length ? `<ul class="peek">${fw.rows.map(([k, v]) => `<li><span class="pk-label">${esc(k)}</span><span class="pk-val">${esc(v)}</span></li>`).join("")}</ul>` : ""}

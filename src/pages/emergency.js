@@ -19,7 +19,7 @@ import { JSONLD_SITE, sharedHead, ORG_ID, WEBSITE_ID } from "../seo.js";
 export const EMERGENCY = {
   title: "Emergency Resources",
   description:
-    "Emergency contacts for Crosby, TX — 911 and non-emergency numbers, power outage and gas leak reporting, the CAER industrial-incident line, flood and road conditions, shelters, and disaster help for northeast Harris County.",
+    "Emergency contacts for Crosby, TX: 911 and non-emergency numbers, power and gas outage reporting, the CAER line, flood and road conditions, and shelters.",
   intro:
     "In an immediate emergency — a medical crisis, a fire, a crime in progress, or water coming into your home — call 911 now. The rest of this page is for everything around that moment: the right number when it's not a 911 call, live flood and road conditions, how to report outages, and where to find help after a disaster.",
   sections: [
@@ -116,7 +116,7 @@ export const EMERGENCY = {
 export const EMERGENCY_ES = {
   title: "Recursos de emergencia",
   description:
-    "Contactos de emergencia para Crosby, TX — el 911 y números que no son de emergencia, reportes de apagones y fugas de gas, la línea CAER de incidentes industriales, condiciones de inundación y de caminos, refugios y ayuda por desastre para el noreste del condado de Harris.",
+    "Contactos de emergencia para Crosby, TX: el 911 y números que no son de emergencia, apagones y fugas de gas, la línea CAER, inundaciones, caminos y refugios.",
   intro:
     "En una emergencia inmediata — una crisis médica, un incendio, un delito en curso o agua entrando a tu casa — llama al 911 ahora. El resto de esta página es para todo lo demás: el número correcto cuando no es una llamada al 911, condiciones de inundación y caminos en vivo, cómo reportar apagones y dónde encontrar ayuda después de un desastre.",
   sections: [

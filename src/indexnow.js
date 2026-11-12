@@ -21,7 +21,12 @@ import { PAGES } from "./registry.js";
 export const INDEXNOW_KEY = "72a0e4671cc205122a446b7c49b06bff";
 export const INDEXNOW_KEY_PATH = `/${INDEXNOW_KEY}.txt`;
 export const INDEXNOW_STATE_KV_KEY = "indexnow_state";
-const ENDPOINT = "https://api.indexnow.org/indexnow";
+// Tried in order. The shared endpoint throttled the Worker's first submission
+// with a 429 (Workers share egress addresses with every other Worker), so
+// Bing's own endpoint — which takes the same request — is the fallback.
+const ENDPOINTS = ["https://api.indexnow.org/indexnow", "https://www.bing.com/indexnow"];
+const RETRY_AFTER_MS = 60 * 60 * 1000;
+const MAX_TRIES = 6;
 
 // A signal is a short string that changes exactly when a page's state does.
 // `status` is the cron's status record, whose per-feed hash already moves
@@ -57,23 +62,41 @@ export async function indexNowTick(env, status, seen, nowIso = new Date().toISOS
     signals[name] = value;
   }
   const first = !state;
-  if (!first && !changed.length) return null;
-
-  const urls = first ? bothLanguages(PAGES.map((p) => p.path)) : bothLanguages(changed.flatMap((n) => SIGNALS[n].pages));
-  let last;
-  try {
-    const res = await fetch(ENDPOINT, {
-      method: "POST",
-      headers: { "content-type": "application/json; charset=utf-8" },
-      body: JSON.stringify({ host: new URL(SITE).host, key: INDEXNOW_KEY, keyLocation: SITE + INDEXNOW_KEY_PATH, urlList: urls }),
-    });
-    // 200 accepted; 202 accepted, key check pending.
-    last = { at: nowIso, ok: res.status === 200 || res.status === 202, status: res.status, urls: urls.length, why: first ? "first run" : changed.join(", ") };
-  } catch (e) {
-    last = { at: nowIso, ok: false, status: null, urls: urls.length, why: first ? "first run" : changed.join(", "), error: (e && e.message) || String(e) };
+  // A submission that failed is retried hourly, a bounded number of times,
+  // with whatever has changed since folded in.
+  const pending = state?.pending;
+  const retryDue = pending && pending.tries < MAX_TRIES && Date.parse(nowIso) - Date.parse(state.last?.at ?? 0) >= RETRY_AFTER_MS;
+  if (!first && !changed.length && !retryDue) {
+    return null;
   }
-  // Signals are stored even when the submission failed: a change is reported
-  // once, not retried every tick against an endpoint that is refusing us.
-  await env.WEATHER.put(INDEXNOW_STATE_KV_KEY, JSON.stringify({ signals, last }));
+
+  const fresh = first ? bothLanguages(PAGES.map((p) => p.path)) : bothLanguages(changed.flatMap((n) => SIGNALS[n].pages));
+  const urls = [...new Set([...(pending?.urls || []), ...fresh])];
+  const why = [...new Set([...(pending ? [pending.why] : []), ...(first ? ["first run"] : changed)])].join(", ");
+  const last = { at: nowIso, ok: false, status: null, urls: urls.length, why };
+  for (const endpoint of ENDPOINTS) {
+    try {
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "content-type": "application/json; charset=utf-8" },
+        body: JSON.stringify({ host: new URL(SITE).host, key: INDEXNOW_KEY, keyLocation: SITE + INDEXNOW_KEY_PATH, urlList: urls }),
+      });
+      last.status = res.status;
+      last.endpoint = new URL(endpoint).host;
+      delete last.error;
+      // 200 accepted; 202 accepted, key check pending.
+      if (res.status === 200 || res.status === 202) {
+        last.ok = true;
+        break;
+      }
+    } catch (e) {
+      last.error = (e && e.message) || String(e);
+    }
+  }
+  // Signals are stored whatever happened, so a change is noticed once; the
+  // URLs of a failed submission wait in `pending` for the hourly retry.
+  const next = { signals, last };
+  if (!last.ok) next.pending = { urls, why, tries: (pending?.tries || 0) + 1 };
+  await env.WEATHER.put(INDEXNOW_STATE_KV_KEY, JSON.stringify(next));
   return last;
 }

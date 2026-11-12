@@ -226,5 +226,9 @@ both, the same convention `ALERT_GUIDE_ES` uses on `/alerts`.
 
 The checklist, guide, and FAQ sit inside `data-nosnippet`. That is deliberate:
 the page ranks for "crosby texas burn ban", and the snippet that should win is
-the **live status**, not evergreen reference copy. The intro and the status
-panel are left snippet-able. Revisit only with search-result evidence.
+the **status**, which holds for weeks and prints its own "in effect since"
+date. The intro and the status panel are left snippet-able. This is the one
+page where the guides stay excluded (`docs/ops/search.md` has the site-wide
+rule); revisit only with search-result evidence. The "Right now in Crosby"
+wind and humidity strip is also `data-nosnippet`, for the opposite reason: it
+is stale within the hour.

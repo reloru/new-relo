@@ -28,7 +28,11 @@ export const JSONLD_SITE = `<script type="application/ld+json">${JSON.stringify(
       "@type": "WebSite",
       "@id": WEBSITE_ID,
       url: SITE + "/",
+      // One site name everywhere a machine reads it: here, og:site_name and
+      // the title suffix. Google picks a site name from these and falls back
+      // to the bare domain when they disagree.
       name: "crosbynews.com",
+      alternateName: "Crosby News",
       description: "Live weather and local news for Crosby, Texas — fast, ad-free, no trackers.",
       inLanguage: "en-US",
       publisher: { "@id": ORG_ID },
@@ -83,7 +87,7 @@ export function sharedHead(lang, { manifest = true } = {}) {
     : "Crosby News app icon: a sun behind a cloud on navy blue";
   return `<meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#0b3d61">
-<meta property="og:site_name" content="Crosby News">
+<meta property="og:site_name" content="crosbynews.com">
 <meta property="og:image" content="${SITE}${OG_IMAGE.path}">
 <meta property="og:image:type" content="${OG_IMAGE.type}">
 <meta property="og:image:width" content="${OG_IMAGE.width}">

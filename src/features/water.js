@@ -6,7 +6,7 @@
 // filtered by waterNum() so they never render as numbers.
 
 import { T, canonicalFor, hreflangTags } from "../i18n.js";
-import { esc, fullTime, clockTime, dateStamp } from "../lib/format.js";
+import { esc, fullTime, clockTime, dateStamp, timeTag } from "../lib/format.js";
 import { BASE_CSS } from "../assets/base-css.js";
 import { topbar, footer } from "../chrome.js";
 import { JSONLD_SITE, sharedHead } from "../seo.js";
@@ -196,10 +196,12 @@ export function waterHtml(data, lang) {
       return `      <article class="gauge ${st.cls}">
         <div class="gauge-head">
           <h2><a href="${nwpsGaugeUrl(g.lid)}" target="_blank" rel="noopener">${esc(T(lang, g.name, (WATER_GAUGES.find((x) => x.lid === g.lid) || {}).es || g.name))}</a></h2>
-          <span class="gauge-badge">${esc(st.label)}</span>
+          <span class="gauge-badge" data-nosnippet>${esc(st.label)}</span>
         </div>
+        <div data-nosnippet>
         <p class="gauge-stage">${g.stage != null ? `${esc(g.stage)}<span class="u"> ft</span>` : "&ndash;"}${cfs != null ? ` <span class="gauge-flow">&middot; ${esc(cfs.toLocaleString(lang === "es" ? "es-MX" : "en-US"))} ${T(lang, "cfs", "pie³/s")}</span>` : ""}</p>
-        <p class="gauge-meta">${ctx ? `${esc(ctx)} &middot; ` : ""}${g.validTime ? `${T(lang, "as of", "a las")} ${esc(clockTime(g.validTime, lang))} CT` : ""}</p>
+        <p class="gauge-meta">${ctx ? `${esc(ctx)} &middot; ` : ""}${g.validTime ? `${T(lang, "as of", "a las")} ${timeTag(g.validTime, `${clockTime(g.validTime, lang)} CT`)}` : ""}</p>
+        </div>
         ${th ? `<p class="gauge-th">${th}</p>` : ""}
       </article>`;
     })
@@ -208,8 +210,8 @@ export function waterHtml(data, lang) {
   const title = T(lang, "Crosby, TX Water Levels", "Niveles de agua de Crosby, TX");
   const desc = T(
     lang,
-    "Live river and bayou levels with National Weather Service flood stages for Crosby, TX and the northeast Harris County / San Jacinto corridor — Cedar Bayou, the San Jacinto River, Luce Bayou and more.",
-    "Niveles de ríos y arroyos en vivo con las etapas de inundación del Servicio Meteorológico Nacional para Crosby, TX y el corredor del noreste del condado de Harris / San Jacinto: Cedar Bayou, el río San Jacinto, Luce Bayou y más."
+    "River and bayou levels with National Weather Service flood stages for Crosby, TX: Cedar Bayou, the San Jacinto River, Luce Bayou and more.",
+    "Niveles de ríos y arroyos con las etapas de inundación del Servicio Meteorológico Nacional para Crosby, TX: Cedar Bayou, el río San Jacinto y más."
   );
   const status = gauges.length
     ? anyFlooding
@@ -265,7 +267,7 @@ ${topbar("/water", lang)}
 <main id="main">
   <h1>${esc(title)}</h1>
   <p class="intro">${T(lang, "Current water levels for the rivers and bayous that flood Crosby and northeast Harris County, with each gauge's National Weather Service flood stages. Readings and flood stages both come from the same NWS gauge, so they're directly comparable.", "Niveles de agua actuales de los ríos y arroyos que inundan Crosby y el noreste del condado de Harris, con las etapas de inundación del Servicio Meteorológico Nacional de cada medidor. Las lecturas y las etapas de inundación provienen del mismo medidor del NWS, por lo que son directamente comparables.")}${data.updated ? ` ${T(lang, "Updated", "Actualizado")} ${dateStamp(data.updated, lang)}.` : ""}</p>
-  ${status}
+  <div data-nosnippet>${status}</div>
   <div class="gauges">
 ${cards}
   </div>
