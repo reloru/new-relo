@@ -49,11 +49,11 @@ records **consequences, not configuration**. This repo is public, and a summary
 of which protections are active is free reconnaissance — so that file says what
 would break if a setting changed, and leaves current state to the API.
 
-This exists so `CLAUDE.md` doesn't have to carry the full detail on things
-that are true regardless of which page or route touches them — CLAUDE.md
-keeps only a short pointer plus whatever invariant an agent would otherwise
-violate by not knowing it; the reasoning, history, and full mechanics live
-here.
+This exists so `CLAUDE.md` and `.claude/rules/` don't have to carry the full
+detail on things that are true regardless of which page or route touches
+them: they keep a short pointer plus whatever invariant an agent would
+otherwise violate by not knowing it; the reasoning, history, and full
+mechanics live here.
 
 ## `audit/` — dated, never edited in place
 
@@ -72,19 +72,20 @@ squash-merges one change per PR with a Summary / Changes / Verification body, so
 a changelog would be a second source of truth with nothing forcing it current —
 the exact drift this directory exists to stop.
 
-## `CLAUDE_NOTES.md` — the one file outside this tree
+## `CLAUDE.md` and `.claude/rules/` — outside this tree
 
-Root-level, sibling to `CLAUDE.md`, not under `docs/`. Catch-all for
-anything that doesn't fit `pages/`, `endpoints/`, `ops/`,
-`audit/`, or `investigations/`. Same current-state convention as
-`pages/`/`endpoints/`/`ops/` — overwritten in place, not a journal.
+`CLAUDE.md` at the repo root is loaded into every agent session, so it holds
+only the check commands, the workflow and an index. The invariants an agent
+would otherwise break live in `.claude/rules/`, one file per area, each with a
+`paths:` filter so it loads when a matching file is opened. Same convention as
+the state files here: current, overwritten in place, not a journal.
 
 ## Keeping these files true
 
 A PR that changes a page's handler, content, data source, canonical URL, sitemap
 presence, meta, or CSP expectations updates that page's file **in the same PR**.
 Same rule for non-page routes and `endpoints/`, and for cross-cutting
-operational config and `ops/`. See CLAUDE.md, "Working with this repo."
+operational config and `ops/`. See CLAUDE.md, "Where the rest is written down."
 
 ## Not deployed
 

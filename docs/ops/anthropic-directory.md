@@ -73,7 +73,7 @@ Directory Policy (support.claude.com article 13145358). Escalations:
 - **Privacy policy URL**: `https://crosbynews.com/privacy`
 - **Support contact**: `contact@crosbynews.com`
 - **Icon**: `https://crosbynews.com/icon-512.png` (512×512 PNG; download it
-  and upload). Never an SVG — see CLAUDE.md, "No icon anywhere is an SVG".
+  and upload). Never an SVG — see `.claude/rules/assets.md`, "No icon is an SVG".
 - **URL slug**: recommended `crosby-tx-weather`. **Permanent once published.**
 
 ### 4. Use cases

@@ -61,7 +61,7 @@ or anywhere else on the site. See `docs/endpoints/api/mcp-usage.md`.
 that treat pages as pages — `PAGE_PATHS`, `sitemapXml()`, the Open Graph block,
 `JSONLD_SITE` — were updated to match, and each omission then read as deliberate
 to the next person. All four were closed 2026-08-01 (audit finding B6). When a
-non-page route becomes a page, walk the "Adding a page" checklist in CLAUDE.md
+non-page route becomes a page, walk the "Adding a page" checklist in `.claude/rules/pages-and-routes.md`
 against it rather than assuming the gaps are intentional.
 
 ## Links to this page

@@ -8,10 +8,9 @@ allowed-tools: Bash(node --check *), Bash(git status *), Bash(git branch *), Bas
 # Deploy the Worker
 
 Ship the Worker source under `src/` to the `crosbynews` Worker and confirm the
-live site is healthy. Auth comes from `CLOUDFLARE_ZONE_API_TOKEN` (preferred — see
-CLAUDE.md's Deploy section) or `CLOUDFLARE_API_TOKEN`, paired with
-`CLOUDFLARE_ACCOUNT_ID` either way (never a zone id — wrangler has no such
-concept) — **never run `wrangler login`** (it clobbers the token auth).
+live site is healthy. Auth comes from `CLOUDFLARE_API_TOKEN` paired with
+`CLOUDFLARE_ACCOUNT_ID` (never a zone id — wrangler has no such concept) —
+**never run `wrangler login`** (it clobbers the token auth).
 
 If `$ARGUMENTS` contains `--dry-run`, run step 1, then the dry-run in step 3, and
 stop — nothing is uploaded and nothing goes live.
@@ -80,8 +79,7 @@ a failure — propagation isn't instant.
 
 ## Troubleshooting
 - **Auth/permission error right after adding a new binding** (D1, Queues,
-  Vectorize, KV, …) even with `CLOUDFLARE_ZONE_API_TOKEN`: a genuinely missing
-  permission on that token. Widening it needs the Cloudflare dashboard, which
+  Vectorize, KV, …): a genuinely missing permission on `CLOUDFLARE_API_TOKEN`. Widening it needs the Cloudflare dashboard, which
   a session can't do itself — say so rather than retrying blind.
 - **"Missing entry-point" / can't parse `wrangler.jsonc`**: that's wrangler 3.x.
   Locally the pinned `wrangler@^4` devDependency avoids it; in CI it's the

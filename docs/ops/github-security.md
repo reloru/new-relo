@@ -61,8 +61,8 @@ temporary pin: remove it once wrangler pulls in the patched version itself
   config surface.
 - *Check-run failure thresholds* (both left at None) — **the important
   one.** A threshold makes code-scanning failures fail the check run, and
-  the merge-autonomy policy (CLAUDE.md, "Claude Code PR workflow") has
-  exactly ONE gate (`Syntax check`). Adding a CodeQL severity gate before
+  the merge-autonomy policy (CLAUDE.md, "Workflow") has exactly TWO
+  gates (`Syntax check` and `Build check (dry-run)`). Adding a CodeQL severity gate before
   the baseline alert volume is known risks blocking the self-merge
   workflow on advisory findings. If you ever want one, `High or higher`
   (security) + `Errors` (standard) — but look at real alerts first.
