@@ -59,6 +59,9 @@ const get = async (path, accept = "text/html") => {
   const old = main.slice(main.indexOf("Crests on an older gauge datum"));
   has(old, "28.33 ft", "old-datum crest listed");
   lacks(old.slice(0, old.indexOf("River flood warnings")), "below action stage", "old-datum crest compared with today's stages");
+  const ranked = main.slice(main.indexOf("Highest recorded crests"), main.indexOf("Crests on an older gauge datum"));
+  lacks(ranked, "28.33 ft", "old-datum crest ranked among current-datum crests");
+  lacks(main, "25.07 ft below action stage", "old-datum crest (28.33) compared with action stage (50.4)");
   has(main, "since 1994, 1 of them measured on an older gauge datum", "intro counts the old-datum crest");
   has(main, "(on this gauge: O, P, R)", "NOAA's codes are listed as published");
   // The site's own daily record, newest first, with a flood day labelled.
