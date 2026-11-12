@@ -109,7 +109,9 @@ Sitemap: ${SITE}/sitemap.xml
 // time it is re-fetched. Google uses lastmod only while it proves accurate, so
 // a page with no such instant (the static ones) gets no lastmod at all.
 // No <changefreq> or <priority>: Google ignores both.
-export function sitemapXml(cronStatus) {
+// `dates` maps an English path to an instant (or null) for pages that date
+// themselves (router.js handlers with lastmod); it wins over `feeds`.
+export function sitemapXml(cronStatus, dates = {}) {
   const changed = (page) => {
     const stamps = (page.feeds || []).map((f) => cronStatus?.feeds?.[f]?.changedAt).filter((x) => typeof x === "string" && !Number.isNaN(Date.parse(x)));
     return stamps.length ? new Date(stamps.sort().at(-1)).toISOString() : null;
@@ -121,7 +123,7 @@ export function sitemapXml(cronStatus) {
       `\n    <xhtml:link rel="alternate" hreflang="en-US" href="${en}"/>` +
       `\n    <xhtml:link rel="alternate" hreflang="es-MX" href="${es}"/>` +
       `\n    <xhtml:link rel="alternate" hreflang="x-default" href="${en}"/>`;
-    const when = changed(page);
+    const when = Object.hasOwn(dates, page.path) ? dates[page.path] : changed(page);
     return `  <url>
     <loc>${loc}</loc>${when ? `\n    <lastmod>${when}</lastmod>` : ""}${alts}
   </url>`;

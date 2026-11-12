@@ -5,11 +5,12 @@
 // -9999 (undefined threshold) and -999 (no forecast) are NWPS sentinels,
 // filtered by waterNum() so they never render as numbers.
 
-import { T, canonicalFor, hreflangTags } from "../i18n.js";
+import { T, canonicalFor, hreflangTags, esPath } from "../i18n.js";
 import { esc, fullTime, clockTime, dateStamp, timeTag } from "../lib/format.js";
 import { BASE_CSS } from "../assets/base-css.js";
 import { topbar, footer } from "../chrome.js";
 import { JSONLD_SITE, sharedHead } from "../seo.js";
+import { gaugePagePath } from "../registry.js";
 
 // Crosby's defining hazard is flooding. This renders live stage + flood-
 // category for the waters that flood Crosby / NE Harris County, from NOAA/NWS
@@ -71,6 +72,19 @@ export function waterState(g, lang) {
     return { cls: waterCatClass(g.category), label: waterCatLabel(g.category, lang) };
   return { cls: "w-monitored", label: T(lang, "Monitored", "Monitoreado") };
 }
+
+// The flood-category badge and card edge, shared by /water and the gauge
+// pages so a category reads the same colour everywhere. Every badge fill
+// carries white text; scripts/test-contrast.mjs measures these rules here.
+export const WATER_STATE_CSS = `
+  .gauge-badge { flex:none; font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.03em; padding:0.15rem 0.5rem; border-radius:999px; color:#fff; background:#5b6470; white-space:nowrap; }
+  .w-normal { border-left-color:#2eb86a; } .w-normal .gauge-badge { background:#187a40; }
+  .w-action { border-left-color:#e0a800; } .w-action .gauge-badge { background:#8f6800; }
+  .w-minor { border-left-color:#e8720c; } .w-minor .gauge-badge { background:#bf5608; }
+  .w-moderate { border-left-color:#d44230; } .w-moderate .gauge-badge { background:#b5301f; }
+  .w-major { border-left-color:#8e2ec2; } .w-major .gauge-badge { background:#6f1fa0; }
+  .w-monitored { border-left-color:var(--accent); } .w-monitored .gauge-badge { background:var(--btn); }
+`;
 
 // Fetch each gauge once and return both what the pages need now and what the
 // record keeps. Per-gauge try/catch so one bad gauge never sinks the batch;
@@ -193,6 +207,7 @@ export function waterHtml(data, lang) {
       const ctx = waterContext(g, lang);
       const th = waterThresholdLine(g, lang);
       const st = waterState(g, lang);
+      const page = gaugePagePath(g.lid);
       return `      <article class="gauge ${st.cls}">
         <div class="gauge-head">
           <h2><a href="${nwpsGaugeUrl(g.lid)}" target="_blank" rel="noopener">${esc(T(lang, g.name, (WATER_GAUGES.find((x) => x.lid === g.lid) || {}).es || g.name))}</a></h2>
@@ -203,6 +218,7 @@ export function waterHtml(data, lang) {
         <p class="gauge-meta">${ctx ? `${esc(ctx)} &middot; ` : ""}${g.validTime ? `${T(lang, "as of", "a las")} ${timeTag(g.validTime, `${clockTime(g.validTime, lang)} CT`)}` : ""}</p>
         </div>
         ${th ? `<p class="gauge-th">${th}</p>` : ""}
+        ${page ? `<p class="gauge-more"><a href="${lang === "es" ? esPath(page) : page}">${T(lang, "Flood history &rarr;", "Historial de inundaciones &rarr;")}</a></p>` : ""}
       </article>`;
     })
     .join("\n");
@@ -246,18 +262,13 @@ ${JSONLD_SITE}
   .gauge-head h2 { margin:0; font-size:1rem; }
   .gauge-head a { color:var(--ink); text-decoration:none; }
   .gauge-head a:hover { text-decoration:underline; }
-  .gauge-badge { flex:none; font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.03em; padding:0.15rem 0.5rem; border-radius:999px; color:#fff; background:#5b6470; white-space:nowrap; }
   .gauge-stage { margin:0.5rem 0 0; font-size:1.9rem; font-weight:800; line-height:1; }
   .gauge-stage .u { font-size:0.9rem; font-weight:600; opacity:0.7; }
   .gauge-flow { font-size:0.85rem; font-weight:600; color:var(--muted); }
   .gauge-meta { margin:0.3rem 0 0; font-size:0.82rem; color:var(--muted); }
   .gauge-th { margin:0.4rem 0 0; font-size:0.78rem; color:var(--muted); }
-  .w-normal { border-left-color:#2eb86a; } .w-normal .gauge-badge { background:#187a40; }
-  .w-action { border-left-color:#e0a800; } .w-action .gauge-badge { background:#8f6800; }
-  .w-minor { border-left-color:#e8720c; } .w-minor .gauge-badge { background:#bf5608; }
-  .w-moderate { border-left-color:#d44230; } .w-moderate .gauge-badge { background:#b5301f; }
-  .w-major { border-left-color:#8e2ec2; } .w-major .gauge-badge { background:#6f1fa0; }
-  .w-monitored { border-left-color:var(--accent); } .w-monitored .gauge-badge { background:var(--btn); }
+  .gauge-more { margin:0.45rem 0 0; font-size:0.85rem; }
+${WATER_STATE_CSS}
   .intro { color:var(--muted); margin:0.6rem 0 0; }
   .safety { margin-top:1.4rem; font-size:0.85rem; color:var(--muted); border-top:1px solid var(--line); padding-top:0.8rem; }
 </style>
@@ -299,6 +310,8 @@ export function waterMarkdown(data, lang) {
         .map((k) => `${waterCatLabel(k, lang)} ${g.thresholds[k]} ft`)
         .join(", ");
       if (th) out.push(`- ${T(lang, "Flood stages", "Etapas de inundación")}: ${th}`);
+      const page = gaugePagePath(g.lid);
+      if (page) out.push(`- ${T(lang, "Flood history", "Historial de inundaciones")}: ${canonicalFor(page, lang)}`);
       out.push(`- ${T(lang, "Official gauge", "Medidor oficial")}: ${nwpsGaugeUrl(g.lid)}`, "");
     }
   } else {

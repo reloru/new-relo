@@ -15,7 +15,8 @@ be read — and the pages built on it do not change between a crawler's visits.
 | **Writers** | `src/record.js`, called from `recordTick()` at the end of `scheduled()` (`src/cron.js`) |
 | **Backfill** | `scripts/backfill-nws-events.mjs`, run from a session |
 | **Health** | the `record` object on `/api/health` |
-| **Tests** | `scripts/test-record.mjs` ("Check the record" in CI) |
+| **Readers** | the gauge pages, `/water/<gauge>` (`src/features/gauge.js`, `docs/pages/water-gauges.md`) |
+| **Tests** | `scripts/test-record.mjs` ("Check the record" in CI); `scripts/test-gauge-pages.mjs` for the pages that read it |
 
 ## Rules every writer follows
 
@@ -48,7 +49,7 @@ be read — and the pages built on it do not change between a crawler's visits.
 | `point` | the warning's polygon contained Crosby's coordinates (tornado, severe thunderstorm, flash flood, areal flood) | live: the alert reached us through a point query. Archive: IEM `sbw_by_point` |
 | `zone` | issued for forecast zone TXZ213, which contains Crosby (tropical, winter, heat, fire weather, fog) | live: the alert's UGC list. Archive: IEM `vtec_events_byugc` |
 | `county` | issued for Harris County as a whole (tornado and severe-thunderstorm watches) | same, UGC `TXC201` |
-| `gauge` | a river flood warning for a forecast point this site tracks (`nwsli`) | archive only, for now |
+| `gauge` | a river flood warning for a forecast point this site tracks (`nwsli`, the NWS LID) | archive only, for now. NWS's alert API carries no forecast point; the product text's hydrologic VTEC line does (`/SHLT2.1.ER.…/`), which is the planned live source |
 
 **Limits to state wherever these are shown:**
 

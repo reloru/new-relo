@@ -21,6 +21,13 @@ with no framework and no runtime dependencies.
   life-threatening warnings.
 - **[Water Levels](https://crosbynews.com/water)** — live river/bayou flood
   gauges for the waters around Crosby (NOAA/NWS NWPS).
+- **Gauge flood histories** — one page per gauge with a recorded history
+  ([Cedar Bayou](https://crosbynews.com/water/cedar-bayou-crosby),
+  [San Jacinto at Sheldon](https://crosbynews.com/water/san-jacinto-sheldon),
+  [Lake Houston](https://crosbynews.com/water/lake-houston),
+  [East Fork at New Caney](https://crosbynews.com/water/east-fork-new-caney)):
+  every NOAA crest against today's flood stages, river flood warnings, and the
+  site's own daily readings.
 - **[Fishing](https://crosbynews.com/fishing)** — live USGS water conditions
   (temperature, dissolved oxygen, pH, clarity) for the waters people fish near
   Crosby: Lake Houston, the San Jacinto forks, the Trinity River, and nearby bayous.

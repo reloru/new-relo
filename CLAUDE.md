@@ -108,8 +108,9 @@ and does not wait for human approval at any step.
 ## Repo skills (.claude/)
 Committed Claude Code skills live under `.claude/skills/<name>/SKILL.md` — the
 directory name becomes the `/command`. Current skills:
-- `/verify-site` — curl health-check of the live deploy: all 21 content pages in
-  **both languages** return 200 and are substantive, plus security headers,
+- `/verify-site` — curl health-check of the live deploy: every content page
+  listed in the live `/sitemap.xml` (generated from the registry), in **both
+  languages**, returns 200 and is substantive, plus security headers,
   one-hop canonicalization, markdown negotiation, unknown-path 404. Read-only.
   The both-languages sweep matters — roughly half the render branches never
   execute under `lang="en"`, and an English-only pass let `/es/hourly` sit 502
@@ -440,9 +441,10 @@ has the full state; the rules that bind a change:
   `<lastmod>` exist only where a real instant does — a page's `feeds` in the
   registry decide the sitemap date; a static page has none.
 - **IndexNow (`src/indexnow.js`) fires on a state change only** — a ban
-  lifted, an alert issued, a gauge changing category — never because numbers
-  moved. Outcome on `/api/health` as `indexNow`. A new stateful page needs a
-  signal there.
+  lifted, an alert issued, a gauge changing category, a new NOAA crest — never
+  because numbers moved, plus once for any page it has not submitted before.
+  Outcome on `/api/health` as `indexNow` (every endpoint's answer in
+  `attempts`). A new stateful page needs a signal there.
 
 ## D1 — the record
 **The KV cache holds *now*; D1 holds everything after it.** `src/record.js`
@@ -450,7 +452,11 @@ files each cron tick's observations (alerts and their VTEC events, each gauge's
 daily summary and NOAA's crest history, the pollen count, the day's peak AQI,
 burn-ban periods) with idempotent upserts, after the cache writes and isolated
 from them — a database failure shows as `record.ok: false` on `/api/health` and
-never costs a page its refresh. Tables, scopes, limits and the archive backfill
+never costs a page its refresh. **The gauge pages (`/water/<gauge>`,
+`src/features/gauge.js`, `docs/pages/water-gauges.md`) render from it**; a D1
+failure there is a 502, never a page with its history missing. Crests are
+compared only with today's flood stages and say so; old-datum crests are never
+compared. Tables, scopes, limits and the archive backfill
 (`scripts/backfill-nws-events.mjs`) are in `docs/ops/record.md`. Two rules:
 record only what a source published or the site observed (never infer or fill
 a gap), and state the limits wherever the data is shown (polygon warnings from

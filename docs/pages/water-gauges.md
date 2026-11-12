@@ -1,0 +1,102 @@
+# `/water/<gauge>` — river-gauge flood history pages
+
+One page per river gauge whose record has content of its own. All four share
+one handler, so this one file describes them all.
+
+| Path | Gauge (NWS LID) | Spanish |
+|---|---|---|
+| `/water/cedar-bayou-crosby` | HCDT2, Cedar Bayou near Crosby | `/es/water/cedar-bayou-crosby` |
+| `/water/san-jacinto-sheldon` | SHLT2, San Jacinto River near Sheldon | `/es/water/san-jacinto-sheldon` |
+| `/water/lake-houston` | HSJT2, San Jacinto River at Lake Houston | `/es/water/lake-houston` |
+| `/water/east-fork-new-caney` | NCET2, East Fork San Jacinto River near New Caney | `/es/water/east-fork-new-caney` |
+
+Luce Bayou (HFFT2) and Goose Creek (GMKT2) have no page: NOAA lists no crests
+for them, so a page would be the live card and nothing else. Add one (a `PAGES`
+entry with `gauge:`) once the record gives it content.
+
+| | |
+|---|---|
+| **Handlers** | `loadGaugePage(env, lid)`, `gaugeHtml(d, lang)`, `gaugeMarkdown(d, lang)`, `gaugeLastmod(env, lid)` — `src/features/gauge.js` |
+| **Route** | generated in `src/router.js` for every `PAGES` entry with a `gauge` field |
+| **Registry** | `src/registry.js`, section `weather`, no nav or footer entry; reached from its `/water` card ("Flood history →") |
+| **Cache** | `public, max-age=900` |
+| **Negotiation** | `Accept: text/markdown` or `?format=md`; `Vary: Accept` |
+
+## Content blocks
+
+| Block | Source | Snippet |
+|---|---|---|
+| Lede: gauge id, how many crests NOAA lists and since when, the highest one against today's stages | D1 `gauge_crests` + `water` KV thresholds | quotable |
+| Current level: stage, flood-category badge, distance to action stage, reading time | `water` KV | `data-nosnippet` |
+| Flood stages defined today | `water` KV thresholds | quotable |
+| Highest recorded crests (every crest on the current datum, highest first) with today's-stage comparison, flow, NOAA's code | D1 `gauge_crests` | quotable |
+| Crests on an older gauge datum (newest first, never compared) | D1 `gauge_crests.old_datum = 1` | quotable |
+| What NOAA says happens at each level (highest first; English on `/es`, marked `lang="en"`) | D1 `gauge_meta.impacts` | quotable |
+| River flood warnings for this gauge | D1 `nws_events`, `scope = 'gauge'`, `nwsli = lid` | quotable |
+| Daily readings recorded by this site (latest 31 days) | D1 `gauge_daily` | quotable |
+| About these numbers (method notes) | computed | quotable |
+
+A section with nothing to show is left out (impacts, old-datum crests) or says
+so in a sentence (warnings, daily record). Lake Houston defines no flood
+stages, so its crest table has no comparison column.
+
+## Rules the page follows
+
+- **Comparisons use today's flood stages**, and the page says so: the stages in
+  force when a crest happened may have been different. A crest is described
+  against the highest stage it reached, or the lowest it fell short of.
+- **Old-datum crests are never compared.** NOAA's `olddatum` flag means the
+  number is on a different reference level. Cedar Bayou has 23 of these.
+- **A crest NOAA dates without a time arrives as midnight UTC** and is shown as
+  that calendar date, never converted to Central (which would move it back a
+  day). A crest with a real time is shown in Central time. A genuine crest at
+  exactly 00:00 UTC would be shown date-only; none is known.
+- **NOAA's one-letter code is shown as published.** NWPS puts it in a field
+  named `preliminary` and its API documentation defines no values. The page
+  says that and claims no meaning.
+- **Crest flow of 0 was stored as NULL** (unknown) by `recordGaugeHistory()`
+  and shows as a dash. No flow column at all on the two `noFlow` gauges.
+- **River flood warnings come from the IEM archive only**, loaded by
+  `scripts/backfill-nws-events.mjs`. The page says a warning issued since the
+  last load is not listed yet, and prints the earliest gauge warning in the
+  archive (computed) so a gap before it is not read as "no flooding".
+
+## Data and failure
+
+`loadGaugePage()` reads the `water` KV snapshot (degrading to empty like
+`/water`) and six D1 queries. **No `env.DB`, or any D1 error, is a 502** naming
+"the site's flood record": a page with its history silently missing would be a
+wrong page.
+
+## Dates
+
+`Last-Modified` and the sitemap `<lastmod>` are the same instant: the newer of
+the gauge's latest reading (`validTime`) and its newest crest. Not the
+snapshot's fetch time, which moves every 15 minutes whether or not the page
+did. The sitemap reads it through the handler's `lastmod(env)` hook, which
+overrides registry `feeds`.
+
+## IndexNow
+
+A gauge's page is submitted when its flood category changes (the `water`
+signal, together with `/water`) and when NOAA's crest count for it changes (the
+`crests` signal). See `docs/ops/search.md`.
+
+## Canonical, meta, CSP
+
+- Canonical and hreflang from the page's own path; in `PAGE_PATHS`, so it gets
+  the `Link: rel="canonical"` header and the GET/HEAD-only guard.
+- Description is the registry `desc` (no live value). Title
+  "<gauge>: Flood History and Current Level".
+- JSON-LD: `JSONLD_SITE` plus a `BreadcrumbList` (Water Levels › gauge).
+- No inline script.
+
+## Tested
+
+`scripts/test-gauge-pages.mjs` ("Check gauge pages" in CI) seeds production
+rows and checks literal values: Harvey at Cedar Bayou is "5.59 ft above minor
+flood stage", Lake Houston's Harvey crest stays on Aug 29, the old-datum crest
+is never compared, impacts sort highest first, Sheldon shows no flow, Spanish
+pages link Spanish pages, a D1 failure is a 502, and a newer crest dates the
+page in both `Last-Modified` and the sitemap. `scripts/test-routes.mjs` covers
+the generic page contract once the page is registered.

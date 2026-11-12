@@ -18,6 +18,7 @@ Live flood gauges for the waters that flood Crosby and NE Harris County.
 | Per-gauge cards — name, colored flood-category badge, observed stage (ft), flow (cfs), threshold line, context line | `water` KV |
 | Safety note — 911, turn around don't drown | static |
 | Per-gauge link to the official NWPS page | `nwpsGaugeUrl(lid)` |
+| "Flood history →" link on the four gauges that have a page (`gaugePagePath(lid)`, from the registry); the Markdown lists the same URL | `src/registry.js` — see `docs/pages/water-gauges.md` |
 
 Gauges (`WATER_GAUGES`, NWPS location IDs): Cedar Bayou nr Crosby, San Jacinto R
 nr Sheldon, San Jacinto R at Lake Houston, Luce Bayou nr Huffman, Goose Creek,
@@ -60,7 +61,7 @@ On throw: `renderError`, 502.
 - Canonical `https://crosbynews.com/water` · Spanish `/es/water`
 - `hreflangTags("/water")`
 - In `PAGE_PATHS` → `Link: rel="canonical"`
-- `sitemap.xml`: yes — `changefreq: hourly`, `priority: 0.7`, no `lastmod`
+- `sitemap.xml`: yes — `<lastmod>` is the `water` feed's `changedAt` (no changefreq/priority)
 
 ## Meta
 
@@ -76,4 +77,10 @@ No inline script.
 ## Locale
 
 Flood-category labels via `waterCatLabel(cat, lang)`; page copy via `T()`. Gauge
-names stay in NWPS's official English.
+names come from the hand-written `en`/`es` pair in `WATER_GAUGES`.
+
+## Styling
+
+The flood-category badge colours are `WATER_STATE_CSS` (exported from
+`src/features/water.js`), shared with the gauge pages so a category reads the
+same everywhere. `scripts/test-contrast.mjs` measures them in that file.

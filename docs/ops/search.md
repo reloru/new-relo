@@ -64,7 +64,7 @@ page now. Google does not take part.
 |---|---|
 | **Key** | `INDEXNOW_KEY` in `src/indexnow.js`, public by design, served at `/<key>.txt` |
 | **Endpoint** | `POST https://api.indexnow.org/indexnow` |
-| **State** | KV `indexnow_state`: `{ signals, last }` |
+| **State** | KV `indexnow_state`: `{ signals, known, last, pending? }` — `known` is the page list last submitted; `last.attempts` keeps every endpoint's answer |
 | **Outcome** | `indexNow` on `/api/health` |
 
 A *signal* is a short string that changes exactly when a page's state does:
@@ -73,19 +73,23 @@ A *signal* is a short string that changes exactly when a page's state does:
 |---|---|---|
 | `burnban`, `pollen`, `news`, `calendar` | that feed's content hash in `cron_status` changes | the page, both languages |
 | `alerts` | the set of active alert ids changes | `/alerts` |
-| `water` | any gauge's flood **category** changes (not its level) | `/water` |
+| `water` | any gauge's flood **category** changes (not its level) | `/water`, plus the page of each gauge whose category moved |
+| `crests` | NOAA's crest count for a gauge changes (`seen.waterHistory`) | that gauge's page |
 | `tropics` | the set of storms and watched areas changes (not the outlook's issue time) | `/tropics` |
 
 Weather, fishing and traffic change every tick and are never submitted. A feed
 not fetched in a tick is "no information", not "changed to empty". The first
-run, with no stored state, submits every page once.
+run, with no stored state, submits every page once, and so does any later page
+missing from `known` (why: "new pages") — a new page is submitted once without
+anyone remembering to.
 
 **Two endpoints, tried in order:** `api.indexnow.org`, then
 `www.bing.com/indexnow`. The shared endpoint answered the Worker's first
 submission with a 429 while accepting the same request from elsewhere —
 Workers share egress addresses. A submission that fails on both is kept in
 `pending` and retried **hourly, at most six times**, with anything that changed
-meanwhile folded in; it is never retried every tick.
+meanwhile folded in; it is never retried every tick. `/api/health` shows
+`indexNow.attempts`, each endpoint's status or error, in order.
 
 ## Tested
 
