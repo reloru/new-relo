@@ -288,12 +288,12 @@ eq(health.indexNow?.attempts?.map((a) => a.endpoint), ["api.indexnow.org", "www.
   const st3 = JSON.parse(h2.kv.store.get(IX.INDEXNOW_STATE_KV_KEY));
   st3.known = st3.known.filter((p) => p !== "/history");
   h2.kv.store.set(IX.INDEXNOW_STATE_KV_KEY, JSON.stringify(st3));
-  await IX.indexNowTick(h2.env, st2, withHistory({ HCDT2: 30, SHLT2: 35 }), "2026-11-11T08:05:00.000Z");
+  await IX.indexNowTick(h2.env, st2, withHistory({ HCDT2: 31, SHLT2: 35 }), "2026-11-11T08:05:00.000Z"); // two reasons pending: crests, new pages
   const st4 = JSON.parse(h2.kv.store.get(IX.INDEXNOW_STATE_KV_KEY));
   st4.known = st4.known.filter((p) => p !== "/methods");
   h2.kv.store.set(IX.INDEXNOW_STATE_KV_KEY, JSON.stringify(st4));
-  const again2 = await IX.indexNowTick(h2.env, st2, withHistory({ HCDT2: 30, SHLT2: 35 }), "2026-11-11T08:10:00.000Z");
-  eq(again2?.why, "new pages", "a reason already pending is not listed twice");
+  const again2 = await IX.indexNowTick(h2.env, st2, withHistory({ HCDT2: 31, SHLT2: 35 }), "2026-11-11T08:10:00.000Z");
+  eq(again2?.why, "crests, new pages", "a reason already pending is not listed twice");
   answer = 200;
 }
 
