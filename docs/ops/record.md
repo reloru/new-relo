@@ -96,7 +96,11 @@ An active ban opens one period, dated by the Forest Service's own start date
 when it gives one (`start_source = 'tfs'`), otherwise by the day we first saw it
 (`'observed'`). "No ban" closes whichever period is open on the day first seen
 lifted (`end_source = 'observed'`) — accurate to the 4-hour refresh. Rows
-entered by hand from Commissioners Court orders use `'order'` and carry a `url`.
+entered by hand (`scripts/seed-burnban-periods.mjs`) use `start_source =
+'order'` with the county release in `url`, and `end_source = 'news'` with the
+reporting outlet and link in `note` (the county publishes no lift notices).
+Every hand-entered row has `ended` set: an open row would be closed with
+today's date the next time the cron sees "no ban".
 
 ## Backfill
 

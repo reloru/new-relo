@@ -38,7 +38,7 @@ import { loadFishing, fishingHtml, fishingMarkdown, apiFishing } from "./feature
 import { loadTropics, tropicsHtml, tropicsMarkdown, apiTropics } from "./features/tropics.js";
 import { loadTraffic, trafficHtml, trafficMarkdown, apiTraffic } from "./features/traffic.js";
 import { loadPollen, pollenHtml, pollenMarkdown, apiPollen } from "./features/pollen.js";
-import { loadBurnBan, burnbanHtml, burnbanMarkdown, apiBurnBan } from "./features/burnban.js";
+import { loadBurnBan, loadBurnBanPeriods, burnbanHtml, burnbanMarkdown, apiBurnBan } from "./features/burnban.js";
 import { homeHtml, homeMarkdown, renderError } from "./features/home.js";
 import { MCP_CORS, mcpHandle, mcpJson, rpcError, mcpServerCard, mcpInfoHtml, mcpInfoMarkdown } from "./mcp/server.js";
 import { mcpRecord, mcpBatchRecorded, mcpUsageReport, mcpUsageText } from "./mcp/metrics.js";
@@ -633,12 +633,13 @@ const PAGE_HANDLERS = {
     // Weather rides along failure-tolerant: it only ever ADDS the "right now"
     // strip, so a weather-cache hiccup must degrade this page to its
     // county-status form rather than 502 it.
+    // The ban history is read failure-tolerant too (null on a D1 error).
     load: async ({ env }) => {
-      const [data, wx] = await Promise.all([loadBurnBan(env), loadWeather(env).then((r) => r.data).catch(() => null)]);
-      return { data, wx };
+      const [data, wx, periods] = await Promise.all([loadBurnBan(env), loadWeather(env).then((r) => r.data).catch(() => null), loadBurnBanPeriods(env)]);
+      return { data, wx, periods };
     },
-    html: (d, lang) => burnbanHtml(d.data, lang, d.wx),
-    md: (d, lang) => burnbanMarkdown(d.data, lang, d.wx),
+    html: (d, lang) => burnbanHtml(d.data, lang, d.wx, d.periods),
+    md: (d, lang) => burnbanMarkdown(d.data, lang, d.wx, d.periods),
   },
   "/news": {
     source: "our news source",
