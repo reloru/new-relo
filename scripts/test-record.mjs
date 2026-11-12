@@ -171,7 +171,14 @@ eq(JSON.parse(h.kv.store.get(R.RIVER_PRODUCTS_KV_KEY)).seen, ["p1", "p2", "p3"],
 // A warning this site also received as an alert keeps the gauge it is for.
 await R.recordAlerts(h.env, [{ id: "urn:fl", event: "Flood Warning", sent: "2026-11-12T09:01:00Z", geocode: { UGC: ["TXC201"] }, parameters: { VTEC: ["/O.CON.KHGX.FL.W.0101.000000T0000Z-261115T1200Z/"] } }], "2026-11-12T09:05:00Z");
 eq((await gaugeRows())[0].scope + " " + (await gaugeRows())[0].nwsli, "gauge HCDT2", "an alert for the same event does not overwrite its gauge");
-eq(await R.gaugeWarningCounts(h.env), "HCDT2:1", "per-gauge counts for IndexNow");
+// …and one the site received as an alert FIRST gains its gauge when the product is read.
+await R.recordAlerts(h.env, [{ id: "urn:fl2", event: "Flood Warning", sent: "2026-11-16T10:00:00Z", geocode: { UGC: ["TXC201"] }, parameters: { VTEC: ["/O.NEW.KHGX.FL.W.0110.261116T1000Z-261118T0000Z/"] } }], "2026-11-16T10:05:00Z");
+eq(await one("SELECT scope, nwsli FROM nws_events WHERE etn = 110"), { scope: "county", nwsli: null }, "an alert alone files a county event with no gauge");
+products.set("p4", { issuanceTime: "2026-11-16T10:00:00+00:00", productText: "/O.NEW.KHGX.FL.W.0110.261116T1000Z-261118T0000Z/\n/SHLT2.1.ER.261116T1000Z.261117T0000Z.261117T1200Z.NO/\n" });
+listing.FLW = [{ id: "p4", issuanceTime: "2026-11-16T10:00:00+00:00" }];
+await R.recordRiverWarnings(h.env, tracked, { fetchJson, nowIso: "2026-11-16T10:10:00Z" });
+eq(await one("SELECT scope, nwsli FROM nws_events WHERE etn = 110"), { scope: "gauge", nwsli: "SHLT2" }, "reading the product then files it under its gauge");
+eq(await R.gaugeWarningCounts(h.env), "HCDT2:1|SHLT2:1", "per-gauge counts for IndexNow");
 
 // --- the cron, end to end ---------------------------------------------------
 // Real scheduled() with stubbed upstreams: the cache is refreshed AND the same
