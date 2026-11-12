@@ -28,6 +28,9 @@ with no framework and no runtime dependencies.
   [East Fork at New Caney](https://crosbynews.com/water/east-fork-new-caney)):
   every NOAA crest against today's flood stages, river flood warnings, and the
   site's own daily readings.
+- **[Warning History](https://crosbynews.com/history)** — every NWS warning,
+  watch and advisory that covered Crosby, by type and year, from the site's own
+  record (polygon warnings since 2007-10-01), with method notes.
 - **[Fishing](https://crosbynews.com/fishing)** — live USGS water conditions
   (temperature, dissolved oxygen, pH, clarity) for the waters people fish near
   Crosby: Lake Houston, the San Jacinto forks, the Trinity River, and nearby bayous.

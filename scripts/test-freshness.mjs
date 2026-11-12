@@ -262,6 +262,14 @@ eq(health.indexNow?.attempts?.map((a) => a.endpoint), ["api.indexnow.org", "www.
   const warnedGauge = await IX.indexNowTick(h2.env, st2, { ...withHistory({ HCDT2: 30, SHLT2: 35 }), gaugeWarnings: "NCET2:26|SHLT2:13" }, "2026-11-11T07:40:00.000Z");
   eq([warnedGauge?.why, posts.at(-1)?.body.urlList], ["gaugeWarnings", [SITE + "/water/san-jacinto-sheldon", SITE + "/es/water/san-jacinto-sheldon"]], "a new river flood warning submits that gauge's page");
 
+  // A row added to the record submits /history; the same count does not.
+  const base = withHistory({ HCDT2: 30, SHLT2: 35 });
+  await IX.indexNowTick(h2.env, st2, { ...base, gaugeWarnings: "NCET2:26|SHLT2:13", history: "1708|0" }, "2026-11-11T07:41:00.000Z");
+  posts.length = 0;
+  eq(await IX.indexNowTick(h2.env, st2, { ...base, gaugeWarnings: "NCET2:26|SHLT2:13", history: "1708|0" }, "2026-11-11T07:42:00.000Z"), null, "an unchanged record submits nothing");
+  const grew = await IX.indexNowTick(h2.env, st2, { ...base, gaugeWarnings: "NCET2:26|SHLT2:13", history: "1709|1" }, "2026-11-11T07:43:00.000Z");
+  eq([grew?.why, posts.at(-1)?.body.urlList], ["history", [SITE + "/history", SITE + "/es/history"]], "a new event in the record submits /history");
+
   // A page added after the first run is submitted once, and only once.
   const stored = JSON.parse(h2.kv.store.get(IX.INDEXNOW_STATE_KV_KEY));
   eq(stored.known, PAGES.map((p) => p.path), "the submitted page list is stored");

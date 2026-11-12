@@ -39,7 +39,7 @@ import { cronRunRecorder, recordCronRun } from "./api/health.js";
 import { mcpRollUp } from "./mcp/metrics.js";
 import { pruneHits } from "./metrics.js";
 import { indexNowTick } from "./indexnow.js";
-import { recordAlerts, recordAqi, recordGauges, recordGaugeHistory, hasGaugeHistory, recordPollen, recordBurnBan, recordRiverWarnings, gaugeWarningCounts } from "./record.js";
+import { recordAlerts, recordAqi, recordGauges, recordGaugeHistory, hasGaugeHistory, recordPollen, recordBurnBan, recordRiverWarnings, gaugeWarningCounts, historyCount } from "./record.js";
 
 export async function scheduled(event, env, ctx) {
     // Refresh the weather cache. News is NOT fetched here — it's written to the
@@ -311,6 +311,11 @@ async function recordTick(env, seen, run) {
   await step("burn ban", async () => {
     const ban = seen.burnban || (await cached(BURNBAN_KV_KEY));
     if (ban) await recordBurnBan(env, ban);
+  });
+
+  // What /history counts, read after every write above: its IndexNow signal.
+  await step("history count", async () => {
+    seen.history = await historyCount(env);
   });
 
   if (errors.length) run.failed("record", new Error(errors.join("; ")));

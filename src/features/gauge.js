@@ -316,7 +316,7 @@ ${d.warnings.map((w) => `        <tr><td>${timeTag(w.issued, ctDate(w.issued, la
     </table></div>`
         : `<p class="none">${T(lang, "The record holds no river flood warnings for this gauge.", "El registro no tiene avisos de inundación fluvial para este medidor.")}</p>`
     }
-    <p class="note">${esc(warningsText(d, lang))}</p>`;
+    <p class="note">${esc(warningsText(d, lang))} <a href="${lang === "es" ? "/es/history" : "/history"}">${T(lang, "Every NWS warning for Crosby &rarr;", "Todos los avisos del NWS para Crosby &rarr;")}</a></p>`;
 
   const dailySection = `<h2>${T(lang, "Daily readings recorded by this site", "Lecturas diarias registradas por este sitio")}</h2>
     <p class="note">${esc(dailyText(d, lang))}</p>

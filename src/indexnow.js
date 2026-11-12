@@ -62,6 +62,8 @@ const SIGNALS = {
     of: (_, seen) => (typeof seen.gaugeWarnings === "string" ? seen.gaugeWarnings : undefined),
     pagesFor: gaugesChanged,
   },
+  // A row added to the record of NWS events or received alerts.
+  history: { pages: ["/history"], of: (_, seen) => (typeof seen.history === "string" ? seen.history : undefined) },
   // Which storms and watched areas exist, not the outlook's issue time.
   tropics: { pages: ["/tropics"], of: (_, seen) => (seen.tropics ? [...(seen.tropics.storms || []).map((s) => s.id), ...(seen.tropics.disturbances || []).map((d) => d.id || d.area)].sort().join("|") || "none" : undefined) },
 };

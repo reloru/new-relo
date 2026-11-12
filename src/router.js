@@ -33,6 +33,7 @@ import { loadNews, isAdmin, newsHtml, newsMarkdown, newsRss, apiNews, NEWS_BLOCK
 import { loadCalendar, calendarHtml, calendarMarkdown, apiCalendar } from "./features/calendar.js";
 import { loadWater, waterHtml, waterMarkdown, apiWater } from "./features/water.js";
 import { loadGaugePage, gaugeHtml, gaugeMarkdown, gaugeLastmod } from "./features/gauge.js";
+import { loadHistory, historyHtml, historyMarkdown, historyLastmod } from "./features/history.js";
 import { loadFishing, fishingHtml, fishingMarkdown, apiFishing } from "./features/fishing.js";
 import { loadTropics, tropicsHtml, tropicsMarkdown, apiTropics } from "./features/tropics.js";
 import { loadTraffic, trafficHtml, trafficMarkdown, apiTraffic } from "./features/traffic.js";
@@ -618,6 +619,8 @@ const PAGE_HANDLERS = {
     html: (d, lang) => alertsHtml(d.data, lang, d.burnban),
     md: (d, lang) => alertsMarkdown(d.data, lang, d.burnban),
   },
+  // Computed from the record at request time; a D1 failure is a 502.
+  "/history": { source: "the site's record", load: ({ env }) => loadHistory(env), html: historyHtml, md: historyMarkdown, lastmod: historyLastmod },
   "/water": { source: "NOAA's river gauges", load: ({ env }) => loadWater(env), html: waterHtml, md: waterMarkdown },
   "/fishing": { source: "the U.S. Geological Survey", load: ({ env }) => loadFishing(env), html: fishingHtml, md: fishingMarkdown },
   "/tropics": { source: "the National Hurricane Center", load: ({ env }) => loadTropics(env), html: tropicsHtml, md: tropicsMarkdown },

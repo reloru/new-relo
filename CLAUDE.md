@@ -452,9 +452,9 @@ files each cron tick's observations (alerts and their VTEC events, each gauge's
 daily summary and NOAA's crest history, the pollen count, the day's peak AQI,
 burn-ban periods) with idempotent upserts, after the cache writes and isolated
 from them — a database failure shows as `record.ok: false` on `/api/health` and
-never costs a page its refresh. **The gauge pages (`/water/<gauge>`,
-`src/features/gauge.js`, `docs/pages/water-gauges.md`) render from it**; a D1
-failure there is a 502, never a page with its history missing. Crests are
+never costs a page its refresh. **`/history` and the gauge pages (`/water/<gauge>`,
+`src/features/gauge.js`, `docs/pages/water-gauges.md`) render from it** and
+compute every count at request time; a D1 failure there is a 502, never a page with its history missing. Crests are
 compared only with today's flood stages and say so; old-datum crests are never
 compared. River flood warnings for the gauges are filed live from NWS's own
 flood products (`recordRiverWarnings()`: the hydrologic VTEC line names the

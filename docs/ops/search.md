@@ -76,6 +76,7 @@ A *signal* is a short string that changes exactly when a page's state does:
 | `water` | any gauge's flood **category** changes (not its level) | `/water`, plus the page of each gauge whose category moved |
 | `crests` | NOAA's crest count for a gauge changes (`seen.waterHistory`) | that gauge's page |
 | `gaugeWarnings` | the record's river-flood-warning count for a gauge changes (`gaugeWarningCounts()`, set by the cron's record step) | that gauge's page |
+| `history` | the record's row counts (`nws_events`, `alerts`) grow | `/history` |
 | `tropics` | the set of storms and watched areas changes (not the outlook's issue time) | `/tropics` |
 
 Weather, fishing and traffic change every tick and are never submitted. A feed

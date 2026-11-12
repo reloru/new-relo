@@ -15,7 +15,7 @@ be read — and the pages built on it do not change between a crawler's visits.
 | **Writers** | `src/record.js`, called from `recordTick()` at the end of `scheduled()` (`src/cron.js`) |
 | **Backfill** | `scripts/backfill-nws-events.mjs`, run from a session |
 | **Health** | the `record` object on `/api/health` |
-| **Readers** | the gauge pages, `/water/<gauge>` (`src/features/gauge.js`, `docs/pages/water-gauges.md`) |
+| **Readers** | the gauge pages, `/water/<gauge>` (`src/features/gauge.js`, `docs/pages/water-gauges.md`); `/history` (`src/features/history.js`, `docs/pages/history.md`) |
 | **Tests** | `scripts/test-record.mjs` ("Check the record" in CI); `scripts/test-gauge-pages.mjs` for the pages that read it |
 
 ## Rules every writer follows

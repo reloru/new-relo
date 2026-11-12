@@ -19,6 +19,9 @@
 
 import { TZ, NWS_HEADERS } from "./config.js";
 
+// The first day this site filed its own observations in the record.
+export const RECORD_OBSERVED_FROM = "2026-11-11";
+
 export const ctDay = (d) => new Date(d).toLocaleDateString("en-CA", { timeZone: TZ });
 
 // --- NWS events -------------------------------------------------------------
@@ -212,6 +215,14 @@ export async function recordRiverWarnings(env, gauges, { fetchJson = nwsJson, no
     await env.WEATHER.put(RIVER_PRODUCTS_KV_KEY, JSON.stringify({ seen: [...seen].slice(-SEEN_KEPT), at: nowIso }));
   }
   return stmts.length;
+}
+
+// How many events and received alerts the record holds: the IndexNow signal
+// for /history, which changes only when a row is added.
+export async function historyCount(env) {
+  if (!env?.DB) return undefined;
+  const r = await env.DB.prepare("SELECT (SELECT COUNT(*) FROM nws_events) AS e, (SELECT COUNT(*) FROM alerts) AS a").first();
+  return r ? `${r.e}|${r.a}` : undefined;
 }
 
 // How many river flood warnings the record holds per gauge, "lid:n|...": the
