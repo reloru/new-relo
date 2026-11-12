@@ -24,6 +24,7 @@ import { aboutHtml, aboutMarkdown } from "./pages/about.js";
 import { developersHtml, developersMarkdown } from "./pages/developers.js";
 import { privacyHtml, privacyMarkdown } from "./pages/privacy.js";
 import { contactHtml, contactMarkdown } from "./pages/contact.js";
+import { methodsHtml, methodsMarkdown } from "./pages/methods.js";
 import { emergencyHtml, emergencyMarkdown } from "./pages/emergency.js";
 import { sitemapPageHtml, sitemapPageMarkdown } from "./pages/sitemap.js";
 import { radarHtml, radarMarkdown } from "./features/radar.js";
@@ -659,6 +660,7 @@ const PAGE_HANDLERS = {
   "/about": { html: (_, lang) => aboutHtml(lang), md: (_, lang) => aboutMarkdown(lang) },
   "/privacy": { html: (_, lang) => privacyHtml(lang), md: (_, lang) => privacyMarkdown(lang) },
   "/contact": { html: (_, lang) => contactHtml(lang), md: (_, lang) => contactMarkdown(lang) },
+  "/methods": { html: (_, lang) => methodsHtml(lang), md: (_, lang) => methodsMarkdown(lang) },
   "/sitemap": { html: (_, lang) => sitemapPageHtml(lang), md: (_, lang) => sitemapPageMarkdown(lang) },
   "/developers": { html: (_, lang) => developersHtml(lang), md: (_, lang) => developersMarkdown(lang) },
 };

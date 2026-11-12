@@ -424,6 +424,12 @@ state "no third-party analytics scripts" — adding any browser-side vendor mean
 editing `src/pages/privacy.js`, `src/pages/about.js` and
 `contentSecurityPolicy()` together.
 
+## /methods
+`/methods` (`src/pages/methods.js`) explains every data source and its limits
+in prose, both languages. Changing a data source or method means editing its
+section there too; it deliberately restates no count, list or cadence, so it
+cannot drift from them.
+
 ## Search — be exact about *when*
 A crawler's copy of a page is days to weeks old by the time it is shown in a
 result, so anything that reads as "now" is wrong by then. `docs/ops/search.md`

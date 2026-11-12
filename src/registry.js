@@ -207,6 +207,13 @@ export const PAGES = [
     llms: "What this site is, where its data comes from, how often it updates, and how it's built.",
   },
   {
+    path: "/methods", section: "about", maxAge: 3600,
+    name: { en: "How the Numbers Are Made", es: "Cómo se obtienen las cifras" },
+    footer: { en: "Methods", es: "Métodos" },
+    desc: { en: "Where every number on the site comes from, how it is computed, and its limits.", es: "De dónde viene cada cifra del sitio, cómo se calcula y sus límites." },
+    llms: "How each number on the site is obtained — sources, what is measured versus modeled, how the record is compiled and counted — and what each cannot tell you.",
+  },
+  {
     path: "/privacy", section: "about", maxAge: 3600,
     name: { en: "Privacy Policy", es: "Política de privacidad" },
     footer: { en: "Privacy", es: "Privacidad" },
