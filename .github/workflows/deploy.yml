@@ -86,6 +86,11 @@ jobs:
       # the page must print.
       - name: Check warning history
         run: node scripts/test-history.mjs
+      # /calendar's key dates: which district events count as a no-school day,
+      # break, early release or grading-period end; RFC 5545's exclusive
+      # all-day end; consecutive days merging into a named break.
+      - name: Check calendar key dates
+        run: node scripts/test-calendar-keys.mjs
       # /api/health is the status relation of every api-catalog entry, and a
       # regression there is invisible by construction: a broken health check
       # still returns a cheerful 200. This drives the real cron recorder, writer

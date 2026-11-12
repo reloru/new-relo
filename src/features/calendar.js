@@ -139,6 +139,97 @@ export function upcomingEvents(events) {
     .slice(0, 60);
 }
 
+// --- key dates ----------------------------------------------------------------
+//
+// The dates a family plans around — no-school days and breaks, early
+// releases, the first and last day, the end of a grading period — pulled out
+// of the feed by these tested patterns and nothing else. A date appears only
+// if the district posted an event for it; nothing is inferred (a break's
+// weekend is not filled in unless the district listed it).
+const DAY_MS = 86400000;
+const KEY_RULES = [
+  ["firstDay", /\bfirst day of (school|classes)\b/i],
+  ["lastDay", /\blast day of (school|classes)\b/i],
+  ["noSchool", /\bno school\b|\bstudent holiday\b|\b(winter|spring|thanksgiving|fall|christmas) break\b/i],
+  ["earlyRelease", /\bearly (release|dismissal)\b/i],
+  ["gradingEnd", /\bend of (the )?(grading period|semester)\b/i],
+];
+export const keyDateKind = (summary) => (KEY_RULES.find(([, re]) => re.test(summary || "")) || [null])[0];
+const BREAK_RE = /\b(winter|spring|thanksgiving|fall|christmas) break\b/i;
+const BREAK_NAMES = {
+  winter: ["Winter Break", "Vacaciones de invierno"],
+  spring: ["Spring Break", "Vacaciones de primavera"],
+  thanksgiving: ["Thanksgiving Break", "Vacaciones de Acción de Gracias"],
+  fall: ["Fall Break", "Vacaciones de otoño"],
+  christmas: ["Christmas Break", "Vacaciones de Navidad"],
+};
+const KIND_LABEL = {
+  firstDay: ["First day of school", "Primer día de clases"],
+  lastDay: ["Last day of school", "Último día de clases"],
+  noSchool: ["No school", "Sin clases"],
+  earlyRelease: ["Early release", "Salida temprana"],
+  gradingEnd: ["End of grading period", "Fin del periodo de calificaciones"],
+};
+const kindLabel = (kind, lang) => KIND_LABEL[kind][lang === "es" ? 1 : 0];
+
+// The calendar days an event covers, as UTC-midnight ms of its floating date.
+// An all-day DTEND is exclusive (RFC 5545): an event ending the 29th covers
+// through the 28th.
+export function eventDays(e) {
+  const first = Math.floor(e.start / DAY_MS) * DAY_MS;
+  if (!e.allDay || typeof e.end !== "number" || e.end <= first + DAY_MS) return [first];
+  const days = [];
+  for (let d = first; d < e.end; d += DAY_MS) days.push(d);
+  return days;
+}
+
+// Key dates from today (Central) on: [{ kind, from, to, name }], soonest first.
+// Consecutive no-school days merge into one range, named after the break the
+// district named in it, if any.
+export function keyDates(events, now = Date.now()) {
+  const today = Date.parse(new Date(now).toLocaleDateString("en-CA", { timeZone: TZ }) + "T00:00:00Z");
+  const days = new Map(); // kind -> Map(day -> [summaries])
+  for (const e of events ?? []) {
+    const kind = keyDateKind(e.summary);
+    if (!kind || typeof e.start !== "number") continue;
+    for (const d of eventDays(e)) {
+      if (d < today) continue;
+      if (!days.has(kind)) days.set(kind, new Map());
+      const m = days.get(kind);
+      m.set(d, [...(m.get(d) || []), e.summary]);
+    }
+  }
+  const out = [];
+  for (const [kind, m] of days) {
+    const sorted = [...m.keys()].sort((a, b) => a - b);
+    for (const d of sorted) {
+      const last = out.at(-1);
+      if (kind === "noSchool" && last && last.kind === "noSchool" && last.to === d - DAY_MS) {
+        last.to = d;
+        last.summaries.push(...m.get(d));
+      } else out.push({ kind, from: d, to: d, summaries: [...m.get(d)] });
+    }
+  }
+  for (const k of out) {
+    const named = k.summaries.map((x) => (x.match(BREAK_RE) || [])[1]).find(Boolean);
+    k.name = named ? named.toLowerCase() : null;
+    delete k.summaries;
+  }
+  return out.sort((a, b) => a.from - b.from || a.kind.localeCompare(b.kind));
+}
+
+const keyDay = (ms, lang) => new Date(ms).toLocaleDateString(lang === "es" ? "es-MX" : "en-US", { timeZone: "UTC", weekday: "short", month: "short", day: "numeric", year: "numeric" });
+export function keyDateText(k, lang) {
+  const label = k.name ? `${BREAK_NAMES[k.name][lang === "es" ? 1 : 0]} (${T(lang, "no school", "sin clases")})` : kindLabel(k.kind, lang);
+  const when = k.from === k.to ? keyDay(k.from, lang) : `${keyDay(k.from, lang)} – ${keyDay(k.to, lang)}`;
+  return { label, when };
+}
+// The last date the feed holds, for the "posted through" line.
+export const feedThrough = (events) => {
+  const t = (events ?? []).map((e) => e.end ?? e.start).filter((x) => typeof x === "number");
+  return t.length ? Math.max(...t) : null;
+};
+
 export const calDow = (ms, lang) => new Date(ms).toLocaleDateString(lang === "es" ? "es-MX" : "en-US", { timeZone: "UTC", weekday: "short" });
 export const calDayNum = (ms) => new Date(ms).toLocaleDateString("en-US", { timeZone: "UTC", day: "numeric" });
 export const calTime = (ms, lang) => new Date(ms).toLocaleTimeString(lang === "es" ? "es-MX" : "en-US", { timeZone: "UTC", hour: "numeric", minute: "2-digit" });
@@ -193,6 +284,27 @@ export function calendarSubscribe(lang) {
   </section>`;
 }
 
+function keyDatesNote(events, lang) {
+  const through = feedThrough(events);
+  return T(
+    lang,
+    `As the district has posted them in its calendar${through ? `, which currently runs through ${keyDay(through, lang)}` : ""}. A date the district has not posted yet is not listed.`,
+    `Tal como el distrito las ha publicado en su calendario${through ? `, que actualmente llega hasta el ${keyDay(through, lang)}` : ""}. Una fecha que el distrito aún no ha publicado no aparece.`,
+  );
+}
+
+function keyDatesHtml(events, lang) {
+  const keys = keyDates(events);
+  if (!keys.length) return "";
+  return `<section class="key-dates">
+    <h2>${T(lang, "Key dates", "Fechas clave")}</h2>
+    <ul>
+${keys.map((k) => { const { label, when } = keyDateText(k, lang); return `      <li><strong>${esc(label)}:</strong> <time datetime="${new Date(k.from).toISOString().slice(0, 10)}">${esc(when)}</time></li>`; }).join("\n")}
+    </ul>
+    <p class="note">${esc(keyDatesNote(events, lang))}</p>
+  </section>`;
+}
+
 export function calendarHtml(data, lang) {
   const events = upcomingEvents(data.events ?? []);
   // Group consecutive events by month heading.
@@ -238,6 +350,11 @@ ${JSONLD_SITE}
 ${jsonldEvents(events, lang)}
 <style>${BASE_CSS}
   .intro { color:var(--muted); margin:0.6rem 0 0; }
+  .key-dates { background:var(--card); border-radius:12px; padding:0.8rem 1.1rem; margin-top:1rem; box-shadow:0 1px 3px rgba(0,0,0,0.07); }
+  .key-dates h2 { margin:0 0 0.4rem; }
+  .key-dates ul { margin:0.3rem 0; padding-left:1.2rem; }
+  .key-dates li { margin:0.25rem 0; }
+  .key-dates .note { font-size:0.82rem; color:var(--muted); margin:0.4rem 0 0; }
   .cal-month { margin-top:1.4rem; }
   .cal-month h2 { margin:0 0 0.5rem; font-size:1.05rem; }
   .cal-list { list-style:none; padding:0; margin:0; }
@@ -265,6 +382,7 @@ ${topbar("/calendar", lang)}
 <main id="main">
   <h1>${esc(title)}</h1>
   <p class="intro">${T(lang, "Upcoming events from the Crosby Independent School District calendar — first day of school, holidays, early-release and no-school days, testing, and campus activities.", "Próximos eventos del calendario del Distrito Escolar Independiente de Crosby: primer día de clases, días festivos, días de salida temprana y sin clases, exámenes y actividades de los planteles.")}${data.updated ? ` ${T(lang, "Updated", "Actualizado")} ${dateStamp(data.updated, lang)}.` : ""}</p>
+  ${keyDatesHtml(data.events, lang)}
   ${body}
   ${calendarSubscribe(lang)}
   <p class="disclaimer">${T(lang, `crosbynews.com isn't affiliated with Crosby ISD. Events are pulled from the district's public calendar feed (<a href="${CISD_SITE}">crosbyisd.org</a>); event titles are shown in the district's original English. Always confirm dates with the district.`, `crosbynews.com no está afiliado a Crosby ISD. Los eventos provienen del calendario público del distrito (<a href="${CISD_SITE}">crosbyisd.org</a>); los títulos de los eventos se muestran en el inglés original del distrito. Confirma siempre las fechas con el distrito.`)}</p>
@@ -283,6 +401,15 @@ export function calendarMarkdown(data, lang) {
     `_${T(lang, "Upcoming Crosby ISD events. Source: Crosby ISD.", "Próximos eventos de Crosby ISD. Fuente: Crosby ISD.")}${data.updated ? ` ${T(lang, "Updated", "Actualizado")} ${fullTime(data.updated, lang)} CT.` : ""}_`,
     "",
   ];
+  const keys = keyDates(data.events);
+  if (keys.length) {
+    out.push(`## ${T(lang, "Key dates", "Fechas clave")}`, "");
+    for (const k of keys) {
+      const { label, when } = keyDateText(k, lang);
+      out.push(`- **${label}:** ${when}`);
+    }
+    out.push("", keyDatesNote(data.events, lang), "");
+  }
   if (events.length) {
     let curMonth = "";
     for (const e of events) {
