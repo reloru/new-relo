@@ -11,24 +11,16 @@ human-readable page — see `docs/pages/sitemap.md`.
 
 ## Contents
 
-Every page in `src/registry.js` **× 2 languages** (21 pages, 42 `<url>` entries today), in registry order. Each carries
-`changefreq`, `priority`, `xhtml:link` hreflang alternates (`en-US`, `es-MX`,
-`x-default` → English), and — for `/`, `/weather` and `/hourly` — a `<lastmod>`
-of the current date, computed at request time.
+Every page in `src/registry.js` **× 2 languages** (21 pages, 42 `<url>` entries
+today), in registry order. Each carries `xhtml:link` hreflang alternates
+(`en-US`, `es-MX`, `x-default` → English) asserting the same pairing as the
+in-page `hreflangTags()`.
 
-| Page | changefreq | priority |
-|---|---|---|
-| `/` | hourly | 1.0 |
-| `/weather` | hourly | 0.9 |
-| `/hourly` | hourly | 0.8 |
-| `/radar`, `/alerts`, `/water` | daily / hourly / hourly | 0.7 |
-| `/tropics`, `/pollen`, `/air`, `/fishing`, `/news`, `/traffic`, `/calendar` | daily or hourly | 0.6 |
-| `/emergency`, `/about` | monthly | 0.5 |
-| `/developers` | monthly | 0.4 |
-| `/privacy`, `/contact`, `/sitemap` | monthly | 0.3 |
-
-The hreflang alternates here assert the same pairing as the in-page
-`hreflangTags()`, so the two must agree.
+**`<lastmod>`** is present only on pages that declare `feeds` in the registry,
+and is the newest `changedAt` among those feeds in `cron_status` — when the
+data's content last changed. The route reads that one KV key and passes it to
+`sitemapXml(cronStatus)`. Static pages have no `<lastmod>`. There is no
+`<changefreq>` or `<priority>`. Reasons: `docs/ops/search.md`.
 
 ## Deliberate omissions
 

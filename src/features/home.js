@@ -12,7 +12,7 @@
 import { TZ } from "../config.js";
 import { T, esPath, canonicalFor, hreflangTags,
          translateConditions, translatePeriodName, translateWind, translateDir } from "../i18n.js";
-import { esc, iconUrl, clockTime, dayLabel, capFirst, relTime } from "../lib/format.js";
+import { esc, iconUrl, clockTime, fullTime, dayLabel, capFirst, dateStamp, clockStamp } from "../lib/format.js";
 import { pop, feelsLikeF, feelsLikeRawF, currentHourly } from "../lib/derived.js";
 import { BASE_CSS } from "../assets/base-css.js";
 import { HOME_SCRIPT } from "../assets/client-scripts.js";
@@ -187,18 +187,21 @@ export function glanceStamp(weather, lang) {
 }
 
 // Tiny provenance + freshness footnote under the glance explainers: which
-// upstreams the card's numbers come from and how fresh our cache is (absolute
-// CT time plus a relative "N min ago"). Returns "" when we have no timestamp.
-// Plain text (locale date/time strings need no escaping) so it serves both the
-// HTML card and the ?format=md view.
-export function glanceSourceLine(weather, lang) {
+// upstreams the card's numbers come from and when our cache was refreshed.
+// Returns "" when we have no timestamp.
+// `html` wraps the stamp in <time>; the Markdown renderer takes it plain. The
+// stamp is a full date and time, never "N minutes ago": a relative time is
+// only true at the instant it is rendered, and a crawler keeps the page for
+// weeks.
+export function glanceSourceLine(weather, lang, html = false) {
   if (!weather.updated) return "";
   // ES: "Datos" + "del Servicio…" so it reads "Datos del…" (not "de el").
   // The AQI source depends on which one answered this refresh (AirNow measured
   // vs Open-Meteo modeled), so name it accordingly.
   const aqiSrc = weather.aqi?.measured ? T(lang, "AirNow", "AirNow") : T(lang, "Open-Meteo", "Open-Meteo");
   const src = T(lang, `the National Weather Service, EPA, and ${aqiSrc}`, `del Servicio Meteorológico Nacional, la EPA y ${aqiSrc}`);
-  return `${T(lang, "Data from", "Datos")} ${src} · ${T(lang, "updated", "actualizado")} ${clockTime(weather.updated, lang)} CT (${relTime(weather.updated, lang)})`;
+  const when = html ? dateStamp(weather.updated, lang) : `${fullTime(weather.updated, lang)} CT`;
+  return `${T(lang, "Data from", "Datos")} ${src} · ${T(lang, "updated", "actualizado")} ${when}`;
 }
 
 // Short, honest explainers for the glance numbers people ask about most.
@@ -266,7 +269,7 @@ export function homeHtml(weather, water, news, cal, tropics, burnban, lang) {
       ? `${esc(translateWind(now.windSpeed, lang))} ${T(lang, "from the", "del")} ${esc(dirWord(now.windDirection, lang))}`
       : "";
   const popNow = now ? pop(now) : 0;
-  const updatedLine = weather.updated ? `${T(lang, "Updated", "Actualizado")} ${esc(clockTime(weather.updated, lang))} CT` : "";
+  const updatedLine = weather.updated ? `${T(lang, "Updated", "Actualizado")} ${dateStamp(weather.updated, lang)}` : "";
   const hero = now
     ? `<section class="hub-hero">
       ${now.icon ? `<img class="hero-icon" src="${iconUrl(now.icon, "large")}" alt="${esc(translateConditions(now.shortForecast, lang))}" width="104" height="104" fetchpriority="high">` : ""}
@@ -307,11 +310,11 @@ export function homeHtml(weather, water, news, cal, tropics, burnban, lang) {
   const glanceList = (rows) => rows.map(([k, v]) => `<li><span class="pk-label">${k}</span><span class="pk-val">${v}</span></li>`).join("");
   const glanceTodayRows = glanceList(glance.today);
   const glanceNowRows = glanceList(glance.now);
-  const glanceSrc = glanceSourceLine(weather, lang);
-  const alertsUpdated = weather.updated ? `${T(lang, "Updated", "Actualizado")} ${esc(clockTime(weather.updated, lang))}` : "";
-  const waterUpdated = water.updated ? `${T(lang, "Updated", "Actualizado")} ${esc(clockTime(water.updated, lang))}` : "";
+  const glanceSrc = glanceSourceLine(weather, lang, true);
+  const alertsUpdated = weather.updated ? `${T(lang, "Updated", "Actualizado")} ${clockStamp(weather.updated, lang)}` : "";
+  const waterUpdated = water.updated ? `${T(lang, "Updated", "Actualizado")} ${clockStamp(water.updated, lang)}` : "";
   const bb = hubBurnBanSummary(burnban, lang);
-  const bbUpdated = burnban?.updated ? `${T(lang, "Checked", "Verificado")} ${esc(clockTime(burnban.updated, lang))}` : "";
+  const bbUpdated = burnban?.updated ? `${T(lang, "Checked", "Verificado")} ${clockStamp(burnban.updated, lang)}` : "";
   const alertTypes = [...new Set(alerts.map((a) => a.event))];
   const cards = `<div class="hub-grid">
       ${glanceTodayRows || glanceNowRows ? `<section class="hub-card">

@@ -6,7 +6,7 @@
 
 import { SITE } from "../config.js";
 import { T, canonicalFor, hreflangTags } from "../i18n.js";
-import { esc, fullTime, nl2br, rssDate } from "../lib/format.js";
+import { esc, fullTime, nl2br, rssDate, timeTag } from "../lib/format.js";
 import { BASE_CSS } from "../assets/base-css.js";
 import { topbar, footer } from "../chrome.js";
 import { JSONLD_SITE, sharedHead } from "../seo.js";
@@ -132,7 +132,7 @@ export function alertsHtml(data, lang, burnban) {
       ${a.headline ? `<p class="headline">${esc(a.headline)}</p>` : ""}
       ${a.description ? `<p>${nl2br(a.description)}</p>` : ""}
       ${a.instruction ? `<p class="instruction"><strong>${T(lang, "What to do:", "Qué hacer:")}</strong> ${nl2br(a.instruction)}</p>` : ""}
-      ${a.expires ? `<p class="meta">${T(lang, "In effect until", "Vigente hasta")} ${esc(fullTime(a.expires, lang))}</p>` : ""}
+      ${a.expires ? `<p class="meta">${T(lang, "In effect until", "Vigente hasta")} ${timeTag(a.expires, fullTime(a.expires, lang))}</p>` : ""}
     </article>`
       )
       .join("")}</section>`

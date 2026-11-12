@@ -11,7 +11,7 @@
 // hotlinking, so we link TranStar's own per-roadway camera pages.
 
 import { T, canonicalFor, hreflangTags } from "../i18n.js";
-import { esc, fullTime } from "../lib/format.js";
+import { esc, fullTime, dateStamp } from "../lib/format.js";
 import { BASE_CSS } from "../assets/base-css.js";
 import { topbar, footer } from "../chrome.js";
 import { JSONLD_SITE, sharedHead } from "../seo.js";
@@ -347,7 +347,7 @@ ${topbar("/traffic", lang)}
     lang,
     "Traffic incidents and scheduled lane closures for the roads Crosby drives — US-90 (the Crosby Freeway), FM-2100, FM-1942, and the Crosby stretch of IH-10 East — from Houston TranStar, the region's official traffic agency. Lane and schedule details are shown in TranStar's official English.",
     "Incidentes de tráfico y cierres de carriles programados para los caminos que usa Crosby — US-90 (la autopista de Crosby), FM-2100, FM-1942 y el tramo de Crosby de IH-10 East — según Houston TranStar, la agencia oficial de tráfico de la región. Los detalles de carriles y horarios se muestran en el inglés oficial de TranStar."
-  )}${data.updated ? ` ${T(lang, "Updated", "Actualizado")} ${esc(fullTime(data.updated, lang))} CT.` : ""}</p>
+  )}${data.updated ? ` ${T(lang, "Updated", "Actualizado")} ${dateStamp(data.updated, lang)}.` : ""}</p>
   ${status}
   ${incidents?.length ? `<div class="incs">\n${incidentCards}\n  </div>` : ""}
   <h2 class="section-h">${T(lang, "Scheduled lane closures", "Cierres de carriles programados")}</h2>

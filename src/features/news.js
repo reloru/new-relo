@@ -8,7 +8,7 @@
 
 import { SITE, TZ } from "../config.js";
 import { T, canonicalFor, hreflangTags } from "../i18n.js";
-import { esc, fullTime, rssDate } from "../lib/format.js";
+import { esc, fullTime, rssDate, timeTag } from "../lib/format.js";
 import { BASE_CSS } from "../assets/base-css.js";
 import { topbar, footer } from "../chrome.js";
 import { JSONLD_SITE, sharedHead } from "../seo.js";
@@ -144,7 +144,7 @@ ${topbar("/news", lang)}
 <main id="main">
   <h1>${T(lang, "Crosby, TX News", "Noticias de Crosby, TX")}</h1>
   ${admin ? `<p class="admin-bar">${T(lang, "Admin mode — hidden items are dimmed; Hide removes an article site-wide, Restore brings it back.", "Modo administrador — los elementos ocultos aparecen atenuados; Ocultar elimina un artículo en todo el sitio, Restaurar lo devuelve.")}</p>` : ""}
-  <p class="intro">${T(lang, `Recent headlines about Crosby, Texas and the Crosby ISD community, gathered automatically from Texas and Houston-area news outlets and filtered for relevance to Crosby. Links open the original source.${data.updated ? ` Last updated ${esc(newsDate(data.updated))}.` : ""}`, `Titulares recientes sobre Crosby, Texas y la comunidad de Crosby ISD, recopilados automáticamente de medios de Texas y del área de Houston y filtrados por relevancia para Crosby. Los enlaces abren la fuente original; los titulares se muestran en su idioma original.${data.updated ? ` Última actualización: ${esc(newsDate(data.updated, lang))}.` : ""}`)}</p>
+  <p class="intro">${T(lang, `Recent headlines about Crosby, Texas and the Crosby ISD community, gathered automatically from Texas and Houston-area news outlets and filtered for relevance to Crosby. Links open the original source.${data.updated ? ` Last updated ${timeTag(data.updated, newsDate(data.updated))}.` : ""}`, `Titulares recientes sobre Crosby, Texas y la comunidad de Crosby ISD, recopilados automáticamente de medios de Texas y del área de Houston y filtrados por relevancia para Crosby. Los enlaces abren la fuente original; los titulares se muestran en su idioma original.${data.updated ? ` Última actualización: ${timeTag(data.updated, newsDate(data.updated, lang))}.` : ""}`)}</p>
   ${list}
   <section class="card">
     <h2>${T(lang, "About Crosby, Texas", "Acerca de Crosby, Texas")}</h2>

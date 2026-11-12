@@ -56,26 +56,25 @@ export function centralStamp(iso, lang) {
   if (!Number.isFinite(t)) return null;
   return fmt(t, { weekday: "long", month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit", timeZoneName: "short" }, lang) || null;
 }
+// A stamp a machine can read as well as a person: the visible text wrapped in
+// <time datetime="…">. A crawler's copy of a page is days or weeks old by the
+// time anyone sees it in a result, so every "updated" on the site carries the
+// instant it refers to, not just a clock time. Falls back to plain escaped
+// text for a missing or unparseable instant.
+export function timeTag(iso, text) {
+  const t = Date.parse(iso ?? "");
+  return Number.isFinite(t) ? `<time datetime="${new Date(t).toISOString()}">${esc(text)}</time>` : esc(text);
+}
+// "Nov 10, 2026, 9:45 PM CT" — the dated form, for the one stamp per page that
+// has to make sense out of context.
+export const dateStamp = (iso, lang) => timeTag(iso, `${fullTime(iso, lang)} CT`);
+// "9:45 PM" — for a secondary stamp beside a dated one.
+export const clockStamp = (iso, lang) => timeTag(iso, clockTime(iso, lang));
 export const dayLabel = (iso, lang) => fmt(iso, { weekday: "long", month: "short", day: "numeric" }, lang);
 // Spanish correctly lowercases weekday/month names in running text, but our
 // UI uses them as HEADINGS ("Sábado 4 de jul"), where a leading capital is
 // the site-wide convention (the calendar page already does this).
 export const capFirst = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
-// Compact relative freshness ("6 min ago") for the glance data-source
-// footnote, computed at render time from the cache's `updated` stamp. Paired
-// with the absolute clock time so it stays unambiguous even if a tab lingers.
-export function relTime(iso, lang) {
-  const ms = Date.now() - Date.parse(iso);
-  if (!(ms >= 0)) return T(lang, "just now", "hace un momento");
-  const min = Math.round(ms / 60000);
-  if (min < 1) return T(lang, "just now", "hace un momento");
-  if (min < 60) return T(lang, `${min} min ago`, `hace ${min} min`);
-  const hr = Math.round(min / 60);
-  if (hr < 24) return T(lang, `${hr} hr ago`, `hace ${hr} h`);
-  const d = Math.round(hr / 24);
-  return T(lang, `${d} day${d === 1 ? "" : "s"} ago`, `hace ${d} día${d === 1 ? "" : "s"}`);
-}
-
 // RFC 822 date for the RSS feeds. Falls back to now on an unparseable stamp,
 // so a feed never emits an invalid <pubDate>.
 export const rssDate = (x) => {

@@ -4,7 +4,7 @@
 // data is not the same as a place people fish.
 
 import { T, canonicalFor, hreflangTags } from "../i18n.js";
-import { esc, fullTime, clockTime } from "../lib/format.js";
+import { esc, fullTime, clockTime, dateStamp } from "../lib/format.js";
 import { BASE_CSS } from "../assets/base-css.js";
 import { topbar, footer } from "../chrome.js";
 import { JSONLD_SITE, sharedHead } from "../seo.js";
@@ -261,7 +261,7 @@ ${JSONLD_SITE}
 ${topbar("/fishing", lang)}
 <main id="main">
   <h1>${esc(title)}</h1>
-  <p class="intro">${T(lang, "Live water conditions for the waters people actually fish around Crosby — matched to the nearest U.S. Geological Survey real-time station. Dissolved oxygen and temperature are what most drive whether fish are active; the reading is from a nearby station, not your exact spot.", "Condiciones del agua en vivo para las aguas donde realmente se pesca cerca de Crosby — con la estación en tiempo real del USGS más cercana. El oxígeno disuelto y la temperatura son lo que más determina si los peces están activos; la lectura es de una estación cercana, no de tu punto exacto.")}${data.updated ? ` ${T(lang, "Updated", "Actualizado")} ${esc(fullTime(data.updated, lang))} CT.` : ""}</p>
+  <p class="intro">${T(lang, "Live water conditions for the waters people actually fish around Crosby — matched to the nearest U.S. Geological Survey real-time station. Dissolved oxygen and temperature are what most drive whether fish are active; the reading is from a nearby station, not your exact spot.", "Condiciones del agua en vivo para las aguas donde realmente se pesca cerca de Crosby — con la estación en tiempo real del USGS más cercana. El oxígeno disuelto y la temperatura son lo que más determina si los peces están activos; la lectura es de una estación cercana, no de tu punto exacto.")}${data.updated ? ` ${T(lang, "Updated", "Actualizado")} ${dateStamp(data.updated, lang)}.` : ""}</p>
 ${sections}
   <section class="fguide" data-nosnippet>
     <h2>${T(lang, "How to read it", "Cómo interpretarlo")}</h2>

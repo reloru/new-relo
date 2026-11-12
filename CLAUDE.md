@@ -423,6 +423,22 @@ state "no third-party analytics scripts" — adding any browser-side vendor mean
 editing `src/pages/privacy.js`, `src/pages/about.js` and
 `contentSecurityPolicy()` together.
 
+## Search — be exact about *when*
+A crawler's copy of a page is days to weeks old by the time it is shown in a
+result, so anything that reads as "now" is wrong by then. `docs/ops/search.md`
+has the full state; the rules that bind a change:
+- **No relative times in a page** ("10 min ago"). Every visible stamp goes
+  through `dateStamp()` / `clockStamp()` / `timeTag()` (`src/lib/format.js`),
+  which wrap it in `<time datetime>`.
+- **Pages revalidate by content**: `servePage()` sends an ETag that is a digest
+  of the bytes, and a 304 for a match. `Last-Modified` and the sitemap's
+  `<lastmod>` exist only where a real instant does — a page's `feeds` in the
+  registry decide the sitemap date; a static page has none.
+- **IndexNow (`src/indexnow.js`) fires on a state change only** — a ban
+  lifted, an alert issued, a gauge changing category — never because numbers
+  moved. Outcome on `/api/health` as `indexNow`. A new stateful page needs a
+  signal there.
+
 ## D1 — the record
 **The KV cache holds *now*; D1 holds everything after it.** `src/record.js`
 files each cron tick's observations (alerts and their VTEC events, each gauge's

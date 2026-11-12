@@ -124,6 +124,9 @@ see `docs/README.md`.
   keeps serving during the gap, and a rollback redeploys old code onto the
   new schema. Wrangler asks for confirmation before applying and answers
   itself "yes" in a non-interactive shell, so the step needs no flag.
+- **Check freshness signals** (`node scripts/test-freshness.mjs`) — in the
+  required job. Conditional GETs, `Last-Modified`, sitemap dates and IndexNow,
+  each tested as a claim a search engine can check. See `docs/ops/search.md`.
 - **Check the record** (`node scripts/test-record.mjs`) — in the required job.
   Every writer in `src/record.js` plus the real `scheduled()` against SQLite:
   replays change nothing, a day's maximum is the maximum, a cancelled event

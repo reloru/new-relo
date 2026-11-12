@@ -55,6 +55,13 @@ The endpoint reports facts and does not grade them.
 }
 ```
 
+### `indexNow`
+
+Present once the cron has made its first IndexNow submission:
+`{ lastSubmission, ok, httpStatus, urls, why }` — when a state change was last
+submitted to search engines, what the endpoint answered, how many URLs, and
+which signal caused it (`docs/ops/search.md`).
+
 ### `record`
 
 Alongside `feeds`, the body carries one more object once the cron has run with

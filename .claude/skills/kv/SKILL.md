@@ -145,6 +145,11 @@ re-folds it and doubles the numbers. Deleting the whole key is recoverable only
 in the sense that counting restarts from zero; there is no other copy. Deleting
 an `mcpm:*` shard loses at most ten minutes of one isolate's counts.
 
+`indexnow_state` (cron-owned) holds the last value of each IndexNow signal and
+the last submission's outcome. Deleting it makes the next tick resubmit every
+page; editing a signal makes the next tick report that page as changed. See
+`docs/ops/search.md`.
+
 Read it through `/api/mcp-usage` rather than raw KV when you just want the
 numbers — it merges the unfolded shards, which a bare `get` does not.
 

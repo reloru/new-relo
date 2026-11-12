@@ -31,7 +31,10 @@ export const SECTIONS = [
 //   desc     One line for the /sitemap page.
 //   llms     One line for llms.txt (English only, like the file).
 //   maxAge   Browser cache lifetime in seconds for both representations.
-//   sitemap  /sitemap.xml hints.
+//   feeds    The cron feeds (names as on /api/health) whose data the page
+//            shows. /sitemap.xml dates the page by when that data last
+//            changed. Omit for a static page, which then carries no date —
+//            an absent date is honest, a guessed one is not.
 //   custom   true when router.js serves the path outside the shared page
 //            handler (the two /mcp explainers, which share a path with the
 //            protocol endpoint).
@@ -43,7 +46,7 @@ export const PAGES = [
     footer: { en: "Home", es: "Inicio" },
     desc: { en: "The Crosby front page — conditions, water, news, and school events at a glance.", es: "La página principal de Crosby — condiciones, agua, noticias y eventos escolares de un vistazo." },
     llms: "The Crosby, TX front page — current conditions, water levels, local news, and school events at a glance, linking into each full section.",
-    sitemap: { changefreq: "hourly", priority: "1.0", lastmod: true },
+    feeds: ["weather", "water", "news", "calendar", "tropics", "burnban"],
   },
   {
     path: "/weather", section: "weather", maxAge: 300,
@@ -51,7 +54,7 @@ export const PAGES = [
     nav: { en: "Weather", es: "Clima", desktop: true },
     desc: { en: "Current conditions, 12-hour hourly strip, and 7-day forecast.", es: "Condiciones actuales, franja horaria de 12 horas y pronóstico a 7 días." },
     llms: "Current conditions, 12-hour hourly strip, and 7-day forecast for Crosby, TX.",
-    sitemap: { changefreq: "hourly", priority: "0.9", lastmod: true },
+    feeds: ["weather"],
   },
   {
     path: "/hourly", section: "weather", maxAge: 300,
@@ -59,7 +62,7 @@ export const PAGES = [
     nav: { en: "Hourly", es: "Por hora", desktop: false },
     desc: { en: "Full 48-hour hour-by-hour forecast table.", es: "Tabla completa de pronóstico hora por hora de 48 horas." },
     llms: "Full 48-hour hour-by-hour forecast table grouped by day.",
-    sitemap: { changefreq: "hourly", priority: "0.8", lastmod: true },
+    feeds: ["weather"],
   },
   {
     path: "/radar", section: "weather", maxAge: 3600,
@@ -67,7 +70,6 @@ export const PAGES = [
     nav: { en: "Radar", es: "Radar", desktop: true },
     desc: { en: "Live NWS KHGX radar loop for the Crosby area.", es: "Radar en vivo del NWS KHGX para la zona de Crosby." },
     llms: "Live NWS KHGX (Houston-Galveston) radar loop covering Crosby and northeast Harris County.",
-    sitemap: { changefreq: "daily", priority: "0.7" },
   },
   {
     path: "/alerts", section: "weather", maxAge: 300,
@@ -75,7 +77,7 @@ export const PAGES = [
     nav: { en: "Alerts", es: "Alertas", desktop: true },
     desc: { en: "Active NWS weather alerts plus a severe-weather guide.", es: "Alertas meteorológicas activas del NWS más una guía de clima severo." },
     llms: "Active NWS weather alerts for Crosby, TX plus a plain-language severe-weather guide.",
-    sitemap: { changefreq: "hourly", priority: "0.7" },
+    feeds: ["weather"],
   },
   {
     path: "/water", section: "weather", maxAge: 300,
@@ -83,7 +85,7 @@ export const PAGES = [
     nav: { en: "Water Levels", es: "Niveles de agua", desktop: true },
     desc: { en: "Live river and bayou levels with NWS flood stages.", es: "Niveles de ríos y arroyos en vivo con las etapas de inundación del NWS." },
     llms: "Live river and bayou levels with NWS flood stages for Cedar Bayou, the San Jacinto River, Luce Bayou and other waters that flood the Crosby / NE Harris County area.",
-    sitemap: { changefreq: "hourly", priority: "0.7" },
+    feeds: ["water"],
   },
   {
     path: "/fishing", section: "weather", maxAge: 300,
@@ -91,7 +93,7 @@ export const PAGES = [
     nav: { en: "Fishing", es: "Pesca", desktop: false },
     desc: { en: "Live water conditions for the waters people fish near Crosby.", es: "Condiciones del agua para las aguas donde se pesca cerca de Crosby." },
     llms: "Live USGS water conditions — temperature, dissolved oxygen, pH, and clarity — for the waters people fish near Crosby: Lake Houston, the San Jacinto River forks, the Trinity River, and nearby bayous.",
-    sitemap: { changefreq: "hourly", priority: "0.6" },
+    feeds: ["fishing"],
   },
   {
     path: "/tropics", section: "weather", maxAge: 900,
@@ -99,7 +101,7 @@ export const PAGES = [
     nav: { en: "Tropics", es: "Trópicos", desktop: false },
     desc: { en: "Active Atlantic tropical systems from the National Hurricane Center.", es: "Sistemas tropicales activos del Atlántico según el Centro Nacional de Huracanes." },
     llms: "Active Atlantic tropical storms and hurricanes from the NOAA National Hurricane Center, the areas it is watching for development with their formation chances, plus what hurricane season means for Crosby — an all-clear only when there are neither.",
-    sitemap: { changefreq: "daily", priority: "0.6" },
+    feeds: ["tropics"],
   },
   {
     path: "/pollen", section: "weather", maxAge: 1800,
@@ -107,7 +109,7 @@ export const PAGES = [
     nav: { en: "Pollen", es: "Polen", desktop: false },
     desc: { en: "Measured daily pollen and mold count from the Houston Health Department.", es: "Conteo diario medido de polen y moho del Departamento de Salud de Houston." },
     llms: "The Houston Health Department's measured daily pollen and mold count (tree, weed, and grass pollen plus mold spores, National Allergy Bureau scale) with the species actually counted — a real measurement, published weekday mornings, regionally valid for Crosby.",
-    sitemap: { changefreq: "daily", priority: "0.6" },
+    feeds: ["pollen"],
   },
   {
     path: "/air", section: "weather", maxAge: 600,
@@ -115,7 +117,7 @@ export const PAGES = [
     nav: { en: "Air Quality", es: "Calidad del aire", desktop: false },
     desc: { en: "Measured AQI for the Houston / Crosby area from EPA/AirNow, with a per-pollutant breakdown.", es: "AQI medido para la zona de Houston / Crosby de EPA/AirNow, con desglose por contaminante." },
     llms: "Measured US Air Quality Index (AQI) for the Houston-Galveston-Brazoria reporting area that includes Crosby, from EPA/AirNow monitors, with a per-pollutant breakdown and health guidance (Open-Meteo modeled fallback when AirNow isn't reporting).",
-    sitemap: { changefreq: "hourly", priority: "0.6" },
+    feeds: ["air"],
   },
   {
     path: "/burn-ban", section: "weather", maxAge: 1800,
@@ -123,7 +125,7 @@ export const PAGES = [
     nav: { en: "Burn Ban", es: "Prohibición de quemas", desktop: false },
     desc: { en: "Current Harris County outdoor-burning ban status from the Texas A&M Forest Service.", es: "Estado actual de la prohibición de quemas al aire libre del condado de Harris, según el Servicio Forestal de Texas A&M." },
     llms: "Current outdoor-burning ban status for Harris County, TX (which includes Crosby) from the Texas A&M Forest Service — countywide only, no sub-county resolution.",
-    sitemap: { changefreq: "daily", priority: "0.5" },
+    feeds: ["burnban"],
   },
   {
     path: "/news", section: "community", maxAge: 900,
@@ -131,7 +133,7 @@ export const PAGES = [
     nav: { en: "News", es: "Noticias", desktop: true },
     desc: { en: "Local headlines about Crosby, TX and nearby communities.", es: "Titulares locales sobre Crosby, TX y comunidades cercanas." },
     llms: "Recent local headlines about Crosby, TX and nearby communities, filtered for relevance.",
-    sitemap: { changefreq: "daily", priority: "0.6" },
+    feeds: ["news"],
   },
   {
     path: "/traffic", section: "community", maxAge: 300,
@@ -139,7 +141,7 @@ export const PAGES = [
     nav: { en: "Traffic", es: "Tráfico", desktop: false },
     desc: { en: "Incidents and lane closures on US-90, FM-2100, and IH-10 East, with live cameras.", es: "Incidentes y cierres de carriles en US-90, FM-2100 e IH-10 East, con cámaras en vivo." },
     llms: "Live traffic incidents and scheduled lane closures for US-90, FM-2100, FM-1942, and the Crosby stretch of IH-10 East, from Houston TranStar, with links to the live traffic cameras.",
-    sitemap: { changefreq: "hourly", priority: "0.6" },
+    feeds: ["traffic"],
   },
   {
     path: "/calendar", section: "community", maxAge: 1800,
@@ -147,7 +149,7 @@ export const PAGES = [
     nav: { en: "School Calendar", es: "Calendario escolar", desktop: true },
     desc: { en: "Upcoming Crosby ISD school calendar events.", es: "Próximos eventos del calendario escolar de Crosby ISD." },
     llms: "Upcoming Crosby ISD school calendar events (first day, holidays, no-school/early-release days, testing, athletics) rendered from the district's public iCal feed, plus one-tap subscribe links.",
-    sitemap: { changefreq: "daily", priority: "0.6" },
+    feeds: ["calendar"],
   },
   {
     path: "/emergency", section: "community", maxAge: 3600,
@@ -156,7 +158,6 @@ export const PAGES = [
     footer: { en: "Emergency", es: "Emergencias" },
     desc: { en: "911 and non-emergency numbers, outages, flooding, shelters, and disaster help.", es: "El 911 y números que no son de emergencia, apagones, inundaciones, refugios y ayuda por desastre." },
     llms: "Emergency contacts for Crosby, TX — 911 and non-emergency numbers, power outage and gas leak reporting, the CAER industrial-incident line, live flood and road conditions, evacuation-zone lookup, shelters, and disaster assistance.",
-    sitemap: { changefreq: "monthly", priority: "0.5" },
   },
   {
     path: "/about", section: "about", maxAge: 3600,
@@ -165,7 +166,6 @@ export const PAGES = [
     footer: { en: "About", es: "Acerca de" },
     desc: { en: "What this site is, where its data comes from, and how often it updates.", es: "Qué es este sitio, de dónde vienen sus datos y cada cuánto se actualiza." },
     llms: "What this site is, where its data comes from, how often it updates, and how it's built.",
-    sitemap: { changefreq: "monthly", priority: "0.5" },
   },
   {
     path: "/privacy", section: "about", maxAge: 3600,
@@ -173,7 +173,6 @@ export const PAGES = [
     footer: { en: "Privacy", es: "Privacidad" },
     desc: { en: "No cookies, no trackers — how we handle your data.", es: "Sin cookies, sin rastreadores — cómo manejamos tus datos." },
     llms: "Privacy policy — no cookies, no trackers, no personal data.",
-    sitemap: { changefreq: "monthly", priority: "0.3" },
   },
   {
     path: "/contact", section: "about", maxAge: 3600,
@@ -181,7 +180,6 @@ export const PAGES = [
     footer: { en: "Contact", es: "Contacto" },
     desc: { en: "How to reach us for questions, tips, and security reports.", es: "Cómo comunicarte con nosotros para preguntas, datos y reportes de seguridad." },
     llms: "How to reach us — general inquiries and security reporting.",
-    sitemap: { changefreq: "monthly", priority: "0.3" },
   },
   {
     path: "/sitemap", section: "about", maxAge: 3600,
@@ -189,7 +187,6 @@ export const PAGES = [
     footer: { en: "Sitemap", es: "Mapa del sitio" },
     desc: { en: "This page — every page and public endpoint on the site.", es: "Esta página — todas las páginas y endpoints públicos del sitio." },
     llms: "Human-readable site map with every page and endpoint.",
-    sitemap: { changefreq: "monthly", priority: "0.3" },
   },
   {
     path: "/developers", section: "developers", maxAge: 3600,
@@ -198,7 +195,6 @@ export const PAGES = [
     footer: { en: "Developers", es: "Desarrolladores" },
     desc: { en: "Start here — the API, MCP server, feeds, and agent integrations, documented on one page.", es: "Empieza aquí — la API, el servidor MCP, los feeds y las integraciones para agentes, en una sola página." },
     llms: "The public JSON API, OpenAPI spec, MCP server, RSS feeds, agent skills, and Markdown views — all in one place, no authentication.",
-    sitemap: { changefreq: "monthly", priority: "0.4" },
   },
   {
     // GET /mcp is this page; POST /mcp is the protocol. The Spanish name says
@@ -207,7 +203,6 @@ export const PAGES = [
     name: { en: "MCP Server", es: "Acerca del servidor MCP" },
     desc: { en: "Model Context Protocol server (Streamable HTTP), and how to connect to it.", es: "Qué es el servidor del Protocolo de Contexto de Modelo y cómo conectarte. El servidor está en /mcp y funciona solo en inglés." },
     llms: "What the Model Context Protocol server offers and how to connect an AI assistant to it.",
-    sitemap: { changefreq: "monthly", priority: "0.4" },
   },
 ];
 

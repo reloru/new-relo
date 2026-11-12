@@ -3,7 +3,7 @@
 
 import { T, canonicalFor, hreflangTags, translateConditions,
          translateWind, translateDir, ES_NWS_NOTE } from "../i18n.js";
-import { esc, fullTime, clockTime, hourLabel, dayLabel, capFirst, iconUrl } from "../lib/format.js";
+import { esc, fullTime, clockTime, hourLabel, dayLabel, capFirst, iconUrl, dateStamp } from "../lib/format.js";
 import { BASE_CSS } from "../assets/base-css.js";
 import { topbar, footer } from "../chrome.js";
 import { JSONLD_SITE, sharedHead } from "../seo.js";
@@ -119,7 +119,7 @@ ${JSONLD_SITE}
 ${topbar("/hourly", lang)}
 <main id="main">
   <h1>${T(lang, "Crosby, TX Hourly Forecast", "Pronóstico por hora de Crosby, TX")}</h1>
-  <p class="intro">${T(lang, `Hour-by-hour forecast for Crosby, Texas from the U.S. National Weather Service, covering the next ${hours.length} hours. Updated ${esc(fullTime(data.updated))} CT.`, `Pronóstico hora por hora para Crosby, Texas del Servicio Meteorológico Nacional de EE. UU., para las próximas ${hours.length} horas. Actualizado ${esc(fullTime(data.updated, lang))} CT.`)}</p>
+  <p class="intro">${T(lang, `Hour-by-hour forecast for Crosby, Texas from the U.S. National Weather Service, covering the next ${hours.length} hours. Updated ${dateStamp(data.updated, lang)}.`, `Pronóstico hora por hora para Crosby, Texas del Servicio Meteorológico Nacional de EE. UU., para las próximas ${hours.length} horas. Actualizado ${dateStamp(data.updated, lang)}.`)}</p>
   ${lang === "es" ? `<p class="intro nws-note">${ES_NWS_NOTE}</p>` : ""}
   <p class="intro feels-note">${T(lang, "Temp shows the “feels like” temperature in parentheses.", "La temperatura muestra la sensación térmica entre paréntesis.")}</p>
 ${body || `<p class="none">${T(lang, "Hourly forecast is temporarily unavailable.", "El pronóstico por hora no está disponible temporalmente.")}</p>`}

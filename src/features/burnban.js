@@ -29,7 +29,7 @@
 // not general advice. Check the rule before editing any of those numbers.
 
 import { T, canonicalFor, hreflangTags, esPath, translateDir } from "../i18n.js";
-import { esc, fmt, fullTime } from "../lib/format.js";
+import { esc, fmt, fullTime, dateStamp } from "../lib/format.js";
 import { pop, currentHourly } from "../lib/derived.js";
 import { BASE_CSS } from "../assets/base-css.js";
 import { topbar, footer } from "../chrome.js";
@@ -478,7 +478,7 @@ export function burnbanHtml(data, lang, weather) {
   // on a page people read mid-decision, when "is this still true right now"
   // is the first question. Same bold/--ink treatment as .since so the two
   // read as one voice.
-  const checkedLine = data.updated ? `<p class="checked">${T(lang, "Checked", "Verificado")} ${esc(fullTime(data.updated, lang))} CT.</p>` : "";
+  const checkedLine = data.updated ? `<p class="checked">${T(lang, "Checked", "Verificado")} ${dateStamp(data.updated, lang)}.</p>` : "";
 
   // Sits directly under the status panel: "how long has this been true" is a
   // trust signal in a way "we checked at 12:25 AM" is not.
