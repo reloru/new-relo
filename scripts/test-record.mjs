@@ -182,6 +182,10 @@ eq(JSON.parse(h.kv.store.get(R.RIVER_PRODUCTS_KV_KEY)).seen, ["p1", "p2", "p3"],
   let failedTicks = 0;
   for (const t of ["2026-11-17T01:10:00Z", "2026-11-17T01:25:00Z", "2026-11-17T01:40:00Z", "2026-11-17T01:55:00Z"]) {
     try { await R.recordRiverWarnings(h.env, tracked, { fetchJson: fj, nowIso: t }); } catch { failedTicks++; }
+    if (t.endsWith("01:10:00Z")) {
+      const st1 = JSON.parse(h.kv.store.get(R.RIVER_PRODUCTS_KV_KEY));
+      ok(st1.seen.includes("old404") && !st1.seen.includes("bad"), "after one tick the gone product is read and the failing one is not");
+    }
   }
   eq(await one("SELECT nwsli FROM nws_events WHERE etn = 120"), { nwsli: "NCET2" }, "a newer product behind a 404 and a failing one is still filed");
   eq(failedTicks, 3, "a product that keeps failing is reported for three ticks, then given up");
