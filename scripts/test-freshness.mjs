@@ -257,6 +257,11 @@ eq(health.indexNow?.attempts?.map((a) => a.endpoint), ["api.indexnow.org", "www.
   const crest = await IX.indexNowTick(h2.env, st2, withHistory({ HCDT2: 30, SHLT2: 35 }), "2026-11-11T07:30:00.000Z");
   eq([crest?.why, posts.at(-1)?.body.urlList], ["crests", [SITE + "/water/cedar-bayou-crosby", SITE + "/es/water/cedar-bayou-crosby"]], "a new crest submits that gauge's page only");
 
+  // A river flood warning filed for a gauge submits that gauge's page.
+  await IX.indexNowTick(h2.env, st2, { ...withHistory({ HCDT2: 30, SHLT2: 35 }), gaugeWarnings: "NCET2:26|SHLT2:12" }, "2026-11-11T07:35:00.000Z");
+  const warnedGauge = await IX.indexNowTick(h2.env, st2, { ...withHistory({ HCDT2: 30, SHLT2: 35 }), gaugeWarnings: "NCET2:26|SHLT2:13" }, "2026-11-11T07:40:00.000Z");
+  eq([warnedGauge?.why, posts.at(-1)?.body.urlList], ["gaugeWarnings", [SITE + "/water/san-jacinto-sheldon", SITE + "/es/water/san-jacinto-sheldon"]], "a new river flood warning submits that gauge's page");
+
   // A page added after the first run is submitted once, and only once.
   const stored = JSON.parse(h2.kv.store.get(IX.INDEXNOW_STATE_KV_KEY));
   eq(stored.known, PAGES.map((p) => p.path), "the submitted page list is stored");

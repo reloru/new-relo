@@ -73,7 +73,8 @@ const get = async (path, accept = "text/html") => {
   const live = main.slice(main.indexOf('<div data-nosnippet>'), main.indexOf("</div>", main.indexOf('<div data-nosnippet>')));
   has(live, "36.53", "the live stage sits inside the nosnippet block");
   // No river flood warning for this gauge in the seeded archive.
-  has(main, "The archive holds no river flood warnings for this gauge.", "empty warning list says so");
+  has(main, "The record holds no river flood warnings for this gauge.", "empty warning list says so");
+  has(main, "Since Thu, Nov 12, 2026 this site records river flood warnings itself", "says when live recording began");
   has(main, "dated Feb 18, 2008", "archive start is the earliest gauge warning (17:04 UTC = 11:04 AM CT, same day)");
   // Every link on the page that points at a page stays English here.
   has(main, 'href="/water"', "breadcrumb to /water");
@@ -92,7 +93,7 @@ const get = async (path, accept = "text/html") => {
   const { main } = await get("/water/san-jacinto-sheldon");
   ok(main.indexOf("Major lowland flooding begins.") < main.indexOf("Minor lowland flooding begins."), "impacts sorted highest stage first");
   has(main, "No. 98 of 2019", "the gauge's river flood warning");
-  has(main, "1 in the archive", "warning count");
+  has(main, "1 in the record, newest first", "warning count");
   lacks(main, "389,000", "flow shown for a gauge whose flow is not a measured river flow");
   lacks(main, "Flow (cfs)", "flow column on a no-flow gauge");
   const es = (await get("/es/water/san-jacinto-sheldon")).main;

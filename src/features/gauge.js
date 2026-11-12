@@ -7,10 +7,10 @@
 //     (NOAA/NWS NWPS), the same reading /water shows;
 //   * historic crests and flood-impact statements — NOAA's own lists, filed in
 //     D1 by the cron (gauge_crests, gauge_meta);
-//   * river flood warnings for the gauge — the Iowa Environmental Mesonet's
-//     archive of NWS products, loaded into nws_events by hand
-//     (scripts/backfill-nws-events.mjs). NWS's alert API carries no river
-//     forecast point, so the Worker cannot file these itself;
+//   * river flood warnings for the gauge — filed by the cron from NWS's own
+//     flood products since RIVER_WARNINGS_OBSERVED_FROM (recordRiverWarnings),
+//     and before that from the Iowa Environmental Mesonet's archive
+//     (scripts/backfill-nws-events.mjs);
 //   * daily highs and lows — this site's own 15-minute readings (gauge_daily).
 //
 // Crests are compared with TODAY'S flood stages, and the page says so: NWS may
@@ -24,7 +24,7 @@ import { topbar, footer } from "../chrome.js";
 import { JSONLD_SITE, sharedHead } from "../seo.js";
 import { SITE } from "../config.js";
 import { pageFor, gaugePagePath } from "../registry.js";
-import { FLOOD_RANK_NAME } from "../record.js";
+import { FLOOD_RANK_NAME, RIVER_WARNINGS_OBSERVED_FROM } from "../record.js";
 import { WATER_GAUGES, WATER_STATE_CSS, loadWater, waterState, waterContext, waterCatLabel, nwpsGaugeUrl } from "./water.js";
 
 const STAGE_KEYS = ["action", "minor", "moderate", "major"];
@@ -233,11 +233,12 @@ function notes(d, lang) {
 }
 
 function warningsText(d, lang) {
+  const live = dayText(RIVER_WARNINGS_OBSERVED_FROM, lang);
   const from = d.warningsArchiveFrom ? ctDate(d.warningsArchiveFrom, lang) : null;
   return T(
     lang,
-    `River flood warnings come from the Iowa Environmental Mesonet's archive of National Weather Service products, which this site loads by hand; a warning issued since the last load is not listed yet.${from ? ` The earliest river flood warning the archive holds for any gauge this site tracks is dated ${from}, so no entry before then is not evidence of no flooding.` : ""}`,
-    `Los avisos de inundación fluvial provienen del archivo de productos del Servicio Meteorológico Nacional del Iowa Environmental Mesonet, que este sitio carga a mano; un aviso emitido desde la última carga aún no aparece.${from ? ` El aviso de inundación fluvial más antiguo del archivo para los medidores que sigue este sitio es del ${from}, así que la falta de registros antes de esa fecha no prueba que no hubo inundaciones.` : ""}`,
+    `Since ${live} this site records river flood warnings itself, from the National Weather Service's own flood products; earlier ones come from the Iowa Environmental Mesonet's archive of NWS products.${from ? ` The earliest river flood warning in the record for any gauge this site tracks is dated ${from}, so no entry before then is not evidence of no flooding.` : ""}`,
+    `Desde el ${live} este sitio registra los avisos de inundación fluvial por su cuenta, a partir de los productos de inundación del Servicio Meteorológico Nacional; los anteriores provienen del archivo de productos del NWS del Iowa Environmental Mesonet.${from ? ` El aviso de inundación fluvial más antiguo del registro para los medidores que sigue este sitio es del ${from}, así que la falta de registros antes de esa fecha no prueba que no hubo inundaciones.` : ""}`,
   );
 }
 
@@ -306,14 +307,14 @@ ${d.impacts.map((i) => `      <li><strong>${esc(ft(i.stage))} ft</strong> &mdash
   const warningsSection = `<h2>${T(lang, "River flood warnings for this gauge", "Avisos de inundación fluvial para este medidor")}</h2>
     ${
       d.warnings.length
-        ? `<p class="intro">${T(lang, `${d.warnings.length} in the archive, newest first.`, `${d.warnings.length} en el archivo, del más reciente al más antiguo.`)}</p>
+        ? `<p class="intro">${T(lang, `${d.warnings.length} in the record, newest first.`, `${d.warnings.length} en el registro, del más reciente al más antiguo.`)}</p>
     <div class="tbl-wrap"><table class="tbl">
       <thead><tr><th>${T(lang, "Issued", "Emitido")}</th><th>${T(lang, "Until", "Hasta")}</th><th>${T(lang, "NWS event", "Evento del NWS")}</th></tr></thead>
       <tbody>
 ${d.warnings.map((w) => `        <tr><td>${timeTag(w.issued, ctDate(w.issued, lang))}</td><td>${w.expires ? timeTag(w.expires, ctDate(w.expires, lang)) : "—"}</td><td>${esc(warningId(w, lang))}</td></tr>`).join("\n")}
       </tbody>
     </table></div>`
-        : `<p class="none">${T(lang, "The archive holds no river flood warnings for this gauge.", "El archivo no tiene avisos de inundación fluvial para este medidor.")}</p>`
+        : `<p class="none">${T(lang, "The record holds no river flood warnings for this gauge.", "El registro no tiene avisos de inundación fluvial para este medidor.")}</p>`
     }
     <p class="note">${esc(warningsText(d, lang))}</p>`;
 
@@ -417,7 +418,7 @@ ${notes(d, lang).map((n) => `    <li>${esc(n)}</li>`).join("\n")}
   <p class="safety">${T(lang, `In a flood emergency call 911. Never drive or walk into floodwater. The official source for this gauge is <a href="${nwpsGaugeUrl(d.lid)}">NOAA's gauge page</a>; active warnings appear on the <a href="/alerts">alerts page</a>.`, `En una emergencia por inundación llama al 911. Nunca conduzcas ni camines hacia el agua de inundación. La fuente oficial de este medidor es <a href="${nwpsGaugeUrl(d.lid)}">la página del medidor de NOAA</a>; los avisos activos aparecen en la <a href="/es/alerts">página de alertas</a>.`)}</p>
   <p class="intro"><a href="${href("/water")}">&larr; ${T(lang, "All water levels", "Todos los niveles de agua")}</a></p>
 </main>
-${footer({ page: d.page, lang, source: T(lang, `Levels, flood stages and crests from the NOAA/NWS <a href="https://water.noaa.gov">National Water Prediction Service</a>; past warnings from the <a href="https://mesonet.agron.iastate.edu/">Iowa Environmental Mesonet</a>, Iowa State University.`, `Niveles, etapas y crestas del <a href="https://water.noaa.gov">Servicio Nacional de Predicción de Agua</a> de NOAA/NWS; avisos anteriores del <a href="https://mesonet.agron.iastate.edu/">Iowa Environmental Mesonet</a>, Universidad Estatal de Iowa.`) })}
+${footer({ page: d.page, lang, source: T(lang, `Levels, flood stages and crests from the NOAA/NWS <a href="https://water.noaa.gov">National Water Prediction Service</a>; river flood warnings from the National Weather Service and, before 2026-11-12, the <a href="https://mesonet.agron.iastate.edu/">Iowa Environmental Mesonet</a>, Iowa State University.`, `Niveles, etapas y crestas del <a href="https://water.noaa.gov">Servicio Nacional de Predicción de Agua</a> de NOAA/NWS; avisos anteriores del <a href="https://mesonet.agron.iastate.edu/">Iowa Environmental Mesonet</a>, Universidad Estatal de Iowa.`) })}
 </body>
 </html>`;
 }
@@ -464,7 +465,7 @@ export function gaugeMarkdown(d, lang) {
     out.push(`| ${T(lang, "Issued", "Emitido")} | ${T(lang, "Until", "Hasta")} | ${T(lang, "NWS event", "Evento del NWS")} |`, "|---|---|---|");
     for (const w of d.warnings) out.push(`| ${ctDate(w.issued, lang)} | ${w.expires ? ctDate(w.expires, lang) : "—"} | ${warningId(w, lang)} |`);
   } else {
-    out.push(T(lang, "The archive holds no river flood warnings for this gauge.", "El archivo no tiene avisos de inundación fluvial para este medidor."));
+    out.push(T(lang, "The record holds no river flood warnings for this gauge.", "El registro no tiene avisos de inundación fluvial para este medidor."));
   }
   out.push("", warningsText(d, lang), "");
   out.push(`## ${T(lang, "Daily readings recorded by this site", "Lecturas diarias registradas por este sitio")}`, "", dailyText(d, lang), "");

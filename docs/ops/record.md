@@ -33,7 +33,7 @@ be read — and the pages built on it do not change between a crawler's visits.
 
 | Table | One row per | Written | Source |
 |---|---|---|---|
-| `nws_events` | NWS watch/warning/advisory event (its VTEC key: year, office, phenomena, significance, event number) | every tick an alert is active; backfill | live alerts (`source = 'observed'`), IEM archive (`'iem'`) |
+| `nws_events` | NWS watch/warning/advisory event (its VTEC key: year, office, phenomena, significance, event number) | every tick an alert is active; every tick for new river flood products; backfill | live alerts and NWS flood products (`source = 'observed'`), IEM archive (`'iem'`) |
 | `alerts` | alert *message* this site received, with the official text | every tick an alert is active | live alerts |
 | `gauge_crests` | historic crest per gauge, as NOAA publishes it | daily (10:00 UTC), or at once when empty | NWPS gauge response |
 | `gauge_meta` | gauge: name, USGS id, flood-impact statements | with the crests | NWPS gauge response |
@@ -49,7 +49,7 @@ be read — and the pages built on it do not change between a crawler's visits.
 | `point` | the warning's polygon contained Crosby's coordinates (tornado, severe thunderstorm, flash flood, areal flood) | live: the alert reached us through a point query. Archive: IEM `sbw_by_point` |
 | `zone` | issued for forecast zone TXZ213, which contains Crosby (tropical, winter, heat, fire weather, fog) | live: the alert's UGC list. Archive: IEM `vtec_events_byugc` |
 | `county` | issued for Harris County as a whole (tornado and severe-thunderstorm watches) | same, UGC `TXC201` |
-| `gauge` | a river flood warning for a forecast point this site tracks (`nwsli`, the NWS LID) | archive only, for now. NWS's alert API carries no forecast point; the product text's hydrologic VTEC line does (`/SHLT2.1.ER.…/`), which is the planned live source |
+| `gauge` | a river flood warning for a forecast point this site tracks (`nwsli`, the NWS LID) | live since 2026-11-12: `recordRiverWarnings()` reads HGX's FLW/FLS products from `api.weather.gov/products` and pairs each VTEC line with the hydrologic VTEC line after it (`/SHLT2.1.ER.…/`), which names the point — the alert API carries no point. Archive: IEM county list, `hvtec_nwsli` |
 
 **Limits to state wherever these are shown:**
 
@@ -68,6 +68,12 @@ be read — and the pages built on it do not change between a crawler's visits.
   holds the event (`eventYear()`), not the year the message was sent.
 - A cancellation or expiration ends an event when that message was sent,
   whatever end time earlier messages stated.
+- River flood warnings: products read are remembered in KV `river_products`
+  (`{ seen: [product ids], at }`, last 300) and marked read only after their rows
+  are written, so a failed tick is retried. At most 20 products per tick. A
+  warning that also reaches the site as an alert keeps `scope = 'gauge'` and its
+  `nwsli` (the alert writer never touches scope). Only FL.W for the six tracked
+  gauges is filed. Failure shows as `record.ok: false` ("river warnings: …").
 
 ### `gauge_daily`
 

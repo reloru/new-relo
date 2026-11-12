@@ -27,7 +27,7 @@
 import { KV_KEY, TZ } from "./config.js";
 import { fetchWeather } from "./features/weather.js";
 import { fetchCalendar, CALENDAR_KV_KEY } from "./features/calendar.js";
-import { fetchWaterFull, WATER_KV_KEY } from "./features/water.js";
+import { fetchWaterFull, WATER_KV_KEY, WATER_GAUGES } from "./features/water.js";
 import { fetchFishing, FISHING_KV_KEY } from "./features/fishing.js";
 import { fetchTropics, TROPICS_KV_KEY } from "./features/tropics.js";
 import { fetchTraffic, TRAFFIC_KV_KEY } from "./features/traffic.js";
@@ -39,7 +39,7 @@ import { cronRunRecorder, recordCronRun } from "./api/health.js";
 import { mcpRollUp } from "./mcp/metrics.js";
 import { pruneHits } from "./metrics.js";
 import { indexNowTick } from "./indexnow.js";
-import { recordAlerts, recordAqi, recordGauges, recordGaugeHistory, hasGaugeHistory, recordPollen, recordBurnBan } from "./record.js";
+import { recordAlerts, recordAqi, recordGauges, recordGaugeHistory, hasGaugeHistory, recordPollen, recordBurnBan, recordRiverWarnings, gaugeWarningCounts } from "./record.js";
 
 export async function scheduled(event, env, ctx) {
     // Refresh the weather cache. News is NOT fetched here — it's written to the
@@ -294,6 +294,12 @@ async function recordTick(env, seen, run) {
       if ((now.getUTCHours() === 10 && topOfHour) || !(await hasGaugeHistory(env))) await recordGaugeHistory(env, seen.waterHistory);
     });
   }
+  // River flood warnings for the tracked gauges, from NWS's own products; and
+  // the per-gauge count, which tells IndexNow when a gauge page gained one.
+  await step("river warnings", async () => {
+    await recordRiverWarnings(env, new Set(WATER_GAUGES.map((g) => g.lid)));
+    seen.gaugeWarnings = await gaugeWarningCounts(env);
+  });
   // Pollen and the burn ban are fetched only when due, so the cached value is
   // also filed once an hour: that seeds the record after a deploy and keeps a
   // count from being missed when the fetch and the first write straddle one.

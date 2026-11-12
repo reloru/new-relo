@@ -32,7 +32,7 @@ entry with `gauge:`) once the record gives it content.
 | Highest recorded crests (every crest on the current datum, highest first) with today's-stage comparison, flow, NOAA's code | D1 `gauge_crests` | quotable |
 | Crests on an older gauge datum (newest first, never compared) | D1 `gauge_crests.old_datum = 1` | quotable |
 | What NOAA says happens at each level (highest first; English on `/es`, marked `lang="en"`) | D1 `gauge_meta.impacts` | quotable |
-| River flood warnings for this gauge | D1 `nws_events`, `scope = 'gauge'`, `nwsli = lid` | quotable |
+| River flood warnings for this gauge | D1 `nws_events`, `scope = 'gauge'`, `nwsli = lid` — filed live from NWS flood products since 2026-11-12, IEM archive before | quotable |
 | Daily readings recorded by this site (latest 31 days) | D1 `gauge_daily` | quotable |
 | About these numbers (method notes) | computed | quotable |
 
@@ -56,10 +56,12 @@ stages, so its crest table has no comparison column.
   says that and claims no meaning.
 - **Crest flow of 0 was stored as NULL** (unknown) by `recordGaugeHistory()`
   and shows as a dash. No flow column at all on the two `noFlow` gauges.
-- **River flood warnings come from the IEM archive only**, loaded by
-  `scripts/backfill-nws-events.mjs`. The page says a warning issued since the
-  last load is not listed yet, and prints the earliest gauge warning in the
-  archive (computed) so a gap before it is not read as "no flooding".
+- **River flood warnings: live since 2026-11-12, archive before.** The cron
+  files them from NWS's own flood products (`recordRiverWarnings()`,
+  `docs/ops/record.md`); earlier ones come from the IEM archive. The page says
+  both, with the start date (`RIVER_WARNINGS_OBSERVED_FROM`), and prints the
+  earliest gauge warning in the record (computed) so a gap before it is not
+  read as "no flooding".
 
 ## Data and failure
 
@@ -79,8 +81,9 @@ overrides registry `feeds`.
 ## IndexNow
 
 A gauge's page is submitted when its flood category changes (the `water`
-signal, together with `/water`) and when NOAA's crest count for it changes (the
-`crests` signal). See `docs/ops/search.md`.
+signal, together with `/water`), when NOAA's crest count for it changes (the
+`crests` signal), and when a river flood warning is filed for it
+(`gaugeWarnings`). See `docs/ops/search.md`.
 
 ## Canonical, meta, CSP
 

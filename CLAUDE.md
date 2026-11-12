@@ -456,7 +456,9 @@ never costs a page its refresh. **The gauge pages (`/water/<gauge>`,
 `src/features/gauge.js`, `docs/pages/water-gauges.md`) render from it**; a D1
 failure there is a 502, never a page with its history missing. Crests are
 compared only with today's flood stages and say so; old-datum crests are never
-compared. Tables, scopes, limits and the archive backfill
+compared. River flood warnings for the gauges are filed live from NWS's own
+flood products (`recordRiverWarnings()`: the hydrologic VTEC line names the
+gauge, which the alert API does not), with the IEM archive before 2026-11-12. Tables, scopes, limits and the archive backfill
 (`scripts/backfill-nws-events.mjs`) are in `docs/ops/record.md`. Two rules:
 record only what a source published or the site observed (never infer or fill
 a gap), and state the limits wherever the data is shown (polygon warnings from
