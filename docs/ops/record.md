@@ -69,8 +69,12 @@ be read — and the pages built on it do not change between a crawler's visits.
 - A cancellation or expiration ends an event when that message was sent,
   whatever end time earlier messages stated.
 - River flood warnings: products read are remembered in KV `river_products`
-  (`{ seen: [product ids], at }`, last 300) and marked read only after their rows
-  are written, so a failed tick is retried. At most 20 products per tick. A
+  (`{ seen: [product ids], tries: {id: n}, at }`, last 300) and marked read
+  only after their rows are written, so a failed tick is retried. At most 20
+  products per tick. Each product stands alone: one NWS lists but no longer has
+  (404/410) is marked read at once; any other failure is retried for 3 ticks
+  and then given up; either way the products behind it are still filed, and
+  the tick reports the failure. A
   warning that also reaches the site as an alert keeps `scope = 'gauge'` and its
   `nwsli` (the alert writer never touches scope). Only FL.W for the six tracked
   gauges is filed. Failure shows as `record.ok: false` ("river warnings: …").

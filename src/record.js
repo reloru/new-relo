@@ -165,16 +165,21 @@ export function parseRiverProduct(text) {
   return out;
 }
 
+const MAX_PRODUCT_TRIES = 3;
 const nwsJson = async (url) => {
   const res = await fetch(url, { headers: { ...NWS_HEADERS, Accept: "application/ld+json" } });
-  if (!res.ok) throw new Error(`${url} -> HTTP ${res.status}`);
+  if (!res.ok) throw Object.assign(new Error(`${url} -> HTTP ${res.status}`), { status: res.status });
   return res.json();
 };
 
 // File the river flood warnings in any flood product not read before.
 // `gauges` is the set of NWS LIDs this site tracks. Returns how many warning
 // messages were filed. Products are marked read only after their rows are
-// written, so a failure is retried on the next tick (every write is an upsert).
+// written, so a failed tick is retried (every write is an upsert). Each
+// product stands alone: one that NWS no longer has (404/410) is marked read,
+// one that keeps failing is given up after MAX_PRODUCT_TRIES ticks, and
+// neither stops the products behind it — but a failure is still thrown after
+// the good ones are written, so the tick reports it.
 export async function recordRiverWarnings(env, gauges, { fetchJson = nwsJson, nowIso = new Date().toISOString() } = {}) {
   if (!env?.DB || !env?.WEATHER) return 0;
   const state = (await env.WEATHER.get(RIVER_PRODUCTS_KV_KEY, "json").catch(() => null)) || {};
@@ -196,24 +201,42 @@ export async function recordRiverWarnings(env, gauges, { fetchJson = nwsJson, no
                       WHEN nws_events.expires IS NULL OR excluded.expires > nws_events.expires THEN excluded.expires
                       ELSE nws_events.expires END`,
   );
+  const tries = state.tries && typeof state.tries === "object" ? { ...state.tries } : {};
   const stmts = [];
+  const done = [];
+  const errors = [];
   for (const item of fresh) {
-    const product = await fetchJson(`${NWS_API}/products/${item.id}`);
-    const sent = product?.issuanceTime || item.issuanceTime || nowIso;
-    for (const { vtec, nwsli } of parseRiverProduct(product?.productText)) {
-      if (vtec.phenomena !== "FL" || vtec.significance !== "W" || !gauges.has(nwsli)) continue;
-      const ended = vtec.action === "CAN" || vtec.action === "EXP";
-      const year = await eventYear(env, vtec, { sent }, nowIso);
-      const issued = new Date(vtec.begins || sent).toISOString();
-      const expires = ended ? new Date(sent).toISOString() : vtec.ends ? new Date(vtec.ends).toISOString() : null;
-      stmts.push(stmt.bind(year, vtec.wfo, vtec.etn, issued, expires, nwsli, ended ? 1 : 0));
+    try {
+      const product = await fetchJson(`${NWS_API}/products/${item.id}`);
+      const sent = product?.issuanceTime || item.issuanceTime || nowIso;
+      for (const { vtec, nwsli } of parseRiverProduct(product?.productText)) {
+        if (vtec.phenomena !== "FL" || vtec.significance !== "W" || !gauges.has(nwsli)) continue;
+        const ended = vtec.action === "CAN" || vtec.action === "EXP";
+        const year = await eventYear(env, vtec, { sent }, nowIso);
+        const issued = new Date(vtec.begins || sent).toISOString();
+        const expires = ended ? new Date(sent).toISOString() : vtec.ends ? new Date(vtec.ends).toISOString() : null;
+        stmts.push(stmt.bind(year, vtec.wfo, vtec.etn, issued, expires, nwsli, ended ? 1 : 0));
+      }
+      done.push(item.id);
+    } catch (e) {
+      if (e?.status === 404 || e?.status === 410) {
+        done.push(item.id); // listed but gone: nothing to read
+        continue;
+      }
+      tries[item.id] = (tries[item.id] || 0) + 1;
+      if (tries[item.id] >= MAX_PRODUCT_TRIES) done.push(item.id);
+      errors.push(`${item.id}: ${(e && e.message) || e}`);
     }
   }
   if (stmts.length) await env.DB.batch(stmts);
   if (fresh.length) {
-    for (const p of fresh) seen.add(p.id);
-    await env.WEATHER.put(RIVER_PRODUCTS_KV_KEY, JSON.stringify({ seen: [...seen].slice(-SEEN_KEPT), at: nowIso }));
+    for (const id of done) {
+      seen.add(id);
+      delete tries[id];
+    }
+    await env.WEATHER.put(RIVER_PRODUCTS_KV_KEY, JSON.stringify({ seen: [...seen].slice(-SEEN_KEPT), tries, at: nowIso }));
   }
+  if (errors.length) throw new Error(`${errors.length} flood product(s) unreadable: ${errors.join("; ")}`);
   return stmts.length;
 }
 

@@ -163,11 +163,35 @@ listing.FLS = [{ id: "p2", issuanceTime: "2026-11-14T03:00:00+00:00" }, { id: "p
 let threw = false;
 try { await R.recordRiverWarnings(h.env, tracked, { fetchJson, nowIso: "2026-11-14T04:10:00Z" }); } catch { threw = true; }
 ok(threw, "an unreadable product fails the step, so it is reported");
-eq((await gaugeRows())[0].expires, "2026-11-15T12:00:00.000Z", "…and nothing from that tick is half-written");
+eq((await gaugeRows())[0].expires, "2026-11-14T03:00:00.000Z", "…while the readable one beside it is still filed: a cancellation ends the warning when it was sent");
+eq(JSON.parse(h.kv.store.get(R.RIVER_PRODUCTS_KV_KEY)).seen, ["p1", "p2"], "the unreadable product is not marked read");
 products.set("p3", { issuanceTime: "2026-11-14T04:00:00+00:00", productText: "nothing relevant" });
 await R.recordRiverWarnings(h.env, tracked, { fetchJson, nowIso: "2026-11-14T04:25:00Z" });
-eq((await gaugeRows())[0].expires, "2026-11-14T03:00:00.000Z", "the next tick retries it: a cancellation ends the warning when it was sent");
-eq(JSON.parse(h.kv.store.get(R.RIVER_PRODUCTS_KV_KEY)).seen, ["p1", "p2", "p3"], "read products are remembered");
+eq(JSON.parse(h.kv.store.get(R.RIVER_PRODUCTS_KV_KEY)).seen, ["p1", "p2", "p3"], "the next tick retries it, and read products are remembered");
+// A product NWS lists but no longer has, or one that never reads, cannot
+// stall the products behind it.
+{
+  const gone = Object.assign(new Error("HTTP 404"), { status: 404 });
+  const fj = async (url) => {
+    if (/types\/FLW/.test(url)) return { "@graph": [{ id: "old404", issuanceTime: "2026-11-17T00:00:00+00:00" }, { id: "bad", issuanceTime: "2026-11-17T00:30:00+00:00" }, { id: "new1", issuanceTime: "2026-11-17T01:00:00+00:00" }] };
+    if (/types\/FLS/.test(url)) return { "@graph": [] };
+    if (url.endsWith("/old404")) throw gone;
+    if (url.endsWith("/bad")) throw new Error("HTTP 500");
+    return { issuanceTime: "2026-11-17T01:00:00+00:00", productText: "/O.NEW.KHGX.FL.W.0120.261117T0100Z-261119T0000Z/\n/NCET2.1.ER.261117T0100Z.261118T0000Z.261118T1200Z.NO/\n" };
+  };
+  let failedTicks = 0;
+  for (const t of ["2026-11-17T01:10:00Z", "2026-11-17T01:25:00Z", "2026-11-17T01:40:00Z", "2026-11-17T01:55:00Z"]) {
+    try { await R.recordRiverWarnings(h.env, tracked, { fetchJson: fj, nowIso: t }); } catch { failedTicks++; }
+    if (t.endsWith("01:10:00Z")) {
+      const st1 = JSON.parse(h.kv.store.get(R.RIVER_PRODUCTS_KV_KEY));
+      ok(st1.seen.includes("old404") && !st1.seen.includes("bad"), "after one tick the gone product is read and the failing one is not");
+    }
+  }
+  eq(await one("SELECT nwsli FROM nws_events WHERE etn = 120"), { nwsli: "NCET2" }, "a newer product behind a 404 and a failing one is still filed");
+  eq(failedTicks, 3, "a product that keeps failing is reported for three ticks, then given up");
+  const st = JSON.parse(h.kv.store.get(R.RIVER_PRODUCTS_KV_KEY));
+  ok(st.seen.includes("old404") && st.seen.includes("bad") && !st.tries.bad, "the gone product is marked read at once, the failing one after three tries");
+}
 // A warning this site also received as an alert keeps the gauge it is for.
 await R.recordAlerts(h.env, [{ id: "urn:fl", event: "Flood Warning", sent: "2026-11-12T09:01:00Z", geocode: { UGC: ["TXC201"] }, parameters: { VTEC: ["/O.CON.KHGX.FL.W.0101.000000T0000Z-261115T1200Z/"] } }], "2026-11-12T09:05:00Z");
 eq((await gaugeRows())[0].scope + " " + (await gaugeRows())[0].nwsli, "gauge HCDT2", "an alert for the same event does not overwrite its gauge");
@@ -178,7 +202,7 @@ products.set("p4", { issuanceTime: "2026-11-16T10:00:00+00:00", productText: "/O
 listing.FLW = [{ id: "p4", issuanceTime: "2026-11-16T10:00:00+00:00" }];
 await R.recordRiverWarnings(h.env, tracked, { fetchJson, nowIso: "2026-11-16T10:10:00Z" });
 eq(await one("SELECT scope, nwsli FROM nws_events WHERE etn = 110"), { scope: "gauge", nwsli: "SHLT2" }, "reading the product then files it under its gauge");
-eq(await R.gaugeWarningCounts(h.env), "HCDT2:1|SHLT2:1", "per-gauge counts for IndexNow");
+eq(await R.gaugeWarningCounts(h.env), "HCDT2:1|NCET2:1|SHLT2:1", "per-gauge counts for IndexNow");
 
 // --- the cron, end to end ---------------------------------------------------
 // Real scheduled() with stubbed upstreams: the cache is refreshed AND the same
