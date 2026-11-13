@@ -42,6 +42,12 @@ paths:
   and summed at request time. `rainDay()` files the reading stamped midnight
   under the day it closes, and a day short of readings is marked incomplete,
   never shown as dry.
+- TCEQ water samples (`water_samples`) are stored as the Water Quality Portal
+  publishes them, units included; E. coli as a count (`#`) is never merged
+  with an MPN. A day's oxygen is dropped when one activity holds several
+  unlabeled values (a 24-hour deployment), so it is never set beside a single
+  reading. Same-day results that differ show as a range. Cite no Texas
+  standard unless verified from a TCEQ primary source.
 - River flood warnings are filed live from NWS's own flood products: the
   hydrologic VTEC line names the gauge's NWS LID, which the alert API does
   not carry. Before 2026-11-12 they come from the IEM archive.

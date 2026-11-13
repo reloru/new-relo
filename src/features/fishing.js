@@ -8,6 +8,15 @@ import { esc, fullTime, clockTime, dateStamp } from "../lib/format.js";
 import { BASE_CSS } from "../assets/base-css.js";
 import { topbar, footer } from "../chrome.js";
 import { JSONLD_SITE, sharedHead } from "../seo.js";
+import { waterSamplesHtml, waterSamplesMarkdown, WQ_CSS } from "./waterquality.js";
+
+// TCEQ's water samples on this page: the latest few days per station; the
+// gauge pages carry the per-year record.
+const SAMPLE_ROWS = 6;
+const SAMPLES_SOURCE = {
+  en: ` Water samples from the <a href="https://www.tceq.texas.gov/">Texas Commission on Environmental Quality</a>, via the <a href="https://www.waterqualitydata.us/">Water Quality Portal</a>.`,
+  es: ` Muestras de agua de la <a href="https://www.tceq.texas.gov/">Comisión de Calidad Ambiental de Texas</a>, vía el <a href="https://www.waterqualitydata.us/">Water Quality Portal</a>.`,
+};
 
 // Live water conditions for the waters people ACTUALLY fish near Crosby, matched
 // to the nearest USGS real-time station. Source: api.waterdata.usgs.gov —
@@ -177,8 +186,9 @@ export function fishingGroups(stations) {
   return order.map((w) => ({ water: w, ...groups[w] }));
 }
 
-export function fishingHtml(data, lang) {
+export function fishingHtml(data, lang, samples = null) {
   const stations = data.stations ?? [];
+  const samplesHtml = waterSamplesHtml(samples, lang, { recent: SAMPLE_ROWS });
   const title = T(lang, "Crosby, TX Fishing Conditions", "Condiciones de pesca de Crosby, TX");
   const desc = T(
     lang,
@@ -255,6 +265,7 @@ ${JSONLD_SITE}
   .fguide p, .fguide ul { font-size:0.88rem; color:var(--muted); line-height:1.55; margin:0.3rem 0 0; }
   .fguide ul { padding-left:1.1rem; }
   .safety { margin-top:1.4rem; font-size:0.85rem; color:var(--muted); border-top:1px solid var(--line); padding-top:0.8rem; }
+${WQ_CSS}
 </style>
 </head>
 <body>
@@ -263,6 +274,7 @@ ${topbar("/fishing", lang)}
   <h1>${esc(title)}</h1>
   <p class="intro">${T(lang, "Live water conditions for the waters people actually fish around Crosby — matched to the nearest U.S. Geological Survey real-time station. Dissolved oxygen and temperature are what most drive whether fish are active; the reading is from a nearby station, not your exact spot.", "Condiciones del agua en vivo para las aguas donde realmente se pesca cerca de Crosby — con la estación en tiempo real del USGS más cercana. El oxígeno disuelto y la temperatura son lo que más determina si los peces están activos; la lectura es de una estación cercana, no de tu punto exacto.")}${data.updated ? ` ${T(lang, "Updated", "Actualizado")} ${dateStamp(data.updated, lang)}.` : ""}</p>
 ${sections}
+  ${samplesHtml}
   <section class="fguide">
     <h2>${T(lang, "How to read it", "Cómo interpretarlo")}</h2>
     <ul>
@@ -274,12 +286,12 @@ ${sections}
   <p class="safety">${T(lang, "A Texas fishing license is required for most anglers &mdash; see <a href=\"https://tpwd.texas.gov/\">Texas Parks &amp; Wildlife</a>. Watch the water: never wade unfamiliar current, and in high water turn around, don't drown. River and bayou <a href=\"/water\">flood levels are here</a>.", "Se requiere licencia de pesca de Texas para la mayoría &mdash; consulta <a href=\"https://tpwd.texas.gov/\">Texas Parks &amp; Wildlife</a>. Cuida el agua: nunca vadees corrientes desconocidas, y con agua alta da la vuelta, no te arriesgues. Los <a href=\"/es/water\">niveles de inundación están aquí</a>.")}</p>
   <p class="intro"><a href="${lang === "es" ? "/es/water" : "/water"}">${T(lang, "Water levels", "Niveles de agua")}</a> &middot; <a href="${lang === "es" ? "/es/weather" : "/weather"}">${T(lang, "Forecast", "Pronóstico")}</a></p>
 </main>
-${footer({ page: "/fishing", lang, source: T(lang, `Water data from the <a href="https://waterdata.usgs.gov/">U.S. Geological Survey</a> (real-time monitoring).`, `Datos del agua del <a href="https://waterdata.usgs.gov/">Servicio Geológico de EE. UU.</a> (monitoreo en tiempo real).`) })}
+${footer({ page: "/fishing", lang, source: T(lang, `Water data from the <a href="https://waterdata.usgs.gov/">U.S. Geological Survey</a> (real-time monitoring).${samplesHtml ? SAMPLES_SOURCE.en : ""}`, `Datos del agua del <a href="https://waterdata.usgs.gov/">Servicio Geológico de EE. UU.</a> (monitoreo en tiempo real).${samplesHtml ? SAMPLES_SOURCE.es : ""}`) })}
 </body>
 </html>`;
 }
 
-export function fishingMarkdown(data, lang) {
+export function fishingMarkdown(data, lang, samples = null) {
   const stations = data.stations ?? [];
   const out = [
     `# ${T(lang, "Crosby, TX Fishing Conditions", "Condiciones de pesca de Crosby, TX")}`,
@@ -308,9 +320,10 @@ export function fishingMarkdown(data, lang) {
   } else {
     out.push(T(lang, "Fishing conditions are temporarily unavailable.", "Las condiciones de pesca no están disponibles temporalmente."), "");
   }
+  out.push(...waterSamplesMarkdown(samples, lang, { recent: SAMPLE_ROWS }));
   out.push(
     "---",
-    `${T(lang, "Water conditions, not a bite guarantee. A Texas fishing license is required for most anglers (tpwd.texas.gov). Data from the U.S. Geological Survey.", "Condiciones del agua, no una garantía de picada. Se requiere licencia de pesca de Texas para la mayoría (tpwd.texas.gov). Datos del Servicio Geológico de EE. UU.")} · [crosbynews.com](${canonicalFor("/", lang)})`
+    `${T(lang, "Water conditions, not a bite guarantee. A Texas fishing license is required for most anglers (tpwd.texas.gov). Data from the U.S. Geological Survey.", "Condiciones del agua, no una garantía de picada. Se requiere licencia de pesca de Texas para la mayoría (tpwd.texas.gov). Datos del Servicio Geológico de EE. UU.")}${samples?.some((s) => s.visits) ? ` ${T(lang, "Water samples: Texas Commission on Environmental Quality, via the Water Quality Portal.", "Muestras de agua: Comisión de Calidad Ambiental de Texas, vía el Water Quality Portal.")}` : ""} · [crosbynews.com](${canonicalFor("/", lang)})`
   );
   return out.join("\n");
 }

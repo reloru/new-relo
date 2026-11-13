@@ -101,6 +101,11 @@ jobs:
       # wrong. Hand-computed totals from seeded readings.
       - name: Check rain record
         run: node scripts/test-rain.mjs
+      # TCEQ's water samples: a CSV parser, unit rules and a rule that drops a
+      # day's oxygen when a 24-hour deployment makes it ambiguous. A unit or
+      # day mixed up would read fine and be wrong. Hand-written portal rows.
+      - name: Check water samples
+        run: node scripts/test-water-samples.mjs
       # /api/health is the status relation of every api-catalog entry, and a
       # regression there is invisible by construction: a broken health check
       # still returns a cheerful 200. This drives the real cron recorder, writer

@@ -361,6 +361,26 @@ export async function rainDayCount(env, station) {
   return r ? String(r.n) : undefined;
 }
 
+// TCEQ water-quality samples (src/features/waterquality.js). The cron replays
+// the whole published history, so the upsert writes only a row that is new
+// or that TCEQ revised; an unchanged row costs a read, not a write.
+export async function recordWaterSamples(env, samples, nowIso = new Date().toISOString()) {
+  if (!env?.DB || !Array.isArray(samples) || !samples.length) return 0;
+  const stmt = env.DB.prepare(
+    `INSERT INTO water_samples (station, activity, day, measure, value, unit, project, recorded) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT (station, activity, measure) DO UPDATE SET day = excluded.day, value = excluded.value, unit = excluded.unit, project = excluded.project
+     WHERE day IS NOT excluded.day OR value IS NOT excluded.value OR unit IS NOT excluded.unit OR project IS NOT excluded.project`,
+  );
+  const stmts = samples.map((s) => stmt.bind(s.station, s.activity, s.day, s.measure, s.value, s.unit, s.project ?? null, nowIso));
+  for (let i = 0; i < stmts.length; i += 100) await env.DB.batch(stmts.slice(i, i + 100));
+  return stmts.length;
+}
+
+export async function hasWaterSamples(env) {
+  if (!env?.DB) return true;
+  return !!(await env.DB.prepare("SELECT 1 AS x FROM water_samples LIMIT 1").first());
+}
+
 export async function hasUsgsPeaks(env) {
   if (!env?.DB) return true;
   return !!(await env.DB.prepare("SELECT 1 AS x FROM gauge_peaks LIMIT 1").first());

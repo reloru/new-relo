@@ -3,7 +3,8 @@
 A static explainer: where each number on the site comes from, how it is
 computed, and its limits, by topic (rules every number follows; weather and
 alerts; river levels and flood history; warning history; air quality and UV;
-pollen; burn bans; tropics, traffic, fishing waters; school calendar and news).
+pollen; burn bans; water samples; tropics, traffic, fishing waters; school
+calendar and news).
 Each topic links the page(s) it describes.
 
 | | |

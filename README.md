@@ -26,8 +26,9 @@ with no framework and no runtime dependencies.
   [San Jacinto at Sheldon](https://crosbynews.com/water/san-jacinto-sheldon),
   [Lake Houston](https://crosbynews.com/water/lake-houston),
   [East Fork at New Caney](https://crosbynews.com/water/east-fork-new-caney)):
-  every NOAA crest against today's flood stages, river flood warnings, and the
-  site's own daily readings.
+  every NOAA crest against today's flood stages, river flood warnings, the
+  site's own daily readings, and, at Lake Houston and Cedar Bayou, TCEQ's
+  water samples year by year.
 - **[Rainfall Record](https://crosbynews.com/rain)** — rain measured every 15
   minutes at the USGS weather station on the Lake Houston dam since October
   2024: latest totals, monthly totals and the wettest days.
@@ -36,7 +37,9 @@ with no framework and no runtime dependencies.
   record (polygon warnings since 2007-10-01), with method notes.
 - **[Fishing](https://crosbynews.com/fishing)** — live USGS water conditions
   (temperature, dissolved oxygen, pH, clarity) for the waters people fish near
-  Crosby: Lake Houston, the San Jacinto forks, the Trinity River, and nearby bayous.
+  Crosby: Lake Houston, the San Jacinto forks, the Trinity River, and nearby bayous;
+  plus the latest TCEQ water samples (E. coli, dissolved oxygen, Secchi clarity)
+  from four monitoring stations, some on record since 1969.
 - **[Tropics](https://crosbynews.com/tropics)** — the Atlantic tropical outlook:
   named storms plus the areas NHC is watching for development
   from the National Hurricane Center.
@@ -119,8 +122,8 @@ the Anthropic connector-directory submission packet is
 - **Cloudflare Workers** (ES modules) + **Workers KV** for the latest copy of
   each feed, and **D1** (`crosby-record`) for the record: NWS events since
   2005 (archive) and as received, NOAA gauge crests, the site's daily gauge
-  readings, pollen counts, daily air quality, burn-ban periods, and aggregate
-  page counts. Schema in `migrations/`, applied by CI before each deploy.
+  readings, pollen counts, daily air quality, burn-ban periods, measured
+  rain, TCEQ water samples, and aggregate page counts. Schema in `migrations/`, applied by CI before each deploy.
 - **Workers static assets** for the binary files only — the PNG app icons,
   `favicon.ico` and the link-preview image in `public/`, drawn by
   `scripts/build-icons.mjs`.
@@ -141,6 +144,8 @@ the Anthropic connector-directory submission packet is
   EPA (UV), EPA/AirNow (measured air quality, Open-Meteo modeled fallback),
   the Houston Health Department (pollen & mold), the Texas A&M Forest Service
   (burn-ban status), the U.S. Geological Survey (fishing-water conditions),
+  the Texas Commission on Environmental Quality via the Water Quality Portal
+  (water samples),
   Houston TranStar (traffic), Crosby ISD, and Google News.
 
 ## Develop

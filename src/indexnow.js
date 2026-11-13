@@ -17,6 +17,7 @@
 import { SITE } from "./config.js";
 import { esPath } from "./i18n.js";
 import { PAGES, gaugePagePath } from "./registry.js";
+import { pagesForStation } from "./features/waterquality.js";
 
 export const INDEXNOW_KEY = "72a0e4671cc205122a446b7c49b06bff";
 export const INDEXNOW_KEY_PATH = `/${INDEXNOW_KEY}.txt`;
@@ -64,6 +65,15 @@ const SIGNALS = {
   },
   // A day first recording rain at the Lake Houston dam.
   rain: { pages: ["/rain"], of: (_, seen) => (typeof seen.rainDays === "string" ? seen.rainDays : undefined) },
+  // A new sampling day filed for a TCEQ water-quality station: /fishing, plus
+  // the gauge page that shows that station.
+  waterSamples: {
+    of: (_, seen) => (typeof seen.waterSamples === "string" ? seen.waterSamples : undefined),
+    pagesFor: (before, after) => {
+      const a = perGauge(before), b = perGauge(after);
+      return [...new Set([...a.keys(), ...b.keys()].filter((id) => a.get(id) !== b.get(id)).flatMap(pagesForStation))];
+    },
+  },
   // A row added to the record of NWS events or received alerts.
   history: { pages: ["/history"], of: (_, seen) => (typeof seen.history === "string" ? seen.history : undefined) },
   // Which storms and watched areas exist, not the outlook's issue time.

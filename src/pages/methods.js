@@ -49,6 +49,14 @@ const SECTIONS = [
     p: [["Rain is measured every 15 minutes by the U.S. Geological Survey's weather station at the Lake Houston dam, about 5 miles west of Crosby. Every total is the sum of those provisional 15-minute amounts; a day missing readings is marked incomplete rather than shown as dry. Rain varies over short distances, so Crosby can get more or less than the dam.", "La lluvia la mide cada 15 minutos la estación meteorológica del Servicio Geológico de EE. UU. en la presa de Lake Houston, a unos 8 km al oeste de Crosby. Cada total es la suma de esas cantidades provisionales de 15 minutos; un día al que le faltan lecturas se marca como incompleto en vez de mostrarse seco. La lluvia varía en distancias cortas, así que en Crosby puede caer más o menos que en la presa."]],
   },
   {
+    h: ["Water samples", "Muestras de agua"],
+    pages: ["/fishing", "/water"],
+    p: [
+      ["E. coli, dissolved oxygen and clarity (Secchi depth) come from water samples the Texas Commission on Environmental Quality takes at its monitoring stations near Crosby, as the Water Quality Portal publishes them. They are dated results published months after the sample, shown with their sample dates and never as current conditions. Units are TCEQ's own; E. coli published as a count rather than an MPN is marked and kept apart.", "El E. coli, el oxígeno disuelto y la claridad (profundidad Secchi) vienen de muestras de agua que toma la Comisión de Calidad Ambiental de Texas en sus estaciones de monitoreo cerca de Crosby, tal como las publica el Water Quality Portal. Son resultados fechados, publicados meses después de la muestra, que se muestran con su fecha y nunca como condiciones actuales. Las unidades son las de la TCEQ; el E. coli publicado como conteo en vez de NMP se marca y se muestra aparte."],
+      ["Where TCEQ published several results for one measure on the same day without saying what separates them, the range is shown. On some days TCEQ published several oxygen values from one sampling activity, with a count of readings (96 or 144) that suggests a meter left in the water for a day; nothing labels what each value is, so that day's oxygen is left out entirely rather than guessed, and the day's E. coli and clarity are kept. The results are not compared with Texas water-quality standards.", "Cuando la TCEQ publicó varios resultados de una medida el mismo día sin decir qué los distingue, se muestra el rango. Algunos días la TCEQ publicó varios valores de oxígeno de una misma actividad de muestreo, con un conteo de lecturas (96 o 144) que sugiere un medidor dejado en el agua un día; nada indica qué es cada valor, así que el oxígeno de ese día se omite por completo en vez de adivinarlo, y se conservan el E. coli y la claridad del día. Los resultados no se comparan con las normas de calidad del agua de Texas."],
+    ],
+  },
+  {
     h: ["Warning history", "Historial de avisos"],
     pages: ["/history"],
     p: [
