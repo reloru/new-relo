@@ -30,6 +30,10 @@ Rain measured by the USGS weather station at the Lake Houston dam (site
   ("Weather Station"). A second series that began 2026-07-13 is ignored.
   USGS publishes "decumulated" amounts: the rain in each 15-minute interval,
   provisional until reviewed. Fetched with the Worker's `USGS_API_KEY`.
+- **Sensor errors:** an amount over 8 in for one 15-minute interval
+  (`RAIN_MAX_15MIN`) is dropped at fetch time, which marks its day
+  incomplete; the page says so. The provisional feed carries one such value,
+  1,310.7 in at 2026-05-27T20:30Z. Null and negative amounts are dropped too.
 - **Stored raw:** D1 `rain_readings` (`migrations/0004_rain.sql`), one row per
   interval as published. Nothing is aggregated at write time.
 - **Day:** `rainDay()` (`src/record.js`) treats each amount as the 15 minutes
