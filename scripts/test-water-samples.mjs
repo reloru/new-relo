@@ -106,8 +106,11 @@ lacks(emptyFishing, '<section class="wq">', "/fishing shows no samples section w
 eq(await R.recordWaterSamples(h.env, samples, "2026-11-13T11:00:00.000Z"), 19, "19 rows filed");
 const snapshot = () => h.env.DB.raw.prepare("SELECT * FROM water_samples ORDER BY station, activity, measure").all().map((r) => ({ ...r }));
 const first = snapshot();
+const writes = () => h.env.DB.raw.prepare("SELECT total_changes() AS n").get().n;
+const before = writes();
 await R.recordWaterSamples(h.env, samples, "2026-11-14T11:00:00.000Z");
 eq(snapshot(), first, "replaying the history changes nothing, not even the filing time");
+eq(writes() - before, 0, "...and writes no row: the daily replay costs reads, not writes");
 await R.recordWaterSamples(h.env, [{ ...samples[0], value: 61 }], "2026-11-15T11:00:00.000Z");
 eq(h.env.DB.raw.prepare("SELECT value, recorded FROM water_samples WHERE activity = 'TCEQMAIN-15166387' AND measure = 'ecoli'").get(), { value: 61, recorded: "2026-11-13T11:00:00.000Z" }, "a revised result is updated in place");
 await R.recordWaterSamples(h.env, [samples[0]]);
