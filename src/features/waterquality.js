@@ -16,7 +16,6 @@
 
 import { T } from "../i18n.js";
 import { esc } from "../lib/format.js";
-import { gaugePagePath } from "../registry.js";
 
 // `lid` is the river gauge whose page shows the station; null shows it on
 // /fishing only.
@@ -30,12 +29,6 @@ export const WQ_STATION_IDS = WQ_STATIONS.map((s) => s.id);
 export const wqStationUrl = (id) => `https://www.waterqualitydata.us/provider/STORET/TCEQMAIN/${id}/`;
 // The stations that sample a gauge's waterway.
 export const stationsForGauge = (lid) => WQ_STATIONS.filter((s) => s.lid === lid).map((s) => s.id);
-// The pages that show a station: /fishing, and its gauge's page if it has one.
-export const pagesForStation = (id) => {
-  const lid = WQ_STATIONS.find((s) => s.id === id)?.lid;
-  const gauge = lid ? gaugePagePath(lid) : null;
-  return gauge ? ["/fishing", gauge] : ["/fishing"];
-};
 
 const CHARACTERISTICS = { "Escherichia coli": "ecoli", Oxygen: "oxygen", "Depth, Secchi disk depth": "clarity" };
 const COLUMNS = ["MonitoringLocationIdentifier", "ActivityIdentifier", "ActivityStartDate", "CharacteristicName", "ResultMeasureValue", "ResultMeasure/MeasureUnitCode", "ResultSampleFractionText", "ResultCommentText", "ProjectIdentifier"];
@@ -180,15 +173,6 @@ export async function loadWaterSamples(env, stationIds = WQ_STATION_IDS) {
       return { ...st, ...summarizeStation(rows) };
     }),
   );
-}
-
-// Sampling days per station, "id:n|...": the IndexNow signal for /fishing and
-// the gauge pages, which moves only when a new sampling day is filed.
-// Undefined while the table is empty, so the first load is stored quietly.
-export async function waterSampleCounts(env) {
-  if (!env?.DB) return undefined;
-  const r = (await env.DB.prepare("SELECT station, COUNT(DISTINCT day) AS n FROM water_samples GROUP BY station ORDER BY station").all()).results || [];
-  return r.length ? r.map((x) => `${x.station}:${x.n}`).join("|") : undefined;
 }
 
 // --- rendering ----------------------------------------------------------------

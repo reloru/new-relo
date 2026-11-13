@@ -60,12 +60,6 @@ over `nws_events` and `MAX(first_seen)` over `alerts`, via `historyLastmod()`.
 Known gap: a back-filled row older than the newest one changes the page
 without moving the date; backfills are rare and run by hand.
 
-## IndexNow
-
-The `history` signal is `"<events>|<alerts>"` row counts (`historyCount()`,
-read by the cron after its record writes). It only grows, so an alert expiring
-does not submit the page; a new row does.
-
 ## Meta, CSP
 
 - Title "Crosby, TX Weather Warning History"; description is the registry

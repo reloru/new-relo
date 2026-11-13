@@ -51,7 +51,6 @@ import { llmsTxt, robotsTxt, sitemapXml, CROSBY_WEATHER_SKILL, agentSkillsIndex 
 import { pushEndpointAllowed, pushKeyFor } from "./push.js";
 import { PAGES, pageFor } from "./registry.js";
 import { siteUsageReport, siteUsageText } from "./metrics.js";
-import { INDEXNOW_KEY, INDEXNOW_KEY_PATH } from "./indexnow.js";
 
 export async function routeRequest(request, env, ctx) {
     const url = new URL(request.url);
@@ -66,10 +65,6 @@ export async function routeRequest(request, env, ctx) {
       return new Response(robotsTxt(), {
         headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "public, max-age=3600" },
       });
-    }
-    // IndexNow ownership proof: the key, served at a path named after it.
-    if (path === INDEXNOW_KEY_PATH) {
-      return new Response(INDEXNOW_KEY, { headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "public, max-age=86400" } });
     }
     if (path === "/llms.txt") {
       return new Response(llmsTxt(), {

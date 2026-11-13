@@ -202,7 +202,6 @@ products.set("p4", { issuanceTime: "2026-11-16T10:00:00+00:00", productText: "/O
 listing.FLW = [{ id: "p4", issuanceTime: "2026-11-16T10:00:00+00:00" }];
 await R.recordRiverWarnings(h.env, tracked, { fetchJson, nowIso: "2026-11-16T10:10:00Z" });
 eq(await one("SELECT scope, nwsli FROM nws_events WHERE etn = 110"), { scope: "gauge", nwsli: "SHLT2" }, "reading the product then files it under its gauge");
-eq(await R.gaugeWarningCounts(h.env), "HCDT2:1|NCET2:1|SHLT2:1", "per-gauge counts for IndexNow");
 
 // --- the cron, end to end ---------------------------------------------------
 // Real scheduled() with stubbed upstreams: the cache is refreshed AND the same
@@ -249,8 +248,7 @@ await R.recordUsgsPeaks(cronH.env, peaksBefore[0].lid, peaksBefore[0].usgs_id, [
 eq((await cdb.prepare("SELECT * FROM gauge_peaks ORDER BY lid").all()).results, peaksBefore, "replaying a peak changes nothing");
 eq(await cdb.prepare("SELECT inches FROM rain_readings").first("inches"), 0.12, "the cron files the latest rain readings");
 eq(await cdb.prepare("SELECT station, day, measure, value, unit FROM water_samples").first(), { station: "TCEQMAIN-11212", day: "2026-05-13", measure: "ecoli", value: 59, unit: "MPN/100mL" }, "the cron loads TCEQ's water samples while the table is empty");
-const ixSignals = JSON.parse(cronH.kv.store.get("indexnow_state") || "{}").signals || {};
-eq([ixSignals.history, ixSignals.gaugeWarnings, ixSignals.rain, ixSignals.waterSamples], ["1|0", "SHLT2:1", "1", "TCEQMAIN-11212:1"], "the cron hands IndexNow the record's counts for /history, the gauge pages, /rain and the water samples");
+eq(cronH.kv.store.has("indexnow_state"), false, "the cron no longer writes IndexNow state");
 
 cdb.batch = async () => { throw new Error("D1 is down"); };
 const before = cronH.kv.store.get("water");

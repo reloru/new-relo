@@ -6,7 +6,6 @@ paths:
   - "src/chrome.js"
   - "src/seo.js"
   - "src/i18n.js"
-  - "src/indexnow.js"
   - "src/assets/base-css.js"
 ---
 
@@ -34,10 +33,8 @@ paths:
 - ETags are a digest of the bytes. `Last-Modified` and sitemap `<lastmod>`
   exist only where a real instant does (registry `feeds`, or a handler's
   `lastmod(env)`).
-- IndexNow fires on state changes only (a category, a ban, an alert, a new
-  crest or record row), plus once for a page never submitted. A new stateful
-  page needs a signal in `src/indexnow.js`. Failures retry hourly, bounded;
-  each endpoint's answer is in `attempts` on `/api/health`. Current status:
+- The site sends no IndexNow submissions (removed 2026-11-13; the owner links
+  it to search engines another way). Don't re-add them without asking.
   `docs/ops/search.md`.
 
 ## Look

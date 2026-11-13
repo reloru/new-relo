@@ -373,9 +373,15 @@ console.log("\n/api/health:\n");
   run.failed("water", new Error("NWPS 503"));
   run.failed("record", new Error("gauges: D1_ERROR"));
   await recordCronRun(populated, run);
-  if (!(await healthReport(populated)).body.record || !(await healthReport(populated)).body.indexNow) {
+  if (!(await healthReport(populated)).body.record) {
     failures++;
-    console.log("  FAIL  schema walk did not cover the record and indexNow fields");
+    console.log("  FAIL  schema walk did not cover the record field");
+  }
+  // IndexNow was removed; production still holds its old KV key, which the
+  // report must not resurface.
+  if ("indexNow" in (await healthReport(populated)).body) {
+    failures++;
+    console.log("  FAIL  /api/health still reports indexNow from the leftover indexnow_state key");
   }
 
   for (const [label, env] of [["populated", populated], ["no binding", {}]]) {

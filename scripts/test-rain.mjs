@@ -91,7 +91,6 @@ eq(await h.env.DB.prepare("SELECT at, day FROM rain_readings WHERE at IN ('2026-
   has(await (await h.get("/weather", { headers: { accept: "text/html" } })).text(), 'href="/rain"', "/weather links /rain");
   has(await (await h.get("/es/water", { headers: { accept: "text/html" } })).text(), 'href="/es/rain"', "/es/water links /es/rain");
 }
-eq(await R.rainDayCount(h.env, RAIN.RAIN_STATION), "3", "rain days on record (>= 0.01 in) for IndexNow");
 {
   const real = h.env.DB;
   h.env.DB = { prepare: () => { throw new Error("D1 down"); } };
