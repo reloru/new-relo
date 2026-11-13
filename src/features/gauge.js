@@ -26,6 +26,7 @@ import { SITE } from "../config.js";
 import { pageFor, gaugePagePath } from "../registry.js";
 import { FLOOD_RANK_NAME, RIVER_WARNINGS_OBSERVED_FROM, ctDay } from "../record.js";
 import { WATER_GAUGES, WATER_STATE_CSS, loadWater, waterState, waterContext, waterCatLabel, nwpsGaugeUrl } from "./water.js";
+import { loadWaterSamples, stationsForGauge, waterSamplesHtml, waterSamplesMarkdown, WQ_CSS } from "./waterquality.js";
 
 const STAGE_KEYS = ["action", "minor", "moderate", "major"];
 const DAILY_ROWS = 31;
@@ -99,11 +100,14 @@ function rows(db, sql, ...args) {
   return (args.length ? st.bind(...args) : st).all().then((r) => r.results || []);
 }
 
-export async function loadGaugePage(env, lid) {
+// `samples` adds TCEQ's water samples for the stations on this waterway (the
+// page does; the MCP flood-history tool does not need them).
+export async function loadGaugePage(env, lid, { samples = false } = {}) {
   const meta = WATER_GAUGES.find((g) => g.lid === lid);
   if (!meta) throw new Error(`unknown gauge ${lid}`);
   if (!env.DB) throw new Error("the flood record is not available");
-  const [water, crests, gaugeMeta, warnings, archive, daily, dailyStats, peaks] = await Promise.all([
+  const stations = samples ? stationsForGauge(lid) : [];
+  const [water, crests, gaugeMeta, warnings, archive, daily, dailyStats, peaks, waterSamples] = await Promise.all([
     loadWater(env),
     rows(env.DB, "SELECT occurred, stage, flow, quality, old_datum FROM gauge_crests WHERE lid = ? ORDER BY stage DESC, occurred DESC", lid),
     rows(env.DB, "SELECT impacts FROM gauge_meta WHERE lid = ?", lid),
@@ -112,6 +116,7 @@ export async function loadGaugePage(env, lid) {
     rows(env.DB, "SELECT day, max_stage, max_at, min_stage, max_rank, readings FROM gauge_daily WHERE lid = ? ORDER BY day DESC LIMIT ?", lid, DAILY_ROWS),
     rows(env.DB, "SELECT COUNT(*) AS days, MIN(day) AS since FROM gauge_daily WHERE lid = ?", lid),
     rows(env.DB, "SELECT day, flow FROM gauge_peaks WHERE lid = ? AND flow IS NOT NULL", lid),
+    stations.length ? loadWaterSamples(env, stations) : null,
   ]);
   const gauge = (water.gauges || []).find((g) => g.lid === lid) || null;
   let impacts = [];
@@ -136,6 +141,7 @@ export async function loadGaugePage(env, lid) {
     daily,
     dailyDays: dailyStats[0]?.days ?? 0,
     dailySince: dailyStats[0]?.since ?? null,
+    samples: waterSamples,
     updated: newest(gauge?.validTime, ...all.map((c) => c.occurred)),
   };
 }
@@ -393,6 +399,7 @@ ${WATER_STATE_CSS}
   .notes { font-size:0.88rem; padding-left:1.2rem; }
   .notes li { margin:0.3rem 0; }
   .safety { margin-top:1.4rem; font-size:0.85rem; color:var(--muted); border-top:1px solid var(--line); padding-top:0.8rem; }
+${WQ_CSS}
 </style>
 </head>
 <body>
@@ -419,6 +426,7 @@ ${topbar(d.page, lang)}
   ${impactsSection}
   ${warningsSection}
   ${dailySection}
+  ${waterSamplesHtml(d.samples, lang, { years: true })}
 
   <h2>${T(lang, "About these numbers", "Sobre estas cifras")}</h2>
   <ul class="notes">
@@ -427,7 +435,7 @@ ${notes(d, lang).map((n) => `    <li>${esc(n)}</li>`).join("\n")}
   <p class="safety">${T(lang, `In a flood emergency call 911. Never drive or walk into floodwater. The official source for this gauge is <a href="${nwpsGaugeUrl(d.lid)}">NOAA's gauge page</a>; active warnings appear on the <a href="/alerts">alerts page</a>.`, `En una emergencia por inundación llama al 911. Nunca conduzcas ni camines hacia el agua de inundación. La fuente oficial de este medidor es <a href="${nwpsGaugeUrl(d.lid)}">la página del medidor de NOAA</a>; los avisos activos aparecen en la <a href="/es/alerts">página de alertas</a>.`)}</p>
   <p class="intro"><a href="${href("/water")}">&larr; ${T(lang, "All water levels", "Todos los niveles de agua")}</a></p>
 </main>
-${footer({ page: d.page, lang, source: T(lang, `Levels, flood stages and crests from the NOAA/NWS <a href="https://water.noaa.gov">National Water Prediction Service</a>; river flood warnings from the National Weather Service and, before 2026-11-12, the <a href="https://mesonet.agron.iastate.edu/">Iowa Environmental Mesonet</a>, Iowa State University.`, `Niveles, etapas y crestas del <a href="https://water.noaa.gov">Servicio Nacional de Predicción de Agua</a> de NOAA/NWS; avisos anteriores del <a href="https://mesonet.agron.iastate.edu/">Iowa Environmental Mesonet</a>, Universidad Estatal de Iowa.`) })}
+${footer({ page: d.page, lang, source: T(lang, `Levels, flood stages and crests from the NOAA/NWS <a href="https://water.noaa.gov">National Water Prediction Service</a>; river flood warnings from the National Weather Service and, before 2026-11-12, the <a href="https://mesonet.agron.iastate.edu/">Iowa Environmental Mesonet</a>, Iowa State University.${d.samples?.some((s) => s.visits) ? ` Water samples from the <a href="https://www.tceq.texas.gov/">Texas Commission on Environmental Quality</a>, via the <a href="https://www.waterqualitydata.us/">Water Quality Portal</a>.` : ""}`, `Niveles, etapas y crestas del <a href="https://water.noaa.gov">Servicio Nacional de Predicción de Agua</a> de NOAA/NWS; avisos anteriores del <a href="https://mesonet.agron.iastate.edu/">Iowa Environmental Mesonet</a>, Universidad Estatal de Iowa.${d.samples?.some((s) => s.visits) ? ` Muestras de agua de la <a href="https://www.tceq.texas.gov/">Comisión de Calidad Ambiental de Texas</a>, vía el <a href="https://www.waterqualitydata.us/">Water Quality Portal</a>.` : ""}`) })}
 </body>
 </html>`;
 }
@@ -486,10 +494,11 @@ export function gaugeMarkdown(d, lang) {
     }
     out.push("");
   }
+  out.push(...waterSamplesMarkdown(d.samples, lang, { years: true }));
   out.push(`## ${T(lang, "About these numbers", "Sobre estas cifras")}`, "", ...notes(d, lang).map((n) => `- ${n}`), "");
   out.push(
     "---",
-    `${T(lang, "In a flood emergency call 911. Never drive into floodwater.", "En una emergencia por inundación llama al 911. Nunca conduzcas hacia el agua de inundación.")} ${T(lang, "Official gauge", "Medidor oficial")}: ${nwpsGaugeUrl(d.lid)} · ${T(lang, "Data: NOAA/NWS National Water Prediction Service; past warnings from the Iowa Environmental Mesonet, Iowa State University.", "Datos: Servicio Nacional de Predicción de Agua de NOAA/NWS; avisos anteriores del Iowa Environmental Mesonet, Universidad Estatal de Iowa.")} · [${T(lang, "All water levels", "Todos los niveles de agua")}](${SITE}${lang === "es" ? esPath("/water") : "/water"})`,
+    `${T(lang, "In a flood emergency call 911. Never drive into floodwater.", "En una emergencia por inundación llama al 911. Nunca conduzcas hacia el agua de inundación.")} ${T(lang, "Official gauge", "Medidor oficial")}: ${nwpsGaugeUrl(d.lid)} · ${T(lang, "Data: NOAA/NWS National Water Prediction Service; past warnings from the Iowa Environmental Mesonet, Iowa State University.", "Datos: Servicio Nacional de Predicción de Agua de NOAA/NWS; avisos anteriores del Iowa Environmental Mesonet, Universidad Estatal de Iowa.")}${d.samples?.some((s) => s.visits) ? ` ${T(lang, "Water samples: Texas Commission on Environmental Quality, via the Water Quality Portal.", "Muestras de agua: Comisión de Calidad Ambiental de Texas, vía el Water Quality Portal.")}` : ""} · [${T(lang, "All water levels", "Todos los niveles de agua")}](${SITE}${lang === "es" ? esPath("/water") : "/water"})`,
   );
   return out.join("\n");
 }

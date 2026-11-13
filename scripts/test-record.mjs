@@ -225,6 +225,10 @@ globalThis.fetch = async (u) => {
     { properties: { parameter_code: "00065", value: "59.06", time: "2017-08-28", water_year: 2017 } },
     { properties: { parameter_code: "00060", value: "1200", time: "1973-06", water_year: 1973 } },
   ] }));
+  if (url.startsWith("https://www.waterqualitydata.us/data/Result/search?")) return new Response(
+    "MonitoringLocationIdentifier,ActivityIdentifier,ActivityStartDate,CharacteristicName,ResultMeasureValue,ResultMeasure/MeasureUnitCode,ResultSampleFractionText,ResultCommentText,ProjectIdentifier\n" +
+    "TCEQMAIN-11212,TCEQMAIN-1,2026-05-13,Escherichia coli,59,None,,TCEQ Unit: MPN/100ml.,1949\n",
+    { headers: { "content-type": "text/csv", "total-result-count": "1" } });
   if (url.endsWith("/products/c1")) return new Response(JSON.stringify({ issuanceTime: "2026-11-11T09:00:00+00:00", productText: "/O.NEW.KHGX.FL.W.0200.261111T0900Z-261113T0000Z/\n/SHLT2.1.ER.261111T0900Z.261112T0000Z.261112T1200Z.NO/\n" }));
   throw new Error("upstream down in test: " + url);
 };
@@ -244,8 +248,9 @@ const peaksBefore = (await cdb.prepare("SELECT * FROM gauge_peaks ORDER BY lid")
 await R.recordUsgsPeaks(cronH.env, peaksBefore[0].lid, peaksBefore[0].usgs_id, [{ day: "2017-08-28", waterYear: 2017, flow: 10600, stage: 59.06, flowQualifier: '["EVENT"]' }], peaksBefore[0].recorded);
 eq((await cdb.prepare("SELECT * FROM gauge_peaks ORDER BY lid").all()).results, peaksBefore, "replaying a peak changes nothing");
 eq(await cdb.prepare("SELECT inches FROM rain_readings").first("inches"), 0.12, "the cron files the latest rain readings");
+eq(await cdb.prepare("SELECT station, day, measure, value, unit FROM water_samples").first(), { station: "TCEQMAIN-11212", day: "2026-05-13", measure: "ecoli", value: 59, unit: "MPN/100mL" }, "the cron loads TCEQ's water samples while the table is empty");
 const ixSignals = JSON.parse(cronH.kv.store.get("indexnow_state") || "{}").signals || {};
-eq([ixSignals.history, ixSignals.gaugeWarnings, ixSignals.rain], ["1|0", "SHLT2:1", "1"], "the cron hands IndexNow the record's counts for /history, the gauge pages and /rain");
+eq([ixSignals.history, ixSignals.gaugeWarnings, ixSignals.rain, ixSignals.waterSamples], ["1|0", "SHLT2:1", "1", "TCEQMAIN-11212:1"], "the cron hands IndexNow the record's counts for /history, the gauge pages, /rain and the water samples");
 
 cdb.batch = async () => { throw new Error("D1 is down"); };
 const before = cronH.kv.store.get("water");

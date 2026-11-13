@@ -77,10 +77,12 @@ A *signal* is a short string that changes exactly when a page's state does:
 | `crests` | NOAA's crest count for a gauge changes (`seen.waterHistory`) | that gauge's page |
 | `gaugeWarnings` | the record's river-flood-warning count for a gauge changes (`gaugeWarningCounts()`, set by the cron's record step) | that gauge's page |
 | `rain` | days on record with ≥ 0.01 in at the Lake Houston dam (`rainDayCount()`) | `/rain` |
+| `waterSamples` | sampling days on record per TCEQ station (`waterSampleCounts()`, undefined while the table is empty) | `/fishing`, plus the gauge page showing each station whose count moved (`pagesForStation()`) |
 | `history` | the record's row counts (`nws_events`, `alerts`) grow | `/history` |
 | `tropics` | the set of storms and watched areas changes (not the outlook's issue time) | `/tropics` |
 
-Weather, fishing and traffic change every tick and are never submitted. A feed
+Weather, fishing conditions and traffic change every tick and are never
+submitted (`/fishing` is, when its water-sample record grows). A feed
 not fetched in a tick is "no information", not "changed to empty". The first
 run, with no stored state, submits every page once, and so does any later page
 missing from `known` (why: "new pages") — a new page is submitted once without

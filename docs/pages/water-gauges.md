@@ -16,7 +16,7 @@ entry with `gauge:`) once the record gives it content.
 
 | | |
 |---|---|
-| **Handlers** | `loadGaugePage(env, lid)`, `gaugeHtml(d, lang)`, `gaugeMarkdown(d, lang)`, `gaugeLastmod(env, lid)` — `src/features/gauge.js` |
+| **Handlers** | `loadGaugePage(env, lid, { samples })` (the route passes `samples: true`; the MCP flood-history tool does not), `gaugeHtml(d, lang)`, `gaugeMarkdown(d, lang)`, `gaugeLastmod(env, lid)` — `src/features/gauge.js` |
 | **Route** | generated in `src/router.js` for every `PAGES` entry with a `gauge` field |
 | **Registry** | `src/registry.js`, section `weather`, no nav or footer entry; reached from its `/water` card ("Flood history →") |
 | **Cache** | `public, max-age=900` |
@@ -34,6 +34,7 @@ entry with `gauge:`) once the record gives it content.
 | What NOAA says happens at each level (highest first; English on `/es`, marked `lang="en"`) | D1 `gauge_meta.impacts` | quotable |
 | River flood warnings for this gauge | D1 `nws_events`, `scope = 'gauge'`, `nwsli = lid` — filed live from NWS flood products since 2026-11-12, IEM archive before | quotable |
 | Daily readings recorded by this site (latest 31 days) | D1 `gauge_daily` | quotable |
+| Water samples (Lake Houston: TCEQ station 11212; Cedar Bayou: 11123 and 11120): latest 12 sampling days, every year on record (sampling days, days with E. coli, highest E. coli, lowest oxygen), and the limits list. Other gauges have no station and no section | D1 `water_samples` (`docs/pages/fishing.md` for the rules) | quotable |
 | About these numbers (method notes) | computed | quotable |
 
 A section with nothing to show is left out (impacts, old-datum crests) or says
@@ -80,7 +81,8 @@ stages, so its crest table has no comparison column.
 ## Data and failure
 
 `loadGaugePage()` reads the `water` KV snapshot (degrading to empty like
-`/water`) and six D1 queries. **No `env.DB`, or any D1 error, is a 502** naming
+`/water`), seven D1 queries, and one `water_samples` query per TCEQ station on
+the waterway. **No `env.DB`, or any D1 error, is a 502** naming
 "the site's flood record": a page with its history silently missing would be a
 wrong page.
 
@@ -97,7 +99,8 @@ overrides registry `feeds`.
 A gauge's page is submitted when its flood category changes (the `water`
 signal, together with `/water`), when NOAA's crest count for it changes (the
 `crests` signal), and when a river flood warning is filed for it
-(`gaugeWarnings`). See `docs/ops/search.md`.
+(`gaugeWarnings`), and when a TCEQ station it shows gains a sampling day
+(`waterSamples`). See `docs/ops/search.md`.
 
 ## Canonical, meta, CSP
 
@@ -115,5 +118,9 @@ rows and checks literal values: Harvey at Cedar Bayou is "5.59 ft above minor
 flood stage", Lake Houston's Harvey crest stays on Aug 29, the old-datum crest
 is never compared, impacts sort highest first, Sheldon shows no flow, Spanish
 pages link Spanish pages, a D1 failure is a 502, and a newer crest dates the
-page in both `Last-Modified` and the sitemap. `scripts/test-routes.mjs` covers
+page in both `Last-Modified` and the sitemap. `scripts/test-water-samples.mjs`
+checks the samples section: hand-written portal rows render as literal table
+rows in both languages and formats, a 24-hour oxygen day shows no oxygen,
+same-day values show as a range, a year mixing a count with an MPN shows both,
+and a `water_samples` failure is a 502. `scripts/test-routes.mjs` covers
 the generic page contract once the page is registered.

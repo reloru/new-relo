@@ -32,6 +32,6 @@ paths:
 - `src/index.js` stays thin: dispatch, then security headers and the
   canonical `Link` header.
 - Pages built on D1 (`/history`, `/rain`, `/water/<gauge>`) answer 502 on a D1 failure
-  rather than render with their history missing. `/burn-ban` is the
-  exception: it is live status first, so a D1 failure drops only its
-  past-bans table.
+  rather than render with their history missing. `/burn-ban` and `/fishing`
+  are the exceptions: they are live status first, so a D1 failure drops only
+  the past-bans table or the water-samples section.

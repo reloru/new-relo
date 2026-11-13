@@ -37,6 +37,7 @@ import { loadGaugePage, gaugeHtml, gaugeMarkdown, gaugeLastmod } from "./feature
 import { loadHistory, historyHtml, historyMarkdown, historyLastmod } from "./features/history.js";
 import { loadRain, rainHtml, rainMarkdown, rainLastmod } from "./features/rain.js";
 import { loadFishing, fishingHtml, fishingMarkdown, apiFishing } from "./features/fishing.js";
+import { loadWaterSamples } from "./features/waterquality.js";
 import { loadTropics, tropicsHtml, tropicsMarkdown, apiTropics } from "./features/tropics.js";
 import { loadTraffic, trafficHtml, trafficMarkdown, apiTraffic } from "./features/traffic.js";
 import { loadPollen, pollenHtml, pollenMarkdown, apiPollen } from "./features/pollen.js";
@@ -626,7 +627,17 @@ const PAGE_HANDLERS = {
   // Measured rain, summed from D1 at request time; a D1 failure is a 502.
   "/rain": { source: "the site's rain record", load: ({ env }) => loadRain(env), html: rainHtml, md: rainMarkdown, lastmod: rainLastmod },
   "/water": { source: "NOAA's river gauges", load: ({ env }) => loadWater(env), html: waterHtml, md: waterMarkdown },
-  "/fishing": { source: "the U.S. Geological Survey", load: ({ env }) => loadFishing(env), html: fishingHtml, md: fishingMarkdown },
+  // Live conditions first: TCEQ's water samples come from D1 and are read
+  // failure-tolerant, so a D1 error drops only that section (like /burn-ban).
+  "/fishing": {
+    source: "the U.S. Geological Survey",
+    load: async ({ env }) => {
+      const [data, samples] = await Promise.all([loadFishing(env), loadWaterSamples(env).catch(() => null)]);
+      return { data, samples };
+    },
+    html: (d, lang) => fishingHtml(d.data, lang, d.samples),
+    md: (d, lang) => fishingMarkdown(d.data, lang, d.samples),
+  },
   "/tropics": { source: "the National Hurricane Center", load: ({ env }) => loadTropics(env), html: tropicsHtml, md: tropicsMarkdown },
   "/pollen": { source: "the Houston Health Department", load: ({ env }) => loadPollen(env), html: pollenHtml, md: pollenMarkdown },
   // The AQI is folded into the weather cache (AirNow measured / Open-Meteo
@@ -675,7 +686,7 @@ for (const p of PAGES) {
   if (!p.gauge) continue;
   PAGE_HANDLERS[p.path] = {
     source: "the site's flood record",
-    load: ({ env }) => loadGaugePage(env, p.gauge),
+    load: ({ env }) => loadGaugePage(env, p.gauge, { samples: true }),
     html: gaugeHtml,
     md: gaugeMarkdown,
     lastmod: (env) => gaugeLastmod(env, p.gauge),

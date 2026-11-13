@@ -29,6 +29,7 @@ import { fetchWeather } from "./features/weather.js";
 import { fetchCalendar, CALENDAR_KV_KEY } from "./features/calendar.js";
 import { fetchWaterFull, fetchUsgsPeaks, WATER_KV_KEY, WATER_GAUGES } from "./features/water.js";
 import { fetchRainReadings, RAIN_STATION } from "./features/rain.js";
+import { fetchWaterSamples, waterSampleCounts } from "./features/waterquality.js";
 import { fetchFishing, FISHING_KV_KEY } from "./features/fishing.js";
 import { fetchTropics, TROPICS_KV_KEY } from "./features/tropics.js";
 import { fetchTraffic, TRAFFIC_KV_KEY } from "./features/traffic.js";
@@ -40,7 +41,7 @@ import { cronRunRecorder, recordCronRun } from "./api/health.js";
 import { mcpRollUp } from "./mcp/metrics.js";
 import { pruneHits } from "./metrics.js";
 import { indexNowTick } from "./indexnow.js";
-import { recordAlerts, recordAqi, recordGauges, recordGaugeHistory, hasGaugeHistory, recordPollen, recordBurnBan, recordRiverWarnings, gaugeWarningCounts, historyCount, recordUsgsPeaks, hasUsgsPeaks, recordRain, rainDayCount } from "./record.js";
+import { recordAlerts, recordAqi, recordGauges, recordGaugeHistory, hasGaugeHistory, recordPollen, recordBurnBan, recordRiverWarnings, gaugeWarningCounts, historyCount, recordUsgsPeaks, hasUsgsPeaks, recordRain, rainDayCount, recordWaterSamples, hasWaterSamples } from "./record.js";
 
 export async function scheduled(event, env, ctx) {
     // Refresh the weather cache. News is NOT fetched here — it's written to the
@@ -328,6 +329,15 @@ async function recordTick(env, seen, run) {
     const days = now.getUTCHours() === 10 && topOfHour ? 35 : 26 / 24;
     await recordRain(env, RAIN_STATION, await fetchRainReadings(env, new Date(now.getTime() - days * 86400e3).toISOString(), now.toISOString()));
     seen.rainDays = await rainDayCount(env, RAIN_STATION);
+  });
+
+  // TCEQ water samples: the whole published history (about 1 MB) once a day
+  // at 11:00 UTC, so revisions of old results land, or at once while the
+  // table is empty. The per-station count of sampling days is read every tick
+  // for IndexNow.
+  await step("water samples", async () => {
+    if ((now.getUTCHours() === 11 && topOfHour) || !(await hasWaterSamples(env))) await recordWaterSamples(env, await fetchWaterSamples());
+    seen.waterSamples = await waterSampleCounts(env);
   });
 
   // What /history counts, read after every write above: its IndexNow signal.
