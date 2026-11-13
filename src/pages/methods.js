@@ -44,6 +44,11 @@ const SECTIONS = [
     ],
   },
   {
+    h: ["Measured rain", "Lluvia medida"],
+    pages: ["/rain"],
+    p: [["Rain is measured every 15 minutes by the U.S. Geological Survey's weather station at the Lake Houston dam, about 5 miles west of Crosby. Every total is the sum of those provisional 15-minute amounts; a day missing readings is marked incomplete rather than shown as dry. Rain varies over short distances, so Crosby can get more or less than the dam.", "La lluvia la mide cada 15 minutos la estación meteorológica del Servicio Geológico de EE. UU. en la presa de Lake Houston, a unos 8 km al oeste de Crosby. Cada total es la suma de esas cantidades provisionales de 15 minutos; un día al que le faltan lecturas se marca como incompleto en vez de mostrarse seco. La lluvia varía en distancias cortas, así que en Crosby puede caer más o menos que en la presa."]],
+  },
+  {
     h: ["Warning history", "Historial de avisos"],
     pages: ["/history"],
     p: [
@@ -91,7 +96,7 @@ const t = (pair, lang) => (lang === "es" ? pair[1] : pair[0]);
 const pageName = (p, lang) =>
   ({
     "/weather": ["Weather", "Clima"], "/hourly": ["Hourly", "Por hora"], "/alerts": ["Alerts", "Alertas"], "/water": ["Water levels", "Niveles de agua"],
-    "/history": ["Warning history", "Historial de avisos"], "/air": ["Air quality", "Calidad del aire"], "/pollen": ["Pollen", "Polen"],
+    "/history": ["Warning history", "Historial de avisos"], "/rain": ["Rainfall record", "Registro de lluvia"], "/air": ["Air quality", "Calidad del aire"], "/pollen": ["Pollen", "Polen"],
     "/burn-ban": ["Burn ban", "Prohibición de quemas"], "/tropics": ["Tropics", "Trópicos"], "/traffic": ["Traffic", "Tráfico"],
     "/fishing": ["Fishing", "Pesca"], "/calendar": ["School calendar", "Calendario escolar"], "/news": ["News", "Noticias"],
   })[p][lang === "es" ? 1 : 0];

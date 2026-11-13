@@ -273,6 +273,13 @@ eq(health.indexNow?.attempts?.map((a) => a.endpoint), ["api.indexnow.org", "www.
   const grew = await IX.indexNowTick(h2.env, st2, { ...base, gaugeWarnings: "NCET2:26|SHLT2:13", history: "1709|1" }, "2026-11-11T07:43:00.000Z");
   eq([grew?.why, posts.at(-1)?.body.urlList], ["history", [SITE + "/history", SITE + "/es/history"]], "a new event in the record submits /history");
 
+  // A day first recording rain submits /rain; the same count does not.
+  await IX.indexNowTick(h2.env, st2, { ...base, gaugeWarnings: "NCET2:26|SHLT2:13", history: "1709|1", rainDays: "40" }, "2026-11-11T07:44:00.000Z");
+  posts.length = 0;
+  eq(await IX.indexNowTick(h2.env, st2, { ...base, gaugeWarnings: "NCET2:26|SHLT2:13", history: "1709|1", rainDays: "40" }, "2026-11-11T07:44:30.000Z"), null, "an unchanged rain-day count submits nothing");
+  const wet = await IX.indexNowTick(h2.env, st2, { ...base, gaugeWarnings: "NCET2:26|SHLT2:13", history: "1709|1", rainDays: "41" }, "2026-11-11T07:44:45.000Z");
+  eq([wet?.why, posts.at(-1)?.body.urlList], ["rain", [SITE + "/rain", SITE + "/es/rain"]], "a new rain day submits /rain");
+
   // A page added after the first run is submitted once, and only once.
   const stored = JSON.parse(h2.kv.store.get(IX.INDEXNOW_STATE_KV_KEY));
   eq(stored.known, PAGES.map((p) => p.path), "the submitted page list is stored");

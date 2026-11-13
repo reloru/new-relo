@@ -306,7 +306,7 @@ ${topbar("/water", lang)}
 ${cards}
   </div>
   <p class="safety">${T(lang, "In a flood emergency call 911. Never drive or walk into floodwater &mdash; turn around, don't drown. This page mirrors official NWS data for convenience; the authoritative source for each gauge is linked in its title, and warnings appear on the <a href=\"/alerts\">alerts page</a>.", "En una emergencia por inundación llama al 911. Nunca conduzcas ni camines hacia el agua de inundación &mdash; da la vuelta, no te arriesgues. Esta página refleja datos oficiales del NWS por comodidad; la fuente autorizada de cada medidor está enlazada en su título, y los avisos aparecen en la <a href=\"/es/alerts\">página de alertas</a>.")}</p>
-  <p class="intro"><a href="${lang === "es" ? "/es/weather" : "/weather"}">&larr; ${T(lang, "Back to the forecast", "Volver al pronóstico")}</a> &middot; <a href="${lang === "es" ? "/es/radar" : "/radar"}">Radar</a></p>
+  <p class="intro"><a href="${lang === "es" ? "/es/weather" : "/weather"}">&larr; ${T(lang, "Back to the forecast", "Volver al pronóstico")}</a> &middot; <a href="${lang === "es" ? "/es/radar" : "/radar"}">Radar</a> &middot; <a href="${lang === "es" ? "/es/rain" : "/rain"}">${T(lang, "Measured rain", "Lluvia medida")}</a></p>
 </main>
 ${footer({ page: "/water", lang, source: T(lang, `Water data from the NOAA/NWS <a href="https://water.noaa.gov">National Water Prediction Service</a>.`, `Datos de agua del <a href="https://water.noaa.gov">Servicio Nacional de Predicción de Agua</a> de NOAA/NWS.`) })}
 </body>
