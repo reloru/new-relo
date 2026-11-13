@@ -33,12 +33,13 @@ eq(["2026-03-08", "2026-11-01", "2025-03-09", "2025-11-02", "2026-06-01"].map(RA
             { properties: { time: "2026-05-01T00:00:00+00:00", value: "0.25", approval_status: "Provisional" } },
             { properties: { time: "2026-05-01T00:15:00+00:00", value: null } },
             { properties: { time: "2026-05-01T00:20:00+00:00", value: "-1" } },
+            { properties: { time: "2026-05-01T00:25:00+00:00", value: "1310.7" } },
           ],
       links: page2 ? [] : [{ rel: "next", href: "https://api.waterdata.usgs.gov/next?page=2" }],
     }), { headers: { "content-type": "application/json" } });
   };
   const got = await RAIN.fetchRainReadings({}, "2026-05-01T00:00:00Z", "2026-05-02T00:00:00Z");
-  eq(got, [{ at: "2026-05-01T00:00:00.000Z", inches: 0.25, approval: "Provisional" }, { at: "2026-05-01T00:30:00.000Z", inches: 0.1, approval: "Provisional" }], "parsed readings across two pages");
+  eq(got, [{ at: "2026-05-01T00:00:00.000Z", inches: 0.25, approval: "Provisional" }, { at: "2026-05-01T00:30:00.000Z", inches: 0.1, approval: "Provisional" }], "parsed readings across two pages; null, negative and impossible (1310.7 in) amounts left out");
   ok(calls[0].includes("time_series_id=" + RAIN.RAIN_SERIES) && calls[0].includes("parameter_code=00045"), "asks for the primary rain series only");
   calls.length = 0;
   eq(await RAIN.fetchRainReadings({}, "2026-05-02T00:00:00Z", "2026-05-02T00:00:00Z"), [], "an empty window returns nothing");

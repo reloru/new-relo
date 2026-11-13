@@ -25,6 +25,10 @@ export const RAIN_SERIES = "c6f1f52bc09c4f81b4a3f99122eff49c";
 export const RAIN_STATION_URL = "https://waterdata.usgs.gov/monitoring-location/USGS-08072000/";
 const PATH = "/rain";
 const MAX_PAGES = 20;
+// A 15-minute amount above this is a sensor error, not rain: the station's
+// provisional feed carries a 1,310.7 in reading on 2026-05-27. It is left out,
+// so its day shows as incomplete rather than absurd.
+export const RAIN_MAX_15MIN = 8;
 
 // Every 15-minute reading between two instants, following the API's `next`
 // links. Returns [{ at, inches, approval }] with null amounts left out.
@@ -41,7 +45,7 @@ export async function fetchRainReadings(env, startIso, endIso) {
       const p = f?.properties || {};
       const at = Date.parse(p.time || "");
       const v = p.value === null || p.value === undefined || p.value === "" ? NaN : Number(p.value);
-      if (!Number.isFinite(at) || !Number.isFinite(v) || v < 0) continue;
+      if (!Number.isFinite(at) || !Number.isFinite(v) || v < 0 || v > RAIN_MAX_15MIN) continue;
       out.push({ at: new Date(at).toISOString(), inches: v, approval: p.approval_status ?? null });
     }
     url = (d.links || []).find((l) => l.rel === "next")?.href || null;
@@ -131,6 +135,7 @@ function notes(lang) {
   return [
     T(lang, "Every total here is the sum of the 15-minute amounts USGS publishes. USGS marks recent readings provisional; they can be revised after review, and the site re-reads the last 35 days each day.", "Cada total aquí es la suma de las cantidades de 15 minutos que publica el USGS. El USGS marca las lecturas recientes como provisionales; pueden revisarse, y el sitio vuelve a leer los últimos 35 días cada día."),
     T(lang, "A day marked incomplete is missing some of its 15-minute readings, so its total may be low; it is not evidence that no rain fell.", "Un día marcado como incompleto carece de algunas lecturas de 15 minutos, así que su total puede ser bajo; no prueba que no haya llovido."),
+    T(lang, "A 15-minute amount over 8 inches is treated as a sensor error and left out, which marks its day incomplete.", "Una cantidad de más de 8 pulgadas en 15 minutos se trata como error del sensor y se omite, lo que marca su día como incompleto."),
     T(lang, "Rain varies over short distances: a storm can drop far more or less in Crosby than at the dam.", "La lluvia varía en distancias cortas: una tormenta puede dejar mucho más o mucho menos en Crosby que en la presa."),
     T(lang, "A rain day is a day with at least 0.01 in.", "Un día de lluvia es un día con al menos 0.01 in."),
   ];
