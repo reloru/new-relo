@@ -28,6 +28,9 @@ with no framework and no runtime dependencies.
   [East Fork at New Caney](https://crosbynews.com/water/east-fork-new-caney)):
   every NOAA crest against today's flood stages, river flood warnings, and the
   site's own daily readings.
+- **[Rainfall Record](https://crosbynews.com/rain)** — rain measured every 15
+  minutes at the USGS weather station on the Lake Houston dam since October
+  2024: latest totals, monthly totals and the wettest days.
 - **[Warning History](https://crosbynews.com/history)** — every NWS warning,
   watch and advisory that covered Crosby, by type and year, from the site's own
   record (polygon warnings since 2007-10-01), with method notes.

@@ -217,6 +217,9 @@ globalThis.fetch = async (u) => {
   const m = url.match(/nwps\/v1\/gauges\/(\w+)/);
   if (m) return new Response(JSON.stringify(nwps(m[1])), { headers: { "content-type": "application/json" } });
   if (/api\.weather\.gov\/products\/types\/FL[WS]\/locations\/HGX$/.test(url)) return new Response(JSON.stringify({ "@graph": url.includes("FLW") ? [{ id: "c1", issuanceTime: "2026-11-11T09:00:00+00:00" }] : [] }));
+  if (url.includes("api.waterdata.usgs.gov/ogcapi/v0/collections/continuous/items")) return new Response(JSON.stringify({ features: [
+    { properties: { time: new Date(Date.now() - 900e3).toISOString(), value: "0.12", approval_status: "Provisional" } },
+  ] }));
   if (url.includes("api.waterdata.usgs.gov/ogcapi/v0/collections/peaks/items")) return new Response(JSON.stringify({ features: [
     { properties: { parameter_code: "00060", value: "10600", time: "2017-08-28", water_year: 2017, qualifier: ["EVENT"] } },
     { properties: { parameter_code: "00065", value: "59.06", time: "2017-08-28", water_year: 2017 } },
@@ -240,8 +243,9 @@ eq(await cdb.prepare("SELECT flow, stage, flow_qualifier FROM gauge_peaks WHERE 
 const peaksBefore = (await cdb.prepare("SELECT * FROM gauge_peaks ORDER BY lid").all()).results;
 await R.recordUsgsPeaks(cronH.env, peaksBefore[0].lid, peaksBefore[0].usgs_id, [{ day: "2017-08-28", waterYear: 2017, flow: 10600, stage: 59.06, flowQualifier: '["EVENT"]' }], peaksBefore[0].recorded);
 eq((await cdb.prepare("SELECT * FROM gauge_peaks ORDER BY lid").all()).results, peaksBefore, "replaying a peak changes nothing");
+eq(await cdb.prepare("SELECT inches FROM rain_readings").first("inches"), 0.12, "the cron files the latest rain readings");
 const ixSignals = JSON.parse(cronH.kv.store.get("indexnow_state") || "{}").signals || {};
-eq([ixSignals.history, ixSignals.gaugeWarnings], ["1|0", "SHLT2:1"], "the cron hands IndexNow the record's counts for /history and the gauge pages");
+eq([ixSignals.history, ixSignals.gaugeWarnings, ixSignals.rain], ["1|0", "SHLT2:1", "1"], "the cron hands IndexNow the record's counts for /history, the gauge pages and /rain");
 
 cdb.batch = async () => { throw new Error("D1 is down"); };
 const before = cronH.kv.store.get("water");

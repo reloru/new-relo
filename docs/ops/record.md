@@ -37,6 +37,7 @@ be read — and the pages built on it do not change between a crawler's visits.
 | `alerts` | alert *message* this site received, with the official text | every tick an alert is active | live alerts |
 | `gauge_crests` | historic crest per gauge, as NOAA publishes it | daily (10:00 UTC), or at once when empty | NWPS gauge response |
 | `gauge_meta` | gauge: name, USGS id, flood-impact statements | with the crests | NWPS gauge response |
+| `rain_readings` | 15-minute rain amount at the Lake Houston dam station (USGS 08072000), as published (`migrations/0004_rain.sql`); `day` from `rainDay()` | every tick (last 26 h), daily at 10:00 UTC (last 35 days); backfill `scripts/backfill-rain.mjs` from 2024-10-30 | `api.waterdata.usgs.gov` collection `continuous`, primary series only (`docs/pages/rain.md`) |
 | `gauge_peaks` | gauge × USGS annual-peak date: peak flow and gauge height with USGS's qualifiers (`migrations/0003_gauge_peaks.sql`) | daily (10:00 UTC), or at once when empty; replayed in full | `api.waterdata.usgs.gov` collection `peaks` (`fetchUsgsPeaks()`, `USGS_API_KEY`); a peak dated only to the month is skipped |
 | `gauge_daily` | gauge × Central day: max (and when), min, latest, highest flood category, distinct readings | every tick | the `water` snapshot |
 | `pollen_daily` | HHD count date | when a count is fetched, and hourly from the cache | the `pollen` snapshot |

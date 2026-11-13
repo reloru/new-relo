@@ -28,6 +28,7 @@ import { KV_KEY, TZ } from "./config.js";
 import { fetchWeather } from "./features/weather.js";
 import { fetchCalendar, CALENDAR_KV_KEY } from "./features/calendar.js";
 import { fetchWaterFull, fetchUsgsPeaks, WATER_KV_KEY, WATER_GAUGES } from "./features/water.js";
+import { fetchRainReadings, RAIN_STATION } from "./features/rain.js";
 import { fetchFishing, FISHING_KV_KEY } from "./features/fishing.js";
 import { fetchTropics, TROPICS_KV_KEY } from "./features/tropics.js";
 import { fetchTraffic, TRAFFIC_KV_KEY } from "./features/traffic.js";
@@ -39,7 +40,7 @@ import { cronRunRecorder, recordCronRun } from "./api/health.js";
 import { mcpRollUp } from "./mcp/metrics.js";
 import { pruneHits } from "./metrics.js";
 import { indexNowTick } from "./indexnow.js";
-import { recordAlerts, recordAqi, recordGauges, recordGaugeHistory, hasGaugeHistory, recordPollen, recordBurnBan, recordRiverWarnings, gaugeWarningCounts, historyCount, recordUsgsPeaks, hasUsgsPeaks } from "./record.js";
+import { recordAlerts, recordAqi, recordGauges, recordGaugeHistory, hasGaugeHistory, recordPollen, recordBurnBan, recordRiverWarnings, gaugeWarningCounts, historyCount, recordUsgsPeaks, hasUsgsPeaks, recordRain, rainDayCount } from "./record.js";
 
 export async function scheduled(event, env, ctx) {
     // Refresh the weather cache. News is NOT fetched here — it's written to the
@@ -319,6 +320,14 @@ async function recordTick(env, seen, run) {
   await step("burn ban", async () => {
     const ban = seen.burnban || (await cached(BURNBAN_KV_KEY));
     if (ban) await recordBurnBan(env, ban);
+  });
+
+  // Rain at the Lake Houston dam: the last 26 hours every tick, and the last
+  // 35 days once a day so USGS's revisions of provisional readings land.
+  await step("rain", async () => {
+    const days = now.getUTCHours() === 10 && topOfHour ? 35 : 26 / 24;
+    await recordRain(env, RAIN_STATION, await fetchRainReadings(env, new Date(now.getTime() - days * 86400e3).toISOString(), now.toISOString()));
+    seen.rainDays = await rainDayCount(env, RAIN_STATION);
   });
 
   // What /history counts, read after every write above: its IndexNow signal.

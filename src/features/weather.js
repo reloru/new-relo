@@ -201,7 +201,7 @@ ${topbar("/weather", lang)}
   ${renderHourly((data.hourly ?? []).slice(0, 12), lang)}
   ${renderDaily(data.periods ?? [], lang)}
   </div>
-  <p class="lead"><a href="${lang === "es" ? "/es/hourly" : "/hourly"}">${T(lang, "Full 48-hour hourly forecast", "Pronóstico por hora de 48 horas")}</a> &middot; <a href="${lang === "es" ? "/es/radar" : "/radar"}">${T(lang, "Radar", "Radar")}</a> &middot; <a href="${lang === "es" ? "/es/water" : "/water"}">${T(lang, "Water levels", "Niveles de agua")}</a></p>
+  <p class="lead"><a href="${lang === "es" ? "/es/hourly" : "/hourly"}">${T(lang, "Full 48-hour hourly forecast", "Pronóstico por hora de 48 horas")}</a> &middot; <a href="${lang === "es" ? "/es/radar" : "/radar"}">${T(lang, "Radar", "Radar")}</a> &middot; <a href="${lang === "es" ? "/es/water" : "/water"}">${T(lang, "Water levels", "Niveles de agua")}</a> &middot; <a href="${lang === "es" ? "/es/rain" : "/rain"}">${T(lang, "Measured rain", "Lluvia medida")}</a></p>
   ${burnban?.status === "Yes" ? `<p class="lead">&#128293; ${T(lang, "Harris County burn ban in effect.", "Prohibición de quemas vigente en el condado de Harris.")} <a href="${lang === "es" ? "/es/burn-ban" : "/burn-ban"}">${T(lang, "Details", "Detalles")} &rarr;</a></p>` : ""}
 </main>
 ${footer({ page: "/weather", lang, source: T(lang, `Data from the U.S. National Weather Service (<a href="https://weather.gov">weather.gov</a>).`, `Datos del Servicio Meteorológico Nacional de EE. UU. (<a href="https://weather.gov">weather.gov</a>).`), data })}

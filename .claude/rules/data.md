@@ -7,6 +7,7 @@ paths:
   - "migrations/**"
   - "scripts/seed-burnban-periods.mjs"
   - "scripts/backfill-nws-events.mjs"
+  - "scripts/backfill-rain.mjs"
   - "scripts/lib/**"
   - "scripts/fixtures/**"
 ---
@@ -37,6 +38,10 @@ paths:
   stays a calendar date.
 - USGS's annual peak flow (`gauge_peaks`) shows beside a crest only when the
   dates match. Both agencies' flows are shown, never merged.
+- Rain (`/rain`) is stored as USGS's raw 15-minute amounts (`rain_readings`)
+  and summed at request time. `rainDay()` files the reading stamped midnight
+  under the day it closes, and a day short of readings is marked incomplete,
+  never shown as dry.
 - River flood warnings are filed live from NWS's own flood products: the
   hydrologic VTEC line names the gauge's NWS LID, which the alert API does
   not carry. Before 2026-11-12 they come from the IEM archive.

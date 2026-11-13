@@ -62,6 +62,8 @@ const SIGNALS = {
     of: (_, seen) => (typeof seen.gaugeWarnings === "string" ? seen.gaugeWarnings : undefined),
     pagesFor: gaugesChanged,
   },
+  // A day first recording rain at the Lake Houston dam.
+  rain: { pages: ["/rain"], of: (_, seen) => (typeof seen.rainDays === "string" ? seen.rainDays : undefined) },
   // A row added to the record of NWS events or received alerts.
   history: { pages: ["/history"], of: (_, seen) => (typeof seen.history === "string" ? seen.history : undefined) },
   // Which storms and watched areas exist, not the outlook's issue time.

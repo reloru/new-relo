@@ -90,6 +90,13 @@ export const PAGES = [
     llms: "The National Weather Service warnings, watches and advisories that covered Crosby, TX — polygon warnings since 2007-10-01, forecast-zone and county products since 2005, river flood warnings for nearby gauges — counted by type and year from the site's own record, with method notes and limits.",
   },
   {
+    path: "/rain", section: "weather", maxAge: 900,
+    name: { en: "Rainfall Record", es: "Registro de lluvia" },
+    nav: { en: "Rain", es: "Lluvia", desktop: false },
+    desc: { en: "Rain measured at the Lake Houston dam near Crosby, TX: daily and monthly totals since October 2024, and the wettest days.", es: "Lluvia medida en la presa de Lake Houston cerca de Crosby, TX: totales diarios y mensuales desde octubre de 2024 y los días más lluviosos." },
+    llms: "Rain measured every 15 minutes by the USGS weather station at the Lake Houston dam, about 5 miles west of Crosby, TX: the latest hour, 24 hours and day, monthly totals and rain days, and the wettest days since October 2024, with incomplete days marked.",
+  },
+  {
     path: "/water", section: "weather", maxAge: 300,
     name: { en: "Water Levels", es: "Niveles de agua" },
     nav: { en: "Water Levels", es: "Niveles de agua", desktop: true },

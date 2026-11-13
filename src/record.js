@@ -23,6 +23,10 @@ import { TZ, NWS_HEADERS } from "./config.js";
 export const RECORD_OBSERVED_FROM = "2026-11-11";
 
 export const ctDay = (d) => new Date(d).toLocaleDateString("en-CA", { timeZone: TZ });
+// The Central day a 15-minute rain amount belongs to. USGS stamps each amount
+// at the END of its interval, so the reading stamped midnight closes the day
+// before; a day holds the readings from 00:15 through the next midnight.
+export const rainDay = (at) => ctDay(Date.parse(at) - 1);
 
 // --- NWS events -------------------------------------------------------------
 
@@ -334,6 +338,27 @@ export async function recordUsgsPeaks(env, lid, usgsId, peaks, nowIso = new Date
   const stmts = peaks.map((p) => stmt.bind(lid, usgsId, p.day, p.waterYear, p.flow ?? null, p.stage ?? null, p.flowQualifier ?? null, p.stageQualifier ?? null, nowIso));
   for (let i = 0; i < stmts.length; i += 50) await env.DB.batch(stmts.slice(i, i + 50));
   return stmts.length;
+}
+
+// Rain readings from the Lake Houston dam station (src/features/rain.js).
+// Upserted, so a re-read picks up USGS's revisions and approval changes.
+export async function recordRain(env, station, readings) {
+  if (!env?.DB || !Array.isArray(readings) || !readings.length) return 0;
+  const stmt = env.DB.prepare(
+    `INSERT INTO rain_readings (station, at, day, inches, approval) VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT (station, at) DO UPDATE SET inches = excluded.inches, approval = excluded.approval`,
+  );
+  const stmts = readings.map((r) => stmt.bind(station, r.at, rainDay(r.at), r.inches, r.approval ?? null));
+  for (let i = 0; i < stmts.length; i += 100) await env.DB.batch(stmts.slice(i, i + 100));
+  return stmts.length;
+}
+
+// Days with at least 0.01 in on record: the IndexNow signal for /rain, which
+// changes when a day first records rain, not while numbers move.
+export async function rainDayCount(env, station) {
+  if (!env?.DB) return undefined;
+  const r = await env.DB.prepare("SELECT COUNT(*) AS n FROM (SELECT day FROM rain_readings WHERE station = ? GROUP BY day HAVING SUM(inches) >= 0.01)").bind(station).first();
+  return r ? String(r.n) : undefined;
 }
 
 export async function hasUsgsPeaks(env) {
