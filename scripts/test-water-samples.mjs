@@ -111,6 +111,14 @@ const before = writes();
 await R.recordWaterSamples(h.env, samples, "2026-11-14T11:00:00.000Z");
 eq(snapshot(), first, "replaying the history changes nothing, not even the filing time");
 eq(writes() - before, 0, "...and writes no row: the daily replay costs reads, not writes");
+{
+  // A load that fails partway files nothing, however long it is.
+  const h2 = await createHarness();
+  const many = Array.from({ length: 250 }, (_, i) => ({ ...samples[0], activity: `TCEQMAIN-X${i}`, value: i === 249 ? null : i }));
+  const failed = await R.recordWaterSamples(h2.env, many).then(() => null, (e) => e.message);
+  ok(/NOT NULL/.test(failed || ""), `a bad row fails the load: ${failed}`);
+  eq(h2.env.DB.raw.prepare("SELECT COUNT(*) AS n FROM water_samples").get().n, 0, "a failed load leaves the table empty, so the cron retries it next tick");
+}
 await R.recordWaterSamples(h.env, [{ ...samples[0], value: 61 }], "2026-11-15T11:00:00.000Z");
 eq(h.env.DB.raw.prepare("SELECT value, recorded FROM water_samples WHERE activity = 'TCEQMAIN-15166387' AND measure = 'ecoli'").get(), { value: 61, recorded: "2026-11-13T11:00:00.000Z" }, "a revised result is updated in place");
 await R.recordWaterSamples(h.env, [samples[0]]);
