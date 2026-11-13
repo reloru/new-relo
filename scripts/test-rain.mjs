@@ -53,8 +53,9 @@ const seed = [];
 for (let i = 0; i < 96; i++) seed.push({ at: at(Date.parse("2026-11-05T06:15:00Z") + i * 900e3), inches: i === 10 ? 0.4 : i < 18 && i > 10 ? 0.1 : 0 });
 // Friday Nov 6: only 50 readings, 0.30 in -> incomplete.
 for (let i = 0; i < 50; i++) seed.push({ at: at(Date.parse("2026-11-06T06:15:00Z") + i * 900e3), inches: i < 3 ? 0.1 : 0 });
-// Sunday Nov 1 (fall back, 100 readings expected): 100 readings, dry.
-for (let i = 0; i < 100; i++) seed.push({ at: at(Date.parse("2026-11-01T05:15:00Z") + i * 900e3), inches: 0 });
+// Sunday Nov 1 (fall back, 100 readings expected): 100 readings, one 0.004 in
+// trace: under 0.01 in, so not a rain day.
+for (let i = 0; i < 100; i++) seed.push({ at: at(Date.parse("2026-11-01T05:15:00Z") + i * 900e3), inches: i === 20 ? 0.004 : 0 });
 // October 31: one reading of 0.05.
 seed.push({ at: "2026-10-31T15:00:00.000Z", inches: 0.05 });
 await R.recordRain(h.env, RAIN.RAIN_STATION, seed.map((r) => ({ ...r, approval: "Provisional" })));
