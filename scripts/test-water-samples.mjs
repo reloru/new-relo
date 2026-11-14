@@ -1,9 +1,9 @@
 // TCEQ water samples on /fishing and the gauge pages: the Water Quality Portal
 // CSV parser and unit rules, the 24-hour oxygen rule, the D1 writer, the
-// pages in both languages and formats, the D1-failure rules and the IndexNow
-// signal. The CSV below is written by hand in the portal's format, from real
-// rows (activity ids, values and comments as TCEQ published them), with two
-// constructed cases marked; every expected value is written out by hand.
+// pages in both languages and formats, and the D1-failure rules. The CSV
+// below is written by hand in the portal's format, from real rows (activity
+// ids, values and comments as TCEQ published them), with two constructed
+// cases marked; every expected value is written out by hand.
 //
 // Run: node scripts/test-water-samples.mjs
 
@@ -14,7 +14,6 @@ import { pathToFileURL } from "node:url";
 const SRC = new URL("../src/", import.meta.url).pathname;
 const WQ = await import(pathToFileURL(join(SRC, "features/waterquality.js")).href);
 const R = await import(pathToFileURL(join(SRC, "record.js")).href);
-const IX = await import(pathToFileURL(join(SRC, "indexnow.js")).href);
 
 const failures = [];
 const ok = (cond, what) => { if (!cond) failures.push(what); };
@@ -99,7 +98,6 @@ eq(threw, "Water Quality Portal: HTTP 503", "an HTTP error throws");
 
 // --- the D1 writer ------------------------------------------------------------
 const h = await createHarness();
-eq(await WQ.waterSampleCounts(h.env), undefined, "no IndexNow signal while the table is empty");
 eq(await R.hasWaterSamples(h.env), false, "the cron sees an empty table");
 const emptyFishing = await (await h.get("/fishing")).text();
 lacks(emptyFishing, '<section class="wq">', "/fishing shows no samples section while the record is empty");
@@ -122,7 +120,6 @@ eq(writes() - before, 0, "...and writes no row: the daily replay costs reads, no
 await R.recordWaterSamples(h.env, [{ ...samples[0], value: 61 }], "2026-11-15T11:00:00.000Z");
 eq(h.env.DB.raw.prepare("SELECT value, recorded FROM water_samples WHERE activity = 'TCEQMAIN-15166387' AND measure = 'ecoli'").get(), { value: 61, recorded: "2026-11-13T11:00:00.000Z" }, "a revised result is updated in place");
 await R.recordWaterSamples(h.env, [samples[0]]);
-eq(await WQ.waterSampleCounts(h.env), "TCEQMAIN-11120:1|TCEQMAIN-11123:1|TCEQMAIN-11212:4|TCEQMAIN-22429:1", "sampling days per station");
 
 // --- the gauge pages: recent days and every year --------------------------------
 const lake = await (await h.get("/water/lake-houston")).text();
@@ -186,25 +183,9 @@ has(fishMdEs, "| 12 may 2026 | 3,100 | 6.1 | 5 |", "Spanish Markdown /fishing ro
   h.env.DB = real;
 }
 
-// --- IndexNow: a new sampling day submits /fishing and that station's gauge page ----
-{
-  const posts = [];
-  globalThis.fetch = async (url, init) => { posts.push(JSON.parse(init.body)); return new Response("", { status: 200 }); };
-  const at = (m) => `2026-11-13T11:${String(m).padStart(2, "0")}:00.000Z`;
-  await IX.indexNowTick(h.env, null, {}, at(0)); // first run: every page once
-  posts.length = 0;
-  const base = "TCEQMAIN-11120:282|TCEQMAIN-11123:73|TCEQMAIN-11212:838|TCEQMAIN-22429:11";
-  eq(await IX.indexNowTick(h.env, null, { waterSamples: base }, at(1)), null, "a first count is stored quietly");
-  eq(await IX.indexNowTick(h.env, null, { waterSamples: base }, at(2)), null, "an unchanged count submits nothing");
-  const cedarNew = await IX.indexNowTick(h.env, null, { waterSamples: base.replace("11120:282", "11120:283") }, at(3));
-  eq([cedarNew?.why, posts.at(-1)?.urlList], ["waterSamples", [SITE + "/fishing", SITE + "/es/fishing", SITE + "/water/cedar-bayou-crosby", SITE + "/es/water/cedar-bayou-crosby"]], "a new day at Cedar Bayou submits /fishing and the Cedar Bayou page");
-  const luceNew = await IX.indexNowTick(h.env, null, { waterSamples: base.replace("11120:282", "11120:283").replace("22429:11", "22429:12") }, at(4));
-  eq([luceNew?.why, posts.at(-1)?.urlList], ["waterSamples", [SITE + "/fishing", SITE + "/es/fishing"]], "a new day at Luce Bayou submits /fishing only");
-}
-
 if (failures.length) {
   console.error(`\nWater-sample checks failed (${failures.length}):\n  ${failures.join("\n  ")}\n`);
   process.exit(1);
 }
-console.log("Water samples OK — parser, unit rules, the 24-hour oxygen rule, replay-safe writes, both pages in both languages and formats, the D1-failure rules and the IndexNow signal.");
+console.log("Water samples OK — parser, unit rules, the 24-hour oxygen rule, replay-safe writes, both pages in both languages and formats, and the D1-failure rules.");
 process.exit(0);

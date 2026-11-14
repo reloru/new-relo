@@ -52,12 +52,10 @@ Rain measured by the USGS weather station at the Lake Houston dam (site
 
 D1 failure → 502 naming "the site's rain record".
 
-## Dates and IndexNow
+## Dates
 
 `Last-Modified` and sitemap `<lastmod>` are the latest reading's time
-(`rainLastmod()`). The `rain` IndexNow signal is the count of days on record
-with ≥ 0.01 in (`rainDayCount()`): it changes when a day first records rain,
-not while totals move.
+(`rainLastmod()`).
 
 ## Meta, CSP
 
@@ -72,4 +70,4 @@ no request for an empty window; the day boundary; the live block, month row,
 partial first month, wettest day, incomplete marking and fall-back day from
 hand-computed values; both languages, Markdown, sitemap date, the links from
 `/weather` and `/water`; 502 on a D1 failure. `test-record` covers the cron
-step and its IndexNow signal.
+step.

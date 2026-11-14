@@ -244,22 +244,6 @@ export async function recordRiverWarnings(env, gauges, { fetchJson = nwsJson, no
   return stmts.length;
 }
 
-// How many events and received alerts the record holds: the IndexNow signal
-// for /history, which changes only when a row is added.
-export async function historyCount(env) {
-  if (!env?.DB) return undefined;
-  const r = await env.DB.prepare("SELECT (SELECT COUNT(*) FROM nws_events) AS e, (SELECT COUNT(*) FROM alerts) AS a").first();
-  return r ? `${r.e}|${r.a}` : undefined;
-}
-
-// How many river flood warnings the record holds per gauge, "lid:n|...": the
-// IndexNow signal for the gauge pages.
-export async function gaugeWarningCounts(env) {
-  if (!env?.DB) return undefined;
-  const rows = (await env.DB.prepare("SELECT nwsli, COUNT(*) AS n FROM nws_events WHERE scope = 'gauge' AND nwsli IS NOT NULL GROUP BY nwsli ORDER BY nwsli").all()).results || [];
-  return rows.map((r) => `${r.nwsli}:${r.n}`).join("|");
-}
-
 // --- gauges -----------------------------------------------------------------
 
 export const FLOOD_RANK = { action: 1, minor: 2, moderate: 3, major: 4 };
@@ -351,14 +335,6 @@ export async function recordRain(env, station, readings) {
   const stmts = readings.map((r) => stmt.bind(station, r.at, rainDay(r.at), r.inches, r.approval ?? null));
   for (let i = 0; i < stmts.length; i += 100) await env.DB.batch(stmts.slice(i, i + 100));
   return stmts.length;
-}
-
-// Days with at least 0.01 in on record: the IndexNow signal for /rain, which
-// changes when a day first records rain, not while numbers move.
-export async function rainDayCount(env, station) {
-  if (!env?.DB) return undefined;
-  const r = await env.DB.prepare("SELECT COUNT(*) AS n FROM (SELECT day FROM rain_readings WHERE station = ? GROUP BY day HAVING SUM(inches) >= 0.01)").bind(station).first();
-  return r ? String(r.n) : undefined;
 }
 
 // TCEQ water-quality samples (src/features/waterquality.js). The cron replays

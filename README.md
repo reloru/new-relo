@@ -137,8 +137,8 @@ the Anthropic connector-directory submission packet is
   ~24h the rest of the year), the pollen count (weekday mornings only, once
   that day's count posts), the burn-ban status (~4h) and the school calendar
   (~24h). Each tick then files what it saw in D1 and reads the Houston office's
-  river flood products for warnings at the tracked gauges. Pages whose state
-  changed are submitted to IndexNow. Local news is the exception: it is written
+  river flood products for warnings at the tracked gauges. Local news is the
+  exception: it is written
   out-of-band, because Google News blocks Worker IPs.
 - Data: U.S. National Weather Service (public domain), NOAA NWPS and NHC,
   EPA (UV), EPA/AirNow (measured air quality, Open-Meteo modeled fallback),

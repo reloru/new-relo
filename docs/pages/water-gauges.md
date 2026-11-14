@@ -94,14 +94,6 @@ snapshot's fetch time, which moves every 15 minutes whether or not the page
 did. The sitemap reads it through the handler's `lastmod(env)` hook, which
 overrides registry `feeds`.
 
-## IndexNow
-
-A gauge's page is submitted when its flood category changes (the `water`
-signal, together with `/water`), when NOAA's crest count for it changes (the
-`crests` signal), and when a river flood warning is filed for it
-(`gaugeWarnings`), and when a TCEQ station it shows gains a sampling day
-(`waterSamples`). See `docs/ops/search.md`.
-
 ## Canonical, meta, CSP
 
 - Canonical and hreflang from the page's own path; in `PAGE_PATHS`, so it gets

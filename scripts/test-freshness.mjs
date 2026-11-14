@@ -1,10 +1,10 @@
 // What a crawler is told about WHEN: conditional GETs, Last-Modified, the
-// sitemap's dates, and IndexNow submissions.
+// and the sitemap's dates.
 //
 // Every one of these is a claim a search engine can check against the page,
 // and stops trusting once it catches a wrong one. So each is tested as a
 // claim: a 304 only for bytes that really match, a date only where there is a
-// real instant behind it, a submission only when a page's state changed.
+// real instant behind it.
 //
 // Run: node scripts/test-freshness.mjs
 
@@ -15,7 +15,6 @@ import { pathToFileURL } from "node:url";
 const SRC = new URL("../src/", import.meta.url).pathname;
 const { PAGES } = await import(pathToFileURL(join(SRC, "registry.js")).href);
 const { esPath } = await import(pathToFileURL(join(SRC, "i18n.js")).href);
-const IX = await import(pathToFileURL(join(SRC, "indexnow.js")).href);
 
 const failures = [];
 const eq = (got, want, what) => { if (JSON.stringify(got) !== JSON.stringify(want)) failures.push(`${what}: got ${JSON.stringify(got)}, want ${JSON.stringify(want)}`); };
@@ -159,154 +158,13 @@ for (const page of PAGES) {
   h.kv.store.set("cron_status", JSON.stringify(status));
 }
 
-// --- IndexNow ---------------------------------------------------------------
-const key = await h.get(IX.INDEXNOW_KEY_PATH);
-eq([key.status, await key.text()], [200, IX.INDEXNOW_KEY], "the key file serves the key");
-ok(/^[a-f0-9]{32}$/.test(IX.INDEXNOW_KEY), "the key is 32 hex characters");
-
-const posts = [];
-let answer = 200;
-const fakeEndpoints = () => {
-  globalThis.fetch = async (u, init) => {
-    posts.push({ url: String(u), body: JSON.parse(init.body) });
-    if (answer === "throw") throw new Error("network unreachable");
-    return new Response("", { status: answer });
-  };
-};
-fakeEndpoints();
-const fx = (await import("./lib/harness.mjs")).loadFixtures;
-const data = await fx();
-const seen = () => ({ weather: structuredClone(data.weather), water: structuredClone(data.water), tropics: structuredClone(data.tropics) });
-const T0 = "2026-11-11T05:00:00.000Z";
-
-const first = await IX.indexNowTick(h.env, status, seen(), T0);
-eq([first?.ok, first?.why, first?.urls], [true, "first run", PAGES.length * 2], "the first run submits every page in both languages");
-eq(posts[0].url, "https://api.indexnow.org/indexnow", "submitted to the shared IndexNow endpoint");
-eq([posts[0].body.host, posts[0].body.key, posts[0].body.keyLocation], ["crosbynews.com", IX.INDEXNOW_KEY, SITE + IX.INDEXNOW_KEY_PATH], "submission names the host, key and key location");
-
-posts.length = 0;
-eq(await IX.indexNowTick(h.env, status, seen(), T0), null, "nothing changed, nothing submitted");
-// Numbers moved, state did not: a gauge rose within the same category.
-const rose = seen();
-rose.water.gauges[0].stage += 3;
-rose.weather.updated = "2026-11-11T05:15:00.000Z";
-eq(await IX.indexNowTick(h.env, status, rose, T0), null, "a level change within a flood category is not a state change");
-eq(posts.length, 0, "…and makes no request");
-
-// State changes: one each, and only its own page.
-const flood = seen();
-flood.water.gauges[0].category = "minor";
-const r1 = await IX.indexNowTick(h.env, status, flood, T0);
-eq(posts.at(-1)?.body.urlList, [SITE + "/water", SITE + "/es/water", SITE + "/water/cedar-bayou-crosby", SITE + "/es/water/cedar-bayou-crosby"], "a gauge entering flood submits /water and that gauge's page, in both languages");
-eq(r1?.why, "water", "…and says why");
-
-const lifted = structuredClone(status);
-lifted.feeds.burnban.hash = "changed";
-await IX.indexNowTick(h.env, lifted, flood, T0);
-eq(posts.at(-1)?.body.urlList, [SITE + "/burn-ban", SITE + "/es/burn-ban"], "a burn-ban change submits /burn-ban only");
-
-const warned = structuredClone(flood);
-warned.weather.alerts = [{ id: "urn:x:new", event: "Tornado Warning" }];
-await IX.indexNowTick(h.env, lifted, warned, T0);
-eq(posts.at(-1)?.body.urlList, [SITE + "/alerts", SITE + "/es/alerts"], "a new alert submits /alerts");
-
-// A feed not fetched this tick is "no information", not "changed to empty".
-posts.length = 0;
-eq(await IX.indexNowTick(h.env, lifted, {}, T0), null, "a tick that fetched nothing reports no change");
-
-// A refusal is recorded and not retried on the next tick.
-answer = 403;
-const cleared = structuredClone(warned);
-cleared.weather.alerts = [];
-const refused = await IX.indexNowTick(h.env, lifted, cleared, T0);
-eq([refused?.ok, refused?.status], [false, 403], "a refused submission is recorded as failed");
-eq(posts.slice(-2).map((p) => new URL(p.url).host), ["api.indexnow.org", "www.bing.com"], "a refusal from the shared endpoint falls back to Bing's");
-posts.length = 0;
-eq(await IX.indexNowTick(h.env, lifted, cleared, T0), null, "a failed submission is not retried on the next tick");
-eq(await IX.indexNowTick(h.env, lifted, cleared, "2026-11-11T05:45:00.000Z"), null, "…nor before an hour has passed");
-answer = 200;
-const retried = await IX.indexNowTick(h.env, lifted, cleared, "2026-11-11T06:01:00.000Z");
-eq([retried?.ok, posts.at(-1)?.body.urlList], [true, [SITE + "/alerts", SITE + "/es/alerts"]], "after an hour the failed URLs are submitted again");
-posts.length = 0;
-eq(await IX.indexNowTick(h.env, lifted, cleared, "2026-11-11T08:00:00.000Z"), null, "a retry that succeeded leaves nothing pending");
-answer = "throw";
-const again = structuredClone(cleared);
-again.weather.alerts = [{ id: "urn:x:another" }];
-const down = await IX.indexNowTick(h.env, lifted, again, T0);
-ok(down && down.ok === false && /unreachable/.test(down.error), "unreachable endpoints are recorded, not thrown");
-for (let i = 0; i < 8; i++) await IX.indexNowTick(h.env, lifted, again, new Date(Date.parse(T0) + (i + 2) * 3600e3).toISOString());
-posts.length = 0;
-eq(await IX.indexNowTick(h.env, lifted, again, "2026-11-12T12:00:00.000Z"), null, "retries stop after a bounded number of tries");
-const health = await (await h.get("/api/health")).json();
-eq([health.indexNow?.ok, health.indexNow?.why], [false, "alerts"], "/api/health reports the last submission");
-eq(health.indexNow?.attempts?.map((a) => a.endpoint), ["api.indexnow.org", "www.bing.com"], "/api/health lists every endpoint tried, not only the last");
-
-// Both endpoints' answers survive when both refuse.
-{
-  const h2 = await createHarness();
-  fakeEndpoints();
-  const st2 = JSON.parse(h2.kv.store.get("cron_status"));
-  posts.length = 0;
-  answer = 429;
-  const r = await IX.indexNowTick(h2.env, st2, seen(), T0);
-  eq(r?.attempts, [{ endpoint: "api.indexnow.org", status: 429 }, { endpoint: "www.bing.com", status: 429 }], "a double refusal records each endpoint's status");
-  answer = 200;
-
-  // A new crest NOAA adds is a new line in that gauge's record.
-  const withHistory = (counts) => ({ ...seen(), waterHistory: Object.entries(counts).map(([lid, n]) => ({ lid, crests: Array.from({ length: n }, () => ({})) })) });
-  await IX.indexNowTick(h2.env, st2, withHistory({ HCDT2: 29, SHLT2: 35 }), "2026-11-11T07:00:00.000Z");
-  posts.length = 0;
-  eq(await IX.indexNowTick(h2.env, st2, withHistory({ HCDT2: 29, SHLT2: 35 }), "2026-11-11T07:15:00.000Z"), null, "unchanged crest lists submit nothing");
-  const crest = await IX.indexNowTick(h2.env, st2, withHistory({ HCDT2: 30, SHLT2: 35 }), "2026-11-11T07:30:00.000Z");
-  eq([crest?.why, posts.at(-1)?.body.urlList], ["crests", [SITE + "/water/cedar-bayou-crosby", SITE + "/es/water/cedar-bayou-crosby"]], "a new crest submits that gauge's page only");
-
-  // A river flood warning filed for a gauge submits that gauge's page.
-  await IX.indexNowTick(h2.env, st2, { ...withHistory({ HCDT2: 30, SHLT2: 35 }), gaugeWarnings: "NCET2:26|SHLT2:12" }, "2026-11-11T07:35:00.000Z");
-  const warnedGauge = await IX.indexNowTick(h2.env, st2, { ...withHistory({ HCDT2: 30, SHLT2: 35 }), gaugeWarnings: "NCET2:26|SHLT2:13" }, "2026-11-11T07:40:00.000Z");
-  eq([warnedGauge?.why, posts.at(-1)?.body.urlList], ["gaugeWarnings", [SITE + "/water/san-jacinto-sheldon", SITE + "/es/water/san-jacinto-sheldon"]], "a new river flood warning submits that gauge's page");
-
-  // A row added to the record submits /history; the same count does not.
-  const base = withHistory({ HCDT2: 30, SHLT2: 35 });
-  await IX.indexNowTick(h2.env, st2, { ...base, gaugeWarnings: "NCET2:26|SHLT2:13", history: "1708|0" }, "2026-11-11T07:41:00.000Z");
-  posts.length = 0;
-  eq(await IX.indexNowTick(h2.env, st2, { ...base, gaugeWarnings: "NCET2:26|SHLT2:13", history: "1708|0" }, "2026-11-11T07:42:00.000Z"), null, "an unchanged record submits nothing");
-  const grew = await IX.indexNowTick(h2.env, st2, { ...base, gaugeWarnings: "NCET2:26|SHLT2:13", history: "1709|1" }, "2026-11-11T07:43:00.000Z");
-  eq([grew?.why, posts.at(-1)?.body.urlList], ["history", [SITE + "/history", SITE + "/es/history"]], "a new event in the record submits /history");
-
-  // A day first recording rain submits /rain; the same count does not.
-  await IX.indexNowTick(h2.env, st2, { ...base, gaugeWarnings: "NCET2:26|SHLT2:13", history: "1709|1", rainDays: "40" }, "2026-11-11T07:44:00.000Z");
-  posts.length = 0;
-  eq(await IX.indexNowTick(h2.env, st2, { ...base, gaugeWarnings: "NCET2:26|SHLT2:13", history: "1709|1", rainDays: "40" }, "2026-11-11T07:44:30.000Z"), null, "an unchanged rain-day count submits nothing");
-  const wet = await IX.indexNowTick(h2.env, st2, { ...base, gaugeWarnings: "NCET2:26|SHLT2:13", history: "1709|1", rainDays: "41" }, "2026-11-11T07:44:45.000Z");
-  eq([wet?.why, posts.at(-1)?.body.urlList], ["rain", [SITE + "/rain", SITE + "/es/rain"]], "a new rain day submits /rain");
-
-  // A page added after the first run is submitted once, and only once.
-  const stored = JSON.parse(h2.kv.store.get(IX.INDEXNOW_STATE_KV_KEY));
-  eq(stored.known, PAGES.map((p) => p.path), "the submitted page list is stored");
-  stored.known = stored.known.filter((p) => p !== "/water/lake-houston");
-  h2.kv.store.set(IX.INDEXNOW_STATE_KV_KEY, JSON.stringify(stored));
-  posts.length = 0;
-  const added = await IX.indexNowTick(h2.env, st2, withHistory({ HCDT2: 30, SHLT2: 35 }), "2026-11-11T07:45:00.000Z");
-  eq([added?.why, posts.at(-1)?.body.urlList], ["new pages", [SITE + "/water/lake-houston", SITE + "/es/water/lake-houston"]], "a page never submitted is submitted once");
-  posts.length = 0;
-  eq(await IX.indexNowTick(h2.env, st2, withHistory({ HCDT2: 30, SHLT2: 35 }), "2026-11-11T08:00:00.000Z"), null, "…and not again");
-  // A pending reason is not repeated when the same reason comes up again.
-  answer = 429;
-  const st3 = JSON.parse(h2.kv.store.get(IX.INDEXNOW_STATE_KV_KEY));
-  st3.known = st3.known.filter((p) => p !== "/history");
-  h2.kv.store.set(IX.INDEXNOW_STATE_KV_KEY, JSON.stringify(st3));
-  await IX.indexNowTick(h2.env, st2, withHistory({ HCDT2: 31, SHLT2: 35 }), "2026-11-11T08:05:00.000Z"); // two reasons pending: crests, new pages
-  const st4 = JSON.parse(h2.kv.store.get(IX.INDEXNOW_STATE_KV_KEY));
-  st4.known = st4.known.filter((p) => p !== "/methods");
-  h2.kv.store.set(IX.INDEXNOW_STATE_KV_KEY, JSON.stringify(st4));
-  const again2 = await IX.indexNowTick(h2.env, st2, withHistory({ HCDT2: 31, SHLT2: 35 }), "2026-11-11T08:10:00.000Z");
-  eq(again2?.why, "crests, new pages", "a reason already pending is not listed twice");
-  answer = 200;
-}
+// IndexNow was removed (the owner links the site to search engines another
+// way); its key file is an unknown path again.
+eq((await h.get("/72a0e4671cc205122a446b7c49b06bff.txt")).status, 404, "the old IndexNow key file is gone");
 
 if (failures.length) {
   console.error(`\nFreshness checks failed (${failures.length}):\n  ${[...new Set(failures)].slice(0, 40).join("\n  ")}\n`);
   process.exit(1);
 }
-console.log(`Freshness OK — ${PAGES.filter((p) => !p.custom).length * 4} representations revalidate by content, dates exist only where an instant does, and IndexNow fires on state changes alone.`);
+console.log(`Freshness OK — ${PAGES.filter((p) => !p.custom).length * 4} representations revalidate by content, and dates exist only where an instant does.`);
 process.exit(0);

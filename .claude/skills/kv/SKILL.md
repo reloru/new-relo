@@ -1,6 +1,6 @@
 ---
 name: kv
-description: Inspect and (carefully) edit the production WEATHER KV namespace — the cache behind crosbynews.com. Always uses `--remote` so it reads real production state, not local miniflare. Knows the nine content keys, `weather` + `calendar` + `water` + `fishing` + `tropics` + `pollen` + `traffic` + `burnban` (cron-owned) and `news` (routine-owned), plus `cron_status`, the Web Push state, `news_blocklist`, the MCP usage counters (`mcp_metrics` + `mcpm:*`), and the cron's bookkeeping for IndexNow (`indexnow_state`) and river flood products (`river_products`). The long-term record is in D1, not KV. Use to check cache freshness or debug /news, /calendar, /water, /fishing, /tropics, /pollen, /traffic, /burn-ban, and the weather pages.
+description: Inspect and (carefully) edit the production WEATHER KV namespace — the cache behind crosbynews.com. Always uses `--remote` so it reads real production state, not local miniflare. Knows the nine content keys, `weather` + `calendar` + `water` + `fishing` + `tropics` + `pollen` + `traffic` + `burnban` (cron-owned) and `news` (routine-owned), plus `cron_status`, the Web Push state, `news_blocklist`, the MCP usage counters (`mcp_metrics` + `mcpm:*`), and the cron's bookkeeping for river flood products (`river_products`), and the orphaned `indexnow_state`. The long-term record is in D1, not KV. Use to check cache freshness or debug /news, /calendar, /water, /fishing, /tropics, /pollen, /traffic, /burn-ban, and the weather pages.
 argument-hint: "[list | get <key> | put <key> <json> | delete <key>]  (key = weather | calendar | water | fishing | tropics | pollen | traffic | burnban | news | mcp_metrics)"
 allowed-tools: Bash(npx wrangler kv key list *), Bash(npx wrangler kv key get *)
 ---
@@ -145,12 +145,10 @@ re-folds it and doubles the numbers. Deleting the whole key is recoverable only
 in the sense that counting restarts from zero; there is no other copy. Deleting
 an `mcpm:*` shard loses at most ten minutes of one isolate's counts.
 
-`indexnow_state` (cron-owned) holds the last value of each IndexNow signal,
-the page list last submitted (`known`), and the last submission's outcome with
-every endpoint's answer (`last.attempts`). Deleting it makes the next tick
-resubmit every page; editing a signal makes the next tick report that page as
-changed; removing a path from `known` resubmits that page once. See
-`docs/ops/search.md`.
+`indexnow_state` is orphaned: IndexNow was removed on 2026-11-13 and nothing
+reads or writes the key any more. It holds the last signals and a pending
+submission that will never be sent. Deleting it is safe, but it is a
+production delete, so only with the owner's go-ahead.
 
 `river_products` (cron-owned) lists the ids of the NWS flood products (FLW/FLS,
 office HGX) the cron has already read for river flood warnings, last 300.

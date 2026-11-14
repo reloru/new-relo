@@ -112,8 +112,6 @@ and Luce Bayou at the Grand Parkway (`22429`, from 2023). Stored in D1
 - `hreflangTags("/fishing")`
 - In `PAGE_PATHS` → `Link: rel="canonical"`
 - `sitemap.xml`: yes — `changefreq: hourly`, `priority: 0.6`, no `lastmod`
-- IndexNow: submitted, with the gauge page that shows the station, when a
-  station gains a sampling day (`waterSamples` signal, `docs/ops/search.md`)
 
 ## Tested
 
