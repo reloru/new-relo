@@ -208,6 +208,12 @@ jobs:
       # Pure node, no install.
       - name: Check app icons
         run: node scripts/test-icons.mjs
+      # The bulletin look and plain wording erode one page at a time: a
+      # gradient here, a pill badge there, an emoji used as an icon, an arrow
+      # on a link. None of it breaks a page. Renders every page in both
+      # languages and refuses those in the shipped CSS and text. Pure node.
+      - name: Check look and wording
+        run: node scripts/test-look.mjs
 
   # Build gate: parse wrangler.jsonc and bundle the Worker without uploading.
   # Catches config/bundling errors and the compat-date/wrangler-pin coupling

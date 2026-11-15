@@ -171,7 +171,7 @@ export function burnbanFaq(lang) {
       a: T(
         lang,
         "No. This page is for Crosby, the community in Harris County near Houston. Crosby County is a different county in West Texas, next to Lubbock County, and its own commissioners court decides its burn bans. If that's where you are, use the statewide “Texas burn ban map” in the list of sources below.",
-        "No. Esta página es para Crosby, la comunidad en el condado de Harris cerca de Houston. El condado de Crosby es otro condado, en el oeste de Texas, junto al condado de Lubbock, y su propia corte de comisionados decide sus prohibiciones de quemas. Si estás allí, usa el «Mapa de prohibiciones de Texas» estatal en Recursos abajo."
+        "No. Esta página es para Crosby, la comunidad en el condado de Harris cerca de Houston. El condado de Crosby es otro condado, en el oeste de Texas, junto al condado de Lubbock, y su propia corte de comisionados decide sus prohibiciones de quemas. Si estás allí, usa el «Mapa de prohibiciones de Texas» estatal en la lista de fuentes de abajo."
       ),
     },
     {

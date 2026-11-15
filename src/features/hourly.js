@@ -89,10 +89,10 @@ ${JSONLD_SITE}
   .feels-note { display:none; font-size:0.85rem; }
   tr:last-child td { border-bottom:none; }
   @media (max-width:600px) {
-    table { font-size:0.88rem; }
+    table { font-size:0.84rem; }
     th, td { padding:0.35rem 0.2rem 0.35rem 0; }
     th { font-size:0.75rem; }
-    .cond { gap:0.3rem; }
+    .cond { gap:0.3rem; overflow-wrap:anywhere; }
     .cond img { width:22px; height:22px; }
     /* Phones fold the Feels column into Temp ("82° (88°)"): five roomy
        columns instead of six cramped ones. */
@@ -100,7 +100,7 @@ ${JSONLD_SITE}
     .feels-inline { display:inline; }
     .feels-note { display:block; }
     .tunit { display:none; }
-    .c-time { width:11%; } .c-cond { width:33%; } .c-temp { width:19%; } .c-rain { width:12%; } .c-wind { width:25%; }
+    .c-time { width:11%; } .c-cond { width:37%; } .c-temp { width:19%; } .c-rain { width:11%; } .c-wind { width:22%; }
     th.c-wind, td.wind { padding-left:0.5rem; }
     td.num { padding-left:0.35rem; }
     .wind { white-space:normal; }
