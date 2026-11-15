@@ -100,8 +100,10 @@ when it gives one (`start_source = 'tfs'`), otherwise by the day we first saw it
 (`'observed'`). "No ban" closes whichever period is open on the day first seen
 lifted (`end_source = 'observed'`) — accurate to the 4-hour refresh. Rows
 entered by hand (`scripts/seed-burnban-periods.mjs`) use `start_source =
-'order'` with the county release in `url`, and `end_source = 'news'` with the
-reporting outlet and link in `note` (ReadyHarris lists no lift notices).
+'order'` with the Commissioners Court record (Legistar) in `url`, and either
+`end_source = 'order'` with the terminating court record in `end_url`, or
+`end_source = 'news'` with the reporting outlet and link in `note` when the
+order ended on the Forest Service's determination without a court vote.
 Every hand-entered row has `ended` set: an open row would be closed with
 today's date the next time the cron sees "no ban".
 

@@ -244,13 +244,30 @@ never the live status (the page is a status page first).
 | Row kind | Start source | End source |
 |---|---|---|
 | Cron-observed (2026-09-17 onward) | `tfs` (Forest Service's own start date) or `observed` | `observed` (first tick seen lifted) |
-| Hand-entered (`scripts/seed-burnban-periods.mjs`) | `order`: the county's release on readyharris.org, URL in `url` | `news`: ReadyHarris lists no lift notices, so the date news outlets reported from the county's statements, outlet and URL in `note` |
+| Hand-entered (`scripts/seed-burnban-periods.mjs`) | `order`: the Commissioners Court record that adopted it (Legistar), URL in `url` | `order`: the court record that terminated it, URL in `end_url`; or `news` when no termination exists, outlet and URL in `note` |
 
-Entered: 2023-08-08 → 2023-10-10, 2024-10-08 → 2024-11-25,
-2025-10-16 → 2025-12-05, each start checked against its readyharris release
-(every release link on ReadyHarris's 49 listing pages was checked on 2026-11-12; none is a lift notice — the county may announce lifts elsewhere, such as the Fire Marshal's social media or another county newsroom, which were not searched).
-Not entered, and the page says so: the ban that began 2022-06-28 (outlets give
-Aug 22 and Aug 23 for its end), a second 2022 ban, and earlier bans (2015 is
-reported). Add one only with a dated source for both ends. Tested by
+Source: Harris County Commissioners Court records on Legistar
+(`harriscountytx.legistar.com`), online from February 2021. Every item whose
+title mentions "burn" was listed through the public API
+(`webapi.legistar.com/v1/harriscountytx/matters`) on 2026-11-15. Each link is
+the record's canonical `LegislationDetail.aspx?ID=…&GUID=…` page, resolved
+from the API's `MatterId` through `gateway.aspx?M=L&ID=<MatterId>`. The API's
+own ID does not open the page, so never build a link from it.
+
+| Ban | Adopted | Terminated |
+|---|---|---|
+| 2022-06-28 → 2022-08-23 | 22-4024 | 22-5227 |
+| 2022-10-25 → 2022-11-15 | 22-6919 | 22-7239 |
+| 2023-08-08 → 2023-10-10 | 23-4616 | 23-5855 |
+| 2024-10-08 → 2024-11-25 | 24-6503 | none: end date from Community Impact |
+| 2025-10-16 → 2025-12-05 | 25-6399 | none: end date from Community Impact |
+| 2026-09-17 → (cron) | 26-5864 | — |
+
+Every order since 2022 runs "until the earlier of 90 days after the date of
+adoption or a determination is made by the Texas Forest Service that drought
+conditions no longer exist" (§352.081(e)(1)), so it can end without a court
+vote. The 2022 and 2023 bans were still ended by one; the 2024 and 2025 bans
+have no termination record, which is why their end dates come from news. Not
+entered, and the page says so: bans before 2021 (2015 is reported). Add one
+only with a dated source for both ends. Tested by
 `scripts/test-burnban-bans.mjs` ("Check burn-ban history table" in CI).
-
