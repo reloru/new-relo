@@ -32,6 +32,27 @@ const PICTOGRAPH = /[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{24D
 // Technical notation in the two developer pages is not decoration.
 const ARROW_OK = new Set(["/developers", "/mcp"]);
 
+// Split HTML without regex replacement: drop everything between the open and
+// close of an element by index, and walk tags one character at a time.
+const dropElements = (html, name) => {
+  let out = "", i = 0;
+  for (;;) {
+    const open = html.indexOf(`<${name}`, i);
+    if (open < 0) return out + html.slice(i);
+    out += html.slice(i, open);
+    const close = html.indexOf(`</${name}>`, open);
+    if (close < 0) return out;
+    i = close + name.length + 3;
+  }
+};
+const textOf = (html) => {
+  let out = "", inTag = false;
+  for (const ch of html) {
+    if (ch === "<") { inTag = true; out += " "; } else if (ch === ">") inTag = false; else if (!inTag) out += ch;
+  }
+  return out;
+};
+
 const decode = (s) =>
   s.replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(+n)).replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCodePoint(parseInt(n, 16)))
     .replace(/&rarr;/g, "→").replace(/&larr;/g, "←");
@@ -56,14 +77,14 @@ for (const p of PAGES) {
     }
 
     // What a reader sees: the body, without scripts, styles or tags.
-    const body = decode(html.slice(html.indexOf("<body")).replace(/<(script|style)\b[\s\S]*?<\/\1>/g, ""));
-    const text = body.replace(/<[^>]+>/g, " ");
+    const body = decode(dropElements(dropElements(html.slice(html.indexOf("<body")), "script"), "style"));
+    const text = textOf(body);
     if (!ARROW_OK.has(p.path)) {
       const hit = PICTOGRAPH.exec(text);
       if (hit) fail(`${path}: pictograph "${hit[0]}" in the text: "${text.slice(Math.max(0, hit.index - 40), hit.index + 20).replace(/\s+/g, " ")}"`);
     }
     for (const [, label] of body.matchAll(/<a\b[^>]*>([\s\S]*?)<\/a>/g)) {
-      if (/[←-⇿]/.test(label)) fail(`${path}: an arrow in a link: "${label.replace(/<[^>]+>/g, "").trim()}"`);
+      if (/[←-⇿]/.test(label)) fail(`${path}: an arrow in a link: "${textOf(label).trim()}"`);
     }
     // One <h1>, and the menu is a word.
     if ((html.match(/<h1\b/g) || []).length !== 1) fail(`${path}: ${(html.match(/<h1\b/g) || []).length} <h1> elements`);
