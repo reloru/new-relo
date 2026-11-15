@@ -124,17 +124,15 @@ ${hreflangTags("/news")}
 <link rel="alternate" type="application/rss+xml" title="Crosby, TX News (RSS)" href="/news.xml">
 ${JSONLD_SITE}
 <style>${BASE_CSS}
-  .news-list { list-style:none; padding:0; margin:1rem 0 0; }
-  .news-item { background:var(--card); border-radius:10px; padding:0.7rem 0.95rem; margin-bottom:0.6rem; box-shadow:0 1px 3px rgba(0,0,0,0.07); }
-  .news-title { font-weight:600; color:var(--ink); text-decoration:none; display:block; }
-  .news-title:hover { text-decoration:underline; color:var(--link); }
-  .news-meta { margin:0.3rem 0 0; font-size:0.8rem; color:var(--muted); }
-  .incidents-head { font-size:0.95rem; color:var(--muted); margin-top:1.6rem; border-top:1px solid var(--line); padding-top:0.9rem; }
-  .intro { color:var(--muted); margin:0.6rem 0 0; }
-  .disclaimer { margin-top:1.4rem; font-size:0.8rem; color:var(--muted); border-top:1px solid var(--line); padding-top:0.7rem; }
-  .admin-bar { background:#4a2fb5; color:#fff; border-radius:10px; padding:0.55rem 0.9rem; margin:0.8rem 0 0; font-size:0.85rem; font-weight:600; }
-  .news-admin-btn { margin-top:0.5rem; font-size:0.8rem; font-weight:600; padding:0.28rem 0.7rem; border:1px solid var(--line); border-radius:8px; background:var(--card); color:var(--link); cursor:pointer; }
-  .news-admin-btn:hover { border-color:var(--link); }
+  .news-list { list-style:none; padding:0; margin:1rem 0 0; max-width:44rem; }
+  .news-item { padding:0.7rem 0; border-bottom:1px solid var(--line); }
+  .news-title { font-family:var(--serif); font-size:1.15rem; font-weight:700; line-height:1.3; color:var(--ink); text-decoration:none; display:block; }
+  .news-title:hover { text-decoration:underline; }
+  .news-meta { margin:0.25rem 0 0; font-size:0.85rem; color:var(--muted); }
+  .incidents-head { font-size:1.05rem; }
+  .disclaimer { margin-top:1.4rem; font-size:0.85rem; color:var(--muted); }
+  .admin-bar { background:#4a2fb5; color:#fff; padding:0.55rem 0.9rem; margin:0.8rem 0 0; font-size:0.85rem; font-weight:600; }
+  .news-admin-btn { margin-top:0.5rem; font-size:0.8rem; font-weight:600; padding:0.28rem 0.7rem; border:1px solid var(--line); background:var(--bg); color:var(--link); cursor:pointer; }
   .news-blocked { opacity:0.5; }
   .news-blocked .news-title { text-decoration:line-through; }
 </style>

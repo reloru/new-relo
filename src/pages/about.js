@@ -175,13 +175,6 @@ ${hreflangTags("/about")}
 ${JSONLD_SITE}
 ${jsonldAbout(lang)}
 <style>${BASE_CSS}
-  .card { background:var(--card); border-radius:12px; padding:0.9rem 1.1rem; margin-top:1rem; box-shadow:0 1px 3px rgba(0,0,0,0.07); }
-  .card h2 { margin:0 0 0.5rem; }
-  .card p { margin:0.5rem 0; }
-  .lede { font-size:1.05rem; color:var(--ink); }
-  .links { margin:0.5rem 0 0; padding-left:1.1rem; }
-  .links li { margin:0.3rem 0; }
-  code { background:color-mix(in srgb,var(--ink) 10%, transparent); padding:0.05rem 0.3rem; border-radius:4px; font-size:0.9em; }
 </style>
 </head>
 <body>

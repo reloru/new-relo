@@ -122,8 +122,8 @@ for (const path of ["/", "/weather", "/hourly", "/es", "/es/weather"]) {
   const air = await quotable("/air");
   ok(!/Main pollutant/.test(air), "/air: the live AQI hero is quotable");
   ok(/How to read the AQI/.test(air), "/air: the guide is not quotable");
-  ok(/Severe Weather Guide/.test(await quotable("/alerts")), "/alerts: the guide is not quotable");
-  ok(!/No active weather alerts for Crosby/.test(await quotable("/alerts")), "/alerts: the live alert status is quotable");
+  ok(/What each alert means/.test(await quotable("/alerts")), "/alerts: the guide is not quotable");
+  ok(!/has nothing in effect here/.test(await quotable("/alerts")), "/alerts: the live alert status is quotable");
   ok(/Hurricane season and Crosby/.test(await quotable("/tropics")), "/tropics: the guide is not quotable");
   ok(!/Nothing active/.test(await quotable("/tropics")), "/tropics: the live basin status is quotable");
   ok(/How to read the categories/.test(await quotable("/pollen")), "/pollen: the guide is not quotable");

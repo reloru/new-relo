@@ -744,12 +744,7 @@ ${sharedHead(lang)}
 ${hreflangTags("/mcp")}
 ${JSONLD_SITE}
 <style>${BASE_CSS}
-  .card { background:var(--card); border-radius:12px; padding:0.9rem 1.1rem; margin-top:1rem; box-shadow:0 1px 3px rgba(0,0,0,0.07); }
-  .card h2 { margin:0 0 0.5rem; }
-  code { background:color-mix(in srgb,var(--ink) 10%, transparent); padding:0.05rem 0.3rem; border-radius:4px; font-size:0.9em; }
-  pre { background:color-mix(in srgb,var(--ink) 8%, transparent); padding:0.8rem; border-radius:8px; overflow-x:auto; font-size:0.85rem; }
-  .intro { color:var(--muted); margin:0.6rem 0 0; }
-  ul { padding-left:1.1rem; } li { margin:0.3rem 0; }
+  ul { padding-left:1.2rem; } li { margin:0.3rem 0; }
 </style>
 </head>
 <body>

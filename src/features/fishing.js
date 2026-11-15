@@ -241,30 +241,23 @@ ${sharedHead(lang)}
 ${hreflangTags("/fishing")}
 ${JSONLD_SITE}
 <style>${BASE_CSS}
-  .intro { color:var(--muted); margin:0.6rem 0 0; }
-  .fw { margin-top:1.5rem; }
-  .fw h2 { font-size:1.15rem; margin:0 0 0.15rem; }
-  .fw-fish { margin:0 0 0.5rem; font-size:0.85rem; color:var(--muted); }
-  .fgrid { display:grid; gap:0.7rem; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); }
-  .fcard { background:var(--card); border-radius:12px; padding:0.85rem 1rem; box-shadow:0 1px 3px rgba(0,0,0,0.07); border-left:5px solid var(--muted); }
-  .fcard-head { display:flex; justify-content:space-between; align-items:flex-start; gap:0.5rem; }
-  .fcard-head h3 { margin:0; font-size:1rem; }
-  .fbadge { flex:none; font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.03em; padding:0.15rem 0.5rem; border-radius:999px; color:#fff; background:#5b6470; white-space:nowrap; }
-  .fmetrics { display:flex; flex-wrap:wrap; gap:0.35rem; margin:0.55rem 0 0; }
-  .fchip { font-size:0.9rem; font-weight:700; background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:0.15rem 0.45rem; }
-  .fchip .fk { font-size:0.68rem; font-weight:700; text-transform:uppercase; letter-spacing:0.03em; color:var(--muted); }
-  .fchip .u { font-size:0.72rem; font-weight:600; opacity:0.7; }
-  .fnote { margin:0.5rem 0 0; font-size:0.85rem; color:var(--ink); line-height:1.45; }
-  .fmeta { margin:0.3rem 0 0; font-size:0.78rem; color:var(--muted); }
-  .f-good { border-left-color:#2eb86a; } .f-good .fbadge { background:#187a40; }
-  .f-fair { border-left-color:#e0a800; } .f-fair .fbadge { background:#8f6800; }
-  .f-low { border-left-color:#d44230; } .f-low .fbadge { background:#b5301f; }
-  .f-level { border-left-color:var(--accent); } .f-level .fbadge { background:var(--btn); }
-  .fguide { margin-top:1.6rem; background:var(--card); border-radius:12px; padding:0.9rem 1.1rem; box-shadow:0 1px 3px rgba(0,0,0,0.07); }
-  .fguide h2 { font-size:1.05rem; margin:0 0 0.3rem; }
-  .fguide p, .fguide ul { font-size:0.88rem; color:var(--muted); line-height:1.55; margin:0.3rem 0 0; }
-  .fguide ul { padding-left:1.1rem; }
-  .safety { margin-top:1.4rem; font-size:0.85rem; color:var(--muted); border-top:1px solid var(--line); padding-top:0.8rem; }
+  .fw-fish { margin:0 0 0.6rem; font-size:0.9rem; color:var(--muted); }
+  .fgrid { columns:2 20rem; column-gap:2.5rem; }
+  .fcard { break-inside:avoid; padding:0.2rem 0 0.2rem 0.9rem; margin-bottom:1.2rem; border-left:4px solid var(--mark,var(--quiet)); }
+  .fcard-head { display:flex; justify-content:space-between; align-items:baseline; gap:0.8rem; }
+  .fcard-head h3 { margin:0; font-size:1.1rem; }
+  .fbadge { flex:none; font-size:0.9rem; font-weight:600; white-space:nowrap; }
+  .fbadge::before { content:""; display:inline-block; width:0.62em; height:0.62em; margin-right:0.45em; background:var(--mark,var(--quiet)); }
+  .fmetrics { display:flex; flex-wrap:wrap; gap:0.2rem 1.4rem; margin:0.4rem 0 0; }
+  .fchip { font-family:var(--serif); font-size:1.5rem; font-weight:700; }
+  .fchip .fk { display:block; font-family:system-ui,sans-serif; font-size:0.8rem; font-weight:400; color:var(--muted); }
+  .fchip .u { font-family:system-ui,sans-serif; font-size:0.85rem; font-weight:400; color:var(--muted); }
+  .fnote { margin:0.5rem 0 0; font-size:0.95rem; }
+  .fmeta { margin:0.3rem 0 0; font-size:0.85rem; color:var(--muted); }
+  .f-good { --mark:var(--ok); } .f-fair { --mark:var(--warn); } .f-low { --mark:var(--bad); } .f-level { --mark:var(--info); }
+  .fguide p, .fguide ul { color:var(--muted); margin:0.4rem 0 0; }
+  .fguide ul { padding-left:1.2rem; max-width:70ch; }
+  .safety { margin-top:1.4rem; }
 ${WQ_CSS}
 </style>
 </head>

@@ -86,7 +86,8 @@ export function sharedHead(lang, { manifest = true } = {}) {
     ? "Ícono de Crosby News: un sol detrás de una nube sobre azul marino"
     : "Crosby News app icon: a sun behind a cloud on navy blue";
   return `<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#0b3d61">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#141414" media="(prefers-color-scheme: dark)">
 <meta property="og:site_name" content="crosbynews.com">
 <meta property="og:image" content="${SITE}${OG_IMAGE.path}">
 <meta property="og:image:type" content="${OG_IMAGE.type}">

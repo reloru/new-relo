@@ -41,7 +41,7 @@ export function topbar(current, lang = "en") {
   <a class="brand" href="${es ? "/es" : "/"}">crosbynews.com</a>
   <nav>
     <details class="nav-menu">
-      <summary aria-label="${t("Menu", "Menú")}">&#9776;</summary>
+      <summary>${t("Menu", "Menú")}</summary>
       <div class="nav-links">${items.join(" ")}</div>
     </details>
     ${toggle}
@@ -58,12 +58,12 @@ export function footer({ page, lang = "en", source, data }) {
 
   const weatherLine = WEATHER_PAGES.has(page) && data
     ? `${!(data.alerts ?? []).length ? T(lang, "No active weather alerts. ", "Sin alertas meteorológicas activas. ") : ""}${source}<br>
-  ${T(lang, "Updated", "Actualizado")} ${dateStamp(data.updated, lang)} &middot; ${T(lang, "refreshes every 15 minutes.", "se actualiza cada 15 minutos.")}`
+  ${T(lang, "Updated", "Actualizado")} ${dateStamp(data.updated, lang)}. ${T(lang, "Refreshed every 15 minutes.", "Se actualiza cada 15 minutos.")}`
     : source;
 
-  const links = `<div class="footer-links">${PAGES.filter((p) => p.footer).map((p) => lk(p.path, T(lang, p.footer.en, p.footer.es))).join(" &middot; ")} &middot; <a href="${mdHref}">${T(lang, "View as Markdown", "Ver en Markdown")}</a></div>`;
+  const links = `<div class="footer-links">${PAGES.filter((p) => p.footer).map((p) => lk(p.path, T(lang, p.footer.en, p.footer.es))).join(" ")} <a href="${mdHref}">${T(lang, "This page as Markdown", "Esta página en Markdown")}</a></div>`;
 
-  const disclaimer = `<div class="footer-disclaimer">${T(lang, "crosbynews.com is an independent project and is not affiliated with the National Weather Service, NOAA, or any government agency.", "crosbynews.com es un proyecto independiente y no está afiliado al Servicio Meteorológico Nacional, la NOAA ni ninguna agencia gubernamental.")}</div>`;
+  const disclaimer = `<div class="footer-disclaimer">${T(lang, "crosbynews.com is run independently. It is not part of the National Weather Service, NOAA or any government agency.", "crosbynews.com es un sitio independiente. No forma parte del Servicio Meteorológico Nacional, la NOAA ni ninguna agencia de gobierno.")}</div>`;
 
   return `<footer>
   ${weatherLine}

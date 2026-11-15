@@ -83,20 +83,20 @@ export function alertsBanner(alerts, lang) {
     n === 1
       ? esc(primary.event)
       : sameType
-        ? T(lang, `${n} Active ${esc(plural(alerts[0].event))}`, `${n} alertas activas: ${esc(alerts[0].event)}`)
-        : T(lang, `${n} Active Weather Alerts`, `${n} alertas meteorológicas activas`);
+        ? T(lang, `${n} active ${esc(plural(alerts[0].event))}`, `${n} alertas activas: ${esc(alerts[0].event)}`)
+        : T(lang, `${n} active weather alerts`, `${n} alertas meteorológicas activas`);
   let body = "";
   if (n <= 3) {
     const types = !sameType && n > 1 ? `<ul class="ab-types">${[...byType].map(([ev, c]) => `<li>${esc(ev)}${c > 1 ? ` &times;${c}` : ""}</li>`).join("")}</ul>` : "";
     const summary = alertSummaryLine(primary);
     body = `${types}${summary ? `<p class="ab-headline">${esc(summary)}</p>` : ""}`;
   } else {
-    body = `<p class="ab-headline">${T(lang, "Highest severity:", "Mayor severidad:")} ${esc(primary.event)}</p>`;
+    body = `<p class="ab-headline">${T(lang, "Most serious:", "La más grave:")} ${esc(primary.event)}</p>`;
   }
   return `<a class="alert-banner" href="${aUrl}">
-    <p class="ab-title">&#9888;&#65039; ${title}</p>
+    <p class="ab-title">${title}</p>
     ${body}
-    <p class="ab-link">${T(lang, "View all alerts", "Ver todas las alertas")} &rarr;</p>
+    <p class="ab-link">${T(lang, "Read the full alert", "Leer la alerta completa")}</p>
   </a>`;
 }
 
@@ -104,12 +104,12 @@ export function alertsBanner(alerts, lang) {
 // red as /alerts' own status panel — a reader who follows the link should land
 // somewhere that looks like where they came from.
 export const ALERT_BANNER_CSS = `
-  .alert-banner { display:block; background:linear-gradient(135deg,#a3271b,#d44230); color:#fff; text-decoration:none; border-radius:12px; padding:0.85rem 1.05rem; margin-top:0.8rem; }
-  .alert-banner:hover .ab-link { text-decoration:underline; }
-  .ab-title { margin:0; font-weight:800; font-size:1.05rem; }
-  .ab-types { margin:0.3rem 0 0; padding-left:1.15rem; font-size:0.9rem; }
-  .ab-headline { margin:0.35rem 0 0; font-size:0.9rem; opacity:0.95; }
-  .ab-link { margin:0.45rem 0 0; font-size:0.88rem; font-weight:700; }
+  .alert-banner { display:block; background:#b5301f; color:#fff; text-decoration:none; padding:0.8rem 1rem; margin-top:1rem; }
+  .alert-banner p { margin:0; max-width:none; }
+  .ab-title { font-weight:700; font-size:1.1rem; }
+  .ab-types { margin:0.3rem 0 0; padding-left:1.15rem; }
+  .alert-banner .ab-headline { margin-top:0.3rem; }
+  .alert-banner .ab-link { margin-top:0.4rem; text-decoration:underline; }
 `;
 
 export function alertsHtml(data, lang, burnban) {
@@ -121,14 +121,13 @@ export function alertsHtml(data, lang, burnban) {
   const status = alerts.length
     ? `<section class="alerts" aria-label="${T(lang, "Active weather alerts", "Alertas meteorológicas activas")}">
     <div class="status status-alert">
-      <span class="status-icon">&#9888;</span>
       <div><p class="status-title">${T(lang, `${alerts.length} active weather ${alerts.length === 1 ? "alert" : "alerts"}`, `${alerts.length} ${alerts.length === 1 ? "alerta meteorológica activa" : "alertas meteorológicas activas"}`)}</p>
-      <p class="status-sub">${T(lang, "for Crosby, TX &mdash; details below. Follow official guidance.", "para Crosby, TX &mdash; detalles abajo. Sigue la guía oficial.")}</p></div>
+      <p class="status-sub">${T(lang, "for Crosby. The full text of each is below.", "para Crosby. El texto completo de cada una está abajo.")}</p></div>
     </div>${alerts
       .map(
         (a) => `
     <article class="alert">
-      <h3>&#9888; ${esc(a.event)}</h3>
+      <h3>${esc(a.event)}</h3>
       ${a.headline ? `<p class="headline">${esc(a.headline)}</p>` : ""}
       ${a.description ? `<p>${nl2br(a.description)}</p>` : ""}
       ${a.instruction ? `<p class="instruction"><strong>${T(lang, "What to do:", "Qué hacer:")}</strong> ${nl2br(a.instruction)}</p>` : ""}
@@ -137,9 +136,8 @@ export function alertsHtml(data, lang, burnban) {
       )
       .join("")}</section>`
     : `<div class="status status-ok" role="status">
-    <span class="status-icon">&#10004;</span>
-    <div><p class="status-title">${T(lang, "All clear", "Todo despejado")}</p>
-    <p class="status-sub">${T(lang, "No active weather alerts for Crosby, TX right now. This page checks for new alerts every 15 minutes.", "Sin alertas meteorológicas activas para Crosby, TX en este momento. Esta página busca nuevas alertas cada 15 minutos.")}</p></div>
+    <div><p class="status-title">${T(lang, "No alerts for Crosby", "Sin alertas para Crosby")}</p>
+    <p class="status-sub">${T(lang, "The National Weather Service has nothing in effect here. This page checks again every 15 minutes.", "El Servicio Meteorológico Nacional no tiene nada vigente aquí. Esta página vuelve a revisar cada 15 minutos.")}</p></div>
   </div>`;
 
   // The guide is reference material, clearly framed as "what these mean" so the
@@ -148,8 +146,8 @@ export function alertsHtml(data, lang, burnban) {
     (g) => `
     <article class="ref">
       <h3>${esc(g.event)}</h3>
-      <p class="ref-line"><span class="ref-label">${T(lang, "Means", "Significa")}</span> ${esc(g.what)}</p>
-      <p class="ref-line"><span class="ref-label">${T(lang, "Do", "Qué hacer")}</span> ${esc(g.do)}</p>
+      <p class="ref-line"><span class="ref-label">${T(lang, "It means:", "Significa:")}</span> ${esc(g.what)}</p>
+      <p class="ref-line"><span class="ref-label">${T(lang, "What to do:", "Qué hacer:")}</span> ${esc(g.do)}</p>
     </article>`
   ).join("");
 
@@ -170,39 +168,22 @@ ${hreflangTags("/alerts")}
 <link rel="alternate" type="application/rss+xml" title="Crosby, TX Weather Alerts (RSS)" href="/alerts.xml">
 ${JSONLD_SITE}
 <style>${BASE_CSS}
-  /* Big, calm status panel — the first thing you see. */
-  .status { display:flex; align-items:center; gap:1rem; border-radius:16px; padding:1.4rem 1.5rem; margin-top:0.8rem; }
-  .status-icon { font-size:2.6rem; line-height:1; flex:none; }
-  .status-title { margin:0; font-size:1.7rem; font-weight:800; line-height:1.1; }
-  .status-sub { margin:0.35rem 0 0; font-size:1rem; opacity:0.95; }
-  .status-ok { background:linear-gradient(135deg,#15693a,#1e8649); color:#fff; }
-  .status-alert { background:linear-gradient(135deg,#a3271b,#d44230); color:#fff; }
-
-  /* Active-alert detail cards (only shown when alerts exist). */
-  .alerts { display:grid; gap:0.6rem; margin-top:0.5rem; }
-  .alert { background:#fff4f3; border-left:5px solid #c0392b; border-radius:10px; padding:0.8rem 1rem; }
-  .alert h3 { margin:0 0 0.3rem; color:#a3271b; }
+  .alerts { margin-top:0.5rem; }
+  .alert { border-left:4px solid var(--bad); padding:0.2rem 0 0.2rem 0.9rem; margin-top:1.4rem; }
+  .alert h3 { margin:0 0 0.3rem; font-size:1.25rem; }
   .alert .headline { font-weight:700; }
-  .alert .instruction { background:rgba(255,255,255,0.65); border-radius:6px; padding:0.5rem 0.7rem; }
-  .alert .meta { font-size:0.8rem; color:var(--muted); }
-  @media (prefers-color-scheme: dark) { .alert { background:#2a1715; } .alert .instruction { background:rgba(0,0,0,0.25); } }
-
-  /* Reference section — deliberately calm/muted so it reads as a glossary,
-     not as active warnings. */
-  .ref-head { margin-top:2rem; }
-  .ref-note { color:var(--muted); margin:0.5rem 0 1rem; font-size:0.95rem; line-height:1.55; }
-  .ref-grid { display:grid; gap:0.5rem; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); margin-top:0.7rem; }
-  .ref { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:0.7rem 0.9rem; }
-  .ref h3 { margin:0 0 0.35rem; font-size:0.98rem; color:var(--muted); font-weight:700; }
-  .ref-line { margin:0.25rem 0; font-size:0.85rem; }
-  .ref-label { display:inline-block; min-width:3.1rem; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.04em; font-weight:700; color:var(--link); }
-  .intro { color:var(--muted); margin:0.6rem 0 0; }
-  .push-optin { margin-top:1rem; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:0.9rem 1.1rem; }
-  .push-optin .push-desc { margin:0 0 0.6rem; font-size:0.95rem; }
-  .push-btn { font:inherit; font-weight:700; color:#fff; background:var(--btn); border:none; border-radius:8px; padding:0.55rem 1rem; cursor:pointer; }
-  .push-btn:hover { filter:brightness(1.07); }
+  .alert .meta { font-size:0.9rem; color:var(--muted); }
+  .ref-note { color:var(--muted); margin:0.5rem 0 0; }
+  .ref-grid { columns:2 20rem; column-gap:2.5rem; margin-top:0.4rem; }
+  .ref { break-inside:avoid; padding:0.7rem 0; border-bottom:1px solid var(--line); }
+  .ref h3 { margin:0 0 0.2rem; font-size:1.05rem; }
+  .ref-line { margin:0.15rem 0; font-size:0.95rem; }
+  .ref-label { font-weight:600; }
+  .push-optin { margin-top:1.4rem; padding:0.9rem 1rem; border:1px solid var(--rule); max-width:38rem; }
+  .push-optin .push-desc { margin:0 0 0.6rem; }
+  .push-btn { font:inherit; font-weight:600; color:#fff; background:var(--btn); border:none; padding:0.55rem 1rem; cursor:pointer; }
   .push-btn:disabled { opacity:0.6; cursor:default; }
-  .push-status { margin:0.5rem 0 0; font-size:0.85rem; color:var(--muted); }
+  .push-status { margin:0.5rem 0 0; font-size:0.9rem; color:var(--muted); }
 </style>
 </head>
 <body>
@@ -216,10 +197,10 @@ ${topbar("/alerts", lang)}
   <section class="push-optin" id="push-optin" hidden aria-label="${T(lang, "Severe weather alerts on this device", "Alertas de clima severo en este dispositivo")}"
     data-sub="${T(lang, "Turn on severe alerts", "Activar alertas severas")}"
     data-unsub="${T(lang, "Turn off alerts on this device", "Desactivar alertas en este dispositivo")}"
-    data-off="${T(lang, "Get a push notification on this device when a tornado, flash flood, or hurricane warning is issued for Crosby. No account needed, and you can turn it off anytime. Detailed alert text stays in official NWS English.", "Recibe una notificación en este dispositivo cuando se emita un aviso de tornado, inundación repentina o huracán para Crosby. Sin cuenta, y puedes desactivarla cuando quieras. El texto detallado de la alerta permanece en el inglés oficial del NWS.")}"
-    data-on="${T(lang, "Alerts are on for this device. You'll be notified of tornado, flash-flood, and hurricane warnings for Crosby.", "Las alertas están activadas en este dispositivo. Se te notificará de avisos de tornado, inundación repentina y huracán para Crosby.")}"
-    data-blocked="${T(lang, "Notifications are blocked in your browser settings. Enable them for this site to receive alerts.", "Las notificaciones están bloqueadas en la configuración de tu navegador. Actívalas para este sitio para recibir alertas.")}"
-    data-error="${T(lang, "Couldn't update alerts just now. Please try again.", "No se pudieron actualizar las alertas ahora. Inténtalo de nuevo.")}"
+    data-off="${T(lang, "Get a push notification on this device when a tornado, flash flood, or hurricane warning is issued for Crosby. There is no account to create, and you can turn it off whenever you like.", "Recibe una notificación en este dispositivo cuando se emita un aviso de tornado, inundación repentina o huracán para Crosby. Sin cuenta, y puedes desactivarla cuando quieras. El texto detallado de la alerta permanece en el inglés oficial del NWS.")}"
+    data-on="${T(lang, "Alerts are on for this device. It will be notified of tornado, flash flood and hurricane warnings for Crosby.", "Las alertas están activadas en este dispositivo. Se te notificará de avisos de tornado, inundación repentina y huracán para Crosby.")}"
+    data-blocked="${T(lang, "Your browser is blocking notifications from this site. Allow them in its settings to get alerts.", "Las notificaciones están bloqueadas en la configuración de tu navegador. Actívalas para este sitio para recibir alertas.")}"
+    data-error="${T(lang, "That did not go through. Try again in a moment.", "No se pudieron actualizar las alertas ahora. Inténtalo de nuevo.")}"
     data-ios="${T(lang, "To get severe-weather alerts on an iPhone, first add this site to your Home Screen: tap the Share button, choose “Add to Home Screen,” then open Crosby News from that icon and come back to this page.", "Para recibir alertas de clima severo en un iPhone, primero agrega este sitio a tu pantalla de inicio: toca el botón Compartir, elige «Agregar a pantalla de inicio», luego abre Crosby News desde ese ícono y vuelve a esta página.")}">
     <p class="push-desc"></p>
     <button type="button" class="push-btn" aria-pressed="false"></button>
@@ -227,8 +208,8 @@ ${topbar("/alerts", lang)}
   </section>
 
   <div>
-  <h2 class="ref-head">${T(lang, "Severe Weather Guide", "Guía de clima severo")}</h2>
-  <p class="ref-note">${T(lang, `The guide below explains common NWS alert types in plain language &mdash; what each one means and what to do if one is issued. It&rsquo;s here for reference; no action is needed when the status above shows &ldquo;All clear.&rdquo; If an alert is active for Crosby, the panel at the top of this page turns red and shows the full alert. In any emergency, call&nbsp;911 and follow guidance from local officials and the <a href="https://www.weather.gov/hgx/">NWS Houston/Galveston</a> office.`, `La guía siguiente explica en lenguaje sencillo los tipos de alerta más comunes del NWS: qué significa cada una y qué hacer si se emite. Está aquí como referencia; no se requiere ninguna acción cuando el estado de arriba indica «Todo despejado». Si hay una alerta activa para Crosby, el panel de la parte superior de esta página se vuelve rojo y muestra la alerta completa. En cualquier emergencia, llama al&nbsp;911 y sigue las indicaciones de las autoridades locales y de la <a href="https://www.weather.gov/hgx/">oficina del NWS en Houston/Galveston</a>.`)}</p>
+  <h2 class="ref-head">${T(lang, "What each alert means", "Qué significa cada alerta")}</h2>
+  <p class="ref-note">${T(lang, `These are the alerts the National Weather Service issues most often here, with what each one means and what to do when you see it. They are listed for reference and are not in effect unless they appear at the top of this page. In an emergency, call&nbsp;911 and follow local officials and the <a href="https://www.weather.gov/hgx/">NWS Houston/Galveston</a> office.`, `Estas son las alertas que el Servicio Meteorológico Nacional emite con más frecuencia aquí, con lo que significa cada una y qué hacer cuando la veas. Están aquí como referencia y no están vigentes a menos que aparezcan en la parte superior de esta página. En una emergencia, llama al&nbsp;911 y sigue a las autoridades locales y a la <a href="https://www.weather.gov/hgx/">oficina del NWS en Houston/Galveston</a>.`)}</p>
   <div class="ref-grid">${guide}</div>
   </div>
 </main>

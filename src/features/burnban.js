@@ -579,10 +579,10 @@ export function burnbanHtml(data, lang, weather, periods) {
 
   const known = data.status === "Yes" || data.status === "No";
   const status = !known
-    ? `<div class="status status-unknown" role="status"><span class="status-icon">&#10067;</span><div><p class="status-title">${T(lang, "Status unavailable", "Estado no disponible")}</p><p class="status-sub">${T(lang, "The Texas A&M Forest Service feed didn't return a status on the last check. Check with the Harris County Fire Marshal's Office below.", "El feed del Servicio Forestal de Texas A&M no devolvió un estado en la última verificación. Consulta con la Oficina del Jefe de Bomberos del Condado de Harris abajo.")}</p></div></div>`
+    ? `<div class="status status-unknown" role="status"><div><p class="status-title">${T(lang, "Status unavailable", "Estado no disponible")}</p><p class="status-sub">${T(lang, "The Texas A&M Forest Service feed didn't return a status on the last check. Check with the Harris County Fire Marshal's Office below.", "El feed del Servicio Forestal de Texas A&M no devolvió un estado en la última verificación. Consulta con la Oficina del Jefe de Bomberos del Condado de Harris abajo.")}</p></div></div>`
     : data.status === "Yes"
-      ? `<div class="status status-ban" role="status"><span class="status-icon">&#128293;</span><div><p class="status-title">${T(lang, "Burn ban in effect", "Prohibición de quemas vigente")}</p><p class="status-sub">${T(lang, "Outdoor burning is prohibited in unincorporated Harris County, which includes Crosby.", "Está prohibido quemar al aire libre en el condado de Harris no incorporado, que incluye a Crosby.")}</p></div></div>`
-      : `<div class="status status-ok" role="status"><span class="status-icon">&#10004;</span><div><p class="status-title">${T(lang, "No burn ban in Harris County", "Sin prohibición de quemas en el condado de Harris")}</p><p class="status-sub">${T(lang, "The Texas A&M Forest Service is not reporting an active outdoor-burning ban for Harris County right now.", "El Servicio Forestal de Texas A&M no reporta una prohibición de quemas activa para el condado de Harris en este momento.")}</p></div></div>`;
+      ? `<div class="status status-ban" role="status"><div><p class="status-title">${T(lang, "Burn ban in effect", "Prohibición de quemas vigente")}</p><p class="status-sub">${T(lang, "Outdoor burning is prohibited in unincorporated Harris County, which includes Crosby.", "Está prohibido quemar al aire libre en el condado de Harris no incorporado, que incluye a Crosby.")}</p></div></div>`
+      : `<div class="status status-ok" role="status"><div><p class="status-title">${T(lang, "No burn ban in Harris County", "Sin prohibición de quemas en el condado de Harris")}</p><p class="status-sub">${T(lang, "The Texas A&M Forest Service is not reporting an active outdoor-burning ban for Harris County right now.", "El Servicio Forestal de Texas A&M no reporta una prohibición de quemas activa para el condado de Harris en este momento.")}</p></div></div>`;
 
   // Freshness, directly under the status panel and ahead of the history line.
   // It used to be a trailing clause on the long intro sentence
@@ -651,63 +651,24 @@ ${sharedHead(lang)}
 ${hreflangTags("/burn-ban")}
 ${JSONLD_SITE}
 <style>${BASE_CSS}
-  .tbl-wrap { overflow-x:auto; margin-top:0.5rem; }
-  .tbl { border-collapse:collapse; font-size:0.88rem; width:100%; }
-  .tbl th, .tbl td { border:1px solid var(--line); padding:0.35rem 0.55rem; text-align:left; vertical-align:top; }
-  .tbl th { background:var(--card); }
-  .bans .note { font-size:0.85rem; color:var(--muted); }
-  .status { display:flex; align-items:center; gap:1rem; border-radius:16px; padding:1.2rem 1.4rem; margin-top:0.8rem; color:#fff; }
-  .status-icon { font-size:2.4rem; line-height:1; flex:none; }
-  .status-title { margin:0; font-size:1.5rem; font-weight:800; line-height:1.1; }
-  .status-sub { margin:0.35rem 0 0; font-size:0.98rem; opacity:0.95; }
-  .status-ok { background:linear-gradient(135deg,#15693a,#1e8649); }
-  .status-ban { background:linear-gradient(135deg,#b3400d,#c15416); }
-  .status-unknown { background:linear-gradient(135deg,#5b6470,#6b7585); }
-  .intro { color:var(--muted); margin:0.6rem 0 0; }
-  .fw { margin-top:1.4rem; }
-  .fw h2 { font-size:1.15rem; margin:0 0 0.3rem; }
-  .fw-alert { margin:0.4rem 0; padding:0.6rem 0.8rem; background:#fff4f3; border-left:5px solid #c0392b; border-radius:8px; font-weight:700; font-size:0.95rem; }
-  .fw-alert a { color:var(--link); }
-  @media (prefers-color-scheme: dark) { .fw-alert { background:#2a1715; } }
-  .fw-note { margin:0.5rem 0 0; font-size:0.9rem; font-weight:600; color:var(--ink); }
-  .nb { margin-top:1.4rem; }
+  .status-ban { --mark:var(--hot); }
+  .fw-alert { margin:0.5rem 0; padding-left:0.9rem; border-left:4px solid var(--bad); font-weight:700; }
+  .fw-note { margin:0.5rem 0 0; font-weight:600; }
   .nb p { margin:0.25rem 0; }
-  .peek { list-style:none; margin:0.4rem 0 0; padding:0; }
-  .peek li { display:flex; justify-content:space-between; gap:0.6rem; padding:0.28rem 0; border-bottom:1px solid var(--line); font-size:0.9rem; }
-  .peek li:last-child { border-bottom:none; }
-  .pk-label { color:var(--muted); flex:none; }
-  .pk-val { text-align:right; }
-  .checked { margin:0.55rem 0 0; font-size:0.92rem; font-weight:600; color:var(--ink); }
-  .since { margin:0.3rem 0 0; font-size:0.92rem; font-weight:600; color:var(--ink); }
-  /* Deliberately NOT a boxed callout: as a bordered card under the status
-     panel this read as a detached cut-out, and the checklist it introduces
-     looked unrelated. It is the section's opening paragraph now. */
-  .lead-note { margin:0.3rem 0 0.2rem; font-size:0.98rem; line-height:1.6; }
-  .check { list-style:none; margin:0.7rem 0 0; padding:0; display:grid; gap:0.5rem; }
-  .check li { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:0.65rem 0.85rem; }
-  .check h3 { margin:0 0 0.2rem; font-size:0.98rem; }
-  .check p { margin:0; font-size:0.9rem; color:var(--muted); line-height:1.5; }
-  .check a { color:var(--link); white-space:nowrap; }
-  /* Bordered so it reads as something you can open. Unstyled <details> gave
-     no affordance beyond the marker and people missed that these expand. */
-  .faq { margin-top:0.5rem; font-size:0.95rem; background:var(--card); border:1px solid var(--line); border-radius:10px; padding:0.6rem 0.85rem; }
+  .peek { margin-top:0.4rem; max-width:24rem; }
+  .checked, .since { margin:0.5rem 0 0; }
+  .lead-note { margin:0.3rem 0 0.2rem; }
+  .check { list-style:none; margin:0.5rem 0 0; padding:0; max-width:70ch; }
+  .check li { padding:0.6rem 0; border-bottom:1px solid var(--line); }
+  .check h3 { margin:0 0 0.15rem; font-family:inherit; font-size:1rem; }
+  .check p { margin:0; color:var(--muted); }
+  .faq { border-bottom:1px solid var(--line); padding:0.6rem 0; max-width:70ch; }
   .faq summary { cursor:pointer; font-weight:600; }
-  .faq[open] summary { margin-bottom:0.2rem; }
-  .faq p { margin:0.4rem 0 0.1rem; color:var(--muted); line-height:1.55; }
-  .res { margin-top:1.6rem; }
-  .res h2 { font-size:1.15rem; }
-  /* Rows, not bullets. As "link &mdash; note" on one 0.92rem line this was eight
-     same-coloured links stacked with nothing between them — no way to scan for
-     the one you wanted. The label now carries the colour and the weight, the
-     note drops to --muted underneath it, and a rule separates each row. */
-  .links { list-style:none; margin:0.7rem 0 0; padding:0; }
-  .links li { padding:0.7rem 0; border-top:1px solid var(--line); }
-  .links li:first-child { border-top:none; padding-top:0.2rem; }
-  .links a { font-weight:600; font-size:1rem; }
-  .link-note { display:block; margin-top:0.2rem; font-size:0.88rem; line-height:1.45; color:var(--muted); }
-  .guide { margin-top:1.6rem; }
-  .guide h2 { font-size:1.15rem; }
-  .guide p { font-size:0.95rem; line-height:1.55; }
+  .faq p { margin:0.4rem 0 0.1rem; color:var(--muted); }
+  .links { list-style:none; margin:0.5rem 0 0; padding:0; }
+  .links li { padding:0.6rem 0; margin:0; border-bottom:1px solid var(--line); }
+  .links a { font-weight:600; }
+  .link-note { display:block; margin-top:0.15rem; font-size:0.9rem; color:var(--muted); }
 </style>
 </head>
 <body>

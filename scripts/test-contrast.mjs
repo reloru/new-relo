@@ -76,7 +76,7 @@ console.log("\n--accent must not carry text — every readable use is --link / -
 // Large display numerals are exempt: WCAG's large-text threshold is 18.66px
 // bold, and these are 1.45rem/800 and 1.5rem/800 with no root font-size
 // override, so 3:1 applies to them and --accent clears it.
-const LARGE_TEXT_OK = new Set([".cal-day", ".period .temp"]);
+const LARGE_TEXT_OK = new Set();
 const sources = readdirSync("src", { recursive: true }).filter((f) => f.endsWith(".js"));
 const offenders = [];
 for (const file of sources) {
@@ -93,29 +93,40 @@ for (const file of sources) {
 }
 check("no new --accent text colour", offenders.length === 0, offenders.join("\n          "));
 
-// And the exempt ones must still clear the LARGE-text bar they are exempt under.
+// --- Status marks ---------------------------------------------------------
+//
+// A status is a word in the text colour with a square or a left rule beside
+// it in a status colour. The colour never carries text, so it owes 3:1
+// against the page (WCAG 1.4.11), in both themes. The seven tokens are the
+// only status colours: a page sets --mark or --pg to one of them.
+console.log("\nStatus marks: 3:1 on --bg in both themes:\n");
+
+const MARKS = ["--ok", "--warn", "--hot", "--bad", "--severe", "--maroon", "--info", "--quiet"];
 for (const [theme, t] of [["light", light], ["dark", dark]]) {
-  const r = ratio(t["--accent"], t["--card"]);
-  check(`${theme}: --accent large display numerals clear 3:1`, r >= AA_UI, `${r.toFixed(2)}:1 (needs ${AA_UI})`);
+  for (const m of MARKS) {
+    const r = t[m] ? ratio(t[m], t["--bg"]) : 0;
+    check(`${theme}: ${m} on --bg clears 3:1`, r >= AA_UI, t[m] ? `${t[m]} = ${r.toFixed(2)}:1` : "token missing");
+  }
 }
+const rawMarks = [];
+let markUses = 0;
+for (const file of sources) {
+  readFileSync(`src/${file}`, "utf8").split("\n").forEach((line, i) => {
+    for (const [, value] of line.matchAll(/--(?:mark|pg)\s*:\s*([^;}]+)/g)) {
+      markUses++;
+      if (!/^var\(--[a-z]+\)$/.test(value.trim())) rawMarks.push(`${file}:${i + 1}  ${value.trim()}`);
+    }
+  });
+}
+check(`${markUses} status marks all use a token`, markUses >= 30 && rawMarks.length === 0, rawMarks.join("\n          ") || "fewer than 30 found: renamed?");
 
 // --- Coloured fills under white text --------------------------------------
 //
-// The status banners, AQI hero, and gauge/fishing/hub badges set white text on
-// a hard-coded fill or gradient. Every one of those carries normal-size text
-// (the banners' sub-line, the badges' labels), so EVERY gradient stop must
-// clear 4.5:1 against white — text sits over the light end as often as the dark
-// one. Before 2026-11-10 the green fill measured 4.32:1, its gradient end
-// 2.57:1, and the amber/orange/gray ends 2.2-3.8:1; the palette sweep above
-// never saw them because they are not tokens.
-//
-// Two sources, both read from the shipped files:
-//   1. any rule that declares `color:#fff` and a hard-coded background on the
-//      same line (finds new ones without anyone listing them);
-//   2. modifier rules that only set the background of a white-text element
-//      declared elsewhere (`.status-ok`, `.w-normal .gauge-badge`, `.a-good`).
-//      Each pattern must match at least once, so a rename cannot make this vacuous.
-console.log("\nColoured fills carrying white text — every stop AA (4.5:1):\n");
+// A few things still set white text on a hard-coded fill: the active-alert
+// banner and panel, the buttons. Any rule that declares color:#fff and a
+// background on the same line is measured, so a new one is found without
+// anyone listing it. Every colour in the background must clear 4.5:1.
+console.log("\nColoured fills carrying white text: AA (4.5:1):\n");
 
 const WHITE = "#ffffff";
 const BLUE_TOKENS = { "var(--blue)": light["--blue"], "var(--btn)": light["--btn"], "var(--accent)": light["--accent"] };
@@ -123,53 +134,24 @@ const stopsIn = (bg) => [
   ...[...bg.matchAll(/#[0-9a-fA-F]{6}\b|#[0-9a-fA-F]{3}\b/g)].map((m) => m[0]),
   ...Object.entries(BLUE_TOKENS).filter(([v]) => bg.includes(v)).map(([, hex]) => hex),
 ];
-const MODIFIERS = [
-  ["features/home.js", /^\.hub-water\.[\w-]+ \.hub-water-badge$/],
-  ["features/water.js", /^\.w-[\w-]+ \.gauge-badge$/],
-  ["features/water.js", /^\.status-[\w-]+$/],
-  ["features/fishing.js", /^\.f-[\w-]+ \.fbadge$/],
-  ["features/traffic.js", /^\.status-[\w-]+$/],
-  ["features/tropics.js", /^\.status-[\w-]+$/],
-  ["features/burnban.js", /^\.status-[\w-]+$/],
-  ["features/air.js", /^\.a-[\w-]+$/],
-];
-const STRUCTURAL = new Set([".status-icon", ".status-title", ".status-sub"]);
 const fills = []; // [where, selector, stop]
 for (const file of sources) {
-  const text = readFileSync(`src/${file}`, "utf8");
-  const mods = MODIFIERS.filter(([f]) => file.replace(/\\/g, "/") === f).map(([, re]) => re);
-  text.split("\n").forEach((line, i) => {
-    // Several rules can share a line (`.w-normal { … } .w-normal .gauge-badge { … }`).
+  readFileSync(`src/${file}`, "utf8").split("\n").forEach((line, i) => {
     for (const [, rawSel, body] of line.matchAll(/([^{}@]+?)\s*\{([^{}]*)\}/g)) {
-      const selector = rawSel.trim();
       const bg = /(?:^|;)\s*background\s*:\s*([^;]+)/.exec(body)?.[1];
-      if (!bg) continue;
-      const whiteHere = /(?<![-a-z])color\s*:\s*#fff(?:fff)?\b/i.test(body);
-      const isModifier = mods.some((re) => re.test(selector)) && !STRUCTURAL.has(selector);
-      if (!whiteHere && !isModifier) continue;
-      for (const stop of stopsIn(bg)) fills.push([`${file}:${i + 1}`, selector, stop]);
+      if (!bg || !/(?<![-a-z])color\s*:\s*#fff(?:fff)?\b/i.test(body)) continue;
+      for (const stop of stopsIn(bg)) fills.push([`${file}:${i + 1}`, rawSel.trim(), stop]);
     }
   });
 }
-for (const [f, re] of MODIFIERS) {
-  const hit = fills.some(([where, sel]) => where.startsWith(`${f}:`) && re.test(sel));
-  check(`modifier pattern still matches: ${f} ${re}`, hit, "renamed? update MODIFIERS so these fills stay measured");
+// Written out by hand: the two that matter most must be among those measured.
+for (const sel of [".status-alert", ".alert-banner"]) {
+  check(`${sel} is measured`, fills.some(([, s]) => s === sel), "renamed, or its colour and background moved to separate lines?");
 }
 const lowFills = fills.filter(([, , stop]) => ratio(WHITE, stop) < AA_TEXT);
-check(`${fills.length} fill stops under white text are AA`, lowFills.length === 0,
+check(`${fills.length} fills under white text are AA`, lowFills.length === 0,
   lowFills.map(([w, s, stop]) => `${w}  ${s}  ${stop} = ${ratio(WHITE, stop).toFixed(2)}:1`).join("\n          "));
-
-// Pollen category names are coloured TEXT on --card, in both themes, and at
-// 1.35rem/800 they are large text (3:1).
-const pollenText = readFileSync("src/features/pollen.js", "utf8");
-const pcats = [...pollenText.matchAll(/\.(c-[\w-]+) \.pcat \{ color:(#[0-9a-fA-F]{6}); \}/g)];
-check("pollen category colours found", pcats.length >= 4, `found ${pcats.length}`);
-for (const [, cls, hex] of pcats) {
-  for (const [theme, t] of [["light", light], ["dark", dark]]) {
-    const r = ratio(hex, t["--card"]);
-    check(`${theme}: pollen .${cls} label on --card clears 3:1 (large text)`, r >= AA_UI, `${hex} = ${r.toFixed(2)}:1`);
-  }
-}
+check("no gradient under text", !sources.some((file) => /linear-gradient|radial-gradient/.test(readFileSync(`src/${file}`, "utf8"))), "a gradient has more than one colour to clear; use a flat fill");
 
 console.log(
   failed === 0
