@@ -76,6 +76,14 @@ const page = async (path, accept = "text/html") => (await h.get(path, { headers:
 }
 {
   const entry = await h.kv.get("burnban", "json");
+  entry.neighbors = [{ county: "Brazoria", status: "Yes" }, { county: "Waller", status: "Yes" }];
+  await h.kv.put("burnban", JSON.stringify(entry));
+  const html = await page("/burn-ban");
+  has(html, "<p><strong>Burn ban:</strong> Brazoria, Waller</p>", "every neighbor banned");
+  ok(!html.includes("<strong>No burn ban:</strong>"), "…shows no empty \"No burn ban\" line");
+}
+{
+  const entry = await h.kv.get("burnban", "json");
   delete entry.neighbors;
   await h.kv.put("burnban", JSON.stringify(entry));
   const html = await page("/burn-ban");
