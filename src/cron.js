@@ -216,7 +216,9 @@ export async function scheduled(event, env, ctx) {
     try {
       const cur = await env.WEATHER.get(BURNBAN_KV_KEY, "json");
       const age = cur?.updated ? Date.now() - new Date(cur.updated).getTime() : Infinity;
-      if (!cur || (cur.status !== "Yes" && cur.status !== "No") || age > 4 * 3600 * 1000) {
+      // An entry from before the neighbor strip shipped is refreshed at once
+      // rather than waiting out the 4-hour gate.
+      if (!cur || (cur.status !== "Yes" && cur.status !== "No") || !Array.isArray(cur.neighbors) || age > 4 * 3600 * 1000) {
         // burnbanHistory carries the status-history stamps forward off the
         // PREVIOUS entry, so the write has to be built from `cur` — a bare
         // fetchBurnBan() result would reset "since when" on every refresh.

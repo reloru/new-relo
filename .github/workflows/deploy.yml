@@ -90,11 +90,17 @@ jobs:
       # all-day end; consecutive days merging into a named break.
       - name: Check calendar key dates
         run: node scripts/test-calendar-keys.mjs
-      # /burn-ban's past-bans table: every hand-entered ban carries its county
-      # release and a named news source for its end, and a D1 failure drops
-      # only the table, never the live status.
+      # /burn-ban's past-bans table: every hand-entered ban starts from its
+      # Commissioners Court record and ends on the terminating record or a
+      # named news source, and a D1 failure drops only the table, never the
+      # live status.
       - name: Check burn-ban history table
         run: node scripts/test-burnban-bans.mjs
+      # /burn-ban's neighboring-counties strip: one TFS query for Harris and
+      # its seven neighbors, a bad neighbor row dropped without failing
+      # Harris, and the strip in both languages and Markdown.
+      - name: Check burn-ban neighbors
+        run: node scripts/test-burnban-neighbors.mjs
       # /rain sums USGS's 15-minute amounts at request time; a day boundary off
       # by one interval or a gap shown as a dry day would read fine and be
       # wrong. Hand-computed totals from seeded readings.

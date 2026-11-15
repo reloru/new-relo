@@ -40,8 +40,19 @@ export const BURNBAN_KV_KEY = "burnban";
 // TFS's public ArcGIS FeatureServer, queried for Harris County only. The
 // where clause is passed verbatim (unencoded) — canary-verified to work as-is
 // from the deployed Worker; encoding it differently is untested.
+//
+// The counties bordering Harris, from the Census Bureau's county adjacency
+// file (county_adjacency2024.txt), fetched in the same query. Shown as a
+// short strip; Harris alone decides the page's status.
+export const BURNBAN_NEIGHBORS = ["Brazoria", "Chambers", "Fort Bend", "Galveston", "Liberty", "Montgomery", "Waller"];
 export const BURNBAN_QUERY_URL =
-  "https://gis.tfs.tamu.edu/arcgis/rest/services/EOC/BurnBan/FeatureServer/0/query?where=County='Harris'&outFields=County,BurnBan,StartDate,FIPS&returnGeometry=false&f=json";
+  "https://gis.tfs.tamu.edu/arcgis/rest/services/EOC/BurnBan/FeatureServer/0/query?" +
+  new URLSearchParams({
+    where: `County IN (${["Harris", ...BURNBAN_NEIGHBORS].map((c) => `'${c}'`).join(",")})`,
+    outFields: "County,BurnBan,StartDate,FIPS",
+    returnGeometry: "false",
+    f: "json",
+  });
 
 export const BURNBAN_OFFICIAL_URL = "https://tfsweb.tamu.edu/wildfire-and-other-disasters/burn-bans-and-information/";
 // The Harris County Fire Marshal's Office is the LOCAL authority — TFS only
@@ -334,16 +345,37 @@ export async function fetchBurnBan() {
   if (!res.ok) throw new Error(`TFS burn ban request failed: ${res.status} ${res.statusText}`);
   const json = await res.json();
   if (json.error) throw new Error(`TFS burn ban query error: ${JSON.stringify(json.error)}`);
-  const feature = (json.features ?? []).find((f) => String(f.attributes?.County ?? "").trim() === "Harris");
-  if (!feature) throw new Error("TFS burn ban response had no Harris County feature");
-  const attrs = feature.attributes;
+  const byCounty = (name) => (json.features ?? []).find((f) => String(f.attributes?.County ?? "").trim() === name)?.attributes;
+  const attrs = byCounty("Harris");
+  if (!attrs) throw new Error("TFS burn ban response had no Harris County feature");
   // BurnBan is a STRING ("Yes"/"No"), not a boolean.
   const status = String(attrs.BurnBan ?? "").trim();
   if (status !== "Yes" && status !== "No") throw new Error(`TFS burn ban returned an unrecognized status: ${JSON.stringify(attrs.BurnBan)}`);
   // StartDate is epoch MILLISECONDS (or null when there's no active ban), not ISO.
   const startDate = Number.isFinite(attrs.StartDate) ? new Date(attrs.StartDate).toISOString() : null;
-  return { updated: new Date().toISOString(), status, startDate };
+  // A neighbor's missing row or unrecognized value drops that county from the
+  // strip rather than failing the fetch: Harris's status must not go stale
+  // over a neighbor.
+  const neighbors = BURNBAN_NEIGHBORS.flatMap((county) => {
+    const s = String(byCounty(county)?.BurnBan ?? "").trim();
+    return s === "Yes" || s === "No" ? [{ county, status: s }] : [];
+  });
+  return { updated: new Date().toISOString(), status, startDate, neighbors };
 }
+
+// The neighbor strip's two lists, or null when the cached entry has none
+// (written before neighbors were fetched, or every row was unusable).
+export function burnbanNeighbors(data) {
+  const n = Array.isArray(data?.neighbors) ? data.neighbors : [];
+  if (!n.length) return null;
+  return { banned: n.filter((x) => x.status === "Yes").map((x) => x.county), clear: n.filter((x) => x.status === "No").map((x) => x.county) };
+}
+
+const neighborLines = (nb, lang) =>
+  [
+    nb.banned.length ? [T(lang, "Burn ban", "Con prohibición de quemas"), nb.banned.join(", ")] : null,
+    nb.clear.length ? [T(lang, "No burn ban", "Sin prohibición"), nb.clear.join(", ")] : null,
+  ].filter(Boolean);
 
 // Merge a fresh observation onto the previous cached entry, carrying the
 // status-history stamps forward. Pure and separate from the fetch so the cron
@@ -569,6 +601,14 @@ export function burnbanHtml(data, lang, weather, periods) {
   </section>`
     : "";
 
+  const nb = burnbanNeighbors(data);
+  const nbBlock = nb
+    ? `<section class="nb" data-nosnippet>
+    <h2>${T(lang, "Neighboring counties", "Condados vecinos")}</h2>
+    ${neighborLines(nb, lang).map(([k, v]) => `<p><strong>${esc(k)}:</strong> ${esc(v)}</p>`).join("\n    ")}
+  </section>`
+    : "";
+
   const checklist = burnbanChecklist(lang)
     .map((c) => {
       const href = c.path ? lk(c.path) : c.url;
@@ -619,6 +659,8 @@ ${JSONLD_SITE}
   .fw-alert a { color:var(--link); }
   @media (prefers-color-scheme: dark) { .fw-alert { background:#2a1715; } }
   .fw-note { margin:0.5rem 0 0; font-size:0.9rem; font-weight:600; color:var(--ink); }
+  .nb { margin-top:1.4rem; }
+  .nb p { margin:0.25rem 0; }
   .peek { list-style:none; margin:0.4rem 0 0; padding:0; }
   .peek li { display:flex; justify-content:space-between; gap:0.6rem; padding:0.28rem 0; border-bottom:1px solid var(--line); font-size:0.9rem; }
   .peek li:last-child { border-bottom:none; }
@@ -666,6 +708,7 @@ ${topbar("/burn-ban", lang)}
   ${checkedLine}
   ${sinceLine}
   ${fwBlock}
+  ${nbBlock}
   <section>
     <h2>${T(lang, "Before you burn", "Antes de quemar")}</h2>
     <p class="lead-note">${lead}</p>
@@ -738,6 +781,12 @@ export function burnbanMarkdown(data, lang, weather, periods) {
     if (fw.alerts.length) out.push(`**⚠️ ${fw.alerts.join(" · ")}** — [${T(lang, "see alerts", "ver alertas")}](${canonicalFor("/alerts", lang)})`, "");
     for (const [k, v] of fw.rows) out.push(`- ${k}: ${v}`);
     if (fw.windNote) out.push("", `**${fw.windNote}**`);
+    out.push("");
+  }
+  const nb = burnbanNeighbors(data);
+  if (nb) {
+    out.push(`## ${T(lang, "Neighboring counties", "Condados vecinos")}`, "");
+    for (const [k, v] of neighborLines(nb, lang)) out.push(`- **${k}:** ${v}`);
     out.push("");
   }
   // Same lead paragraph the HTML view opens this section with — one source,
