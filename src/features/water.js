@@ -78,13 +78,9 @@ export function waterState(g, lang) {
 // pages so a category reads the same colour everywhere. Every badge fill
 // carries white text; scripts/test-contrast.mjs measures these rules here.
 export const WATER_STATE_CSS = `
-  .gauge-badge { flex:none; font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.03em; padding:0.15rem 0.5rem; border-radius:999px; color:#fff; background:#5b6470; white-space:nowrap; }
-  .w-normal { border-left-color:#2eb86a; } .w-normal .gauge-badge { background:#187a40; }
-  .w-action { border-left-color:#e0a800; } .w-action .gauge-badge { background:#8f6800; }
-  .w-minor { border-left-color:#e8720c; } .w-minor .gauge-badge { background:#bf5608; }
-  .w-moderate { border-left-color:#d44230; } .w-moderate .gauge-badge { background:#b5301f; }
-  .w-major { border-left-color:#8e2ec2; } .w-major .gauge-badge { background:#6f1fa0; }
-  .w-monitored { border-left-color:var(--accent); } .w-monitored .gauge-badge { background:var(--btn); }
+  .gauge-badge { flex:none; font-size:0.9rem; font-weight:600; white-space:nowrap; }
+  .gauge-badge::before { content:""; display:inline-block; width:0.62em; height:0.62em; margin-right:0.45em; background:var(--mark,var(--quiet)); }
+  .w-normal { --mark:var(--ok); } .w-action { --mark:var(--warn); } .w-minor { --mark:var(--hot); } .w-moderate { --mark:var(--bad); } .w-major { --mark:var(--severe); } .w-monitored { --mark:var(--info); }
 `;
 
 // Fetch each gauge once and return both what the pages need now and what the
@@ -241,7 +237,7 @@ export function waterHtml(data, lang) {
         <p class="gauge-meta">${ctx ? `${esc(ctx)} &middot; ` : ""}${g.validTime ? `${T(lang, "as of", "a las")} ${timeTag(g.validTime, `${clockTime(g.validTime, lang)} CT`)}` : ""}</p>
         </div>
         ${th ? `<p class="gauge-th">${th}</p>` : ""}
-        ${page ? `<p class="gauge-more"><a href="${lang === "es" ? esPath(page) : page}">${T(lang, "Flood history &rarr;", "Historial de inundaciones &rarr;")}</a></p>` : ""}
+        ${page ? `<p class="gauge-more"><a href="${lang === "es" ? esPath(page) : page}">${T(lang, "Past floods at this gauge", "Inundaciones pasadas en este medidor")}</a></p>` : ""}
       </article>`;
     })
     .join("\n");
@@ -254,8 +250,8 @@ export function waterHtml(data, lang) {
   );
   const status = gauges.length
     ? anyFlooding
-      ? `<div class="status status-alert" role="status"><span class="status-icon">&#9888;</span><div><p class="status-title">${T(lang, "Elevated water levels", "Niveles de agua elevados")}</p><p class="status-sub">${T(lang, "One or more gauges are at or above flood stage &mdash; see below and follow official guidance.", "Uno o más medidores están en etapa de inundación o por encima &mdash; ver abajo y seguir la guía oficial.")}</p></div></div>`
-      : `<div class="status status-ok" role="status"><span class="status-icon">&#10004;</span><div><p class="status-title">${T(lang, "All gauges normal", "Todos los medidores normales")}</p><p class="status-sub">${T(lang, "No area gauges are at flood stage right now. Levels refresh every 15 minutes.", "Ningún medidor del área está en etapa de inundación ahora. Los niveles se actualizan cada 15 minutos.")}</p></div></div>`
+      ? `<div class="status status-alert" role="status"><div><p class="status-title">${T(lang, "Water is high", "El agua está alta")}</p><p class="status-sub">${T(lang, "At least one gauge is at or above flood stage. The readings are below.", "Al menos un medidor está en etapa de inundación o por encima. Las lecturas están abajo.")}</p></div></div>`
+      : `<div class="status status-ok" role="status"><div><p class="status-title">${T(lang, "All gauges are normal", "Todos los medidores están normales")}</p><p class="status-sub">${T(lang, "None of the gauges near Crosby is at flood stage. Readings are refreshed every 15 minutes.", "Ninguno de los medidores cerca de Crosby está en etapa de inundación. Las lecturas se actualizan cada 15 minutos.")}</p></div></div>`
     : `<p class="none">${T(lang, "Water level data is temporarily unavailable.", "Los datos de nivel de agua no están disponibles temporalmente.")}</p>`;
 
   return `<!DOCTYPE html>
@@ -273,40 +269,30 @@ ${sharedHead(lang)}
 ${hreflangTags("/water")}
 ${JSONLD_SITE}
 <style>${BASE_CSS}
-  .status { display:flex; align-items:center; gap:1rem; border-radius:16px; padding:1.2rem 1.4rem; margin-top:0.8rem; color:#fff; }
-  .status-icon { font-size:2.4rem; line-height:1; flex:none; }
-  .status-title { margin:0; font-size:1.5rem; font-weight:800; line-height:1.1; }
-  .status-sub { margin:0.35rem 0 0; font-size:0.98rem; opacity:0.95; }
-  .status-ok { background:linear-gradient(135deg,#15693a,#1e8649); }
-  .status-alert { background:linear-gradient(135deg,#a3271b,#d44230); }
-  .gauges { display:grid; gap:0.7rem; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); margin-top:1rem; }
-  .gauge { background:var(--card); border-radius:12px; padding:0.85rem 1rem; box-shadow:0 1px 3px rgba(0,0,0,0.07); border-left:5px solid var(--muted); }
-  .gauge-head { display:flex; justify-content:space-between; align-items:flex-start; gap:0.5rem; }
-  .gauge-head h2 { margin:0; font-size:1rem; }
-  .gauge-head a { color:var(--ink); text-decoration:none; }
-  .gauge-head a:hover { text-decoration:underline; }
-  .gauge-stage { margin:0.5rem 0 0; font-size:1.9rem; font-weight:800; line-height:1; }
-  .gauge-stage .u { font-size:0.9rem; font-weight:600; opacity:0.7; }
-  .gauge-flow { font-size:0.85rem; font-weight:600; color:var(--muted); }
-  .gauge-meta { margin:0.3rem 0 0; font-size:0.82rem; color:var(--muted); }
-  .gauge-th { margin:0.4rem 0 0; font-size:0.78rem; color:var(--muted); }
-  .gauge-more { margin:0.45rem 0 0; font-size:0.85rem; }
+  .gauges { columns:2 20rem; column-gap:2.5rem; margin-top:1.2rem; }
+  .gauge { break-inside:avoid; padding:0.8rem 0 0.9rem 0.9rem; border-left:4px solid var(--mark,var(--quiet)); margin-bottom:1.1rem; }
+  .gauge-head { display:flex; justify-content:space-between; align-items:baseline; gap:0.8rem; }
+  .gauge-head h2 { margin:0; padding:0; border:0; font-size:1.1rem; }
+  .gauge-head a { color:var(--ink); }
+  .gauge-stage { margin:0.35rem 0 0; font-family:var(--serif); font-size:2.2rem; font-weight:700; line-height:1; }
+  .gauge-stage .u, .gauge-flow { font-family:system-ui,sans-serif; font-size:0.95rem; font-weight:400; color:var(--muted); }
+  .gauge-meta, .gauge-th { margin:0.3rem 0 0; font-size:0.9rem; color:var(--muted); }
+  .gauge-more { margin:0.4rem 0 0; font-size:0.95rem; }
 ${WATER_STATE_CSS}
-  .intro { color:var(--muted); margin:0.6rem 0 0; }
-  .safety { margin-top:1.4rem; font-size:0.85rem; color:var(--muted); border-top:1px solid var(--line); padding-top:0.8rem; }
+  .safety { margin-top:1.4rem; }
 </style>
 </head>
 <body>
 ${topbar("/water", lang)}
 <main id="main">
   <h1>${esc(title)}</h1>
-  <p class="intro">${T(lang, "Current water levels for the rivers and bayous that flood Crosby and northeast Harris County, with each gauge's National Weather Service flood stages. Readings and flood stages both come from the same NWS gauge, so they're directly comparable.", "Niveles de agua actuales de los ríos y arroyos que inundan Crosby y el noreste del condado de Harris, con las etapas de inundación del Servicio Meteorológico Nacional de cada medidor. Las lecturas y las etapas de inundación provienen del mismo medidor del NWS, por lo que son directamente comparables.")}${data.updated ? ` ${T(lang, "Updated", "Actualizado")} ${dateStamp(data.updated, lang)}.` : ""}</p>
+  <p class="intro">${T(lang, "How high the water is on the rivers and bayous that flood Crosby and northeast Harris County, next to the stage at which the National Weather Service says each one floods. The reading and the flood stages come from the same gauge, so the two can be compared directly.", "Qué tan alta está el agua en los ríos y arroyos que inundan Crosby y el noreste del condado de Harris, junto a la etapa en la que el Servicio Meteorológico Nacional dice que cada uno se inunda. La lectura y las etapas de inundación vienen del mismo medidor, así que se pueden comparar directamente.")}${data.updated ? ` ${T(lang, "Updated", "Actualizado")} ${dateStamp(data.updated, lang)}.` : ""}</p>
   <div data-nosnippet>${status}</div>
   <div class="gauges">
 ${cards}
   </div>
-  <p class="safety">${T(lang, "In a flood emergency call 911. Never drive or walk into floodwater &mdash; turn around, don't drown. This page mirrors official NWS data for convenience; the authoritative source for each gauge is linked in its title, and warnings appear on the <a href=\"/alerts\">alerts page</a>.", "En una emergencia por inundación llama al 911. Nunca conduzcas ni camines hacia el agua de inundación &mdash; da la vuelta, no te arriesgues. Esta página refleja datos oficiales del NWS por comodidad; la fuente autorizada de cada medidor está enlazada en su título, y los avisos aparecen en la <a href=\"/es/alerts\">página de alertas</a>.")}</p>
-  <p class="intro"><a href="${lang === "es" ? "/es/weather" : "/weather"}">&larr; ${T(lang, "Back to the forecast", "Volver al pronóstico")}</a> &middot; <a href="${lang === "es" ? "/es/radar" : "/radar"}">Radar</a> &middot; <a href="${lang === "es" ? "/es/rain" : "/rain"}">${T(lang, "Measured rain", "Lluvia medida")}</a></p>
+  <p class="safety">${T(lang, "In a flood emergency, call 911. Never drive or walk into floodwater. These numbers are copied from the National Weather Service. Each gauge's name links to its official page, and flood warnings are on the <a href=\"/alerts\">alerts page</a>.", "En una emergencia por inundación, llama al 911. Nunca manejes ni camines hacia el agua de una inundación. Estos números se copian del Servicio Meteorológico Nacional. El nombre de cada medidor enlaza a su página oficial, y los avisos de inundación están en la <a href=\"/es/alerts\">página de alertas</a>.")}</p>
+  <p>${T(lang, "Related:", "Relacionado:")} <a href="${lang === "es" ? "/es/rain" : "/rain"}">${T(lang, "measured rain", "lluvia medida")}</a>, <a href="${lang === "es" ? "/es/radar" : "/radar"}">${T(lang, "radar", "radar")}</a>, <a href="${lang === "es" ? "/es/weather" : "/weather"}">${T(lang, "forecast", "pronóstico")}</a>.</p>
 </main>
 ${footer({ page: "/water", lang, source: T(lang, `Water data from the NOAA/NWS <a href="https://water.noaa.gov">National Water Prediction Service</a>.`, `Datos de agua del <a href="https://water.noaa.gov">Servicio Nacional de Predicción de Agua</a> de NOAA/NWS.`) })}
 </body>

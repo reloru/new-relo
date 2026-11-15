@@ -315,7 +315,7 @@ ${list
     ? `<h2>${T(lang, "What NOAA says happens at each level", "Lo que NOAA indica que ocurre en cada nivel")}</h2>
     ${lang === "es" ? `<p class="intro nws-note">${"Las descripciones de impacto son de NOAA y se muestran en su idioma oficial (inglés)."}</p>` : ""}
     <ul class="impacts">
-${d.impacts.map((i) => `      <li><strong>${esc(ft(i.stage))} ft</strong> &mdash; <span lang="en">${esc(i.statement)}</span></li>`).join("\n")}
+${d.impacts.map((i) => `      <li><strong>${esc(ft(i.stage))} ft:</strong> <span lang="en">${esc(i.statement)}</span></li>`).join("\n")}
     </ul>`
     : "";
 
@@ -331,7 +331,7 @@ ${d.warnings.map((w) => `        <tr><td>${timeTag(w.issued, ctDate(w.issued, la
     </table></div>`
         : `<p class="none">${T(lang, "The record holds no river flood warnings for this gauge.", "El registro no tiene avisos de inundación fluvial para este medidor.")}</p>`
     }
-    <p class="note">${esc(warningsText(d, lang))} <a href="${lang === "es" ? "/es/history" : "/history"}">${T(lang, "Every NWS warning for Crosby &rarr;", "Todos los avisos del NWS para Crosby &rarr;")}</a></p>`;
+    <p class="note">${esc(warningsText(d, lang))} <a href="${lang === "es" ? "/es/history" : "/history"}">${T(lang, "Every NWS warning for Crosby", "Todos los avisos del NWS para Crosby")}</a></p>`;
 
   const dailySection = `<h2>${T(lang, "Daily readings recorded by this site", "Lecturas diarias registradas por este sitio")}</h2>
     <p class="note">${esc(dailyText(d, lang))}</p>
@@ -376,29 +376,19 @@ ${hreflangTags(d.page)}
 ${JSONLD_SITE}
 <script type="application/ld+json">${breadcrumb}</script>
 <style>${BASE_CSS}
-  .crumbs { font-size:0.85rem; color:var(--muted); margin:0; }
-  .intro { color:var(--muted); margin:0.6rem 0 0; }
-  .lede { margin:0.7rem 0 0; font-size:1.02rem; }
-  .now { background:var(--card); border-radius:12px; padding:0.85rem 1rem; box-shadow:0 1px 3px rgba(0,0,0,0.07); border-left:5px solid var(--muted); margin-top:1rem; }
-  .now-head { display:flex; justify-content:space-between; align-items:flex-start; gap:0.5rem; }
-  .now-head h2 { margin:0; font-size:1rem; }
-  .now-stage { margin:0.5rem 0 0; font-size:1.9rem; font-weight:800; line-height:1; }
-  .now-stage .u { font-size:0.9rem; font-weight:600; opacity:0.7; }
-  .now-meta { margin:0.3rem 0 0; font-size:0.82rem; color:var(--muted); }
-  .stages { margin:0.6rem 0 0; font-size:0.9rem; }
+  .crumbs { font-size:0.9rem; color:var(--muted); margin:0; }
+  .now { margin-top:1.2rem; padding-left:0.9rem; border-left:4px solid var(--mark,var(--quiet)); }
+  .now-head { display:flex; justify-content:space-between; align-items:baseline; gap:0.5rem; }
+  .now-head h2 { margin:0; padding:0; border:0; font-size:1.05rem; }
+  .now-stage { margin:0.3rem 0 0; font-family:var(--serif); font-size:2.4rem; font-weight:700; line-height:1; }
+  .now-stage .u { font-family:system-ui,sans-serif; font-size:0.95rem; font-weight:400; color:var(--muted); }
+  .now-meta { margin:0.3rem 0 0; font-size:0.9rem; color:var(--muted); }
+  .stages { margin:0.6rem 0 0; font-size:0.95rem; }
 ${WATER_STATE_CSS}
-  .tbl-wrap { overflow-x:auto; margin-top:0.5rem; }
-  .tbl { border-collapse:collapse; font-size:0.88rem; width:100%; }
-  .tbl th, .tbl td { border:1px solid var(--line); padding:0.35rem 0.55rem; text-align:left; vertical-align:top; }
-  .tbl th { background:var(--card); }
-  .tbl .num { white-space:nowrap; }
-  .tbl .at { color:var(--muted); font-size:0.8rem; }
+  .tbl .at { color:var(--muted); font-size:0.85rem; }
   .impacts { padding-left:1.2rem; }
-  .impacts li { margin:0.35rem 0; }
-  .note { font-size:0.85rem; color:var(--muted); margin:0.5rem 0 0; }
-  .notes { font-size:0.88rem; padding-left:1.2rem; }
-  .notes li { margin:0.3rem 0; }
-  .safety { margin-top:1.4rem; font-size:0.85rem; color:var(--muted); border-top:1px solid var(--line); padding-top:0.8rem; }
+  .impacts li { margin:0.35rem 0; max-width:70ch; }
+  .safety { margin-top:1.6rem; font-size:0.9rem; color:var(--muted); }
 ${WQ_CSS}
 </style>
 </head>
@@ -433,7 +423,7 @@ ${topbar(d.page, lang)}
 ${notes(d, lang).map((n) => `    <li>${esc(n)}</li>`).join("\n")}
   </ul>
   <p class="safety">${T(lang, `In a flood emergency call 911. Never drive or walk into floodwater. The official source for this gauge is <a href="${nwpsGaugeUrl(d.lid)}">NOAA's gauge page</a>; active warnings appear on the <a href="/alerts">alerts page</a>.`, `En una emergencia por inundación llama al 911. Nunca conduzcas ni camines hacia el agua de inundación. La fuente oficial de este medidor es <a href="${nwpsGaugeUrl(d.lid)}">la página del medidor de NOAA</a>; los avisos activos aparecen en la <a href="/es/alerts">página de alertas</a>.`)}</p>
-  <p class="intro"><a href="${href("/water")}">&larr; ${T(lang, "All water levels", "Todos los niveles de agua")}</a></p>
+  <p class="intro"><a href="${href("/water")}">${T(lang, "All six gauges", "Los seis medidores")}</a></p>
 </main>
 ${footer({ page: d.page, lang, source: T(lang, `Levels, flood stages and crests from the NOAA/NWS <a href="https://water.noaa.gov">National Water Prediction Service</a>; river flood warnings from the National Weather Service and, before 2026-11-12, the <a href="https://mesonet.agron.iastate.edu/">Iowa Environmental Mesonet</a>, Iowa State University.${d.samples?.some((s) => s.visits) ? ` Water samples from the <a href="https://www.tceq.texas.gov/">Texas Commission on Environmental Quality</a>, via the <a href="https://www.waterqualitydata.us/">Water Quality Portal</a>.` : ""}`, `Niveles, etapas y crestas del <a href="https://water.noaa.gov">Servicio Nacional de Predicción de Agua</a> de NOAA/NWS; avisos anteriores del <a href="https://mesonet.agron.iastate.edu/">Iowa Environmental Mesonet</a>, Universidad Estatal de Iowa.${d.samples?.some((s) => s.visits) ? ` Muestras de agua de la <a href="https://www.tceq.texas.gov/">Comisión de Calidad Ambiental de Texas</a>, vía el <a href="https://www.waterqualitydata.us/">Water Quality Portal</a>.` : ""}`) })}
 </body>

@@ -79,7 +79,7 @@ const page = async (path, accept = "text/html") => (await h.get(path, { headers:
   const q = "Is this the burn ban for Crosby County?";
   const html = await page("/burn-ban");
   has(html, `<summary>${q}</summary><p>No. This page is for Crosby, the community in Harris County near Houston. Crosby County is a different county in West Texas, next to Lubbock County,`, "Crosby County FAQ");
-  has(html, "use the statewide “Texas burn ban map” under Resources below.", "…pointing at a link that exists");
+  has(html, "use the statewide “Texas burn ban map” in the list of sources below.", "…pointing at a link that exists");
   has(html, ">Texas burn ban map</a>", "…which is on the page");
   has(await page("/es/burn-ban"), "<summary>¿Esta es la prohibición de quemas del condado de Crosby?</summary>", "Spanish Crosby County FAQ");
   has(await page("/burn-ban", "text/markdown"), `### ${q}\n\nNo. This page is for Crosby`, "Markdown Crosby County FAQ");

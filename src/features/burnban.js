@@ -112,8 +112,8 @@ export function burnbanChecklist(lang) {
       h: T(lang, "Know what you're allowed to burn", "Infórmate sobre qué puedes quemar"),
       p: T(
         lang,
-        "Never burn plastics, tires or rubber, treated lumber, construction debris, chemicals, or heavy oils. Burning household trash is a separate question — see below.",
-        "Nunca quemes plásticos, llantas o hule, madera tratada, escombros de construcción, químicos ni aceites pesados. Quemar basura doméstica es un tema aparte — míralo más abajo."
+        "Never burn plastics, tires or rubber, treated lumber, construction debris, chemicals, or heavy oils. Household trash has its own rule, covered in the questions below.",
+        "Nunca quemes plásticos, llantas o hule, madera tratada, escombros de construcción, químicos ni aceites pesados. La basura doméstica tiene su propia regla, explicada en las preguntas de abajo."
       ),
       url: BURNBAN_STATE_RULES_URL,
       label: T(lang, "Texas outdoor burning rules", "Reglas de quemas al aire libre de Texas"),
@@ -146,32 +146,32 @@ export function burnbanFaq(lang) {
       q: T(lang, "Does “no burn ban” mean I can burn anything?", "¿«Sin prohibición» significa que puedo quemar lo que sea?"),
       a: T(
         lang,
-        "No. Texas has its own rules about what you can burn and when, and they apply whether or not the county has a ban in place. Whether the county has banned burning is just one of the things that has to line up — the checklist above covers the rest.",
-        "No. Texas tiene sus propias reglas sobre qué puedes quemar y cuándo, y aplican haya o no una prohibición del condado. Que el condado haya prohibido quemar es solo una de las cosas que deben cumplirse — la lista de arriba cubre las demás."
+        "No. Texas has its own rules about what you can burn and when, and they apply whether or not the county has a ban in place. A county ban is only one of the conditions. The list above covers the others.",
+        "No. Texas tiene sus propias reglas sobre qué puedes quemar y cuándo, y aplican haya o no una prohibición del condado. La prohibición del condado es solo una de las condiciones. La lista de arriba cubre las demás."
       ),
     },
     {
       q: T(lang, "Can you burn trash in Crosby?", "¿Se puede quemar basura en Crosby?"),
       a: T(
         lang,
-        "Almost never. Texas lets people burn household trash only where the local government doesn't pick up garbage, and Crosby has collection — so that exception doesn't cover most homes here. Put it out for pickup instead. This is true whether or not there's a burn ban.",
-        "Casi nunca. Texas permite quemar basura doméstica solo donde el gobierno local no recoge la basura, y en Crosby sí hay recolección — así que esa excepción no cubre a la mayoría de las casas de aquí. Mejor sácala para que la recojan. Esto aplica haya o no una prohibición de quemas."
+        "Almost never. Texas lets people burn household trash only where the local government doesn't pick up garbage, and Crosby has collection, so the exception doesn't cover most homes here. Put it out for pickup. This is true with or without a burn ban.",
+        "Casi nunca. Texas permite quemar basura doméstica solo donde el gobierno local no recoge la basura, y en Crosby sí hay recolección, así que esa excepción no cubre a la mayoría de las casas de aquí. Sácala para que la recojan. Esto aplica haya o no una prohibición de quemas."
       ),
     },
     {
       q: T(lang, "Is there a separate Crosby burn ban?", "¿Existe una prohibición de quemas propia de Crosby?"),
       a: T(
         lang,
-        "No. Crosby is unincorporated, so Harris County's ban is the one that applies here — there is no separate Crosby ban and no separate Crosby status to look up. HOA and deed restrictions are a different matter and can still apply.",
-        "No. Crosby no está incorporado, así que la prohibición del condado de Harris es la que aplica aquí — no hay una prohibición ni un estado separado para Crosby. Las restricciones de HOA y de escritura son otra cosa y sí pueden aplicar."
+        "No. Crosby is unincorporated, so Harris County's ban is the one that applies here. There is no separate Crosby ban to look up. HOA and deed restrictions are a different matter and can still apply.",
+        "No. Crosby no está incorporado, así que la prohibición del condado de Harris es la que aplica aquí. No hay una prohibición aparte para Crosby. Las restricciones de HOA y de escritura son otra cosa y sí pueden aplicar."
       ),
     },
     {
       q: T(lang, "Is this the burn ban for Crosby County?", "¿Esta es la prohibición de quemas del condado de Crosby?"),
       a: T(
         lang,
-        "No. This page is for Crosby, the community in Harris County near Houston. Crosby County is a different county in West Texas, next to Lubbock County, and its own commissioners court decides its burn bans. If that's where you are, use the statewide “Texas burn ban map” under Resources below.",
-        "No. Esta página es para Crosby, la comunidad en el condado de Harris cerca de Houston. El condado de Crosby es otro condado, en el oeste de Texas, junto al condado de Lubbock, y su propia corte de comisionados decide sus prohibiciones de quemas. Si estás allí, usa el «Mapa de prohibiciones de Texas» estatal en Recursos abajo."
+        "No. This page is for Crosby, the community in Harris County near Houston. Crosby County is a different county in West Texas, next to Lubbock County, and its own commissioners court decides its burn bans. If that's where you are, use the statewide “Texas burn ban map” in the list of sources below.",
+        "No. Esta página es para Crosby, la comunidad en el condado de Harris cerca de Houston. El condado de Crosby es otro condado, en el oeste de Texas, junto al condado de Lubbock, y su propia corte de comisionados decide sus prohibiciones de quemas. Si estás allí, usa el «Mapa de prohibiciones de Texas» estatal en la lista de fuentes de abajo."
       ),
     },
     {
@@ -186,8 +186,8 @@ export function burnbanFaq(lang) {
       q: T(lang, "What if a fire gets away from me?", "¿Qué hago si un fuego se sale de control?"),
       a: T(
         lang,
-        "Call 911 immediately — a grass fire moving with the wind outruns a person quickly, and it is not worth chasing. Before you light anything, have a charged garden hose or filled buckets within reach and a rake or shovel to pull fuel away from the edge.",
-        "Llama al 911 de inmediato — un incendio de pasto que avanza con el viento le gana a una persona rápidamente y no vale la pena perseguirlo. Antes de encender algo, ten a la mano una manguera con agua o cubetas llenas y un rastrillo o pala para retirar el combustible del borde."
+        "Call 911 right away. A grass fire with wind behind it moves faster than a person can run, so do not chase it. Before you light anything, have a charged garden hose or filled buckets within reach and a rake or shovel to pull fuel away from the edge.",
+        "Llama al 911 de inmediato. Un incendio de pasto empujado por el viento avanza más rápido de lo que una persona puede correr, así que no lo persigas. Antes de encender algo, ten a la mano una manguera con agua o cubetas llenas y un rastrillo o pala para retirar el combustible del borde."
       ),
     },
   ];
@@ -276,13 +276,13 @@ export function burnbanLead(data, lang) {
   return data?.status === "Yes"
     ? T(
         lang,
-        "<strong>A burn ban is in effect, so outdoor burning is off the table right now.</strong> When it lifts, here's what to check before you light anything.",
-        "<strong>Hay una prohibición de quemas vigente, así que por ahora no se puede quemar al aire libre.</strong> Cuando se levante, esto es lo que debes revisar antes de encender algo."
+        "<strong>A burn ban is in effect, so no outdoor burning for now.</strong> Once it is lifted, check each of these before you light anything.",
+        "<strong>Hay una prohibición de quemas vigente, así que por ahora no se puede quemar al aire libre.</strong> Cuando se levante, revisa cada uno de estos puntos antes de encender algo."
       )
     : T(
         lang,
-        "<strong>No burn ban doesn't automatically mean you can burn.</strong> Texas has its own rules about what you're allowed to burn and when, and those apply even when the county hasn't issued a ban. The day's weather matters too. Here's what to check first.",
-        "<strong>Que no haya prohibición no significa automáticamente que puedas quemar.</strong> Texas tiene sus propias reglas sobre qué puedes quemar y cuándo, y aplican aunque el condado no haya emitido una prohibición. El clima del día también importa. Esto es lo que debes revisar primero."
+        "<strong>No burn ban does not by itself mean you can burn.</strong> Texas has its own rules about what you may burn and when, and they apply even when the county has no ban. The day's weather matters too. Check each of these first.",
+        "<strong>Que no haya prohibición no significa automáticamente que puedas quemar.</strong> Texas tiene sus propias reglas sobre qué puedes quemar y cuándo, y aplican aunque el condado no haya emitido una prohibición. El clima del día también importa. Revisa primero cada uno de estos puntos."
       );
 }
 
@@ -317,17 +317,17 @@ export function burnbanResources(lang) {
     },
     {
       url: BURNBAN_COUNTY_URL,
-      label: T(lang, "Harris County Fire Marshal — burn bans", "Jefe de Bomberos del Condado de Harris — prohibiciones"),
+      label: T(lang, "Harris County Fire Marshal: burn bans", "Jefe de Bomberos del Condado de Harris: prohibiciones"),
       note: T(lang, "The local authority: the ban itself and its exceptions.", "La autoridad local: la prohibición y sus excepciones."),
     },
     {
       url: BURNBAN_STATE_RULES_URL,
-      label: T(lang, "TCEQ — Outdoor Burning in Texas", "TCEQ — Quemas al aire libre en Texas"),
+      label: T(lang, "TCEQ: Outdoor Burning in Texas", "TCEQ: Quemas al aire libre en Texas"),
       note: T(lang, "The statewide rules on what may be burned, and when.", "Las reglas estatales sobre qué se puede quemar y cuándo."),
     },
     {
       url: BURNBAN_OFFICIAL_URL,
-      label: T(lang, "Texas A&M Forest Service — burn bans", "Servicio Forestal de Texas A&M — prohibiciones"),
+      label: T(lang, "Texas A&M Forest Service: burn bans", "Servicio Forestal de Texas A&M: prohibiciones"),
       note: T(lang, "Where this page's status comes from.", "De donde proviene el estado de esta página."),
     },
     {
@@ -579,10 +579,10 @@ export function burnbanHtml(data, lang, weather, periods) {
 
   const known = data.status === "Yes" || data.status === "No";
   const status = !known
-    ? `<div class="status status-unknown" role="status"><span class="status-icon">&#10067;</span><div><p class="status-title">${T(lang, "Status unavailable", "Estado no disponible")}</p><p class="status-sub">${T(lang, "The Texas A&M Forest Service feed didn't return a status on the last check. Check with the Harris County Fire Marshal's Office below.", "El feed del Servicio Forestal de Texas A&M no devolvió un estado en la última verificación. Consulta con la Oficina del Jefe de Bomberos del Condado de Harris abajo.")}</p></div></div>`
+    ? `<div class="status status-unknown" role="status"><div><p class="status-title">${T(lang, "Status unavailable", "Estado no disponible")}</p><p class="status-sub">${T(lang, "The Texas A&M Forest Service feed didn't return a status on the last check. Check with the Harris County Fire Marshal's Office below.", "El feed del Servicio Forestal de Texas A&M no devolvió un estado en la última verificación. Consulta con la Oficina del Jefe de Bomberos del Condado de Harris abajo.")}</p></div></div>`
     : data.status === "Yes"
-      ? `<div class="status status-ban" role="status"><span class="status-icon">&#128293;</span><div><p class="status-title">${T(lang, "Burn ban in effect", "Prohibición de quemas vigente")}</p><p class="status-sub">${T(lang, "Outdoor burning is prohibited in unincorporated Harris County, which includes Crosby.", "Está prohibido quemar al aire libre en el condado de Harris no incorporado, que incluye a Crosby.")}</p></div></div>`
-      : `<div class="status status-ok" role="status"><span class="status-icon">&#10004;</span><div><p class="status-title">${T(lang, "No burn ban in Harris County", "Sin prohibición de quemas en el condado de Harris")}</p><p class="status-sub">${T(lang, "The Texas A&M Forest Service is not reporting an active outdoor-burning ban for Harris County right now.", "El Servicio Forestal de Texas A&M no reporta una prohibición de quemas activa para el condado de Harris en este momento.")}</p></div></div>`;
+      ? `<div class="status status-ban" role="status"><div><p class="status-title">${T(lang, "Burn ban in effect", "Prohibición de quemas vigente")}</p><p class="status-sub">${T(lang, "Outdoor burning is prohibited in unincorporated Harris County, which includes Crosby.", "Está prohibido quemar al aire libre en el condado de Harris no incorporado, que incluye a Crosby.")}</p></div></div>`
+      : `<div class="status status-ok" role="status"><div><p class="status-title">${T(lang, "No burn ban in Harris County", "Sin prohibición de quemas en el condado de Harris")}</p><p class="status-sub">${T(lang, "The Texas A&M Forest Service is not reporting an active outdoor-burning ban for Harris County right now.", "El Servicio Forestal de Texas A&M no reporta una prohibición de quemas activa para el condado de Harris en este momento.")}</p></div></div>`;
 
   // Freshness, directly under the status panel and ahead of the history line.
   // It used to be a trailing clause on the long intro sentence
@@ -606,7 +606,7 @@ export function burnbanHtml(data, lang, weather, periods) {
   const fwBlock = fw
     ? `<section class="fw" data-nosnippet>
     <h2>${T(lang, "Right now in Crosby", "Ahora mismo en Crosby")}</h2>
-    ${fw.alerts.length ? `<p class="fw-alert">&#9888;&#65039; ${esc(fw.alerts.join(" · "))} &mdash; <a href="${lk("/alerts")}">${T(lang, "see alerts", "ver alertas")}</a></p>` : ""}
+    ${fw.alerts.length ? `<p class="fw-alert">${esc(fw.alerts.join(", "))}. <a href="${lk("/alerts")}">${T(lang, "Read the alert", "Leer la alerta")}</a></p>` : ""}
     ${fw.rows.length ? `<ul class="peek">${fw.rows.map(([k, v]) => `<li><span class="pk-label">${esc(k)}</span><span class="pk-val">${esc(v)}</span></li>`).join("")}</ul>` : ""}
     ${fw.windNote ? `<p class="fw-note">${esc(fw.windNote)}</p>` : ""}
   </section>`
@@ -623,7 +623,7 @@ export function burnbanHtml(data, lang, weather, periods) {
   const checklist = burnbanChecklist(lang)
     .map((c) => {
       const href = c.path ? lk(c.path) : c.url;
-      const link = href ? ` <a href="${esc(href)}">${esc(c.label)} &rarr;</a>` : "";
+      const link = href ? ` <a href="${esc(href)}">${esc(c.label)}</a>` : "";
       return `      <li><h3>${esc(c.h)}</h3><p>${esc(c.p)}${link}</p></li>`;
     })
     .join("\n");
@@ -651,70 +651,31 @@ ${sharedHead(lang)}
 ${hreflangTags("/burn-ban")}
 ${JSONLD_SITE}
 <style>${BASE_CSS}
-  .tbl-wrap { overflow-x:auto; margin-top:0.5rem; }
-  .tbl { border-collapse:collapse; font-size:0.88rem; width:100%; }
-  .tbl th, .tbl td { border:1px solid var(--line); padding:0.35rem 0.55rem; text-align:left; vertical-align:top; }
-  .tbl th { background:var(--card); }
-  .bans .note { font-size:0.85rem; color:var(--muted); }
-  .status { display:flex; align-items:center; gap:1rem; border-radius:16px; padding:1.2rem 1.4rem; margin-top:0.8rem; color:#fff; }
-  .status-icon { font-size:2.4rem; line-height:1; flex:none; }
-  .status-title { margin:0; font-size:1.5rem; font-weight:800; line-height:1.1; }
-  .status-sub { margin:0.35rem 0 0; font-size:0.98rem; opacity:0.95; }
-  .status-ok { background:linear-gradient(135deg,#15693a,#1e8649); }
-  .status-ban { background:linear-gradient(135deg,#b3400d,#c15416); }
-  .status-unknown { background:linear-gradient(135deg,#5b6470,#6b7585); }
-  .intro { color:var(--muted); margin:0.6rem 0 0; }
-  .fw { margin-top:1.4rem; }
-  .fw h2 { font-size:1.15rem; margin:0 0 0.3rem; }
-  .fw-alert { margin:0.4rem 0; padding:0.6rem 0.8rem; background:#fff4f3; border-left:5px solid #c0392b; border-radius:8px; font-weight:700; font-size:0.95rem; }
-  .fw-alert a { color:var(--link); }
-  @media (prefers-color-scheme: dark) { .fw-alert { background:#2a1715; } }
-  .fw-note { margin:0.5rem 0 0; font-size:0.9rem; font-weight:600; color:var(--ink); }
-  .nb { margin-top:1.4rem; }
+  .status-ban { --mark:var(--hot); }
+  .fw-alert { margin:0.5rem 0; padding-left:0.9rem; border-left:4px solid var(--bad); font-weight:700; }
+  .fw-note { margin:0.5rem 0 0; font-weight:600; }
   .nb p { margin:0.25rem 0; }
-  .peek { list-style:none; margin:0.4rem 0 0; padding:0; }
-  .peek li { display:flex; justify-content:space-between; gap:0.6rem; padding:0.28rem 0; border-bottom:1px solid var(--line); font-size:0.9rem; }
-  .peek li:last-child { border-bottom:none; }
-  .pk-label { color:var(--muted); flex:none; }
-  .pk-val { text-align:right; }
-  .checked { margin:0.55rem 0 0; font-size:0.92rem; font-weight:600; color:var(--ink); }
-  .since { margin:0.3rem 0 0; font-size:0.92rem; font-weight:600; color:var(--ink); }
-  /* Deliberately NOT a boxed callout: as a bordered card under the status
-     panel this read as a detached cut-out, and the checklist it introduces
-     looked unrelated. It is the section's opening paragraph now. */
-  .lead-note { margin:0.3rem 0 0.2rem; font-size:0.98rem; line-height:1.6; }
-  .check { list-style:none; margin:0.7rem 0 0; padding:0; display:grid; gap:0.5rem; }
-  .check li { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:0.65rem 0.85rem; }
-  .check h3 { margin:0 0 0.2rem; font-size:0.98rem; }
-  .check p { margin:0; font-size:0.9rem; color:var(--muted); line-height:1.5; }
-  .check a { color:var(--link); white-space:nowrap; }
-  /* Bordered so it reads as something you can open. Unstyled <details> gave
-     no affordance beyond the marker and people missed that these expand. */
-  .faq { margin-top:0.5rem; font-size:0.95rem; background:var(--card); border:1px solid var(--line); border-radius:10px; padding:0.6rem 0.85rem; }
+  .peek { margin-top:0.4rem; max-width:24rem; }
+  .checked, .since { margin:0.5rem 0 0; }
+  .lead-note { margin:0.3rem 0 0.2rem; }
+  .check { list-style:none; margin:0.5rem 0 0; padding:0; max-width:70ch; }
+  .check li { padding:0.6rem 0; border-bottom:1px solid var(--line); }
+  .check h3 { margin:0 0 0.15rem; font-family:inherit; font-size:1rem; }
+  .check p { margin:0; color:var(--muted); }
+  .faq { border-bottom:1px solid var(--line); padding:0.6rem 0; max-width:70ch; }
   .faq summary { cursor:pointer; font-weight:600; }
-  .faq[open] summary { margin-bottom:0.2rem; }
-  .faq p { margin:0.4rem 0 0.1rem; color:var(--muted); line-height:1.55; }
-  .res { margin-top:1.6rem; }
-  .res h2 { font-size:1.15rem; }
-  /* Rows, not bullets. As "link &mdash; note" on one 0.92rem line this was eight
-     same-coloured links stacked with nothing between them — no way to scan for
-     the one you wanted. The label now carries the colour and the weight, the
-     note drops to --muted underneath it, and a rule separates each row. */
-  .links { list-style:none; margin:0.7rem 0 0; padding:0; }
-  .links li { padding:0.7rem 0; border-top:1px solid var(--line); }
-  .links li:first-child { border-top:none; padding-top:0.2rem; }
-  .links a { font-weight:600; font-size:1rem; }
-  .link-note { display:block; margin-top:0.2rem; font-size:0.88rem; line-height:1.45; color:var(--muted); }
-  .guide { margin-top:1.6rem; }
-  .guide h2 { font-size:1.15rem; }
-  .guide p { font-size:0.95rem; line-height:1.55; }
+  .faq p { margin:0.4rem 0 0.1rem; color:var(--muted); }
+  .links { list-style:none; margin:0.5rem 0 0; padding:0; }
+  .links li { padding:0.6rem 0; margin:0; border-bottom:1px solid var(--line); }
+  .links a { font-weight:600; }
+  .link-note { display:block; margin-top:0.15rem; font-size:0.9rem; color:var(--muted); }
 </style>
 </head>
 <body>
 ${topbar("/burn-ban", lang)}
 <main id="main">
   <h1>${esc(title)}</h1>
-  <p class="intro">${T(lang, "Whether an outdoor-burning ban is in effect for unincorporated Harris County, TX — which includes Crosby — from the Texas A&M Forest Service, rechecked about every 4 hours.", "Si hay una prohibición de quemas al aire libre vigente para el condado de Harris, TX no incorporado — que incluye a Crosby — según el Servicio Forestal de Texas A&M, revisado aproximadamente cada 4 horas.")}</p>
+  <p class="intro">${T(lang, "Whether outdoor burning is banned in unincorporated Harris County, which includes Crosby. The status comes from the Texas A&M Forest Service and is checked about every four hours.", "Si está prohibido quemar al aire libre en la parte no incorporada del condado de Harris, que incluye a Crosby. El estado viene del Servicio Forestal de Texas A&M y se revisa más o menos cada cuatro horas.")}</p>
   ${status}
   ${checkedLine}
   ${sinceLine}
@@ -733,20 +694,20 @@ ${checklist}
     <h2>${T(lang, "What a burn ban means", "Qué significa una prohibición de quemas")}</h2>
     <p>${T(
       lang,
-      "A burn ban is an order from the county judge or Commissioners Court that suspends outdoor burning when drought and fuel conditions raise the wildfire risk. In Harris County it covers the unincorporated areas — which is where Crosby is — while cities inside the county set their own rules. Violating it is a Class C misdemeanor, punishable by a fine of up to $500.",
-      "Una prohibición de quemas es una orden del juez del condado o de la Corte de Comisionados que suspende las quemas al aire libre cuando la sequía y las condiciones del combustible elevan el riesgo de incendios forestales. En el condado de Harris cubre las áreas no incorporadas — donde está Crosby — mientras que las ciudades dentro del condado fijan sus propias reglas. Violarla es un delito menor clase C, con una multa de hasta $500."
+      "A burn ban is an order from the county judge or Commissioners Court that suspends outdoor burning when drought and fuel conditions raise the wildfire risk. In Harris County it covers the unincorporated areas, Crosby among them. Cities inside the county set their own rules. Violating it is a Class C misdemeanor, punishable by a fine of up to $500.",
+      "Una prohibición de quemas es una orden del juez del condado o de la Corte de Comisionados que suspende las quemas al aire libre cuando la sequía y las condiciones del combustible elevan el riesgo de incendios forestales. En el condado de Harris cubre las áreas no incorporadas, entre ellas Crosby. Las ciudades dentro del condado fijan sus propias reglas. Violarla es un delito menor clase C, con una multa de hasta $500."
     )}</p>
     <p>${T(
       lang,
       "This page follows the Texas A&M Forest Service's statewide burn-ban map, which counties report to. TFS doesn't issue the ban and says so itself, so if you need the exact wording, the exceptions, or any local notice, go to the Harris County Fire Marshal's Office.",
       "Esta página sigue el mapa estatal de prohibiciones de quemas del Servicio Forestal de Texas A&M, al que reportan los condados. TFS no emite la prohibición y así lo aclara, así que si necesitas el texto exacto, las excepciones o algún aviso local, acude a la Oficina del Jefe de Bomberos del Condado de Harris."
     )}</p>
-    <h2>${T(lang, "Frequently asked questions", "Preguntas frecuentes")}</h2>
+    <h2>${T(lang, "Common questions", "Preguntas comunes")}</h2>
 ${faq}
   </section>
   ${banHistoryHtml(periods, lang)}
   <section class="res">
-    <h2>${T(lang, "Resources", "Recursos")}</h2>
+    <h2>${T(lang, "Official sources and related pages", "Fuentes oficiales y páginas relacionadas")}</h2>
     <ul class="links">
 ${resources}
     </ul>
@@ -813,11 +774,11 @@ export function burnbanMarkdown(data, lang, weather, periods) {
     "",
     T(
       lang,
-      "A burn ban is an order from the county judge or Commissioners Court that suspends outdoor burning when drought and fuel conditions raise the wildfire risk. In Harris County it covers the unincorporated areas — which is where Crosby is — while cities inside the county set their own rules. Violating it is a Class C misdemeanor, punishable by a fine of up to $500.",
-      "Una prohibición de quemas es una orden del juez del condado o de la Corte de Comisionados que suspende las quemas al aire libre cuando la sequía y las condiciones del combustible elevan el riesgo de incendios forestales. En el condado de Harris cubre las áreas no incorporadas — donde está Crosby — mientras que las ciudades dentro del condado fijan sus propias reglas. Violarla es un delito menor clase C, con una multa de hasta $500."
+      "A burn ban is an order from the county judge or Commissioners Court that suspends outdoor burning when drought and fuel conditions raise the wildfire risk. In Harris County it covers the unincorporated areas, Crosby among them. Cities inside the county set their own rules. Violating it is a Class C misdemeanor, punishable by a fine of up to $500.",
+      "Una prohibición de quemas es una orden del juez del condado o de la Corte de Comisionados que suspende las quemas al aire libre cuando la sequía y las condiciones del combustible elevan el riesgo de incendios forestales. En el condado de Harris cubre las áreas no incorporadas, entre ellas Crosby. Las ciudades dentro del condado fijan sus propias reglas. Violarla es un delito menor clase C, con una multa de hasta $500."
     ),
     "",
-    `## ${T(lang, "Frequently asked questions", "Preguntas frecuentes")}`,
+    `## ${T(lang, "Common questions", "Preguntas comunes")}`,
     ""
   );
   for (const f of burnbanFaq(lang)) out.push(`### ${f.q}`, "", f.a, "");
@@ -828,7 +789,7 @@ export function burnbanMarkdown(data, lang, weather, periods) {
     for (const r of banHistoryRows(periods, lang)) out.push(`| ${r.start} | ${r.end} | ${r.length || "—"} | ${[link(r.startSrc), link(r.endSrc)].filter(Boolean).join("; ")} |`);
     out.push("", banHistoryNote(lang), "");
   }
-  out.push(`## ${T(lang, "Resources", "Recursos")}`, "");
+  out.push(`## ${T(lang, "Official sources and related pages", "Fuentes oficiales y páginas relacionadas")}`, "");
   for (const r of burnbanResources(lang)) {
     out.push(`- [${r.label}](${r.path ? canonicalFor(r.path, lang) : r.url}) — ${r.note}`);
   }

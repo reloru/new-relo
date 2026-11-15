@@ -83,19 +83,26 @@ export function renderHero(data, lang) {
   const sun = sunTimesForCtDate(Date.now());
   const uvNow = uvCurrent(data);
   const aqi = data.aqi;
+  const title = T(lang, `${esc(data.place)} Weather`, `Clima en ${esc(data.place)}`);
+  const facts = [
+    pop(now) ? `${pop(now)}% ${T(lang, "chance of rain", "de probabilidad de lluvia")}` : "",
+    uvNow ? `${T(lang, "UV index", "Índice UV")} ${esc(uvNow)} (${esc(uvCategory(uvNow, lang))})` : "",
+    aqi?.usAqi != null ? `${T(lang, "Air quality", "Calidad del aire")} ${esc(aqi.usAqi)} (${esc(aqiCategory(aqi.usAqi, lang))}, ${esc(aqiSourceTag(aqi, lang))})` : "",
+  ].filter(Boolean);
   return `
-    <section class="hero">
-      ${now.icon ? `<img class="hero-icon" src="${iconUrl(now.icon, "large")}" alt="${esc(translateConditions(now.shortForecast, lang))}" width="128" height="128" fetchpriority="high">` : ""}
-      <div class="hero-now">
-        <h1 class="hero-h1">${T(lang, `${esc(data.place)} Weather`, `Clima en ${esc(data.place)}`)}</h1>
-        <p class="hero-temp">${esc(now.temperature)}&deg;<span>${esc(now.temperatureUnit)}</span></p>
-        <p class="hero-cond">${esc(translateConditions(now.shortForecast, lang))}</p>
-        ${feels != null ? `<p class="hero-feels">${T(lang, "Feels like", "Sensación térmica de")} ${esc(feels)}&deg;</p>` : ""}
-        <p class="hero-meta">${esc(data.place)} &middot; ${T(lang, "for the", "para la hora de las")} ${esc(hourLabel(now.startTime, lang))} ${T(lang, "CT hour", "CT")}${pop(now) ? ` &middot; ${pop(now)}% ${T(lang, "precip", "prob. lluvia")}` : ""}${uvNow ? ` &middot; ${T(lang, "UV", "UV")} ${esc(uvNow)} (${esc(uvCategory(uvNow, lang))})` : ""}${aqi?.usAqi != null ? ` &middot; ${T(lang, "Air", "Aire")} ${esc(aqi.usAqi)} (${esc(aqiCategory(aqi.usAqi, lang))}, ${esc(aqiSourceTag(aqi, lang))})` : ""}</p>
-        ${sun ? `<p class="hero-meta">${T(lang, "Sunrise", "Amanecer")} ${esc(clockTime(sun.sunrise, lang))} &middot; ${T(lang, "Sunset", "Atardecer")} ${esc(clockTime(sun.sunset, lang))}</p>` : ""}
+    <h1>${title}</h1>
+    <section class="cur">
+      ${now.icon ? `<img src="${iconUrl(now.icon, "large")}" alt="" width="86" height="86" fetchpriority="high">` : ""}
+      <div>
+        <p class="cur-temp">${esc(now.temperature)}&deg;</p>
+        <p class="cur-cond">${esc(translateConditions(now.shortForecast, lang))}</p>
+        ${feels != null ? `<p class="cur-line">${T(lang, "Feels like", "Sensación térmica de")} ${esc(feels)}&deg;</p>` : ""}
+        ${facts.map((f) => `<p class="cur-line">${f}</p>`).join("")}
+        ${sun ? `<p class="cur-line">${T(lang, "Sunrise", "Amanecer")} ${esc(clockTime(sun.sunrise, lang))}, ${T(lang, "sunset", "atardecer")} ${esc(clockTime(sun.sunset, lang))}</p>` : ""}
+        <p class="cur-stamp">${T(lang, "Forecast for the hour starting", "Pronóstico para la hora que empieza a las")} ${esc(hourLabel(now.startTime, lang))} CT</p>
       </div>
     </section>
-    ${lead ? `<p class="lead"><strong>${esc(translatePeriodName(lead.name, lang))}:</strong> ${esc(lead.detailedForecast)}</p>` : ""}`;
+    ${lead ? `<p class="outlook"><strong>${esc(translatePeriodName(lead.name, lang))}.</strong> ${esc(lead.detailedForecast)}</p>` : ""}`;
 }
 
 export function renderHourly(hourly, lang) {
@@ -111,7 +118,7 @@ export function renderHourly(hourly, lang) {
       </div>`
     )
     .join("");
-  return `<section class="card">
+  return `<section>
     <h2>${T(lang, "Next 12 hours", "Próximas 12 horas")}</h2>
     <div class="hourly">${cells}</div>
   </section>`;
@@ -122,20 +129,19 @@ export function renderDaily(periods, lang) {
   const cards = periods
     .map(
       (p) => `
-      <article class="period ${p.isDaytime ? "day" : "night"}">
-        <div class="period-head">
-          <h3>${esc(translatePeriodName(p.name, lang))}</h3>
-          ${p.icon ? `<img src="${iconUrl(p.icon, "medium")}" alt="${esc(translateConditions(p.shortForecast, lang))}" width="52" height="52" loading="lazy">` : ""}
+      <article class="period">
+        <h3>${esc(translatePeriodName(p.name, lang))}</h3>
+        <p class="temp">${esc(p.temperature)}&deg;<small>${p.isDaytime ? T(lang, "high", "máxima") : T(lang, "low", "mínima")}</small></p>
+        <div class="body">
+          <p class="short">${esc(translateConditions(p.shortForecast, lang))}</p>
+          <p class="meta">${pop(p) ? `${pop(p)}% ${T(lang, "chance of rain", "de probabilidad de lluvia")}, ` : ""}${T(lang, pop(p) ? "wind" : "Wind", pop(p) ? "viento" : "Viento")} ${esc(translateWind(p.windSpeed, lang))} ${esc(translateDir(p.windDirection, lang))}</p>
+          <p class="detail">${esc(p.detailedForecast)}</p>
         </div>
-        <p class="temp">${p.isDaytime ? T(lang, "High", "Máx.") : T(lang, "Low", "Mín.")} ${esc(p.temperature)}&deg;${esc(p.temperatureUnit)}</p>
-        <p class="short">${esc(translateConditions(p.shortForecast, lang))}</p>
-        <p class="meta">${pop(p) ? `${pop(p)}% ${T(lang, "precip", "prob. lluvia")} &middot; ` : ""}${T(lang, "Wind", "Viento")} ${esc(translateWind(p.windSpeed, lang))} ${esc(translateDir(p.windDirection, lang))}</p>
-        <p class="detail">${esc(p.detailedForecast)}</p>
       </article>`
     )
     .join("");
   return `<section class="daily-sec">
-    <h2>${T(lang, "7-Day Forecast", "Pronóstico a 7 días")}</h2>
+    <h2>${T(lang, "Seven-day forecast", "Pronóstico de siete días")}</h2>
     <div class="periods">${cards}</div>
   </section>`;
 }
@@ -158,35 +164,26 @@ ${hreflangTags("/weather")}
 ${JSONLD_SITE}
 <style>${BASE_CSS}
   ${ALERT_BANNER_CSS}
-  .hero { display:flex; align-items:center; gap:1rem; background:linear-gradient(135deg,var(--blue),var(--btn)); color:#fff; border-radius:16px; padding:1.1rem 1.3rem; margin-top:0.5rem; }
-  .hero-h1 { margin:0 0 0.15rem; font-size:1rem; font-weight:600; opacity:0.9; letter-spacing:0.01em; }
-  .hero-icon { border-radius:12px; background:rgba(255,255,255,0.12); flex:none; }
-  .hero-temp { margin:0; font-size:3.4rem; font-weight:800; line-height:1; }
-  .hero-temp span { font-size:1.2rem; font-weight:600; vertical-align:super; opacity:0.85; }
-  .hero-cond { margin:0.2rem 0 0; font-size:1.2rem; font-weight:600; }
-  .hero-feels { margin:0.15rem 0 0; font-size:0.95rem; opacity:0.9; }
-  .hero-meta { margin:0.35rem 0 0; font-size:0.85rem; opacity:0.85; }
-  .lead { margin:0.8rem 0 0; color:var(--muted); }
-
-  .card { background:var(--card); border-radius:12px; padding:0.8rem 1rem; margin-top:1rem; box-shadow:0 1px 3px rgba(0,0,0,0.07); }
-  .card h2 { margin:0 0 0.6rem; }
-  .hourly { display:flex; gap:0.4rem; overflow-x:auto; padding-bottom:0.3rem; }
+  .hourly { display:flex; gap:0.2rem; overflow-x:auto; padding-bottom:0.3rem; }
   .hour { flex:0 0 auto; width:62px; display:flex; flex-direction:column; align-items:center; gap:0.15rem; text-align:center; }
-  .hour-time { font-size:0.8rem; color:var(--muted); }
+  .hour-time { font-size:0.85rem; color:var(--muted); }
   .hour-temp { font-weight:700; }
-  .hour-pop { font-size:0.75rem; color:var(--muted); }
+  .hour-pop { font-size:0.85rem; color:var(--muted); }
   .hour-pop.wet { color:var(--link); font-weight:700; }
-
-  .periods { display:grid; gap:0.75rem; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); }
-  .period { background:var(--card); border-radius:12px; padding:0.85rem 1rem; box-shadow:0 1px 3px rgba(0,0,0,0.07); }
-  .period.night { background:color-mix(in srgb,var(--card) 92%, var(--blue)); }
-  .period-head { display:flex; justify-content:space-between; align-items:center; gap:0.5rem; }
-  .period-head h3 { margin:0; font-size:1.02rem; }
-  .period .temp { margin:0.2rem 0; font-size:1.5rem; font-weight:800; color:var(--accent); }
-  .period .short { margin:0.2rem 0; font-weight:600; }
-  .period .meta { margin:0.2rem 0; font-size:0.82rem; color:var(--muted); }
-  .period .detail { margin:0.5rem 0 0; font-size:0.9rem; }
-
+  .period { display:grid; grid-template-columns:9.5rem 4.2rem 1fr; gap:0 1rem; padding:0.7rem 0; border-bottom:1px solid var(--line); }
+  .period:last-child { border-bottom:none; }
+  .period h3 { margin:0; font-size:1.05rem; }
+  .period p { margin:0; }
+  .period .temp { font-family:var(--serif); font-size:1.5rem; font-weight:700; line-height:1.1; }
+  .period .temp small { display:block; font-family:system-ui,sans-serif; font-size:0.8rem; font-weight:400; color:var(--muted); }
+  .period .short { font-weight:600; }
+  .period .meta { font-size:0.9rem; color:var(--muted); }
+  .period .detail { margin-top:0.25rem; }
+  @media (max-width:600px) {
+    .period { grid-template-columns:1fr auto; }
+    .period .body { grid-column:1 / -1; margin-top:0.3rem; }
+  }
+  .more { margin:1rem 0 0; }
 </style>
 </head>
 <body>
@@ -196,13 +193,13 @@ ${topbar("/weather", lang)}
   ${alertsBanner(data.alerts ?? [], lang)}
   ${renderHero(data, lang)}
   </div>
-  ${lang === "es" ? `<p class="lead nws-note">${ES_NWS_NOTE}</p>` : ""}
+  ${lang === "es" ? `<p class="nws-note">${ES_NWS_NOTE}</p>` : ""}
   <div data-nosnippet>
   ${renderHourly((data.hourly ?? []).slice(0, 12), lang)}
   ${renderDaily(data.periods ?? [], lang)}
   </div>
-  <p class="lead"><a href="${lang === "es" ? "/es/hourly" : "/hourly"}">${T(lang, "Full 48-hour hourly forecast", "Pronóstico por hora de 48 horas")}</a> &middot; <a href="${lang === "es" ? "/es/radar" : "/radar"}">${T(lang, "Radar", "Radar")}</a> &middot; <a href="${lang === "es" ? "/es/water" : "/water"}">${T(lang, "Water levels", "Niveles de agua")}</a> &middot; <a href="${lang === "es" ? "/es/rain" : "/rain"}">${T(lang, "Measured rain", "Lluvia medida")}</a></p>
-  ${burnban?.status === "Yes" ? `<p class="lead">&#128293; ${T(lang, "Harris County burn ban in effect.", "Prohibición de quemas vigente en el condado de Harris.")} <a href="${lang === "es" ? "/es/burn-ban" : "/burn-ban"}">${T(lang, "Details", "Detalles")} &rarr;</a></p>` : ""}
+  <p class="more">${T(lang, "Also:", "También:")} <a href="${lang === "es" ? "/es/hourly" : "/hourly"}">${T(lang, "the next 48 hours, hour by hour", "las próximas 48 horas, hora por hora")}</a>, <a href="${lang === "es" ? "/es/radar" : "/radar"}">${T(lang, "radar", "radar")}</a>, <a href="${lang === "es" ? "/es/water" : "/water"}">${T(lang, "river and bayou levels", "niveles de ríos y bayous")}</a>, <a href="${lang === "es" ? "/es/rain" : "/rain"}">${T(lang, "measured rain", "lluvia medida")}</a>.</p>
+  ${burnban?.status === "Yes" ? `<p class="more">${T(lang, "A burn ban is in effect for Harris County.", "Hay una prohibición de quemas vigente en el condado de Harris.")} <a href="${lang === "es" ? "/es/burn-ban" : "/burn-ban"}">${T(lang, "What the ban covers", "Qué abarca la prohibición")}</a></p>` : ""}
 </main>
 ${footer({ page: "/weather", lang, source: T(lang, `Data from the U.S. National Weather Service (<a href="https://weather.gov">weather.gov</a>).`, `Datos del Servicio Meteorológico Nacional de EE. UU. (<a href="https://weather.gov">weather.gov</a>).`), data })}
 <script>${HOME_SCRIPT}</script>
@@ -220,7 +217,7 @@ export function renderMarkdown(data, lang, burnban) {
   out.push(`# ${T(lang, `${data.place || "Crosby, TX"} Weather`, `Clima en ${data.place || "Crosby, TX"}`)}`, "");
   out.push(`_${T(lang, "Updated", "Actualizado")} ${fullTime(data.updated, lang)} CT — ${T(lang, "source: U.S. National Weather Service (weather.gov)", "fuente: Servicio Meteorológico Nacional de EE. UU. (weather.gov)")}_`, "");
   if (lang === "es") out.push("_Las condiciones se traducen al español; las descripciones detalladas y las alertas se muestran en inglés oficial del NWS._", "");
-  if (burnban?.status === "Yes") out.push(`**🔥 ${T(lang, "Harris County burn ban in effect.", "Prohibición de quemas vigente en el condado de Harris.")}** [${T(lang, "Details", "Detalles")}](${canonicalFor("/burn-ban", lang)})`, "");
+  if (burnban?.status === "Yes") out.push(`**${T(lang, "Harris County burn ban in effect.", "Prohibición de quemas vigente en el condado de Harris.")}** [${T(lang, "Details", "Detalles")}](${canonicalFor("/burn-ban", lang)})`, "");
 
   if (now) {
     const feels = feelsLikeF(now);

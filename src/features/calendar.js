@@ -271,7 +271,7 @@ export function calendarSubscribe(lang) {
     (c) => `<li><a href="${campusWebcal(c.id)}">${esc(T(lang, c.en, c.es))}</a></li>`
   ).join("");
   return `<section class="subscribe">
-    <h2>${T(lang, "Subscribe — never miss a date", "Suscríbete — no te pierdas ninguna fecha")}</h2>
+    <h2>${T(lang, "Put these dates on your own calendar", "Pon estas fechas en tu propio calendario")}</h2>
     <p>${T(lang, "Add the full Crosby ISD calendar to your phone or computer. It updates automatically as the district changes it.", "Agrega el calendario completo de Crosby ISD a tu teléfono o computadora. Se actualiza automáticamente cuando el distrito hace cambios.")}</p>
     <div class="sub-btns">
       <a class="sub-btn" href="${CISD_FEED_ALL_WEBCAL}">${T(lang, "Add to phone (one tap)", "Agregar al teléfono (un toque)")}</a>
@@ -329,10 +329,10 @@ export function calendarHtml(data, lang) {
     }
     body += `</ul></section>`;
   } else {
-    body = `<p class="none">${T(lang, "No upcoming events are posted right now — subscribe below and they'll appear as the district adds them.", "No hay eventos próximos publicados por ahora; suscríbete abajo y aparecerán conforme el distrito los agregue.")}</p>`;
+    body = `<p class="none">${T(lang, "The district has no upcoming events posted. If you subscribe below, new ones will show up on your calendar as the district adds them.", "El distrito no tiene eventos próximos publicados. Si te suscribes abajo, los nuevos aparecerán en tu calendario conforme el distrito los agregue.")}</p>`;
   }
   const title = T(lang, "Crosby ISD School Calendar", "Calendario escolar de Crosby ISD");
-  const desc = T(lang, "Upcoming Crosby ISD school calendar events — first day of school, holidays, no-school and early-release days, testing — with one-tap subscribe links.", "Próximos eventos del calendario de Crosby ISD: primer día de clases, días festivos, días sin clases y de salida temprana, exámenes, y cómo suscribirte.");
+  const desc = T(lang, "Upcoming Crosby ISD dates: the first day of school, holidays, days off, early-release days and testing, with links to add them to your own calendar.", "Próximos eventos del calendario de Crosby ISD: primer día de clases, días festivos, días sin clases y de salida temprana, exámenes, y cómo suscribirte.");
   return `<!DOCTYPE html>
 <html lang="${T(lang, "en", "es-MX")}">
 <head>
@@ -349,44 +349,33 @@ ${hreflangTags("/calendar")}
 ${JSONLD_SITE}
 ${jsonldEvents(events, lang)}
 <style>${BASE_CSS}
-  .intro { color:var(--muted); margin:0.6rem 0 0; }
-  .key-dates { background:var(--card); border-radius:12px; padding:0.8rem 1.1rem; margin-top:1rem; box-shadow:0 1px 3px rgba(0,0,0,0.07); }
-  .key-dates h2 { margin:0 0 0.4rem; }
   .key-dates ul { margin:0.3rem 0; padding-left:1.2rem; }
   .key-dates li { margin:0.25rem 0; }
-  .key-dates .note { font-size:0.82rem; color:var(--muted); margin:0.4rem 0 0; }
-  .cal-month { margin-top:1.4rem; }
-  .cal-month h2 { margin:0 0 0.5rem; font-size:1.05rem; }
-  .cal-list { list-style:none; padding:0; margin:0; }
-  .cal-item { display:flex; gap:0.85rem; align-items:flex-start; background:var(--card); border-radius:10px; padding:0.6rem 0.9rem; margin-bottom:0.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.07); }
-  .cal-date { flex:0 0 auto; text-align:center; min-width:3rem; }
-  .cal-dow { display:block; font-size:0.68rem; text-transform:uppercase; letter-spacing:0.03em; color:var(--muted); }
-  .cal-day { display:block; font-size:1.45rem; font-weight:800; color:var(--accent); line-height:1.05; }
+  .cal-list { list-style:none; padding:0; margin:0; max-width:44rem; }
+  .cal-item { display:flex; gap:1rem; align-items:baseline; padding:0.5rem 0; border-bottom:1px solid var(--line); }
+  .cal-date { flex:0 0 4.2rem; white-space:nowrap; }
+  .cal-dow { color:var(--muted); margin-right:0.3rem; }
+  .cal-day { font-weight:700; }
   .cal-body { flex:1; min-width:0; }
-  .cal-title { margin:0; font-weight:600; }
-  .cal-meta { margin:0.15rem 0 0; font-size:0.82rem; color:var(--muted); }
-  .subscribe { background:var(--card); border-radius:12px; padding:0.9rem 1.1rem; margin-top:1.6rem; box-shadow:0 1px 3px rgba(0,0,0,0.07); }
-  .subscribe h2 { margin:0 0 0.4rem; font-size:1.1rem; }
-  .subscribe p { margin:0.45rem 0; }
-  .sub-btns { display:flex; flex-wrap:wrap; gap:0.5rem; margin:0.6rem 0; }
-  .sub-btn { display:inline-block; background:var(--btn); color:#fff; text-decoration:none; padding:0.45rem 0.85rem; border-radius:8px; font-weight:600; font-size:0.9rem; }
+  .cal-title { margin:0; }
+  .cal-meta { margin:0.1rem 0 0; font-size:0.9rem; color:var(--muted); }
+  .sub-btns { display:flex; flex-wrap:wrap; gap:0.6rem; margin:0.7rem 0; }
+  .sub-btn { display:inline-block; background:var(--btn); color:#fff; text-decoration:none; padding:0.5rem 0.9rem; font-weight:600; }
   .sub-btn.alt { background:transparent; color:var(--link); border:1px solid var(--link); }
-  .cal-note { font-size:0.88rem; color:var(--muted); }
-  .campus-list { display:flex; flex-wrap:wrap; gap:0.35rem 0.9rem; padding:0; margin:0.3rem 0 0; list-style:none; font-size:0.9rem; }
-  .campus-list a { color:var(--link); }
-  .disclaimer { margin-top:1.4rem; font-size:0.8rem; color:var(--muted); border-top:1px solid var(--line); padding-top:0.7rem; }
+  .cal-note { font-size:0.9rem; color:var(--muted); }
+  .campus-list { display:flex; flex-wrap:wrap; gap:0.35rem 1rem; padding:0; margin:0.3rem 0 0; list-style:none; }
+  .disclaimer { margin-top:1.4rem; font-size:0.85rem; color:var(--muted); }
 </style>
 </head>
 <body>
 ${topbar("/calendar", lang)}
 <main id="main">
   <h1>${esc(title)}</h1>
-  <p class="intro">${T(lang, "Upcoming events from the Crosby Independent School District calendar — first day of school, holidays, early-release and no-school days, testing, and campus activities.", "Próximos eventos del calendario del Distrito Escolar Independiente de Crosby: primer día de clases, días festivos, días de salida temprana y sin clases, exámenes y actividades de los planteles.")}${data.updated ? ` ${T(lang, "Updated", "Actualizado")} ${dateStamp(data.updated, lang)}.` : ""}</p>
+  <p class="intro">${T(lang, "What is coming up on the Crosby Independent School District calendar: the first day of school, holidays, early-release days, days off, testing and campus activities.", "Próximos eventos del calendario del Distrito Escolar Independiente de Crosby: primer día de clases, días festivos, días de salida temprana y sin clases, exámenes y actividades de los planteles.")}${data.updated ? ` ${T(lang, "Updated", "Actualizado")} ${dateStamp(data.updated, lang)}.` : ""}</p>
   ${keyDatesHtml(data.events, lang)}
   ${body}
   ${calendarSubscribe(lang)}
   <p class="disclaimer">${T(lang, `crosbynews.com isn't affiliated with Crosby ISD. Events are pulled from the district's public calendar feed (<a href="${CISD_SITE}">crosbyisd.org</a>); event titles are shown in the district's original English. Always confirm dates with the district.`, `crosbynews.com no está afiliado a Crosby ISD. Los eventos provienen del calendario público del distrito (<a href="${CISD_SITE}">crosbyisd.org</a>); los títulos de los eventos se muestran en el inglés original del distrito. Confirma siempre las fechas con el distrito.`)}</p>
-  <p class="intro"><a href="${lang === "es" ? "/es/weather" : "/weather"}">&larr; ${T(lang, "Back to the forecast", "Volver al pronóstico")}</a></p>
 </main>
 ${footer({ page: "/calendar", lang, source: T(lang, `Calendar data from <a href="${CISD_SITE}">Crosby ISD</a>.`, `Datos del calendario de <a href="${CISD_SITE}">Crosby ISD</a>.`) })}
 </body>

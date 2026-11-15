@@ -335,34 +335,24 @@ ${hreflangTags("/pollen")}
 ${JSONLD_SITE}
 <style>${BASE_CSS}
   .stamp { color:var(--muted); margin:0.6rem 0 0; }
-  .pgrid { display:grid; gap:0.7rem; grid-template-columns:repeat(auto-fill,minmax(170px,1fr)); margin-top:1rem; }
-  .pgroup { border-radius:12px; padding:0.85rem 1rem; background:var(--card); box-shadow:0 1px 3px rgba(0,0,0,0.07); border-left:5px solid var(--pg, #9aa4af); }
-  .pgroup h2 { margin:0; font-size:0.95rem; color:var(--muted); font-weight:600; }
-  .pcat { margin:0.25rem 0 0; font-size:1.35rem; font-weight:800; line-height:1.1; }
-  .pcount { margin:0.3rem 0 0; font-size:0.95rem; color:var(--muted); }
-  .punit { font-size:0.8rem; }
-  .c-none { --pg:#9aa4af; } .c-none .pcat { color:#6f7a84; }
-  .c-low { --pg:#1f8b4c; } .c-low .pcat { color:#1f8b4c; }
-  .c-med { --pg:#b58900; } .c-med .pcat { color:#9a7400; }
-  .c-heavy { --pg:#d9480f; } .c-heavy .pcat { color:#d9480f; }
-  .c-extreme { --pg:#c92a2a; } .c-extreme .pcat { color:#d63a3a; }
-  .species { display:grid; gap:0.7rem; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); margin-top:0.8rem; }
-  .sp { background:var(--card); border-radius:12px; padding:0.75rem 1rem; box-shadow:0 1px 3px rgba(0,0,0,0.07); }
-  .sp h3 { margin:0 0 0.3rem; font-size:0.95rem; }
+  .pgrid { display:grid; gap:1rem 2rem; grid-template-columns:repeat(auto-fill,minmax(170px,1fr)); margin-top:1.4rem; }
+  .pgroup { padding-left:0.8rem; border-left:4px solid var(--pg,var(--quiet)); }
+  .pgroup h2 { margin:0; padding:0; border:0; font-family:inherit; font-size:0.95rem; font-weight:400; color:var(--muted); }
+  .pcat { margin:0.15rem 0 0; font-family:var(--serif); font-size:1.6rem; font-weight:700; line-height:1.1; }
+  .pcount { margin:0.2rem 0 0; font-size:0.95rem; color:var(--muted); }
+  .punit { font-size:0.85rem; }
+  .c-none { --pg:var(--quiet); } .c-low { --pg:var(--ok); } .c-med { --pg:var(--warn); } .c-heavy { --pg:var(--hot); } .c-extreme { --pg:var(--bad); }
+  .species { columns:3 15rem; column-gap:2.5rem; margin-top:0.6rem; }
+  .sp { break-inside:avoid; margin-bottom:1rem; }
+  .sp h3 { margin:0 0 0.2rem; }
   .sp ul { list-style:none; margin:0; padding:0; }
-  .sp li { display:flex; justify-content:space-between; gap:0.6rem; padding:0.22rem 0; border-bottom:1px solid var(--line); font-size:0.9rem; }
+  .sp li { display:flex; justify-content:space-between; gap:0.6rem; padding:0.25rem 0; border-bottom:1px solid var(--line); }
   .sp li:last-child { border-bottom:none; }
   .sp-n { color:var(--muted); }
-  .guide { margin-top:1.6rem; }
-  .guide h2 { font-size:1.15rem; }
-  .guide h3 { font-size:1rem; margin-bottom:0.3rem; }
-  .guide p { font-size:0.95rem; line-height:1.55; }
-  .guide .links { margin:0.5rem 0 0; padding-left:1.1rem; }
-  .guide .links li { margin:0.3rem 0; font-size:0.92rem; }
   .scale-wrap { overflow-x:auto; }
-  .scale { border-collapse:collapse; margin-top:0.5rem; font-size:0.88rem; min-width:430px; }
-  .scale th, .scale td { border:1px solid var(--line); padding:0.35rem 0.6rem; text-align:left; }
-  .scale th { background:var(--card); }
+  .scale { border-collapse:collapse; margin-top:0.5rem; font-size:0.92rem; min-width:430px; }
+  .scale th, .scale td { border-bottom:1px solid var(--line); padding:0.4rem 1rem 0.4rem 0; text-align:left; }
+  .scale th { border-bottom-color:var(--rule); font-weight:600; }
 </style>
 </head>
 <body>
@@ -371,8 +361,8 @@ ${topbar("/pollen", lang)}
   <h1>${titlePlain}</h1>
   <p class="intro">${T(
     lang,
-    "A real, measured count — not a model. The Houston Health Department laboratory (a certified National Allergy Bureau counting station) samples the air continuously and publishes the count every weekday morning. It's a regional reading: pollen travels, so the Houston count is the right guidance for Crosby air.",
-    "Un conteo real y medido — no un modelo. El laboratorio del Departamento de Salud de Houston (una estación certificada del National Allergy Bureau) muestrea el aire continuamente y publica el conteo cada mañana entre semana. Es una lectura regional: el polen viaja, así que el conteo de Houston es la guía correcta para el aire de Crosby."
+    "This count is measured, not modeled. The Houston Health Department laboratory, a certified National Allergy Bureau counting station, samples the air around the clock and publishes the count every weekday morning. Pollen travels a long way on the wind, so the Houston count is a fair guide to the air in Crosby.",
+    "Este conteo es medido, no modelado. El laboratorio del Departamento de Salud de Houston, una estación de conteo certificada por el National Allergy Bureau, muestrea el aire todo el día y publica el conteo cada mañana entre semana. El polen viaja lejos con el viento, así que el conteo de Houston es una buena guía para el aire de Crosby."
   )}</p>
   ${
     hasCount
@@ -380,7 +370,7 @@ ${topbar("/pollen", lang)}
   <div class="pgrid">
 ${cards}
   </div>`
-      : `<p class="stamp">${T(lang, "The count is temporarily unavailable — try again shortly, or read it directly on the", "El conteo no está disponible temporalmente — inténtalo de nuevo en un momento o consúltalo directamente en la")} <a href="${esc(POLLEN_ORIGIN + POLLEN_INDEX_PATH)}">${T(lang, "Houston Health Department page", "página del Departamento de Salud de Houston")}</a>.</p>`
+      : `<p class="stamp">${T(lang, "The count is not available right now. Try again in a few minutes, or read it on the", "El conteo no está disponible en este momento. Inténtalo de nuevo en unos minutos o consúltalo en la")} <a href="${esc(POLLEN_ORIGIN + POLLEN_INDEX_PATH)}">${T(lang, "Houston Health Department page", "página del Departamento de Salud de Houston")}</a>.</p>`
   }
   ${
     speciesBlocks.length
@@ -397,8 +387,8 @@ ${speciesBlocks.join("\n")}
     <h2>${T(lang, "How to read the categories", "Cómo leer las categorías")}</h2>
     <p>${T(
       lang,
-      "Categories follow the National Allergy Bureau scale — None, Low, Medium, Heavy, Extremely Heavy — and the thresholds differ by type, because it takes far fewer grass grains than mold spores to bother people:",
-      "Las categorías siguen la escala del National Allergy Bureau — Ninguno, Bajo, Medio, Alto, Extremadamente alto — y los umbrales varían según el tipo, porque se necesitan muchos menos granos de pasto que esporas de moho para causar molestias:"
+      "The categories are the National Allergy Bureau's: None, Low, Medium, Heavy and Extremely Heavy. The cutoffs differ by type, because far fewer grass grains than mold spores are enough to bother people:",
+      "Las categorías son las del National Allergy Bureau: Ninguno, Bajo, Medio, Alto y Extremadamente alto. Los límites varían según el tipo, porque bastan muchos menos granos de pasto que esporas de moho para causar molestias:"
     )}</p>
     <div class="scale-wrap"><table class="scale">
       <tr><th></th><th>${T(lang, "Low", "Bajo")}</th><th>${T(lang, "Medium", "Medio")}</th><th>${T(lang, "Heavy", "Alto")}</th><th>${T(lang, "Extremely Heavy", "Extremadamente alto")}</th></tr>
@@ -410,8 +400,8 @@ ${speciesBlocks.join("\n")}
     <h2>${T(lang, "The allergy year around Crosby", "El año de alergias en Crosby")}</h2>
     <p>${T(
       lang,
-      "Tree pollen dominates mid-January through mid-April (oak, elm, pine — and cedar elm makes a second run in September–October). Grass pollen runs long here, spring through fall. Ragweed and other weeds peak in the fall. Mold spores are the year-round constant on the humid Gulf Coast — counts jump after rain and in the muggy summer, which is why a Heavy mold day in July is common.",
-      "El polen de árboles domina de mediados de enero a mediados de abril (roble, olmo, pino — y el olmo cedro repite en septiembre-octubre). El polen de pastos dura mucho aquí, de primavera a otoño. La ambrosía y otras malezas alcanzan su pico en otoño. Las esporas de moho son la constante de todo el año en la húmeda costa del Golfo — los conteos suben después de la lluvia y en el verano bochornoso, por eso un día de moho Alto en julio es común."
+      "Tree pollen is highest from mid-January through mid-April (oak, elm and pine), and cedar elm brings a second round in September and October. Grass pollen lasts from spring through fall. Ragweed and other weeds peak in the fall. Mold spores are in the air all year on the humid Gulf Coast. The count jumps after rain and in the muggy summer, so a Heavy mold day in July is common.",
+      "El polen de árboles está más alto de mediados de enero a mediados de abril (roble, olmo y pino), y el olmo cedro trae una segunda ronda en septiembre y octubre. El polen de pastos dura de primavera a otoño. La ambrosía y otras malezas llegan a su punto más alto en otoño. Las esporas de moho están en el aire todo el año en la húmeda costa del Golfo. El conteo sube después de la lluvia y en el verano bochornoso, así que un día de moho Alto en julio es común."
     )}</p>
     <p>${T(
       lang,
@@ -419,9 +409,9 @@ ${speciesBlocks.join("\n")}
       "En días altos: las mañanas suelen ser lo peor para el polen, la lluvia baja el polen (pero sube el moho uno o dos días después) y los días secos con viento lo dispersan todo. Si eres sensible, revisa el conteo antes de trabajar en el jardín y mantén las ventanas cerradas en días de nivel Alto."
     )}</p>
     <ul class="links">
-      <li><a href="${esc(data.url || POLLEN_ORIGIN + POLLEN_INDEX_PATH)}">${T(lang, "Houston Health Department pollen &amp; mold count", "Conteo de polen y moho del Departamento de Salud de Houston")}</a> &mdash; ${T(lang, "the official daily report this page republishes", "el reporte oficial diario que esta página republica")}</li>
-      <li><a href="https://pollen.aaaai.org/">${T(lang, "National Allergy Bureau", "National Allergy Bureau")}</a> &mdash; ${T(lang, "the certified station network and scale", "la red de estaciones certificadas y la escala")}</li>
-      <li><a href="${lang === "es" ? "/es/weather" : "/weather"}">${T(lang, "Crosby forecast", "Pronóstico de Crosby")}</a> &mdash; ${T(lang, "rain and wind change what's in the air", "la lluvia y el viento cambian lo que hay en el aire")}</li>
+      <li><a href="${esc(data.url || POLLEN_ORIGIN + POLLEN_INDEX_PATH)}">${T(lang, "Houston Health Department pollen &amp; mold count", "Conteo de polen y moho del Departamento de Salud de Houston")}</a>: ${T(lang, "the official daily report, which this page copies", "el reporte oficial diario, que esta página copia")}</li>
+      <li><a href="https://pollen.aaaai.org/">${T(lang, "National Allergy Bureau", "National Allergy Bureau")}</a>: ${T(lang, "the certified station network and scale", "la red de estaciones certificadas y la escala")}</li>
+      <li><a href="${lang === "es" ? "/es/weather" : "/weather"}">${T(lang, "Crosby forecast", "Pronóstico de Crosby")}</a>: ${T(lang, "rain and wind change what's in the air", "la lluvia y el viento cambian lo que hay en el aire")}</li>
     </ul>
   </section>
 </main>

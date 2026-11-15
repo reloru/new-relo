@@ -147,17 +147,17 @@ export function fishingState(st, lang) {
 // A short, honest read of conditions — never a guaranteed-bite claim.
 export function fishingNote(st, lang) {
   const dov = st.params.do?.value;
-  if (dov == null) return T(lang, "Only water level is monitored here — no water-quality sensor at this station.", "Aquí solo se mide el nivel del agua — no hay sensor de calidad del agua en esta estación.");
+  if (dov == null) return T(lang, "This station measures water level only. It has no water-quality sensor.", "Esta estación solo mide el nivel del agua. No tiene sensor de calidad del agua.");
   const parts = [];
   if (dov >= 6) parts.push(T(lang, "oxygen is healthy", "el oxígeno está saludable"));
-  else if (dov >= 4) parts.push(T(lang, "oxygen is moderate — fish may hold deeper or near moving water", "el oxígeno es moderado — los peces pueden mantenerse más profundo o cerca de agua en movimiento"));
-  else parts.push(T(lang, "oxygen is low — fish likely sluggish; best odds early morning or near inflows", "el oxígeno está bajo — los peces probablemente lentos; mejores probabilidades temprano o cerca de entradas de agua"));
+  else if (dov >= 4) parts.push(T(lang, "oxygen is moderate, so fish may hold deeper or near moving water", "el oxígeno es moderado, así que los peces pueden estar más profundo o cerca de agua en movimiento"));
+  else parts.push(T(lang, "oxygen is low and fish are likely sluggish, so try early morning or near inflows", "el oxígeno está bajo y los peces probablemente están lentos, así que prueba temprano o cerca de entradas de agua"));
   const tF = st.params.tempC ? cToF(st.params.tempC.value) : null;
-  if (tF != null && tF >= 85) parts.push(T(lang, `warm at ${tF}°F — try deeper, shaded water midday`, `tibia a ${tF}°F — prueba agua más profunda y con sombra al mediodía`));
-  else if (tF != null && tF <= 55) parts.push(T(lang, `cool at ${tF}°F — work baits slowly`, `fría a ${tF}°F — mueve el señuelo despacio`));
+  if (tF != null && tF >= 85) parts.push(T(lang, `the water is warm at ${tF}°F, so try deeper, shaded water at midday`, `el agua está tibia a ${tF}°F, así que prueba agua más profunda y con sombra al mediodía`));
+  else if (tF != null && tF <= 55) parts.push(T(lang, `the water is cool at ${tF}°F, so work baits slowly`, `el agua está fría a ${tF}°F, así que mueve el señuelo despacio`));
   const turb = st.params.turb?.value;
-  if (turb != null && turb >= 50) parts.push(T(lang, "stained water — scent and vibration baits shine", "agua turbia — señuelos de olor y vibración funcionan mejor"));
-  else if (turb != null && turb < 10) parts.push(T(lang, "clear water — go lighter and more natural", "agua clara — usa señuelos más ligeros y naturales"));
+  if (turb != null && turb >= 50) parts.push(T(lang, "the water is stained, which suits baits with scent or vibration", "el agua está turbia, lo que favorece señuelos con olor o vibración"));
+  else if (turb != null && turb < 10) parts.push(T(lang, "the water is clear, which suits lighter, natural-looking baits", "el agua está clara, lo que favorece señuelos más ligeros y de aspecto natural"));
   return parts.join("; ");
 }
 // Metric chips: the full water-quality suite, or a water-level chip.
@@ -192,8 +192,8 @@ export function fishingHtml(data, lang, samples = null) {
   const title = T(lang, "Crosby, TX Fishing Conditions", "Condiciones de pesca de Crosby, TX");
   const desc = T(
     lang,
-    "Water temperature, dissolved oxygen, pH and clarity for the waters people fish near Crosby, TX — Lake Houston, the San Jacinto and Trinity rivers — from USGS.",
-    "Temperatura del agua, oxígeno disuelto, pH y claridad de las aguas donde se pesca cerca de Crosby, TX — Lake Houston y los ríos San Jacinto y Trinity."
+    "Water temperature, dissolved oxygen, pH and clarity from USGS stations on the waters people fish near Crosby: Lake Houston, the San Jacinto and the Trinity.",
+    "Temperatura del agua, oxígeno disuelto, pH y claridad de las aguas donde se pesca cerca de Crosby, TX: Lake Houston y los ríos San Jacinto y Trinity."
   );
   const sections = stations.length
     ? fishingGroups(stations)
@@ -224,7 +224,7 @@ ${cards}
     </section>`;
         })
         .join("\n")
-    : `    <p class="none">${T(lang, "Fishing conditions are temporarily unavailable — try again shortly.", "Las condiciones de pesca no están disponibles temporalmente — inténtalo de nuevo en un momento.")}</p>`;
+    : `    <p class="none">${T(lang, "Fishing conditions are not available right now. Try again in a few minutes.", "Las condiciones de pesca no están disponibles en este momento. Inténtalo de nuevo en unos minutos.")}</p>`;
 
   return `<!DOCTYPE html>
 <html lang="${T(lang, "en", "es-MX")}">
@@ -241,30 +241,23 @@ ${sharedHead(lang)}
 ${hreflangTags("/fishing")}
 ${JSONLD_SITE}
 <style>${BASE_CSS}
-  .intro { color:var(--muted); margin:0.6rem 0 0; }
-  .fw { margin-top:1.5rem; }
-  .fw h2 { font-size:1.15rem; margin:0 0 0.15rem; }
-  .fw-fish { margin:0 0 0.5rem; font-size:0.85rem; color:var(--muted); }
-  .fgrid { display:grid; gap:0.7rem; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); }
-  .fcard { background:var(--card); border-radius:12px; padding:0.85rem 1rem; box-shadow:0 1px 3px rgba(0,0,0,0.07); border-left:5px solid var(--muted); }
-  .fcard-head { display:flex; justify-content:space-between; align-items:flex-start; gap:0.5rem; }
-  .fcard-head h3 { margin:0; font-size:1rem; }
-  .fbadge { flex:none; font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.03em; padding:0.15rem 0.5rem; border-radius:999px; color:#fff; background:#5b6470; white-space:nowrap; }
-  .fmetrics { display:flex; flex-wrap:wrap; gap:0.35rem; margin:0.55rem 0 0; }
-  .fchip { font-size:0.9rem; font-weight:700; background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:0.15rem 0.45rem; }
-  .fchip .fk { font-size:0.68rem; font-weight:700; text-transform:uppercase; letter-spacing:0.03em; color:var(--muted); }
-  .fchip .u { font-size:0.72rem; font-weight:600; opacity:0.7; }
-  .fnote { margin:0.5rem 0 0; font-size:0.85rem; color:var(--ink); line-height:1.45; }
-  .fmeta { margin:0.3rem 0 0; font-size:0.78rem; color:var(--muted); }
-  .f-good { border-left-color:#2eb86a; } .f-good .fbadge { background:#187a40; }
-  .f-fair { border-left-color:#e0a800; } .f-fair .fbadge { background:#8f6800; }
-  .f-low { border-left-color:#d44230; } .f-low .fbadge { background:#b5301f; }
-  .f-level { border-left-color:var(--accent); } .f-level .fbadge { background:var(--btn); }
-  .fguide { margin-top:1.6rem; background:var(--card); border-radius:12px; padding:0.9rem 1.1rem; box-shadow:0 1px 3px rgba(0,0,0,0.07); }
-  .fguide h2 { font-size:1.05rem; margin:0 0 0.3rem; }
-  .fguide p, .fguide ul { font-size:0.88rem; color:var(--muted); line-height:1.55; margin:0.3rem 0 0; }
-  .fguide ul { padding-left:1.1rem; }
-  .safety { margin-top:1.4rem; font-size:0.85rem; color:var(--muted); border-top:1px solid var(--line); padding-top:0.8rem; }
+  .fw-fish { margin:0 0 0.6rem; font-size:0.9rem; color:var(--muted); }
+  .fgrid { columns:2 20rem; column-gap:2.5rem; }
+  .fcard { break-inside:avoid; padding:0.2rem 0 0.2rem 0.9rem; margin-bottom:1.2rem; border-left:4px solid var(--mark,var(--quiet)); }
+  .fcard-head { display:flex; justify-content:space-between; align-items:baseline; gap:0.8rem; }
+  .fcard-head h3 { margin:0; font-size:1.1rem; }
+  .fbadge { flex:none; font-size:0.9rem; font-weight:600; white-space:nowrap; }
+  .fbadge::before { content:""; display:inline-block; width:0.62em; height:0.62em; margin-right:0.45em; background:var(--mark,var(--quiet)); }
+  .fmetrics { display:flex; flex-wrap:wrap; gap:0.2rem 1.4rem; margin:0.4rem 0 0; }
+  .fchip { font-family:var(--serif); font-size:1.5rem; font-weight:700; }
+  .fchip .fk { display:block; font-family:system-ui,sans-serif; font-size:0.8rem; font-weight:400; color:var(--muted); }
+  .fchip .u { font-family:system-ui,sans-serif; font-size:0.85rem; font-weight:400; color:var(--muted); }
+  .fnote { margin:0.5rem 0 0; font-size:0.95rem; }
+  .fmeta { margin:0.3rem 0 0; font-size:0.85rem; color:var(--muted); }
+  .f-good { --mark:var(--ok); } .f-fair { --mark:var(--warn); } .f-low { --mark:var(--bad); } .f-level { --mark:var(--info); }
+  .fguide p, .fguide ul { color:var(--muted); margin:0.4rem 0 0; }
+  .fguide ul { padding-left:1.2rem; max-width:70ch; }
+  .safety { margin-top:1.4rem; }
 ${WQ_CSS}
 </style>
 </head>
@@ -272,18 +265,18 @@ ${WQ_CSS}
 ${topbar("/fishing", lang)}
 <main id="main">
   <h1>${esc(title)}</h1>
-  <p class="intro">${T(lang, "Live water conditions for the waters people actually fish around Crosby — matched to the nearest U.S. Geological Survey real-time station. Dissolved oxygen and temperature are what most drive whether fish are active; the reading is from a nearby station, not your exact spot.", "Condiciones del agua en vivo para las aguas donde realmente se pesca cerca de Crosby — con la estación en tiempo real del USGS más cercana. El oxígeno disuelto y la temperatura son lo que más determina si los peces están activos; la lectura es de una estación cercana, no de tu punto exacto.")}${data.updated ? ` ${T(lang, "Updated", "Actualizado")} ${dateStamp(data.updated, lang)}.` : ""}</p>
+  <p class="intro">${T(lang, "Water conditions on the lakes, rivers and bayous people fish around Crosby, each read from the nearest U.S. Geological Survey station. Dissolved oxygen and temperature do the most to decide whether fish are active. A reading comes from a station near the water, which may not be the spot where you fish.", "Condiciones del agua en los lagos, ríos y bayous donde se pesca cerca de Crosby, cada una tomada de la estación más cercana del Servicio Geológico de EE. UU. (USGS). El oxígeno disuelto y la temperatura son lo que más decide si los peces están activos. La lectura viene de una estación cercana al agua, que puede no ser el punto donde pescas.")}${data.updated ? ` ${T(lang, "Updated", "Actualizado")} ${dateStamp(data.updated, lang)}.` : ""}</p>
 ${sections}
   ${samplesHtml}
   <section class="fguide">
     <h2>${T(lang, "How to read it", "Cómo interpretarlo")}</h2>
     <ul>
-      <li>${T(lang, "<strong>Dissolved oxygen (mg/L)</strong> — above 6 is healthy; 4&ndash;6 is moderate; below 4 the fish get sluggish. Summer afternoons and warm, still water run lowest.", "<strong>Oxígeno disuelto (mg/L)</strong> — más de 6 es saludable; 4&ndash;6 moderado; por debajo de 4 los peces se vuelven lentos. Las tardes de verano y el agua tibia y quieta son las más bajas.")}</li>
-      <li>${T(lang, "<strong>Temperature</strong> drives activity by species; <strong>clarity</strong> (turbidity, FNU) hints at bait choice &mdash; clear water favors natural finesse, stained water favors scent and vibration.", "<strong>Temperatura</strong> afecta la actividad según la especie; <strong>claridad</strong> (turbidez, FNU) sugiere el señuelo &mdash; agua clara favorece lo natural y sutil, agua turbia favorece olor y vibración.")}</li>
-      <li>${T(lang, "These are water conditions, not a bite guarantee &mdash; wind, pressure, season, and time of day matter too.", "Estas son condiciones del agua, no una garantía de picada &mdash; el viento, la presión, la temporada y la hora también importan.")}</li>
+      <li>${T(lang, "<strong>Dissolved oxygen (mg/L).</strong> Above 6 is healthy, 4 to 6 is moderate, and below 4 the fish get sluggish. It runs lowest on summer afternoons and in warm, still water.", "<strong>Oxígeno disuelto (mg/L).</strong> Más de 6 es saludable, de 4 a 6 es moderado y por debajo de 4 los peces se ponen lentos. Baja más en las tardes de verano y en agua tibia y quieta.")}</li>
+      <li>${T(lang, "<strong>Temperature</strong> affects each species differently. <strong>Clarity</strong> (turbidity, in FNU) helps with choosing bait: natural-looking baits in clear water, scent and vibration in stained water.", "<strong>La temperatura</strong> afecta a cada especie de manera distinta. <strong>La claridad</strong> (turbidez, en FNU) ayuda a elegir el señuelo: de aspecto natural en agua clara, con olor y vibración en agua turbia.")}</li>
+      <li>${T(lang, "These numbers describe the water. They cannot promise a bite: wind, pressure, season and time of day matter too.", "Estos números describen el agua. No pueden prometer que piquen: el viento, la presión, la temporada y la hora también cuentan.")}</li>
     </ul>
   </section>
-  <p class="safety">${T(lang, "A Texas fishing license is required for most anglers &mdash; see <a href=\"https://tpwd.texas.gov/\">Texas Parks &amp; Wildlife</a>. Watch the water: never wade unfamiliar current, and in high water turn around, don't drown. River and bayou <a href=\"/water\">flood levels are here</a>.", "Se requiere licencia de pesca de Texas para la mayoría &mdash; consulta <a href=\"https://tpwd.texas.gov/\">Texas Parks &amp; Wildlife</a>. Cuida el agua: nunca vadees corrientes desconocidas, y con agua alta da la vuelta, no te arriesgues. Los <a href=\"/es/water\">niveles de inundación están aquí</a>.")}</p>
+  <p class="safety">${T(lang, "Most anglers need a Texas fishing license, sold by <a href=\"https://tpwd.texas.gov/\">Texas Parks &amp; Wildlife</a>. Never wade into current you do not know, and stay out of high water. River and bayou flood levels are on the <a href=\"/water\">water levels page</a>.", "La mayoría de los pescadores necesita una licencia de pesca de Texas, que vende <a href=\"https://tpwd.texas.gov/\">Texas Parks &amp; Wildlife</a>. Nunca te metas a una corriente que no conoces y no entres al agua cuando está alta. Los niveles de ríos y bayous están en la <a href=\"/es/water\">página de niveles de agua</a>.")}</p>
   <p class="intro"><a href="${lang === "es" ? "/es/water" : "/water"}">${T(lang, "Water levels", "Niveles de agua")}</a> &middot; <a href="${lang === "es" ? "/es/weather" : "/weather"}">${T(lang, "Forecast", "Pronóstico")}</a></p>
 </main>
 ${footer({ page: "/fishing", lang, source: T(lang, `Water data from the <a href="https://waterdata.usgs.gov/">U.S. Geological Survey</a> (real-time monitoring).${samplesHtml ? SAMPLES_SOURCE.en : ""}`, `Datos del agua del <a href="https://waterdata.usgs.gov/">Servicio Geológico de EE. UU.</a> (monitoreo en tiempo real).${samplesHtml ? SAMPLES_SOURCE.es : ""}`) })}

@@ -12,7 +12,7 @@ import { PAGES, ENDPOINTS, SECTIONS } from "../registry.js";
 export function sitemapPageHtml(lang) {
   const t = (en, es) => T(lang, en, es);
   // Pages localize (each has an /es form); endpoints are English-only paths.
-  const item = (href, label, desc) => `<li><a href="${href}">${esc(label)}</a> &mdash; ${esc(desc)}</li>`;
+  const item = (href, label, desc) => `<li><a href="${href}">${esc(label)}</a>: ${esc(desc)}</li>`;
   const pageItem = (p) => item(lang === "es" ? esPath(p.path) : p.path, t(p.name.en, p.name.es), t(p.desc.en, p.desc.es));
   const endpointItem = (e) => item(e.path, t(e.name.en, e.name.es), t(e.desc.en, e.desc.es));
   const sections = SECTIONS.map((sec) => {
@@ -47,11 +47,6 @@ ${sharedHead(lang)}
 ${hreflangTags("/sitemap")}
 ${JSONLD_SITE}
 <style>${BASE_CSS}
-  .card { background:var(--card); border-radius:12px; padding:0.9rem 1.1rem; margin-top:1rem; box-shadow:0 1px 3px rgba(0,0,0,0.07); }
-  .card h2 { margin:0 0 0.5rem; }
-  .card ul { margin:0.5rem 0; padding-left:1.3rem; }
-  .card li { margin:0.3rem 0; }
-  .lede { font-size:1.05rem; color:var(--ink); }
 </style>
 </head>
 <body>

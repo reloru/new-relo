@@ -249,17 +249,10 @@ ${s.recent.slice(0, recent).map((r) => `        <tr><td><time datetime="${esc(r.
 }
 
 export const WQ_CSS = `
-  .wq { margin-top:1.6rem; }
-  .wq h3 { font-size:0.98rem; margin:1rem 0 0.2rem; }
-  .wq .note { font-size:0.85rem; color:var(--muted); margin:0.3rem 0 0; }
-  .wq .tbl-wrap { overflow-x:auto; margin-top:0.4rem; }
-  .wq .tbl { border-collapse:collapse; font-size:0.88rem; width:100%; }
-  .wq .tbl th, .wq .tbl td { border:1px solid var(--line); padding:0.35rem 0.55rem; text-align:left; }
-  .wq .tbl th { background:var(--card); }
-  .wq .num { white-space:nowrap; }
-  .wq details.years { margin-top:0.4rem; font-size:0.9rem; }
-  .wq .limits { font-size:0.85rem; color:var(--muted); padding-left:1.2rem; margin:0.5rem 0 0; }
-  .wq .limits li { margin:0.3rem 0; }
+  .wq h3 { font-size:1.05rem; margin:1.2rem 0 0.2rem; }
+  .wq details.years { margin-top:0.4rem; font-size:0.92rem; }
+  .wq .limits { font-size:0.9rem; color:var(--muted); padding-left:1.2rem; margin:0.5rem 0 0; }
+  .wq .limits li { margin:0.3rem 0; max-width:70ch; }
 `;
 
 const headingOf = (lang, opts) => (opts.heading ? T(lang, opts.heading[0], opts.heading[1]) : T(lang, "Water samples", "Muestras de agua"));

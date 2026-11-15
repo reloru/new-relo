@@ -124,17 +124,15 @@ ${hreflangTags("/news")}
 <link rel="alternate" type="application/rss+xml" title="Crosby, TX News (RSS)" href="/news.xml">
 ${JSONLD_SITE}
 <style>${BASE_CSS}
-  .news-list { list-style:none; padding:0; margin:1rem 0 0; }
-  .news-item { background:var(--card); border-radius:10px; padding:0.7rem 0.95rem; margin-bottom:0.6rem; box-shadow:0 1px 3px rgba(0,0,0,0.07); }
-  .news-title { font-weight:600; color:var(--ink); text-decoration:none; display:block; }
-  .news-title:hover { text-decoration:underline; color:var(--link); }
-  .news-meta { margin:0.3rem 0 0; font-size:0.8rem; color:var(--muted); }
-  .incidents-head { font-size:0.95rem; color:var(--muted); margin-top:1.6rem; border-top:1px solid var(--line); padding-top:0.9rem; }
-  .intro { color:var(--muted); margin:0.6rem 0 0; }
-  .disclaimer { margin-top:1.4rem; font-size:0.8rem; color:var(--muted); border-top:1px solid var(--line); padding-top:0.7rem; }
-  .admin-bar { background:#4a2fb5; color:#fff; border-radius:10px; padding:0.55rem 0.9rem; margin:0.8rem 0 0; font-size:0.85rem; font-weight:600; }
-  .news-admin-btn { margin-top:0.5rem; font-size:0.8rem; font-weight:600; padding:0.28rem 0.7rem; border:1px solid var(--line); border-radius:8px; background:var(--card); color:var(--link); cursor:pointer; }
-  .news-admin-btn:hover { border-color:var(--link); }
+  .news-list { list-style:none; padding:0; margin:1rem 0 0; max-width:44rem; }
+  .news-item { padding:0.7rem 0; border-bottom:1px solid var(--line); }
+  .news-title { font-family:var(--serif); font-size:1.15rem; font-weight:700; line-height:1.3; color:var(--ink); text-decoration:none; display:block; }
+  .news-title:hover { text-decoration:underline; }
+  .news-meta { margin:0.25rem 0 0; font-size:0.85rem; color:var(--muted); }
+  .incidents-head { font-size:1.05rem; }
+  .disclaimer { margin-top:1.4rem; font-size:0.85rem; color:var(--muted); }
+  .admin-bar { background:#4a2fb5; color:#fff; padding:0.55rem 0.9rem; margin:0.8rem 0 0; font-size:0.85rem; font-weight:600; }
+  .news-admin-btn { margin-top:0.5rem; font-size:0.8rem; font-weight:600; padding:0.28rem 0.7rem; border:1px solid var(--line); background:var(--bg); color:var(--link); cursor:pointer; }
   .news-blocked { opacity:0.5; }
   .news-blocked .news-title { text-decoration:line-through; }
 </style>
@@ -149,10 +147,9 @@ ${topbar("/news", lang)}
   <section class="card">
     <h2>${T(lang, "About Crosby, Texas", "Acerca de Crosby, Texas")}</h2>
     <p>${T(lang, "Crosby is a community in northeast Harris County, Texas, situated along the San Jacinto River corridor between Houston and Baytown. The area includes Barrett Station and surrounding neighborhoods in the 77532 zip code. Crosby ISD serves the local schools, including Crosby High School, home of the Cougars.", "Crosby es una comunidad en el noreste del condado de Harris, Texas, ubicada a lo largo del corredor del río San Jacinto, entre Houston y Baytown. La zona incluye Barrett Station y los vecindarios cercanos del código postal 77532. El distrito Crosby ISD atiende a las escuelas locales, entre ellas Crosby High School, hogar de los Cougars.")}</p>
-    <p>${T(lang, "The community regularly experiences Gulf Coast weather events &mdash; tropical storms, flash flooding, and severe thunderstorms &mdash; making it a distinct news beat separate from the wider Houston metro. Stories here focus on Crosby and the nearby northeast Harris County communities of Huffman, Highlands, Channelview, and Atascocita.", "La comunidad vive con frecuencia fenómenos meteorológicos de la costa del Golfo &mdash; tormentas tropicales, inundaciones repentinas y tormentas severas &mdash; lo que la convierte en un tema de noticias propio, distinto del área metropolitana de Houston. Las notas aquí se centran en Crosby y en las comunidades cercanas del noreste del condado de Harris: Huffman, Highlands, Channelview y Atascocita.")}</p>
-    <p class="disclaimer">${T(lang, "Headlines are aggregated from public news sources and filtered to stories about Crosby, TX and nearby communities. crosbynews.com isn&rsquo;t the publisher &mdash; each link goes through Google News to the outlet that is. Spotted something off-topic? It&rsquo;s automated filtering and we tune it over time.", "Los titulares se recopilan de fuentes de noticias públicas y se filtran para notas sobre Crosby, TX y comunidades cercanas. crosbynews.com no es el editor &mdash; cada enlace pasa por Google News hacia el medio que sí lo es. ¿Viste algo fuera de tema? Es un filtrado automático y lo ajustamos con el tiempo.")}</p>
+    <p>${T(lang, "Crosby gets its own share of Gulf Coast weather (tropical storms, flash floods, severe thunderstorms), and what happens here is often missed in coverage of greater Houston. The stories on this page are about Crosby and its neighbors in northeast Harris County: Huffman, Highlands, Channelview and Atascocita.", "A Crosby le toca su parte del clima de la costa del Golfo (tormentas tropicales, inundaciones repentinas, tormentas severas), y lo que pasa aquí muchas veces no sale en la cobertura del área de Houston. Las notas aquí se centran en Crosby y en las comunidades cercanas del noreste del condado de Harris: Huffman, Highlands, Channelview y Atascocita.")}</p>
+    <p class="disclaimer">${T(lang, "These headlines are collected from public news sources and filtered down to stories about Crosby and nearby communities. crosbynews.com did not write them. Each link goes through Google News to the outlet that did. The filter is automatic and sometimes lets an unrelated story through.", "Los titulares se recopilan de fuentes de noticias públicas y se filtran para notas sobre Crosby, TX y comunidades cercanas. crosbynews.com no los escribió. Cada enlace pasa por Google News hacia el medio que sí. El filtro es automático y a veces deja pasar una nota que no tiene que ver.")}</p>
   </section>
-  <p class="intro"><a href="${lang === "es" ? "/es/weather" : "/weather"}">&larr; ${T(lang, "Back to the forecast", "Volver al pronóstico")}</a></p>
 </main>
 ${footer({ page: "/news", lang, source: T(lang, "Weather data from the U.S. National Weather Service. News headlines aggregated from public sources.", "Datos del tiempo del Servicio Meteorológico Nacional de EE. UU. Titulares de noticias recopilados de fuentes públicas.") })}
 ${admin ? `<script>${NEWS_ADMIN_SCRIPT}</script>` : ""}

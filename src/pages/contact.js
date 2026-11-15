@@ -12,7 +12,7 @@ import { JSONLD_SITE, sharedHead, ORG_ID, WEBSITE_ID } from "../seo.js";
 
 export const CONTACT = {
   title: "Contact Us",
-  description: "How to reach crosbynews.com — general inquiries, news tips, and security reporting.",
+  description: "How to reach crosbynews.com with a question, a news tip or a security report.",
   intro: "crosbynews.com is an independent community weather and news project for Crosby, Texas. We welcome questions, corrections, and local news tips.",
   sections: [
     {
@@ -39,7 +39,7 @@ export const CONTACT = {
 
 export const CONTACT_ES = {
   title: "Contacto",
-  description: "Cómo comunicarte con crosbynews.com — consultas generales, datos de noticias y reportes de seguridad.",
+  description: "Cómo comunicarte con crosbynews.com para una pregunta, un dato de noticia o un reporte de seguridad.",
   intro: "crosbynews.com es un proyecto comunitario independiente de clima y noticias para Crosby, Texas. Recibimos con gusto preguntas, correcciones y datos de noticias locales.",
   sections: [
     {
@@ -86,7 +86,7 @@ export function contactHtml(lang) {
       const paras = (s.p || []).map((t) => `<p>${esc(t)}</p>`).join("\n      ");
       const links = s.links
         ? `<ul class="links">${s.links
-            .map((l) => `<li><a href="${l.href}"><code>${esc(l.label)}</code></a> &mdash; ${esc(l.note)}</li>`)
+            .map((l) => `<li><a href="${l.href}"><strong>${esc(l.label)}</strong></a>: ${esc(l.note)}</li>`)
             .join("")}</ul>`
         : "";
       return `      <section class="card">
@@ -112,12 +112,6 @@ ${hreflangTags("/contact")}
 ${JSONLD_SITE}
 ${jsonldContact(lang)}
 <style>${BASE_CSS}
-  .card { background:var(--card); border-radius:12px; padding:0.9rem 1.1rem; margin-top:1rem; box-shadow:0 1px 3px rgba(0,0,0,0.07); }
-  .card h2 { margin:0 0 0.5rem; }
-  .card p { margin:0.5rem 0; }
-  .lede { font-size:1.05rem; color:var(--ink); }
-  .links { margin:0.5rem 0 0; padding-left:1.1rem; }
-  .links li { margin:0.3rem 0; }
 </style>
 </head>
 <body>

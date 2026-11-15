@@ -93,6 +93,10 @@ see `docs/README.md`.
   a decoration token at 3.6–4.3:1 — under WCAG AA — and had been carrying
   body text sitewide until a reader reported `/burn-ban`'s link list as
   "blue on blue".
+- **Check look and wording** (`node scripts/test-look.mjs`) — same job,
+  no install. Renders every page in both languages and refuses gradients,
+  drop shadows, rounded corners, CSS capitals, pictographs in the text and
+  arrows in link labels.
 - **Check MCP server contract** (`node scripts/test-mcp-server.mjs`) — same
   job, added with the Anthropic directory preparation. Pins what that review
   tests directly: bad arguments return an actionable `isError` result before

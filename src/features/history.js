@@ -292,19 +292,12 @@ ${sharedHead(lang)}
 ${hreflangTags(PATH)}
 ${JSONLD_SITE}
 <style>${BASE_CSS}
-  .lede p { margin:0.6rem 0 0; font-size:1.02rem; }
-  h3 { font-size:0.98rem; margin:1rem 0 0.3rem; }
-  .intro { color:var(--muted); margin:0.6rem 0 0; }
-  .tbl-wrap { overflow-x:auto; margin-top:0.5rem; }
-  .tbl { border-collapse:collapse; font-size:0.88rem; width:100%; }
-  .tbl th, .tbl td { border:1px solid var(--line); padding:0.35rem 0.55rem; text-align:left; vertical-align:top; }
-  .tbl th { background:var(--card); }
-  .tbl .num { white-space:nowrap; text-align:right; }
-  .tbl tfoot td { font-weight:700; }
-  .events { padding-left:1.2rem; font-size:0.92rem; }
-  .events li { margin:0.25rem 0; }
-  .notes { font-size:0.88rem; padding-left:1.2rem; }
-  .notes li { margin:0.3rem 0; }
+  .lede p { margin:0.6rem 0 0; }
+  h3 { font-size:1.05rem; margin:1.2rem 0 0.3rem; }
+  .tbl .num { text-align:right; }
+  .tbl tfoot td { font-weight:700; border-bottom:none; }
+  .events { padding-left:1.2rem; }
+  .events li { margin:0.25rem 0; max-width:70ch; }
 </style>
 </head>
 <body>

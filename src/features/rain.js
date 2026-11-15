@@ -175,22 +175,12 @@ ${sharedHead(lang)}
 ${hreflangTags(PATH)}
 ${JSONLD_SITE}
 <style>${BASE_CSS}
-  .lede { margin:0.7rem 0 0; font-size:1.02rem; }
-  .intro { color:var(--muted); margin:0.6rem 0 0; }
-  .now { background:var(--card); border-radius:12px; padding:0.85rem 1rem; box-shadow:0 1px 3px rgba(0,0,0,0.07); margin-top:1rem; }
-  .now h2 { margin:0 0 0.4rem; font-size:1rem; }
-  .now dl { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:0.5rem 1rem; margin:0; }
-  .now dt { font-size:0.82rem; color:var(--muted); }
-  .now dd { margin:0; font-size:1.5rem; font-weight:800; }
-  .now .meta { margin:0.5rem 0 0; font-size:0.82rem; color:var(--muted); }
-  .tbl-wrap { overflow-x:auto; margin-top:0.5rem; }
-  .tbl { border-collapse:collapse; font-size:0.88rem; width:100%; }
-  .tbl th, .tbl td { border:1px solid var(--line); padding:0.35rem 0.55rem; text-align:left; vertical-align:top; }
-  .tbl th { background:var(--card); }
-  .tbl .num { white-space:nowrap; }
-  .inc { color:var(--muted); font-size:0.8rem; }
-  .notes { font-size:0.88rem; padding-left:1.2rem; }
-  .notes li { margin:0.3rem 0; }
+  .now h2 { font-size:1.25rem; }
+  .now dl { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:0.5rem 1.5rem; margin:0; }
+  .now dt { font-size:0.9rem; color:var(--muted); }
+  .now dd { margin:0; font-family:var(--serif); font-size:1.9rem; font-weight:700; line-height:1.15; }
+  .now .meta { margin:0.5rem 0 0; font-size:0.85rem; color:var(--muted); }
+  .inc { color:var(--muted); font-size:0.85rem; }
 </style>
 </head>
 <body>

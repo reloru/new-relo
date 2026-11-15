@@ -70,7 +70,7 @@ where it has not loaded.
 | Working on | Rule file |
 |---|---|
 | A page, a route, an endpoint, `/es` | `pages-and-routes.md` |
-| What a page says or looks like: translation, timestamps, search signals, CSS | `content.md` |
+| What a page says or looks like: translation, timestamps, search signals, the look, the wording | `content.md` |
 | KV feeds, the D1 record, migrations, gauge and history pages | `data.md` |
 | `src/assets/`, `public/`, icons | `assets.md` |
 | The MCP server and its tool list | `mcp.md` |
