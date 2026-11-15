@@ -386,7 +386,7 @@ export function burnbanHistory(prev, next) {
 export async function loadBurnBanPeriods(env) {
   if (!env?.DB) return null;
   try {
-    return (await env.DB.prepare("SELECT started, ended, start_source, end_source, note, url FROM burnban_periods ORDER BY started DESC").all()).results || [];
+    return (await env.DB.prepare("SELECT started, ended, start_source, end_source, note, url, end_url FROM burnban_periods ORDER BY started DESC").all()).results || [];
   } catch (e) {
     console.error("burn-ban history read failed:", e && e.stack);
     return null;
@@ -406,8 +406,9 @@ export function banHistoryRows(periods, lang) {
     const start = banDay(p.started, lang);
     const end = p.ended ? banDay(p.ended, lang) : T(lang, "in effect", "vigente");
     const length = p.ended ? T(lang, `${banDays(p.started, p.ended)} days`, `${banDays(p.started, p.ended)} días`) : "";
+    const court = T(lang, "Commissioners Court record", "registro de la Corte de Comisionados");
     const startSrc =
-      p.start_source === "order" ? { text: T(lang, "county release", "comunicado del condado"), url: p.url }
+      p.start_source === "order" ? { text: court, url: p.url }
       : p.start_source === "tfs" ? { text: T(lang, "Texas A&M Forest Service start date", "fecha de inicio del Servicio Forestal de Texas A&M"), url: null }
       : { text: T(lang, "first seen by this site", "primera vez visto por este sitio"), url: null };
     const news = p.end_source === "news" ? reportedBy(p.note) : null;
@@ -415,7 +416,7 @@ export function banHistoryRows(periods, lang) {
       !p.ended ? null
       : news ? { text: T(lang, `as reported by ${news.outlet}`, `según ${news.outlet}`), url: news.url }
       : p.end_source === "observed" ? { text: T(lang, "first seen lifted by this site", "visto levantado por este sitio"), url: null }
-      : p.end_source === "order" ? { text: T(lang, "county release", "comunicado del condado"), url: p.url }
+      : p.end_source === "order" ? { text: court, url: p.end_url }
       : null;
     return { start, end, length, startSrc, endSrc };
   });
@@ -424,8 +425,8 @@ export function banHistoryRows(periods, lang) {
 export function banHistoryNote(lang) {
   return T(
     lang,
-    "Bans before August 2023 are not listed: the ban that began June 28, 2022 is reported with two different end dates, and a second 2022 ban and earlier ones (one is reported for 2015) could not be dated from the county's releases. The county's ReadyHarris site posts the court's orders but lists no lift notice, so these lift dates are the ones news outlets reported from the county's statements.",
-    "Las prohibiciones anteriores a agosto de 2023 no aparecen: la que comenzó el 28 de junio de 2022 se reporta con dos fechas de fin distintas, y una segunda de 2022 y otras anteriores (se reporta una en 2015) no se pudieron fechar con los comunicados del condado. El sitio ReadyHarris del condado publica las órdenes de la corte pero no lista avisos de levantamiento, así que estas fechas de fin son las que reportaron medios a partir de declaraciones del condado.",
+    "Dates come from Harris County Commissioners Court records, which are online from February 2021; every ban the court adopted since then is listed. The 2024 and 2025 bans ended without a court vote, because each order ends on its own once the Texas A&M Forest Service finds the drought is over, so those end dates are the ones news outlets reported from the county's statements. Bans before 2021 (one is reported for 2015) are not listed.",
+    "Las fechas vienen de los registros de la Corte de Comisionados del condado de Harris, disponibles en línea desde febrero de 2021; aparecen todas las prohibiciones que la corte adoptó desde entonces. Las de 2024 y 2025 terminaron sin votación de la corte, porque cada orden termina sola cuando el Servicio Forestal de Texas A&M determina que la sequía terminó, así que esas fechas de fin son las que reportaron medios a partir de declaraciones del condado. Las prohibiciones anteriores a 2021 (se reporta una en 2015) no aparecen.",
   );
 }
 

@@ -10,12 +10,16 @@ const failures = [];
 const ok = (cond, what) => { if (!cond) failures.push(what); };
 const has = (body, text, what) => ok(body.includes(text), `${what}: expected ${JSON.stringify(text)}`);
 
-// Every hand-entered ban carries its own county release and a dated news source.
+// Every hand-entered ban starts with a Commissioners Court record, and ends
+// with either the court record that terminated it or a named news source.
+const LEGISTAR_RE = /^https:\/\/harriscountytx\.legistar\.com\/LegislationDetail\.aspx\?ID=\d+&GUID=[0-9A-F-]{36}$/;
 for (const b of PAST_BANS) {
-  ok(/^https:\/\/www\.readyharris\.org\//.test(b.url), `${b.started}: start source is the county's release`);
-  ok(/reported by [^(]+ \(https:\/\/[^)]+\)/.test(b.note), `${b.started}: end source names an outlet and a link`);
+  ok(LEGISTAR_RE.test(b.url), `${b.started}: start source is a court record`);
+  if (b.end_source === "order") ok(LEGISTAR_RE.test(b.end_url), `${b.started}: end source is a court record`);
+  else ok(b.end_source === "news" && b.end_url === null && /reported by [^(]+ \(https:\/\/[^)]+\)/.test(b.note), `${b.started}: end source names an outlet and a link`);
   ok(b.ended > b.started, `${b.started}: ends after it starts`);
 }
+ok(PAST_BANS.length === 5 && PAST_BANS[0].started === "2022-06-28" && PAST_BANS[1].started === "2022-10-25", "both 2022 bans are entered");
 
 const h = await createHarness();
 h.env.DB.raw.exec(seedSql());
@@ -26,12 +30,15 @@ const page = async (path, accept = "text/html") => (await h.get(path, { headers:
   const bans = html.slice(html.indexOf('<section class="bans">'), html.indexOf("</section>", html.indexOf('<section class="bans">')));
   has(bans, "<tr><td>Sep 17, 2026</td><td>in effect</td><td>—</td><td>Texas A&amp;M Forest Service start date</td></tr>", "the open ban, dated by TFS");
   has(bans, "<td>Aug 8, 2023</td><td>Oct 10, 2023</td><td>63 days</td>", "a past ban with its length");
-  has(bans, '<a href="https://click2houston.com/news/local/2023/10/10/burn-ban-lifted-for-unincorporated-harris-county">as reported by KPRC Click2Houston</a>', "the end date names who reported it");
+  has(bans, '<td>Jun 28, 2022</td><td>Aug 23, 2022</td><td>56 days</td><td><a href="https://harriscountytx.legistar.com/LegislationDetail.aspx?ID=5708923&amp;GUID=D83CF221-D2FE-49F7-9CA4-AA64B17C98D0">Commissioners Court record</a>; <a href="https://harriscountytx.legistar.com/LegislationDetail.aspx?ID=5768648&amp;GUID=8B164731-7F45-4D5D-8D9E-E7EBF02881CB">Commissioners Court record</a></td>', "a ban sourced by court records at both ends");
+  has(bans, "<td>Oct 25, 2022</td><td>Nov 15, 2022</td><td>21 days</td>", "the second 2022 ban");
+  has(bans, '<a href="https://communityimpact.com/houston/bay-area/government/2024/11/26/harris-county-commissioners-lift-burn-ban-for-unincorporated-harris-county">as reported by Community Impact</a>', "a news-sourced end names who reported it");
   ok(bans.indexOf("Sep 17, 2026") < bans.indexOf("Oct 16, 2025") && bans.indexOf("Oct 16, 2025") < bans.indexOf("Aug 8, 2023"), "newest first");
-  has(bans, "Bans before August 2023 are not listed", "the gap is stated");
+  has(bans, "Bans before 2021 (one is reported for 2015) are not listed.", "the gap is stated");
   const es = await page("/es/burn-ban");
   has(es, "<td>vigente</td>", "Spanish open ban");
   has(es, "según Community Impact", "Spanish source wording");
+  has(es, "registro de la Corte de Comisionados", "Spanish court-record wording");
   has(await page("/burn-ban", "text/markdown"), "| Oct 8, 2024 | Nov 25, 2024 | 48 days |", "Markdown row");
 }
 {
