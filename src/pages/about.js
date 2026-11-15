@@ -15,26 +15,26 @@ export const ABOUT = {
   description:
     "What crosbynews.com is, where its weather and local data come from, how often it updates, and how it's built.",
   intro:
-    "crosbynews.com is a fast, ad-free front page for Crosby, Texas — live National Weather Service conditions and forecast, river and bayou flood levels, local news, and the Crosby ISD school calendar, all in one place. No ads, no trackers, no sign-up.",
+    "crosbynews.com is a front page for Crosby, Texas. It shows current conditions and the forecast from the National Weather Service, how high the rivers and bayous are, local headlines and the Crosby ISD school calendar. It has no ads and no trackers, and there is nothing to sign up for.",
   sections: [
     {
       h: "Where the data comes from",
       p: [
-        "Every forecast, conditions reading, and alert on this site comes directly from the U.S. National Weather Service (api.weather.gov) for Crosby, TX (latitude 29.9119, longitude -95.0608). NWS data is in the public domain. The UV index is the one weather number sourced elsewhere — the U.S. EPA's public UV forecast for Crosby's ZIP code (77532). Road incidents and lane closures come from Houston TranStar (the region's official traffic agency, a TxDOT partnership), republished as facts with attribution from the RSS feeds TranStar publishes for public subscription.",
-        "The air quality index (AQI) comes from EPA/AirNow — the official measured monitors — for the Houston-Galveston-Brazoria reporting area, the nearest official area, which includes Crosby. There's no monitor in Crosby itself, so it's a real reading for the metro rather than a Crosby-pinpoint value, and we label it that way. When the AirNow monitors aren't reporting, we fall back to Open-Meteo's modeled forecast for Crosby's coordinates, labeled \"modeled\" so you always know which you're seeing. The full breakdown lives on the air quality page.",
-        "We don't editorialize or adjust the numbers — the site is a clean presentation layer over the official government forecast for the Crosby area. Two values we compute ourselves: \"feels like\" temperature (the heat index or wind chill, using the National Weather Service's own published formulas applied to its temperature, humidity, and wind data — shown only when it's meaningfully different from the air temperature) and sunrise/sunset times (standard astronomical formulas; the NWS forecast API doesn't provide them).",
+        "Every forecast, reading and alert on this site comes from the U.S. National Weather Service (api.weather.gov) for Crosby, TX (latitude 29.9119, longitude -95.0608). NWS data is in the public domain. The UV index is the one weather number from somewhere else: the U.S. EPA's public UV forecast for Crosby's ZIP code, 77532. Road incidents and lane closures come from the public RSS feeds of Houston TranStar, the region's traffic agency, and are credited to it.",
+        "The air quality index (AQI) comes from the monitors that report to EPA's AirNow for the Houston-Galveston-Brazoria area, which includes Crosby. Crosby has no monitor of its own, so the number is a real measurement taken elsewhere in the area, and the site says so. When those monitors are not reporting, the site shows Open-Meteo's modeled forecast for Crosby's coordinates and labels it \"modeled\". The air quality page has each pollutant.",
+        "The numbers are shown as the agencies publish them, without adjustment or commentary. Two values are calculated here. The \"feels like\" temperature is the heat index or wind chill, worked out with the National Weather Service's published formulas from its own temperature, humidity and wind, and shown only when it differs noticeably from the air temperature. Sunrise and sunset come from standard astronomical formulas, because the NWS forecast does not include them.",
       ],
     },
     {
       h: "How often it updates",
       p: [
-        "The forecast and alerts are refreshed every 15 minutes from the National Weather Service. The page you load is served from a cached copy at the edge for speed, and an open browser tab reloads itself every 15 minutes to stay current.",
+        "The forecast and alerts are refreshed every 15 minutes from the National Weather Service. Pages are served from a copy kept close to you so they load quickly, and a tab left open reloads itself every 15 minutes.",
       ],
     },
     {
       h: "For developers & agents",
       p: [
-        "The same data powering this site is available as a free, public, no-authentication JSON API — plus an OpenAPI spec, a Model Context Protocol (MCP) server, RSS feeds, and a Markdown version of every page. It's all documented on one page:",
+        "The data behind this site is also available as a free public JSON API that needs no key. There is an OpenAPI spec, a Model Context Protocol (MCP) server, RSS feeds and a Markdown version of every page. One page documents all of it:",
       ],
       links: [
         { href: "/developers", label: "Developers & agents", note: "the API, MCP server, feeds, and agent integrations" },
@@ -43,8 +43,8 @@ export const ABOUT = {
     {
       h: "Privacy",
       p: [
-        "No cookies, no ads, no trackers, no personal data. crosbynews.com doesn't set cookies, show ads, or run third-party tracking or advertising networks, and it never asks for or collects personal information about you.",
-        "There is no analytics script either — nothing loads in your browser to count, profile, or report your visit.",
+        "crosbynews.com sets no cookies, shows no ads and runs no outside tracking or advertising code. It never asks for personal information and does not collect any.",
+        "There is no analytics script either. Nothing loads in your browser to count, profile or report your visit.",
       ],
       links: [{ href: "/privacy", label: "Full privacy policy", note: "no cookies, ads, trackers, or personal data" }],
     },
@@ -75,20 +75,20 @@ export const ABOUT_ES = {
   description:
     "Qué es crosbynews.com, de dónde provienen sus datos meteorológicos y locales, con qué frecuencia se actualiza y cómo está construido.",
   intro:
-    "crosbynews.com es una página principal rápida y sin anuncios para Crosby, Texas: condiciones y pronóstico en vivo del Servicio Meteorológico Nacional, niveles de inundación de ríos y arroyos, noticias locales y el calendario escolar de Crosby ISD, todo en un solo lugar. Sin anuncios, sin rastreadores, sin registro.",
+    "crosbynews.com es una portada para Crosby, Texas. Muestra las condiciones actuales y el pronóstico del Servicio Meteorológico Nacional, qué tan altos están los ríos y arroyos, titulares locales y el calendario escolar de Crosby ISD. No tiene anuncios ni rastreadores, y no hay que registrarse en nada.",
   sections: [
     {
       h: "De dónde provienen los datos",
       p: [
         "Cada pronóstico, lectura de condiciones y alerta de este sitio proviene directamente del Servicio Meteorológico Nacional de EE. UU. (api.weather.gov) para Crosby, TX (latitud 29.9119, longitud -95.0608). Los datos del NWS son de dominio público. El índice UV es el único dato meteorológico de otra fuente: el pronóstico UV público de la EPA de EE. UU. para el código postal de Crosby (77532). Los incidentes viales y cierres de carriles provienen de Houston TranStar (la agencia oficial de tráfico de la región, una alianza con TxDOT), republicados como hechos con atribución desde los feeds RSS que TranStar publica para suscripción pública.",
-        "El índice de calidad del aire (AQI) proviene de EPA/AirNow — los monitores oficiales medidos — para el área de reporte Houston-Galveston-Brazoria, el área oficial más cercana, que incluye a Crosby. No hay un monitor en Crosby mismo, así que es una lectura real del área metropolitana y no un valor exacto de Crosby, y así lo etiquetamos. Cuando los monitores de AirNow no reportan, usamos como respaldo el pronóstico modelado de Open-Meteo para las coordenadas de Crosby, etiquetado como \"modelado\" para que siempre sepas cuál estás viendo. El desglose completo está en la página de calidad del aire.",
-        "No editorializamos ni ajustamos las cifras: el sitio es una capa de presentación limpia sobre el pronóstico oficial del gobierno para la zona de Crosby. Dos valores los calculamos nosotros mismos: la \"sensación térmica\" (el índice de calor o la sensación por viento, con las fórmulas oficiales del Servicio Meteorológico Nacional aplicadas a su temperatura, humedad y viento, y solo se muestra cuando difiere de forma notable de la temperatura del aire) y las horas de amanecer y atardecer (fórmulas astronómicas estándar; la API de pronóstico del NWS no las ofrece). Las condiciones se traducen al español con un diccionario propio; las descripciones detalladas del pronóstico y las alertas se muestran en su idioma oficial, inglés.",
+        "El índice de calidad del aire (AQI) viene de los monitores que reportan a AirNow de la EPA para el área Houston-Galveston-Brazoria, que incluye a Crosby. Crosby no tiene un monitor propio, así que el número es una medición real tomada en otro punto del área, y el sitio lo dice. Cuando esos monitores no reportan, el sitio muestra el pronóstico modelado de Open-Meteo para las coordenadas de Crosby y lo marca como \"modelado\". La página de calidad del aire tiene cada contaminante.",
+        "Las cifras se muestran como las publican las agencias, sin ajustes ni comentarios. Dos valores se calculan aquí. La \"sensación térmica\" es el índice de calor o la sensación por viento, calculada con las fórmulas publicadas del Servicio Meteorológico Nacional a partir de su propia temperatura, humedad y viento, y solo se muestra cuando difiere de forma notable de la temperatura del aire. El amanecer y el atardecer salen de fórmulas astronómicas estándar, porque el pronóstico del NWS no los incluye. Las condiciones se traducen al español con un diccionario propio; las descripciones detalladas del pronóstico y las alertas se muestran en su idioma oficial, inglés.",
       ],
     },
     {
       h: "Con qué frecuencia se actualiza",
       p: [
-        "El pronóstico y las alertas se actualizan cada 15 minutos desde el Servicio Meteorológico Nacional. La página que cargas se sirve desde una copia en caché en el borde de la red para mayor velocidad, y una pestaña abierta del navegador se recarga sola cada 15 minutos para mantenerse al día.",
+        "El pronóstico y las alertas se actualizan cada 15 minutos desde el Servicio Meteorológico Nacional. Las páginas se sirven desde una copia guardada cerca de ti para que carguen rápido, y una pestaña que dejes abierta se recarga sola cada 15 minutos.",
       ],
     },
     {
@@ -103,7 +103,7 @@ export const ABOUT_ES = {
     {
       h: "Privacidad",
       p: [
-        "Sin cookies, sin anuncios, sin rastreadores, sin datos personales. crosbynews.com no usa cookies, no muestra anuncios ni ejecuta redes de rastreo o publicidad de terceros, y nunca pide ni recopila información personal sobre ti.",
+        "crosbynews.com no usa cookies, no muestra anuncios y no ejecuta código de rastreo ni de publicidad de terceros. Nunca pide información personal y no recopila ninguna.",
         "Tampoco hay ningún script de analítica: nada se carga en tu navegador para contar, perfilar ni informar tu visita.",
       ],
       links: [{ href: "/es/privacy", label: "Política de privacidad completa", note: "sin cookies, anuncios, rastreadores ni datos personales" }],
@@ -149,7 +149,7 @@ export function aboutHtml(lang) {
       const paras = (s.p || []).map((t) => `<p>${esc(t)}</p>`).join("\n      ");
       const links = s.links
         ? `<ul class="links">${s.links
-            .map((l) => `<li><a href="${l.href}"><code>${esc(l.label)}</code></a> &mdash; ${esc(l.note)}</li>`)
+            .map((l) => `<li><a href="${l.href}"><strong>${esc(l.label)}</strong></a>: ${esc(l.note)}</li>`)
             .join("")}</ul>`
         : "";
       return `      <section class="card">

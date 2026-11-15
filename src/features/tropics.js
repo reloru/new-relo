@@ -330,7 +330,7 @@ export async function loadTropics(env) {
 // "Hurricane Nadine — 105 mph".
 export function tropicsStormLine(s, lang) {
   const mph = ktToMph(s.intensityKt);
-  return `${tropicsClassLabel(s.classification, lang)} ${s.name}${mph != null ? ` — ${mph} mph` : ""}`;
+  return `${tropicsClassLabel(s.classification, lang)} ${s.name}${mph != null ? `, ${mph} mph` : ""}`;
 }
 
 // Formation-chance categories, hand-translated like every other piece of live
@@ -400,7 +400,7 @@ export function tropicsDisturbanceLine(d, lang) {
   const pct = Number.isFinite(d?.chance7) ? d.chance7 : d?.chance48;
   const window = Number.isFinite(d?.chance7) ? T(lang, "in 7 days", "en 7 días") : T(lang, "in 48 hours", "en 48 horas");
   const id = d?.id ? ` (${d.id})` : "";
-  return `${d?.area ?? ""}${id}${Number.isFinite(pct) ? ` — ${pct}% ${window}` : ""}`;
+  return `${d?.area ?? ""}${id}${Number.isFinite(pct) ? `: ${pct}% ${window}` : ""}`;
 }
 
 // JSON shape served at /api/tropics — the same NHC data behind /tropics.
@@ -461,7 +461,7 @@ export function tropicsHtml(data, lang) {
       if (compass) rows.push(`<li><span class="pk-label">${T(lang, "Moving", "Movimiento")}</span><span class="pk-val">${translateDir(compass, lang)}</span></li>`);
       return `      <article class="storm">
         <div class="storm-head">
-          <h2>&#127744; ${esc(tropicsClassLabel(s.classification, lang))} ${esc(s.name)}</h2>
+          <h2>${esc(tropicsClassLabel(s.classification, lang))} ${esc(s.name)}</h2>
         </div>
         <ul class="peek">${rows.join("")}</ul>
         <p class="storm-meta">${s.lastUpdate ? `${T(lang, "NHC update", "Actualización del NHC")}: ${dateStamp(s.lastUpdate, lang)} &middot; ` : ""}<a href="${esc(s.advisoryUrl)}" target="_blank" rel="noopener">${T(lang, "Official NHC advisory", "Aviso oficial del NHC")}</a></p>
@@ -474,43 +474,39 @@ export function tropicsHtml(data, lang) {
   // the page while NHC was watching two areas at 50% and 60%.
   const disturbances = Array.isArray(data.disturbances) ? data.disturbances : null;
   const peak = tropicsWatchPeak(disturbances);
-  const panel = (cls, icon, title, sub) =>
+  const panel = (cls, title, sub) =>
     `<div class="status ${cls}" role="status"><div><p class="status-title">${title}</p><p class="status-sub">${sub}</p></div></div>`;
 
   const status = storms.length
     ? panel(
         "status-storm",
-        "&#127744;",
         storms.length === 1 ? esc(tropicsStormLine(storms[0], lang)) : T(lang, `${storms.length} active systems in the Atlantic`, `${storms.length} sistemas activos en el Atlántico`),
-        T(lang, "Details below. For what it means locally, watch official guidance and the alerts page.", "Detalles abajo. Para saber qué significa localmente, sigue la guía oficial y la página de alertas.")
+        T(lang, "The latest advisory is below. If it threatens Crosby, the local watches and warnings will be on the alerts page.", "El aviso más reciente está abajo. Si amenaza a Crosby, las vigilancias y avisos locales estarán en la página de alertas.")
       )
     : disturbances === null
       ? // The outlook could not be read. We have NOT confirmed a quiet basin,
         // so we must not draw the green panel that says we have.
         panel(
           "status-unknown",
-          "&#8212;",
           T(lang, "Outlook unavailable", "Perspectiva no disponible"),
-          T(lang, "We could not read the National Hurricane Center's tropical outlook just now, so this page cannot confirm whether anything is being watched. Check the NHC directly.", "No pudimos leer la perspectiva tropical del Centro Nacional de Huracanes en este momento, así que esta página no puede confirmar si hay algo bajo vigilancia. Consulta el NHC directamente.")
+          T(lang, "The National Hurricane Center's outlook could not be read just now, so this page cannot say whether anything is being watched. The NHC's own site will have it.", "No se pudo leer la perspectiva del Centro Nacional de Huracanes en este momento, así que esta página no puede decir si hay algo bajo vigilancia. El sitio del NHC la tiene.")
         )
       : disturbances.length
         ? panel(
             "status-watch",
-            "&#128064;",
             disturbances.length === 1
-              ? T(lang, "1 area being watched for development", "1 zona bajo vigilancia por posible desarrollo")
-              : T(lang, `${disturbances.length} areas being watched for development`, `${disturbances.length} zonas bajo vigilancia por posible desarrollo`),
+              ? T(lang, "One area is being watched", "Una zona está bajo vigilancia")
+              : T(lang, `${disturbances.length} areas are being watched`, `${disturbances.length} zonas están bajo vigilancia`),
             T(
               lang,
-              `No named storms right now. The National Hurricane Center gives ${peak != null ? `the most likely of these a ${peak}% chance` : "these a chance"} of forming a tropical cyclone within 7 days. A chance of forming is not a forecast track \u2014 it says nothing yet about where a system would go.`,
-              `No hay tormentas con nombre en este momento. El Centro Nacional de Huracanes da ${peak != null ? `a la m\u00e1s probable un ${peak}% de probabilidad` : "a estas una probabilidad"} de formar un cicl\u00f3n tropical en 7 d\u00edas. Una probabilidad de formaci\u00f3n no es una trayectoria pronosticada \u2014 todav\u00eda no dice nada sobre ad\u00f3nde ir\u00eda un sistema.`
+              `No named storms right now. The National Hurricane Center gives ${peak != null ? `the most likely of these a ${peak}% chance` : "these a chance"} of forming a tropical cyclone within 7 days. That is a chance of forming. It says nothing yet about where a system would go.`,
+              `No hay tormentas con nombre en este momento. El Centro Nacional de Huracanes da ${peak != null ? `a la m\u00e1s probable un ${peak}% de probabilidad` : "a estas una probabilidad"} de formar un cicl\u00f3n tropical en 7 d\u00edas. Es una probabilidad de formaci\u00f3n. Todav\u00eda no dice nada sobre ad\u00f3nde ir\u00eda un sistema.`
             )
           )
         : panel(
             "status-ok",
-            "&#10004;",
             T(lang, "Nothing active in the Atlantic", "Nada activo en el Atlántico"),
-            T(lang, "The National Hurricane Center has no named storms and no areas under watch for development in the Atlantic basin right now. This page rechecks about every hour.", "El Centro Nacional de Huracanes no tiene tormentas con nombre ni zonas bajo vigilancia por posible desarrollo en la cuenca del Atlántico en este momento. Esta página se actualiza aproximadamente cada hora.")
+            T(lang, "The National Hurricane Center has no named storm in the Atlantic and is not watching any area for one. This page checks again about every hour.", "El Centro Nacional de Huracanes no tiene ninguna tormenta con nombre en el Atlántico ni vigila ninguna zona. Esta página vuelve a revisar más o menos cada hora.")
           );
 
   // The watch cards. Deliberately NOT styled like the storm cards: an area at
@@ -563,7 +559,7 @@ ${JSONLD_SITE}
 ${topbar("/tropics", lang)}
 <main id="main">
   <h1>${esc(title)}</h1>
-  <p class="intro">${T(lang, "Active Atlantic tropical systems from the National Hurricane Center, plus the areas it is watching for development, checked about every hour. Storm advisories and names stay in NHC's official English.", "Sistemas tropicales activos del Atlántico según el Centro Nacional de Huracanes, además de las zonas que vigila por posible desarrollo, consultados aproximadamente cada hora. Los avisos y nombres de tormentas se muestran en el inglés oficial del NHC.")}${data.updated ? ` ${T(lang, "Updated", "Actualizado")} ${dateStamp(data.updated, lang)}.` : ""}</p>
+  <p class="intro">${T(lang, "Tropical storms and hurricanes in the Atlantic, and the areas the National Hurricane Center is watching in case one forms. Checked about every hour.", "Tormentas tropicales y huracanes en el Atlántico, y las zonas que el Centro Nacional de Huracanes vigila por si se forma uno. Se revisa más o menos cada hora. Los avisos y nombres de las tormentas aparecen en inglés, como los publica el NHC.")}${data.updated ? ` ${T(lang, "Updated", "Actualizado")} ${dateStamp(data.updated, lang)}.` : ""}</p>
   <div data-nosnippet>
   ${status}
   <p class="basin-note">${esc(tropicsBasinNote(data, lang))}</p>
@@ -580,19 +576,19 @@ ${watchCards}
     <h2>${T(lang, "Hurricane season and Crosby", "La temporada de huracanes y Crosby")}</h2>
     <p>${T(
       lang,
-      "Atlantic hurricane season runs June 1 through November 30, peaking mid-August to mid-October. Crosby sits about 35 miles inland — far enough that storm surge isn't the local threat, close enough that hurricanes still hit hard here. The dangers that reach Crosby are inland rain flooding (Harvey in 2017 flooded homes along the San Jacinto and Cedar Bayou), damaging wind, tornadoes spun off by landfalling storms, and days-long power outages.",
-      "La temporada de huracanes del Atlántico va del 1 de junio al 30 de noviembre, con su pico de mediados de agosto a mediados de octubre. Crosby está a unas 35 millas tierra adentro — lo suficientemente lejos para que la marejada no sea la amenaza local, y lo suficientemente cerca para que los huracanes golpeen fuerte aquí. Los peligros que llegan a Crosby son la inundación por lluvia (Harvey en 2017 inundó casas a lo largo del San Jacinto y Cedar Bayou), el viento dañino, los tornados que generan las tormentas al tocar tierra y los apagones de varios días."
+      "Atlantic hurricane season runs June 1 through November 30, peaking mid-August to mid-October. Crosby is about 35 miles inland. Storm surge does not reach this far, but hurricanes still hit hard here. What reaches Crosby is flooding from rain (Harvey in 2017 flooded homes along the San Jacinto and Cedar Bayou), damaging wind, tornadoes spun off by landfalling storms, and days-long power outages.",
+      "La temporada de huracanes del Atlántico va del 1 de junio al 30 de noviembre, con su pico de mediados de agosto a mediados de octubre. Crosby está a unas 35 millas tierra adentro. La marejada no llega hasta aquí, pero los huracanes sí pegan fuerte. Lo que llega a Crosby es la inundación por lluvia (Harvey en 2017 inundó casas a lo largo del San Jacinto y Cedar Bayou), el viento dañino, los tornados que generan las tormentas al tocar tierra y los apagones de varios días."
     )}</p>
     <p>${T(
       lang,
-      "A watch means conditions are possible within 48 hours — finish preparations. A warning means they're expected within 36 hours — preparations should be done and it's time to follow official instructions. When a storm threatens the Texas coast, local watches and warnings for Crosby appear on the alerts page, and river levels are on the water page.",
-      "Una vigilancia (watch) significa que las condiciones son posibles dentro de 48 horas — termina los preparativos. Un aviso (warning) significa que se esperan dentro de 36 horas — los preparativos deben estar listos y toca seguir las instrucciones oficiales. Cuando una tormenta amenaza la costa de Texas, las vigilancias y avisos locales para Crosby aparecen en la página de alertas, y los niveles de los ríos en la página de agua."
+      "A watch means hurricane or tropical storm conditions are possible within 48 hours, and it is time to finish getting ready. A warning means they are expected within 36 hours. By then you should be ready and following official instructions. When a storm threatens the Texas coast, local watches and warnings for Crosby appear on the alerts page, and river levels are on the water page.",
+      "Una vigilancia (watch) significa que las condiciones de huracán o tormenta tropical son posibles dentro de 48 horas, y es momento de terminar los preparativos. Un aviso (warning) significa que se esperan dentro de 36 horas. Para entonces debes estar listo y seguir las instrucciones oficiales. Cuando una tormenta amenaza la costa de Texas, las vigilancias y avisos locales para Crosby aparecen en la página de alertas, y los niveles de los ríos en la página de agua."
     )}</p>
     <ul class="links">
-      <li><a href="https://www.nhc.noaa.gov/">${T(lang, "National Hurricane Center", "Centro Nacional de Huracanes")}</a> &mdash; ${T(lang, "the official source: outlooks, forecast cones, advisories", "la fuente oficial: pronósticos, conos y avisos")}</li>
-      <li><a href="${lang === "es" ? "/es/alerts" : "/alerts"}">${T(lang, "Crosby alerts", "Alertas de Crosby")}</a> &mdash; ${T(lang, "local NWS watches and warnings when a storm approaches", "vigilancias y avisos locales del NWS cuando se acerca una tormenta")}</li>
-      <li><a href="${lang === "es" ? "/es/water" : "/water"}">${T(lang, "Water levels", "Niveles de agua")}</a> &mdash; ${T(lang, "live river and bayou gauges during the rain", "medidores de ríos y arroyos en vivo durante la lluvia")}</li>
-      <li><a href="${lang === "es" ? "/es/emergency" : "/emergency"}">${T(lang, "Emergency resources", "Recursos de emergencia")}</a> &mdash; ${T(lang, "numbers to save, outage reporting, shelters, evacuation-zone lookup", "números para guardar, reporte de apagones, refugios, zonas de evacuación")}</li>
+      <li><a href="https://www.nhc.noaa.gov/">${T(lang, "National Hurricane Center", "Centro Nacional de Huracanes")}</a>: ${T(lang, "the official source: outlooks, forecast cones, advisories", "la fuente oficial: pronósticos, conos y avisos")}</li>
+      <li><a href="${lang === "es" ? "/es/alerts" : "/alerts"}">${T(lang, "Crosby alerts", "Alertas de Crosby")}</a>: ${T(lang, "local NWS watches and warnings when a storm approaches", "vigilancias y avisos locales del NWS cuando se acerca una tormenta")}</li>
+      <li><a href="${lang === "es" ? "/es/water" : "/water"}">${T(lang, "Water levels", "Niveles de agua")}</a>: ${T(lang, "live river and bayou gauges during the rain", "medidores de ríos y arroyos en vivo durante la lluvia")}</li>
+      <li><a href="${lang === "es" ? "/es/emergency" : "/emergency"}">${T(lang, "Emergency resources", "Recursos de emergencia")}</a>: ${T(lang, "numbers to save, outage reporting, shelters, evacuation-zone lookup", "números para guardar, reporte de apagones, refugios, zonas de evacuación")}</li>
     </ul>
   </section>
 </main>
@@ -633,8 +629,8 @@ export function tropicsMarkdown(data, lang) {
     out.push(
       T(
         lang,
-        "Tracked by the NHC for possible development before they are named. A percentage is the chance a tropical cyclone forms at all — not a track, and not a statement that it would reach Texas.",
-        "Seguidas por el NHC por posible desarrollo antes de recibir nombre. Un porcentaje es la probabilidad de que se forme un ciclón tropical — no una trayectoria, ni una afirmación de que llegaría a Texas."
+        "Tracked by the NHC for possible development before they are named. The percentage is the chance that a tropical cyclone forms at all. It is not a track and does not mean a storm would reach Texas.",
+        "Seguidas por el NHC por posible desarrollo antes de recibir nombre. El porcentaje es la probabilidad de que se forme un ciclón tropical. No es una trayectoria ni significa que una tormenta llegaría a Texas."
       ),
       ""
     );

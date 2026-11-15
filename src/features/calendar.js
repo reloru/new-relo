@@ -271,7 +271,7 @@ export function calendarSubscribe(lang) {
     (c) => `<li><a href="${campusWebcal(c.id)}">${esc(T(lang, c.en, c.es))}</a></li>`
   ).join("");
   return `<section class="subscribe">
-    <h2>${T(lang, "Subscribe — never miss a date", "Suscríbete — no te pierdas ninguna fecha")}</h2>
+    <h2>${T(lang, "Put these dates on your own calendar", "Pon estas fechas en tu propio calendario")}</h2>
     <p>${T(lang, "Add the full Crosby ISD calendar to your phone or computer. It updates automatically as the district changes it.", "Agrega el calendario completo de Crosby ISD a tu teléfono o computadora. Se actualiza automáticamente cuando el distrito hace cambios.")}</p>
     <div class="sub-btns">
       <a class="sub-btn" href="${CISD_FEED_ALL_WEBCAL}">${T(lang, "Add to phone (one tap)", "Agregar al teléfono (un toque)")}</a>
@@ -329,10 +329,10 @@ export function calendarHtml(data, lang) {
     }
     body += `</ul></section>`;
   } else {
-    body = `<p class="none">${T(lang, "No upcoming events are posted right now — subscribe below and they'll appear as the district adds them.", "No hay eventos próximos publicados por ahora; suscríbete abajo y aparecerán conforme el distrito los agregue.")}</p>`;
+    body = `<p class="none">${T(lang, "The district has no upcoming events posted. If you subscribe below, new ones will show up on your calendar as the district adds them.", "El distrito no tiene eventos próximos publicados. Si te suscribes abajo, los nuevos aparecerán en tu calendario conforme el distrito los agregue.")}</p>`;
   }
   const title = T(lang, "Crosby ISD School Calendar", "Calendario escolar de Crosby ISD");
-  const desc = T(lang, "Upcoming Crosby ISD school calendar events — first day of school, holidays, no-school and early-release days, testing — with one-tap subscribe links.", "Próximos eventos del calendario de Crosby ISD: primer día de clases, días festivos, días sin clases y de salida temprana, exámenes, y cómo suscribirte.");
+  const desc = T(lang, "Upcoming Crosby ISD dates: the first day of school, holidays, days off, early-release days and testing, with links to add them to your own calendar.", "Próximos eventos del calendario de Crosby ISD: primer día de clases, días festivos, días sin clases y de salida temprana, exámenes, y cómo suscribirte.");
   return `<!DOCTYPE html>
 <html lang="${T(lang, "en", "es-MX")}">
 <head>
@@ -371,12 +371,11 @@ ${jsonldEvents(events, lang)}
 ${topbar("/calendar", lang)}
 <main id="main">
   <h1>${esc(title)}</h1>
-  <p class="intro">${T(lang, "Upcoming events from the Crosby Independent School District calendar — first day of school, holidays, early-release and no-school days, testing, and campus activities.", "Próximos eventos del calendario del Distrito Escolar Independiente de Crosby: primer día de clases, días festivos, días de salida temprana y sin clases, exámenes y actividades de los planteles.")}${data.updated ? ` ${T(lang, "Updated", "Actualizado")} ${dateStamp(data.updated, lang)}.` : ""}</p>
+  <p class="intro">${T(lang, "What is coming up on the Crosby Independent School District calendar: the first day of school, holidays, early-release days, days off, testing and campus activities.", "Próximos eventos del calendario del Distrito Escolar Independiente de Crosby: primer día de clases, días festivos, días de salida temprana y sin clases, exámenes y actividades de los planteles.")}${data.updated ? ` ${T(lang, "Updated", "Actualizado")} ${dateStamp(data.updated, lang)}.` : ""}</p>
   ${keyDatesHtml(data.events, lang)}
   ${body}
   ${calendarSubscribe(lang)}
   <p class="disclaimer">${T(lang, `crosbynews.com isn't affiliated with Crosby ISD. Events are pulled from the district's public calendar feed (<a href="${CISD_SITE}">crosbyisd.org</a>); event titles are shown in the district's original English. Always confirm dates with the district.`, `crosbynews.com no está afiliado a Crosby ISD. Los eventos provienen del calendario público del distrito (<a href="${CISD_SITE}">crosbyisd.org</a>); los títulos de los eventos se muestran en el inglés original del distrito. Confirma siempre las fechas con el distrito.`)}</p>
-  <p class="intro"><a href="${lang === "es" ? "/es/weather" : "/weather"}">&larr; ${T(lang, "Back to the forecast", "Volver al pronóstico")}</a></p>
 </main>
 ${footer({ page: "/calendar", lang, source: T(lang, `Calendar data from <a href="${CISD_SITE}">Crosby ISD</a>.`, `Datos del calendario de <a href="${CISD_SITE}">Crosby ISD</a>.`) })}
 </body>

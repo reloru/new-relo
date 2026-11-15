@@ -10,7 +10,7 @@ import { JSONLD_SITE, sharedHead, WEBSITE_ID } from "../seo.js";
 
 export const PRIVACY = {
   title: "Privacy Policy",
-  description: "How crosbynews.com handles your data — no cookies, no trackers, no personal information.",
+  description: "What crosbynews.com does with your data: no cookies, no trackers, and no personal information collected.",
   intro: "crosbynews.com doesn't set cookies, show ads, or run third-party tracking or advertising networks, and it never asks for or collects personal information about you.",
   sections: [
     {
@@ -22,30 +22,30 @@ export const PRIVACY = {
     {
       h: "Third-party data sources",
       p: [
-        "The site displays data from several external, public sources. All of it is fetched server-side and cached — your browser never contacts these sources directly, and none of it involves sharing any user data:",
-        "U.S. National Weather Service (api.weather.gov) — public-domain forecasts, conditions, and alerts for Crosby, TX; and the U.S. EPA (UV index) and NOAA (river/bayou levels, tropical outlook).",
-        "EPA/AirNow (airnowapi.org) — the measured air-quality index for the Houston-Galveston-Brazoria reporting area that includes Crosby; Open-Meteo provides a modeled fallback for Crosby's coordinates when AirNow isn't reporting (labeled measured vs modeled throughout).",
-        "Houston Health Department (houstonhealth.org) — the measured daily pollen and mold count (tree, weed, and grass pollen and mold spores, on the National Allergy Bureau scale) for the Houston area, which applies regionally to Crosby; published weekday mornings.",
-        "U.S. Geological Survey (api.waterdata.usgs.gov) — real-time water conditions (temperature, dissolved oxygen, pH, turbidity, and stage) for the nearby waters people fish, behind the fishing page.",
-        "Houston TranStar (houstontranstar.org) — road incidents and scheduled lane closures for the Crosby corridors, from TranStar's public RSS feeds.",
-        "Google News — local news headlines aggregated from public RSS feeds by an out-of-band process and cached.",
-        "Crosby ISD (crosbyisd.org) — the school district's public iCal calendar feed.",
-        "Texas A&M Forest Service (tfs.tamu.edu) — the Harris County outdoor-burning ban status.",
+        "The site displays data from several external, public sources. The site's server fetches all of it and keeps a copy, so your browser never contacts these sources and nothing about you is sent to them:",
+        "U.S. National Weather Service (api.weather.gov): public-domain forecasts, conditions, and alerts for Crosby, TX; and the U.S. EPA (UV index) and NOAA (river/bayou levels, tropical outlook).",
+        "EPA/AirNow (airnowapi.org): the measured air-quality index for the Houston-Galveston-Brazoria reporting area that includes Crosby; Open-Meteo provides a modeled fallback for Crosby's coordinates when AirNow isn't reporting (labeled measured vs modeled throughout).",
+        "Houston Health Department (houstonhealth.org): the measured daily pollen and mold count (tree, weed, and grass pollen and mold spores, on the National Allergy Bureau scale) for the Houston area, which applies regionally to Crosby; published weekday mornings.",
+        "U.S. Geological Survey (api.waterdata.usgs.gov): real-time water conditions (temperature, dissolved oxygen, pH, turbidity, and stage) for the nearby waters people fish, behind the fishing page.",
+        "Houston TranStar (houstontranstar.org): road incidents and scheduled lane closures for the Crosby corridors, from TranStar's public RSS feeds.",
+        "Google News: local news headlines aggregated from public RSS feeds by an out-of-band process and cached.",
+        "Crosby ISD (crosbyisd.org): the school district's public iCal calendar feed.",
+        "Texas A&M Forest Service (tfs.tamu.edu): the Harris County outdoor-burning ban status.",
       ],
     },
     {
       h: "Push notifications (optional)",
       p: [
-        "If you opt in to severe-weather alerts on the Alerts page, your browser creates an anonymous \"push subscription\" — a unique address at your browser vendor's push service (Google, Apple, Mozilla, or Microsoft) plus a pair of keys. We store only that subscription, so we can wake your device when a tornado, flash-flood, or hurricane warning is issued for Crosby. It carries no personal information and isn't tied to any identity.",
+        "If you opt in to severe-weather alerts on the Alerts page, your browser creates an anonymous \"push subscription\": a unique address at your browser maker's push service (Google, Apple, Mozilla or Microsoft) and a pair of keys. We store only that subscription, so we can wake your device when a tornado, flash-flood, or hurricane warning is issued for Crosby. It carries no personal information and isn't tied to any identity.",
         "We never send message content through it: the wake-up is empty, and the notification text is assembled on your own device from the public alerts feed. Turn it off anytime with the same button (or in your browser's site settings) and the stored subscription is deleted. Dead subscriptions are also pruned automatically.",
       ],
     },
     {
       h: "Analytics and page counts",
       p: [
-        "crosbynews.com runs no analytics script — nothing loads in your browser to count, profile, or report your visit, and no third-party analytics service is used.",
+        "crosbynews.com runs no analytics script. Nothing loads in your browser to count, profile or report your visit, and no outside analytics service is used.",
         "The server does keep daily totals of page requests, so we can tell which pages are used and whether search engines can find them. Each request adds one to a total made of five things: the day, the page on this site, the response status, a broad label for what made the request (a web browser, or a named crawler such as Googlebot), and a broad label for where it came from (for example \"Google\", \"another website\", or \"no referrer\"). The labels are worked out from the request as it arrives, and only the label is kept.",
-        "No IP address, user-agent string, referring address, search term, cookie, or identifier is stored, and there is no record of any individual request — only the totals. They are kept for about 13 months and then deleted, are visible only to the site owner, and are not shared with or sold to anyone.",
+        "No IP address, user-agent string, referring address, search term, cookie, or identifier is stored, and there is no record of any individual request, only the totals. They are kept for about 13 months and then deleted, are visible only to the site owner, and are not shared with or sold to anyone.",
         "Cloudflare, which serves the site, keeps aggregate server-side request logs as part of delivering the page, the way any web host does. That is not something this site adds to your browser, and it carries no analytics identifier.",
       ],
     },
@@ -53,8 +53,8 @@ export const PRIVACY = {
       h: "MCP server for AI assistants",
       p: [
         "crosbynews.com runs a Model Context Protocol (MCP) server at https://crosbynews.com/mcp so AI assistants such as Claude can fetch the same public data this site shows. It needs no account or key and never asks for personal information.",
-        "What it receives: only the tool request your assistant sends — the name of a tool and, for two tools, a number (how many forecast hours or school events to return). Those arguments are used to build the response and are never stored. Your conversation with the assistant is not sent to this site.",
-        "What it counts: aggregate totals only — which protocol method and tool were called, whether the call succeeded, how long it took, and the client software name the assistant reports when it connects (for example, \"claude-ai\"). No IP address, user agent, tool argument, request content, or identifier is stored, and no record of any individual call is kept.",
+        "What it receives: only the tool request your assistant sends, which is the name of a tool and, for two tools, a number (how many forecast hours or school events to return). Those arguments are used to build the response and are never stored. Your conversation with the assistant is not sent to this site.",
+        "What it counts: totals only. These are which protocol method and tool were called, whether the call succeeded, how long it took, and the client software name the assistant reports when it connects (for example, \"claude-ai\"). No IP address, user agent, tool argument, request content, or identifier is stored, and no record of any individual call is kept.",
         "Retention: the counts are held first in short-lived batches that expire within 6 hours, then kept as daily totals for 90 days, after which they are merged into monthly totals. They are visible only to the site owner and are not shared with or sold to anyone. Cloudflare's request logs, described under Analytics and page counts, apply to these requests as to any other.",
         "The assistant itself is a separate service: what it does with your conversation is governed by its provider's privacy policy (for Claude, Anthropic's), not this one.",
       ],
@@ -81,15 +81,15 @@ export const PRIVACY_ES = {
     {
       h: "Fuentes de datos de terceros",
       p: [
-        "El sitio muestra datos de varias fuentes externas y públicas. Todo se obtiene del lado del servidor y se almacena en caché — tu navegador nunca contacta estas fuentes directamente, y ninguna implica compartir datos de usuario:",
-        "Servicio Meteorológico Nacional de EE. UU. (api.weather.gov) — pronósticos, condiciones y alertas de dominio público para Crosby, TX; además de la EPA de EE. UU. (índice UV) y la NOAA (niveles de ríos/arroyos, panorama tropical).",
-        "EPA/AirNow (airnowapi.org) — el índice de calidad del aire medido para el área de reporte Houston-Galveston-Brazoria que incluye a Crosby; Open-Meteo aporta un respaldo modelado para las coordenadas de Crosby cuando AirNow no reporta (etiquetado como medido o modelado en todo el sitio).",
-        "Departamento de Salud de Houston (houstonhealth.org) — el conteo diario medido de polen y moho (polen de árboles, malezas y pastos, y esporas de moho, en la escala de la Oficina Nacional de Alergias) para el área de Houston, que aplica regionalmente a Crosby; publicado entre semana por la mañana.",
-        "Servicio Geológico de EE. UU. (api.waterdata.usgs.gov) — condiciones del agua en tiempo real (temperatura, oxígeno disuelto, pH, turbidez y nivel) de las aguas de pesca cercanas, detrás de la página de pesca.",
-        "Houston TranStar (houstontranstar.org) — incidentes viales y cierres de carriles programados para los corredores de Crosby, desde los feeds RSS públicos de TranStar.",
-        "Google News — titulares de noticias locales recopilados de fuentes RSS públicas mediante un proceso externo y almacenados en caché.",
-        "Crosby ISD (crosbyisd.org) — el calendario público iCal del distrito escolar.",
-        "Servicio Forestal de Texas A&M (tfs.tamu.edu) — el estado de la prohibición de quemas al aire libre en el condado de Harris.",
+        "El sitio muestra datos de varias fuentes externas y públicas. El servidor del sitio lo obtiene todo y guarda una copia, así que tu navegador nunca contacta estas fuentes y no se les envía nada sobre ti:",
+        "Servicio Meteorológico Nacional de EE. UU. (api.weather.gov): pronósticos, condiciones y alertas de dominio público para Crosby, TX; además de la EPA de EE. UU. (índice UV) y la NOAA (niveles de ríos/arroyos, panorama tropical).",
+        "EPA/AirNow (airnowapi.org): el índice de calidad del aire medido para el área de reporte Houston-Galveston-Brazoria que incluye a Crosby; Open-Meteo aporta un respaldo modelado para las coordenadas de Crosby cuando AirNow no reporta (etiquetado como medido o modelado en todo el sitio).",
+        "Departamento de Salud de Houston (houstonhealth.org): el conteo diario medido de polen y moho (polen de árboles, malezas y pastos, y esporas de moho, en la escala de la Oficina Nacional de Alergias) para el área de Houston, que aplica regionalmente a Crosby; publicado entre semana por la mañana.",
+        "Servicio Geológico de EE. UU. (api.waterdata.usgs.gov): condiciones del agua en tiempo real (temperatura, oxígeno disuelto, pH, turbidez y nivel) de las aguas de pesca cercanas, detrás de la página de pesca.",
+        "Houston TranStar (houstontranstar.org): incidentes viales y cierres de carriles programados para los corredores de Crosby, desde los feeds RSS públicos de TranStar.",
+        "Google News: titulares de noticias locales recopilados de fuentes RSS públicas mediante un proceso externo y almacenados en caché.",
+        "Crosby ISD (crosbyisd.org): el calendario público iCal del distrito escolar.",
+        "Servicio Forestal de Texas A&M (tfs.tamu.edu): el estado de la prohibición de quemas al aire libre en el condado de Harris.",
       ],
     },
     {
@@ -112,8 +112,8 @@ export const PRIVACY_ES = {
       h: "Servidor MCP para asistentes de IA",
       p: [
         "crosbynews.com opera un servidor de Model Context Protocol (MCP) en https://crosbynews.com/mcp para que asistentes de IA como Claude obtengan los mismos datos públicos que muestra este sitio. No requiere cuenta ni clave y nunca pide información personal.",
-        "Qué recibe: solo la solicitud de herramienta que envía tu asistente — el nombre de una herramienta y, en dos de ellas, un número (cuántas horas de pronóstico o eventos escolares devolver). Esos argumentos se usan para armar la respuesta y nunca se guardan. Tu conversación con el asistente no se envía a este sitio.",
-        "Qué cuenta: solo totales agregados — qué método del protocolo y qué herramienta se llamaron, si la llamada tuvo éxito, cuánto tardó y el nombre del software cliente que el asistente informa al conectarse (por ejemplo, \"claude-ai\"). No se guarda ninguna dirección IP, agente de usuario, argumento de herramienta, contenido de solicitud ni identificador, y no se conserva ningún registro de llamadas individuales.",
+        "Qué recibe: solo la solicitud de herramienta que envía tu asistente, que es el nombre de una herramienta y, en dos de ellas, un número (cuántas horas de pronóstico o eventos escolares devolver). Esos argumentos se usan para armar la respuesta y nunca se guardan. Tu conversación con el asistente no se envía a este sitio.",
+        "Qué cuenta: solo totales. Son qué método del protocolo y qué herramienta se llamaron, si la llamada tuvo éxito, cuánto tardó y el nombre del software cliente que el asistente informa al conectarse (por ejemplo, \"claude-ai\"). No se guarda ninguna dirección IP, agente de usuario, argumento de herramienta, contenido de solicitud ni identificador, y no se conserva ningún registro de llamadas individuales.",
         "Conservación: los conteos se guardan primero en lotes temporales que caducan en menos de 6 horas, luego como totales diarios durante 90 días, y después se combinan en totales mensuales. Solo los ve el dueño del sitio y no se comparten ni se venden a nadie. Los registros de solicitudes de Cloudflare, descritos en Analítica y conteo de páginas, aplican a estas solicitudes como a cualquier otra.",
         "El asistente en sí es un servicio aparte: lo que haga con tu conversación se rige por la política de privacidad de su proveedor (en el caso de Claude, la de Anthropic), no por esta.",
       ],
@@ -147,7 +147,7 @@ export function privacyHtml(lang) {
       const paras = (s.p || []).map((t) => `<p>${esc(t)}</p>`).join("\n      ");
       const links = s.links
         ? `<ul class="links">${s.links
-            .map((l) => `<li><a href="${l.href}"><code>${esc(l.label)}</code></a> &mdash; ${esc(l.note)}</li>`)
+            .map((l) => `<li><a href="${l.href}"><strong>${esc(l.label)}</strong></a>: ${esc(l.note)}</li>`)
             .join("")}</ul>`
         : "";
       return `      <section class="card">

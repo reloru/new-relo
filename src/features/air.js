@@ -351,19 +351,19 @@ export function aqiSourceNote(aqi, lang = "en") {
     const siteList =
       aqi.sites && Object.keys(aqi.sites).length
         ? Object.entries(aqi.sites)
-            .map(([tok, name]) => `${aqiDominantLabel(tok, lang)} — ${aqiSiteShort(name)}`)
+            .map(([tok, name]) => `${aqiDominantLabel(tok, lang)} ${T(lang, "at", "en")} ${aqiSiteShort(name)}`)
             .join("; ")
         : "";
     return T(
       lang,
-      `Measured by the closest reporting ${agency} monitor for each pollutant (per AirNow) in the ${area} area — the nearest official monitors to Crosby, which has none of its own${siteList ? ` (${siteList})` : ""}. A real reading for the area, not a Crosby-pinpoint value.`,
-      `Medido por el monitor de ${agency} más cercano que reporta cada contaminante (según AirNow) en el área ${area} — los monitores oficiales más cercanos a Crosby, que no tiene ninguno propio${siteList ? ` (${siteList})` : ""}. Una lectura real del área, no un valor exacto de Crosby.`
+      `Crosby has no air monitor of its own. Each pollutant is read from the nearest ${agency} monitor reporting it to AirNow in the ${area} area${siteList ? ` (${siteList})` : ""}. These are real measurements for the area, taken some miles from Crosby.`,
+      `Crosby no tiene un monitor de aire propio. Cada contaminante se toma del monitor de ${agency} más cercano que lo reporta a AirNow en el área ${area}${siteList ? ` (${siteList})` : ""}. Son mediciones reales del área, tomadas a algunas millas de Crosby.`
     );
   }
   return T(
     lang,
-    "Modeled from Open-Meteo's CAMS-based forecast for Crosby's coordinates (used when the AirNow monitors aren't reporting) — a useful estimate, not an official monitor reading.",
-    "Modelado a partir del pronóstico CAMS de Open-Meteo para las coordenadas de Crosby (se usa cuando los monitores de AirNow no reportan) — una estimación útil, no una lectura oficial de un monitor."
+    "The AirNow monitors are not reporting, so this number is an estimate from Open-Meteo's CAMS-based forecast model for Crosby's coordinates. No monitor measured it.",
+    "Los monitores de AirNow no están reportando, así que este número es una estimación del modelo de pronóstico CAMS de Open-Meteo para las coordenadas de Crosby. Ningún monitor lo midió."
   );
 }
 
@@ -423,9 +423,9 @@ export const aqiBand = (v) => AQI_BANDS.find((b) => v <= b.max) || AQI_BANDS[AQI
 // Standard EPA category health guidance, condensed.
 export function aqiHealth(v, lang) {
   if (v == null) return "";
-  if (v <= 50) return T(lang, "Air quality is good — no precautions needed.", "La calidad del aire es buena — no se necesitan precauciones.");
-  if (v <= 100) return T(lang, "Acceptable for most. Unusually sensitive people may consider limiting prolonged outdoor exertion.", "Aceptable para la mayoría. Las personas inusualmente sensibles pueden considerar limitar el esfuerzo prolongado al aire libre.");
-  if (v <= 150) return T(lang, "Sensitive groups — people with heart or lung disease, older adults, children, and teens — should limit prolonged outdoor exertion.", "Los grupos sensibles — personas con enfermedades cardíacas o pulmonares, adultos mayores, niños y adolescentes — deben limitar el esfuerzo prolongado al aire libre.");
+  if (v <= 50) return T(lang, "The air is clean. No precautions are needed.", "El aire está limpio. No se necesitan precauciones.");
+  if (v <= 100) return T(lang, "Fine for most people. If you are unusually sensitive to pollution, consider cutting back on long, hard activity outdoors.", "Bien para la mayoría. Si eres muy sensible a la contaminación, considera reducir la actividad intensa y prolongada al aire libre.");
+  if (v <= 150) return T(lang, "People with heart or lung disease, older adults, children and teenagers should cut back on long, hard activity outdoors.", "Las personas con enfermedades del corazón o de los pulmones, los adultos mayores, los niños y los adolescentes deben reducir la actividad intensa y prolongada al aire libre.");
   if (v <= 200) return T(lang, "Everyone may begin to feel effects; sensitive groups should avoid prolonged outdoor exertion, and everyone else should limit it.", "Todos pueden empezar a sentir efectos; los grupos sensibles deben evitar el esfuerzo prolongado al aire libre, y los demás deben limitarlo.");
   if (v <= 300) return T(lang, "Health alert: everyone may experience more serious effects. Avoid outdoor exertion.", "Alerta de salud: todos pueden sufrir efectos más graves. Evita el esfuerzo al aire libre.");
   return T(lang, "Health warning of emergency conditions: everyone should avoid all outdoor exertion.", "Advertencia de salud por condiciones de emergencia: todos deben evitar toda actividad al aire libre.");
@@ -442,8 +442,8 @@ export function nearbyOzoneCard(n, lang) {
     : null;
   const info = T(
     lang,
-    `${n.site} is the nearest dedicated ozone monitor to Crosby (about ${n.distanceMi} mi). It measures ozone only — the headline number above already uses the closest reporting monitor for each pollutant. It's shown here as a cross-check, so a locally elevated ozone reading near the ship channel can't slip past. Hourly, measured by TCEQ via EPA/AirNow.`,
-    `${n.site} es el monitor de ozono dedicado más cercano a Crosby (unas ${n.distanceMi} mi). Solo mide ozono — el número principal de arriba ya usa el monitor más cercano que reporta cada contaminante. Se muestra aquí como verificación, para que una lectura de ozono localmente elevada cerca del canal no pase desapercibida. Cada hora, medido por la TCEQ vía EPA/AirNow.`
+    `${n.site} is the nearest dedicated ozone monitor to Crosby (about ${n.distanceMi} mi). It measures ozone only. The main number above already uses the closest monitor reporting each pollutant, and this one is shown as a second check in case ozone is high near the ship channel. TCEQ measures it every hour and reports it through EPA's AirNow.`,
+    `${n.site} es el monitor de ozono dedicado más cercano a Crosby (unas ${n.distanceMi} mi). Solo mide ozono. El número principal de arriba ya usa el monitor más cercano que reporta cada contaminante, y este se muestra como segunda verificación por si el ozono está alto cerca del canal de navegación. La TCEQ lo mide cada hora y lo reporta a través de AirNow de la EPA.`
   );
   return `<section class="nearby" data-nosnippet>
     <h2 class="nearby-head">${T(lang, "Nearby ozone monitor", "Monitor de ozono cercano")}<details class="infox"><summary title="${esc(T(lang, "About this monitor", "Acerca de este monitor"))}">i</summary><p>${esc(info)}</p></details></h2>
@@ -528,8 +528,8 @@ ${topbar("/air", lang)}
   <h1>${esc(title)}</h1>
   <p class="intro">${T(
     lang,
-    "Measured air quality for the Houston metro area, which includes Crosby. The U.S. Air Quality Index (AQI) runs 0–500; the number below is the highest of the reported pollutants, which sets the overall level.",
-    "Calidad del aire medida para el área metropolitana de Houston, que incluye a Crosby. El Índice de Calidad del Aire de EE. UU. (AQI) va de 0 a 500; el número de abajo es el más alto de los contaminantes reportados, que define el nivel general."
+    "Measured air quality for the Houston metro area, which includes Crosby. The U.S. Air Quality Index (AQI) runs from 0 to 500. The number below is the highest reading among the pollutants reported, because the worst one sets the level for the day.",
+    "Calidad del aire medida para el área metropolitana de Houston, que incluye a Crosby. El Índice de Calidad del Aire de EE. UU. (AQI) va de 0 a 500. El número de abajo es la lectura más alta entre los contaminantes reportados, porque el peor define el nivel del día."
   )}</p>
   ${
     has
@@ -537,7 +537,7 @@ ${topbar("/air", lang)}
     <span class="aqi-num">${aqi.usAqi}</span>
     <div>
       <p class="aqi-cat">${esc(T(lang, band.en, band.es))}</p>
-      <p class="aqi-sub">${aqi.dominant ? `${T(lang, "Main pollutant", "Contaminante principal")}: ${esc(aqiDominantLabel(aqi.dominant, lang))} &middot; ` : ""}${esc(aqiSourceTag(aqi, lang))}${aqi.observed ? ` &middot; ${esc(aqi.observed)}` : ""}</p>
+      <p class="aqi-sub">${aqi.dominant ? `${T(lang, "Main pollutant", "Contaminante principal")}: ${esc(aqiDominantLabel(aqi.dominant, lang))} , ` : ""}${esc(aqiSourceTag(aqi, lang))}${aqi.observed ? `, ${esc(aqi.observed)}` : ""}</p>
     </div>
   </div>
   <p class="stamp">${aqiSourceNote(aqi, lang)}${weather.updated ? ` ${T(lang, "Checked", "Verificado")} ${dateStamp(weather.updated, lang)}.` : ""}</p>
@@ -547,13 +547,13 @@ ${topbar("/air", lang)}
     <h2>${T(lang, "What this means", "Qué significa")}</h2>
     <p>${aqiHealth(aqi.usAqi, lang)}</p>
   </section>`
-      : `<p class="stamp">${T(lang, "The air quality reading is temporarily unavailable — try again shortly.", "La lectura de calidad del aire no está disponible temporalmente — inténtalo de nuevo en un momento.")}</p>`
+      : `<p class="stamp">${T(lang, "The air quality reading is not available right now. Try again in a few minutes.", "La lectura de calidad del aire no está disponible en este momento. Inténtalo de nuevo en unos minutos.")}</p>`
   }
   <section class="guide">
     <h2>${T(lang, "How to read the AQI", "Cómo leer el AQI")}</h2>
     <div class="scale-wrap"><table class="scale">
       <tr><th>${T(lang, "AQI", "AQI")}</th><th>${T(lang, "Level", "Nivel")}</th><th>${T(lang, "What to do", "Qué hacer")}</th></tr>
-      <tr><td><span class="sw" style="background:#1f8b4c"></span>0&ndash;50</td><td>${T(lang, "Good", "Buena")}</td><td>${T(lang, "Air is clean — enjoy outdoor activity.", "Aire limpio — disfruta actividades al aire libre.")}</td></tr>
+      <tr><td><span class="sw" style="background:#1f8b4c"></span>0&ndash;50</td><td>${T(lang, "Good", "Buena")}</td><td>${T(lang, "The air is clean. No precautions.", "El aire está limpio. Sin precauciones.")}</td></tr>
       <tr><td><span class="sw" style="background:#b58900"></span>51&ndash;100</td><td>${T(lang, "Moderate", "Moderada")}</td><td>${T(lang, "Unusually sensitive people: ease up on hard outdoor exertion.", "Personas muy sensibles: bajen el ritmo del esfuerzo intenso al aire libre.")}</td></tr>
       <tr><td><span class="sw" style="background:#d9480f"></span>101&ndash;150</td><td>${T(lang, "Sensitive groups", "Grupos sensibles")}</td><td>${T(lang, "Heart/lung conditions, kids, older adults: limit prolonged exertion.", "Condiciones cardíacas/pulmonares, niños, adultos mayores: limiten el esfuerzo prolongado.")}</td></tr>
       <tr><td><span class="sw" style="background:#c92a2a"></span>151&ndash;200</td><td>${T(lang, "Unhealthy", "Insalubre")}</td><td>${T(lang, "Everyone limits prolonged exertion; sensitive groups avoid it.", "Todos limitan el esfuerzo prolongado; los grupos sensibles lo evitan.")}</td></tr>
@@ -563,14 +563,14 @@ ${topbar("/air", lang)}
     <h2>${T(lang, "Air quality on the Gulf Coast", "La calidad del aire en la costa del Golfo")}</h2>
     <p>${T(
       lang,
-      "Ground-level ozone is the Houston area's signature summer pollutant — it forms on hot, sunny, stagnant afternoons when sunlight cooks emissions from traffic and the ship-channel industry, so ozone AQI usually peaks mid-afternoon and eases overnight. Fine particles (PM2.5) matter year-round and spike with wildfire smoke, Saharan dust in summer, and still winter mornings. When TCEQ calls an Ozone Action Day, sensitive groups should plan outdoor activity for the morning.",
-      "El ozono a nivel del suelo es el contaminante veraniego característico del área de Houston — se forma en las tardes calurosas, soleadas y sin viento cuando la luz solar cocina las emisiones del tráfico y la industria del canal, así que el AQI de ozono suele alcanzar su pico a media tarde y baja de noche. Las partículas finas (PM2.5) importan todo el año y suben con el humo de incendios, el polvo del Sahara en verano y las mañanas frías y quietas. Cuando la TCEQ declara un Día de Acción por Ozono, los grupos sensibles deben planear la actividad al aire libre para la mañana."
+      "Ground-level ozone is the Houston area's main summer pollutant. It forms on hot, sunny afternoons with little wind, when sunlight reacts with emissions from traffic and the plants along the ship channel, so the ozone reading usually peaks in mid-afternoon and falls overnight. Fine particles (PM2.5) are a concern all year. They rise with wildfire smoke, with Saharan dust in summer and on still winter mornings. When TCEQ calls an Ozone Action Day, sensitive groups should plan outdoor activity for the morning.",
+      "El ozono a nivel del suelo es el principal contaminante de verano en el área de Houston. Se forma en las tardes calurosas, soleadas y con poco viento, cuando la luz del sol reacciona con las emisiones del tráfico y de las plantas del canal de navegación, así que la lectura de ozono suele llegar a su punto más alto a media tarde y bajar de noche. Las partículas finas (PM2.5) preocupan todo el año. Suben con el humo de incendios, con el polvo del Sahara en verano y en las mañanas de invierno sin viento. Cuando la TCEQ declara un Día de Acción por Ozono, los grupos sensibles deben planear la actividad al aire libre para la mañana."
     )}</p>
     <ul class="links">
-      <li><a href="https://www.airnow.gov/?city=Houston&state=TX&country=USA">${T(lang, "AirNow (EPA)", "AirNow (EPA)")}</a> &mdash; ${T(lang, "the EPA's official measured air-quality data — the source behind this page", "los datos oficiales de calidad del aire medidos por la EPA — la fuente detrás de esta página")}</li>
-      <li><a href="https://www.tceq.texas.gov/airquality/monops">${T(lang, "TCEQ air monitoring", "Monitoreo del aire de la TCEQ")}</a> &mdash; ${T(lang, "the Texas agency that runs the monitors", "la agencia de Texas que opera los monitores")}</li>
-      <li><a href="${lang === "es" ? "/es/pollen" : "/pollen"}">${T(lang, "Pollen &amp; mold", "Polen y moho")}</a> &mdash; ${T(lang, "the daily measured pollen and mold count for the Crosby area", "el conteo diario medido de polen y moho para la zona de Crosby")}</li>
-      <li><a href="${lang === "es" ? "/es/weather" : "/weather"}">${T(lang, "Crosby forecast", "Pronóstico de Crosby")}</a> &mdash; ${T(lang, "how heat and stagnant air drive ozone days", "cómo el calor y el aire estancado provocan los días de ozono")}</li>
+      <li><a href="https://www.airnow.gov/?city=Houston&state=TX&country=USA">${T(lang, "AirNow (EPA)", "AirNow (EPA)")}</a>: ${T(lang, "the EPA's measured air quality data, where this page gets its numbers", "los datos de calidad del aire medidos por la EPA, de donde esta página toma sus números")}</li>
+      <li><a href="https://www.tceq.texas.gov/airquality/monops">${T(lang, "TCEQ air monitoring", "Monitoreo del aire de la TCEQ")}</a>: ${T(lang, "the Texas agency that runs the monitors", "la agencia de Texas que opera los monitores")}</li>
+      <li><a href="${lang === "es" ? "/es/pollen" : "/pollen"}">${T(lang, "Pollen &amp; mold", "Polen y moho")}</a>: ${T(lang, "the daily pollen and mold count for the Crosby area", "el conteo diario medido de polen y moho para la zona de Crosby")}</li>
+      <li><a href="${lang === "es" ? "/es/weather" : "/weather"}">${T(lang, "Crosby forecast", "Pronóstico de Crosby")}</a>: ${T(lang, "hot, still days are the ones when ozone builds", "los días calurosos y sin viento son cuando se acumula el ozono")}</li>
     </ul>
   </section>
 </main>

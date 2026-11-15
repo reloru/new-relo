@@ -12,7 +12,7 @@ import { PAGES, ENDPOINTS, SECTIONS } from "../registry.js";
 export function sitemapPageHtml(lang) {
   const t = (en, es) => T(lang, en, es);
   // Pages localize (each has an /es form); endpoints are English-only paths.
-  const item = (href, label, desc) => `<li><a href="${href}">${esc(label)}</a> &mdash; ${esc(desc)}</li>`;
+  const item = (href, label, desc) => `<li><a href="${href}">${esc(label)}</a>: ${esc(desc)}</li>`;
   const pageItem = (p) => item(lang === "es" ? esPath(p.path) : p.path, t(p.name.en, p.name.es), t(p.desc.en, p.desc.es));
   const endpointItem = (e) => item(e.path, t(e.name.en, e.name.es), t(e.desc.en, e.desc.es));
   const sections = SECTIONS.map((sec) => {

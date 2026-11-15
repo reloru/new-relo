@@ -315,7 +315,7 @@ ${list
     ? `<h2>${T(lang, "What NOAA says happens at each level", "Lo que NOAA indica que ocurre en cada nivel")}</h2>
     ${lang === "es" ? `<p class="intro nws-note">${"Las descripciones de impacto son de NOAA y se muestran en su idioma oficial (inglés)."}</p>` : ""}
     <ul class="impacts">
-${d.impacts.map((i) => `      <li><strong>${esc(ft(i.stage))} ft</strong> &mdash; <span lang="en">${esc(i.statement)}</span></li>`).join("\n")}
+${d.impacts.map((i) => `      <li><strong>${esc(ft(i.stage))} ft:</strong> <span lang="en">${esc(i.statement)}</span></li>`).join("\n")}
     </ul>`
     : "";
 
@@ -331,7 +331,7 @@ ${d.warnings.map((w) => `        <tr><td>${timeTag(w.issued, ctDate(w.issued, la
     </table></div>`
         : `<p class="none">${T(lang, "The record holds no river flood warnings for this gauge.", "El registro no tiene avisos de inundación fluvial para este medidor.")}</p>`
     }
-    <p class="note">${esc(warningsText(d, lang))} <a href="${lang === "es" ? "/es/history" : "/history"}">${T(lang, "Every NWS warning for Crosby &rarr;", "Todos los avisos del NWS para Crosby &rarr;")}</a></p>`;
+    <p class="note">${esc(warningsText(d, lang))} <a href="${lang === "es" ? "/es/history" : "/history"}">${T(lang, "Every NWS warning for Crosby", "Todos los avisos del NWS para Crosby")}</a></p>`;
 
   const dailySection = `<h2>${T(lang, "Daily readings recorded by this site", "Lecturas diarias registradas por este sitio")}</h2>
     <p class="note">${esc(dailyText(d, lang))}</p>
@@ -423,7 +423,7 @@ ${topbar(d.page, lang)}
 ${notes(d, lang).map((n) => `    <li>${esc(n)}</li>`).join("\n")}
   </ul>
   <p class="safety">${T(lang, `In a flood emergency call 911. Never drive or walk into floodwater. The official source for this gauge is <a href="${nwpsGaugeUrl(d.lid)}">NOAA's gauge page</a>; active warnings appear on the <a href="/alerts">alerts page</a>.`, `En una emergencia por inundación llama al 911. Nunca conduzcas ni camines hacia el agua de inundación. La fuente oficial de este medidor es <a href="${nwpsGaugeUrl(d.lid)}">la página del medidor de NOAA</a>; los avisos activos aparecen en la <a href="/es/alerts">página de alertas</a>.`)}</p>
-  <p class="intro"><a href="${href("/water")}">&larr; ${T(lang, "All water levels", "Todos los niveles de agua")}</a></p>
+  <p class="intro"><a href="${href("/water")}">${T(lang, "All six gauges", "Los seis medidores")}</a></p>
 </main>
 ${footer({ page: d.page, lang, source: T(lang, `Levels, flood stages and crests from the NOAA/NWS <a href="https://water.noaa.gov">National Water Prediction Service</a>; river flood warnings from the National Weather Service and, before 2026-11-12, the <a href="https://mesonet.agron.iastate.edu/">Iowa Environmental Mesonet</a>, Iowa State University.${d.samples?.some((s) => s.visits) ? ` Water samples from the <a href="https://www.tceq.texas.gov/">Texas Commission on Environmental Quality</a>, via the <a href="https://www.waterqualitydata.us/">Water Quality Portal</a>.` : ""}`, `Niveles, etapas y crestas del <a href="https://water.noaa.gov">Servicio Nacional de Predicción de Agua</a> de NOAA/NWS; avisos anteriores del <a href="https://mesonet.agron.iastate.edu/">Iowa Environmental Mesonet</a>, Universidad Estatal de Iowa.${d.samples?.some((s) => s.visits) ? ` Muestras de agua de la <a href="https://www.tceq.texas.gov/">Comisión de Calidad Ambiental de Texas</a>, vía el <a href="https://www.waterqualitydata.us/">Water Quality Portal</a>.` : ""}`) })}
 </body>

@@ -18,8 +18,8 @@ import { PUSH_CLIENT_SCRIPT } from "../assets/client-scripts.js";
 export const ALERT_GUIDE = [
   { event: "Tornado Warning", what: "A tornado is occurring or imminent (radar-indicated or spotted).", do: "Shelter immediately on the lowest floor, interior room, away from windows. Do not wait to see it." },
   { event: "Severe Thunderstorm Warning", what: "Damaging winds (58+ mph) and/or large hail are occurring or imminent.", do: "Move indoors, away from windows. Be ready for possible tornado warnings to follow." },
-  { event: "Flash Flood Warning", what: "Rapid flooding is occurring or imminent — common with the area's heavy downpours.", do: "Move to higher ground. Never drive through flooded roads — turn around, don't drown." },
-  { event: "Hurricane / Tropical Storm Warning", what: "Tropical-storm or hurricane conditions are expected within 36 hours — relevant in Gulf season (Jun–Nov).", do: "Follow local officials, finish preparations, and evacuate if told to." },
+  { event: "Flash Flood Warning", what: "Water is rising fast, or is about to. Heavy downpours here cause it often.", do: "Move to higher ground. Never drive onto a flooded road." },
+  { event: "Hurricane / Tropical Storm Warning", what: "Tropical storm or hurricane conditions are expected within 36 hours. The Gulf season runs from June through November.", do: "Finish getting ready, follow local officials, and leave if they tell you to." },
   { event: "Heat Advisory / Excessive Heat Warning", what: "Dangerous heat and humidity, frequent in a Gulf Coast summer.", do: "Hydrate, limit midday exertion, check on neighbors, and never leave anyone in a parked car." },
 ];
 
@@ -191,8 +191,9 @@ ${topbar("/alerts", lang)}
 <main id="main">
   <h1>${T(lang, "Crosby, TX Weather Alerts", "Alertas meteorológicas de Crosby, TX")}</h1>
   <div data-nosnippet>${status}</div>
-  <p class="intro"><a href="${lang === "es" ? "/es/weather" : "/weather"}">&larr; ${T(lang, "Back to the forecast", "Volver al pronóstico")}</a> &middot; <a href="${lang === "es" ? "/es/radar" : "/radar"}">Radar</a> &middot; <a href="${lang === "es" ? "/es/history" : "/history"}">${T(lang, "Warning history", "Historial de avisos")}</a> &middot; <a href="${lang === "es" ? "/es/emergency" : "/emergency"}"><strong>${T(lang, "Emergency resources", "Recursos de emergencia")}</strong></a> &middot; ${T(lang, `Official source: <a href="https://www.weather.gov/hgx/">NWS Houston/Galveston</a>. In an emergency, call 911.`, `Fuente oficial: <a href="https://www.weather.gov/hgx/">NWS Houston/Galveston</a>. En una emergencia, llama al 911.`)}</p>
-  ${burnban?.status === "Yes" ? `<p class="intro">&#128293; ${T(lang, "Harris County burn ban in effect.", "Prohibición de quemas vigente en el condado de Harris.")} <a href="${lang === "es" ? "/es/burn-ban" : "/burn-ban"}">${T(lang, "Details", "Detalles")} &rarr;</a></p>` : ""}
+  <p><strong>${T(lang, "In an emergency, call 911.", "En una emergencia, llama al 911.")}</strong> ${T(lang, `The official source for these alerts is <a href="https://www.weather.gov/hgx/">NWS Houston/Galveston</a>.`, `La fuente oficial de estas alertas es <a href="https://www.weather.gov/hgx/">NWS Houston/Galveston</a>.`)}</p>
+  <p>${T(lang, "Related:", "Relacionado:")} <a href="${lang === "es" ? "/es/emergency" : "/emergency"}">${T(lang, "who to call in an emergency", "a quién llamar en una emergencia")}</a>, <a href="${lang === "es" ? "/es/history" : "/history"}">${T(lang, "past warnings", "avisos anteriores")}</a>, <a href="${lang === "es" ? "/es/radar" : "/radar"}">${T(lang, "radar", "radar")}</a>, <a href="${lang === "es" ? "/es/weather" : "/weather"}">${T(lang, "forecast", "pronóstico")}</a>.</p>
+  ${burnban?.status === "Yes" ? `<p>${T(lang, "A burn ban is in effect for Harris County.", "Hay una prohibición de quemas vigente en el condado de Harris.")} <a href="${lang === "es" ? "/es/burn-ban" : "/burn-ban"}">${T(lang, "What the ban covers", "Qué abarca la prohibición")}</a></p>` : ""}
 
   <section class="push-optin" id="push-optin" hidden aria-label="${T(lang, "Severe weather alerts on this device", "Alertas de clima severo en este dispositivo")}"
     data-sub="${T(lang, "Turn on severe alerts", "Activar alertas severas")}"
@@ -223,7 +224,7 @@ export function alertsMarkdown(data, lang, burnban) {
   const alerts = data.alerts ?? [];
   const out = [`# ${T(lang, "Crosby, TX Weather Alerts", "Alertas meteorológicas de Crosby, TX")}`, "", `_${T(lang, `Active NWS alerts for Crosby, Texas. Updated ${fullTime(data.updated)} CT.`, `Alertas activas del NWS para Crosby, Texas. Actualizado ${fullTime(data.updated, lang)} CT.`)}_`, ""];
   if (burnban?.status === "Yes") {
-    out.push(`**🔥 ${T(lang, "Harris County burn ban in effect.", "Prohibición de quemas vigente en el condado de Harris.")}** [${T(lang, "Details", "Detalles")}](${canonicalFor("/burn-ban", lang)})`, "");
+    out.push(`**${T(lang, "Harris County burn ban in effect.", "Prohibición de quemas vigente en el condado de Harris.")}** [${T(lang, "Details", "Detalles")}](${canonicalFor("/burn-ban", lang)})`, "");
   }
   out.push(T(lang, "## Active alerts", "## Alertas activas"));
   if (alerts.length) {
@@ -235,7 +236,7 @@ export function alertsMarkdown(data, lang, burnban) {
       if (a.expires) out.push(`_${T(lang, "In effect until", "Vigente hasta")} ${fullTime(a.expires, lang)} CT_`, "");
     }
   } else {
-    out.push(T(lang, "None right now. ✓", "Ninguna en este momento. ✓"), "");
+    out.push(T(lang, "None right now.", "Ninguna en este momento."), "");
   }
   out.push(T(lang, "## Severe-weather guide (Texas Gulf Coast)", "## Guía de clima severo (costa del Golfo de Texas)"), "");
   for (const g of lang === "es" ? ALERT_GUIDE_ES : ALERT_GUIDE) {
@@ -265,7 +266,7 @@ export function alertsRss(data) {
 <channel>
   <title>Crosby, TX Weather Alerts — crosbynews.com</title>
   <link>${SITE}/alerts</link>
-  <description>Active National Weather Service alerts for Crosby, Texas. The feed is empty when no alerts are active — items appear only when NWS issues one. Not a substitute for official warning channels.</description>
+  <description>Active National Weather Service alerts for Crosby, Texas. The feed is empty until the NWS issues an alert. Not a substitute for official warning channels.</description>
   <language>en-us</language>
   <ttl>15</ttl>
   <lastBuildDate>${rssDate(data.updated)}</lastBuildDate>${items}

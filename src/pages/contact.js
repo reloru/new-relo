@@ -12,7 +12,7 @@ import { JSONLD_SITE, sharedHead, ORG_ID, WEBSITE_ID } from "../seo.js";
 
 export const CONTACT = {
   title: "Contact Us",
-  description: "How to reach crosbynews.com — general inquiries, news tips, and security reporting.",
+  description: "How to reach crosbynews.com with a question, a news tip or a security report.",
   intro: "crosbynews.com is an independent community weather and news project for Crosby, Texas. We welcome questions, corrections, and local news tips.",
   sections: [
     {
@@ -39,7 +39,7 @@ export const CONTACT = {
 
 export const CONTACT_ES = {
   title: "Contacto",
-  description: "Cómo comunicarte con crosbynews.com — consultas generales, datos de noticias y reportes de seguridad.",
+  description: "Cómo comunicarte con crosbynews.com para una pregunta, un dato de noticia o un reporte de seguridad.",
   intro: "crosbynews.com es un proyecto comunitario independiente de clima y noticias para Crosby, Texas. Recibimos con gusto preguntas, correcciones y datos de noticias locales.",
   sections: [
     {
@@ -86,7 +86,7 @@ export function contactHtml(lang) {
       const paras = (s.p || []).map((t) => `<p>${esc(t)}</p>`).join("\n      ");
       const links = s.links
         ? `<ul class="links">${s.links
-            .map((l) => `<li><a href="${l.href}"><code>${esc(l.label)}</code></a> &mdash; ${esc(l.note)}</li>`)
+            .map((l) => `<li><a href="${l.href}"><strong>${esc(l.label)}</strong></a>: ${esc(l.note)}</li>`)
             .join("")}</ul>`
         : "";
       return `      <section class="card">

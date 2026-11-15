@@ -252,19 +252,19 @@ export function trafficHtml(data, lang) {
   const title = T(lang, "Crosby Roads & Traffic", "Caminos y tráfico de Crosby");
   const desc = T(
     lang,
-    "Traffic incidents and scheduled lane closures on the roads Crosby, TX drives — US-90, FM-2100, FM-1942 and IH-10 East — from Houston TranStar.",
-    "Incidentes de tráfico y cierres de carriles programados en los caminos de Crosby, TX — US-90, FM-2100, FM-1942 e IH-10 East — según Houston TranStar."
+    "Traffic incidents and scheduled lane closures from Houston TranStar for the roads around Crosby, TX: US-90, FM-2100, FM-1942 and IH-10 East.",
+    "Incidentes de tráfico y cierres de carriles programados de Houston TranStar para los caminos de Crosby, TX: US-90, FM-2100, FM-1942 e IH-10 East."
   );
 
   const status =
     incidents === null
-      ? `<p class="none">${T(lang, "Incident data is temporarily unavailable — check TranStar's live map below.", "Los datos de incidentes no están disponibles temporalmente — consulta el mapa en vivo de TranStar más abajo.")}</p>`
+      ? `<p class="none">${T(lang, "Incident data is not available right now. TranStar's own map is linked below.", "Los datos de incidentes no están disponibles en este momento. El mapa de TranStar está enlazado más abajo.")}</p>`
       : incidents.length
         ? `<div class="status status-inc" role="status"><div><p class="status-title">${
             incidents.length === 1
               ? T(lang, "1 incident on Crosby-area roads", "1 incidente en los caminos del área de Crosby")
               : T(lang, `${incidents.length} incidents on Crosby-area roads`, `${incidents.length} incidentes en los caminos del área de Crosby`)
-          }</p><p class="status-sub">${T(lang, "Details below — reported and updated by Houston TranStar about every minute.", "Detalles abajo — reportados y actualizados por Houston TranStar aproximadamente cada minuto.")}</p></div></div>`
+          }</p><p class="status-sub">${T(lang, "Each one is listed below. Houston TranStar updates them about once a minute.", "Cada uno aparece abajo. Houston TranStar los actualiza más o menos cada minuto.")}</p></div></div>`
         : `<div class="status status-ok" role="status"><div><p class="status-title">${T(lang, "No incidents on Crosby-area roads", "Sin incidentes en los caminos del área de Crosby")}</p><p class="status-sub">${T(lang, "TranStar is reporting no monitored incidents on US-90, FM-2100, FM-1942, or the Crosby stretch of IH-10 East right now.", "TranStar no reporta incidentes en US-90, FM-2100, FM-1942 ni el tramo de Crosby de IH-10 East en este momento.")}</p></div></div>`;
 
   const incidentCards = (incidents ?? [])
@@ -332,8 +332,8 @@ ${topbar("/traffic", lang)}
   <h1>${esc(title)}</h1>
   <p class="intro">${T(
     lang,
-    "Traffic incidents and scheduled lane closures for the roads Crosby drives — US-90 (the Crosby Freeway), FM-2100, FM-1942, and the Crosby stretch of IH-10 East — from Houston TranStar, the region's official traffic agency. Lane and schedule details are shown in TranStar's official English.",
-    "Incidentes de tráfico y cierres de carriles programados para los caminos que usa Crosby — US-90 (la autopista de Crosby), FM-2100, FM-1942 y el tramo de Crosby de IH-10 East — según Houston TranStar, la agencia oficial de tráfico de la región. Los detalles de carriles y horarios se muestran en el inglés oficial de TranStar."
+    "Traffic incidents and scheduled lane closures on the roads around Crosby: US-90 (the Crosby Freeway), FM-2100, FM-1942 and the nearby stretch of IH-10 East. They come from Houston TranStar, the region's traffic agency.",
+    "Incidentes de tráfico y cierres de carriles programados en los caminos de Crosby: US-90 (la autopista de Crosby), FM-2100, FM-1942 y el tramo cercano de IH-10 East. Vienen de Houston TranStar, la agencia de tráfico de la región. Los detalles de carriles y horarios aparecen en inglés, como los publica TranStar."
   )}${data.updated ? ` ${T(lang, "Updated", "Actualizado")} ${dateStamp(data.updated, lang)}.` : ""}</p>
   <div data-nosnippet>
   ${status}
@@ -342,7 +342,7 @@ ${topbar("/traffic", lang)}
   <h2 class="section-h">${T(lang, "Scheduled lane closures", "Cierres de carriles programados")}</h2>
   ${closureRows}
   <h2 class="section-h">${T(lang, "Live traffic cameras", "Cámaras de tráfico en vivo")}</h2>
-  <p class="intro">${T(lang, "Houston TranStar's cameras cover the Crosby corridors — view them on TranStar's own site:", "Las cámaras de Houston TranStar cubren los corredores de Crosby — míralas en el propio sitio de TranStar:")}</p>
+  <p class="intro">${T(lang, "Houston TranStar has cameras on these roads. They are on TranStar's site:", "Houston TranStar tiene cámaras en estos caminos. Están en el sitio de TranStar:")}</p>
   <ul class="closures">
     <li><a href="${transtarCameraPage("US-90")}" target="_blank" rel="noopener">${T(lang, "US-90 cameras", "Cámaras de US-90")}</a><br><span class="cl-meta">${esc(camList("US-90"))}</span></li>
     <li><a href="${transtarCameraPage("IH-10 East")}" target="_blank" rel="noopener">${T(lang, "IH-10 East cameras", "Cámaras de IH-10 East")}</a><br><span class="cl-meta">${esc(camList("IH-10 East"))}</span></li>
@@ -352,15 +352,15 @@ ${topbar("/traffic", lang)}
     <h2>${T(lang, "When water covers the road", "Cuando el agua cubre el camino")}</h2>
     <p>${T(
       lang,
-      "Crosby's defining road hazard is high water — US-90 at the San Jacinto River, FM-2100 near Cedar Bayou, and the low spots in between. TranStar reports high-water locations as incidents above during floods. Never drive into water on the road: most flood deaths in Harris County happen in vehicles, and two feet of moving water floats a truck. Turn around, don't drown.",
-      "El peligro vial característico de Crosby es el agua alta — US-90 en el río San Jacinto, FM-2100 cerca de Cedar Bayou y los puntos bajos intermedios. Durante inundaciones, TranStar reporta los lugares con agua alta como incidentes arriba. Nunca conduzcas hacia agua en el camino: la mayoría de las muertes por inundación en el condado de Harris ocurren en vehículos, y dos pies de agua en movimiento hacen flotar una camioneta. Da la vuelta, no te arriesgues."
+      "The road hazard that matters most in Crosby is high water: US-90 at the San Jacinto River, FM-2100 near Cedar Bayou, and the low spots in between. During a flood, TranStar reports high-water locations as incidents in the list above. Never drive into water on the road. Most flood deaths in Harris County happen in vehicles, and two feet of moving water will float a truck.",
+      "El peligro vial que más importa en Crosby es el agua alta: US-90 en el río San Jacinto, FM-2100 cerca de Cedar Bayou y los puntos bajos entre ambos. Durante una inundación, TranStar reporta los lugares con agua alta como incidentes en la lista de arriba. Nunca manejes hacia agua en el camino. La mayoría de las muertes por inundación en el condado de Harris ocurren en vehículos, y dos pies de agua en movimiento hacen flotar una camioneta."
     )}</p>
     <ul class="links">
-      <li><a href="${lang === "es" ? "/es/water" : "/water"}">${T(lang, "River & bayou levels", "Niveles de ríos y arroyos")}</a> &mdash; ${T(lang, "the gauges behind Crosby's flooding, live", "los medidores detrás de las inundaciones de Crosby, en vivo")}</li>
-      <li><a href="${lang === "es" ? "/es/alerts" : "/alerts"}">${T(lang, "Weather alerts", "Alertas del clima")}</a> &mdash; ${T(lang, "flash-flood warnings for Crosby appear here", "los avisos de inundación repentina para Crosby aparecen aquí")}</li>
-      <li><a href="${TRANSTAR_CLOSURES_URL}" target="_blank" rel="noopener">${T(lang, "TranStar incidents & road closures", "Incidentes y cierres de TranStar")}</a> &mdash; ${T(lang, "the full regional list, all roads", "la lista regional completa, todos los caminos")}</li>
-      <li><a href="https://www.drivetexas.org/" target="_blank" rel="noopener">DriveTexas</a> &mdash; ${T(lang, "TxDOT statewide highway conditions, for trips beyond Houston", "condiciones de carreteras de TxDOT en todo el estado, para viajes fuera de Houston")}</li>
-      <li><a href="${lang === "es" ? "/es/emergency" : "/emergency"}">${T(lang, "Emergency resources", "Recursos de emergencia")}</a> &mdash; ${T(lang, "flood tools, outage reporting, and numbers to save", "herramientas de inundación, reporte de apagones y números para guardar")}</li>
+      <li><a href="${lang === "es" ? "/es/water" : "/water"}">${T(lang, "River & bayou levels", "Niveles de ríos y arroyos")}</a>: ${T(lang, "current readings from the gauges on the water that floods Crosby", "lecturas actuales de los medidores del agua que inunda Crosby")}</li>
+      <li><a href="${lang === "es" ? "/es/alerts" : "/alerts"}">${T(lang, "Weather alerts", "Alertas del clima")}</a>: ${T(lang, "where a flash flood warning for Crosby shows up", "donde aparece un aviso de inundación repentina para Crosby")}</li>
+      <li><a href="${TRANSTAR_CLOSURES_URL}" target="_blank" rel="noopener">${T(lang, "TranStar incidents & road closures", "Incidentes y cierres de TranStar")}</a>: ${T(lang, "the full regional list, all roads", "la lista regional completa, todos los caminos")}</li>
+      <li><a href="https://www.drivetexas.org/" target="_blank" rel="noopener">DriveTexas</a>: ${T(lang, "TxDOT statewide highway conditions, for trips beyond Houston", "condiciones de carreteras de TxDOT en todo el estado, para viajes fuera de Houston")}</li>
+      <li><a href="${lang === "es" ? "/es/emergency" : "/emergency"}">${T(lang, "Emergency resources", "Recursos de emergencia")}</a>: ${T(lang, "flood tools, outage reporting, and numbers to save", "herramientas de inundación, reporte de apagones y números para guardar")}</li>
     </ul>
   </section>
 </main>

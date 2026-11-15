@@ -217,7 +217,7 @@ export function renderMarkdown(data, lang, burnban) {
   out.push(`# ${T(lang, `${data.place || "Crosby, TX"} Weather`, `Clima en ${data.place || "Crosby, TX"}`)}`, "");
   out.push(`_${T(lang, "Updated", "Actualizado")} ${fullTime(data.updated, lang)} CT — ${T(lang, "source: U.S. National Weather Service (weather.gov)", "fuente: Servicio Meteorológico Nacional de EE. UU. (weather.gov)")}_`, "");
   if (lang === "es") out.push("_Las condiciones se traducen al español; las descripciones detalladas y las alertas se muestran en inglés oficial del NWS._", "");
-  if (burnban?.status === "Yes") out.push(`**🔥 ${T(lang, "Harris County burn ban in effect.", "Prohibición de quemas vigente en el condado de Harris.")}** [${T(lang, "Details", "Detalles")}](${canonicalFor("/burn-ban", lang)})`, "");
+  if (burnban?.status === "Yes") out.push(`**${T(lang, "Harris County burn ban in effect.", "Prohibición de quemas vigente en el condado de Harris.")}** [${T(lang, "Details", "Detalles")}](${canonicalFor("/burn-ban", lang)})`, "");
 
   if (now) {
     const feels = feelsLikeF(now);

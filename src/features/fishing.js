@@ -147,17 +147,17 @@ export function fishingState(st, lang) {
 // A short, honest read of conditions — never a guaranteed-bite claim.
 export function fishingNote(st, lang) {
   const dov = st.params.do?.value;
-  if (dov == null) return T(lang, "Only water level is monitored here — no water-quality sensor at this station.", "Aquí solo se mide el nivel del agua — no hay sensor de calidad del agua en esta estación.");
+  if (dov == null) return T(lang, "This station measures water level only. It has no water-quality sensor.", "Esta estación solo mide el nivel del agua. No tiene sensor de calidad del agua.");
   const parts = [];
   if (dov >= 6) parts.push(T(lang, "oxygen is healthy", "el oxígeno está saludable"));
-  else if (dov >= 4) parts.push(T(lang, "oxygen is moderate — fish may hold deeper or near moving water", "el oxígeno es moderado — los peces pueden mantenerse más profundo o cerca de agua en movimiento"));
-  else parts.push(T(lang, "oxygen is low — fish likely sluggish; best odds early morning or near inflows", "el oxígeno está bajo — los peces probablemente lentos; mejores probabilidades temprano o cerca de entradas de agua"));
+  else if (dov >= 4) parts.push(T(lang, "oxygen is moderate, so fish may hold deeper or near moving water", "el oxígeno es moderado, así que los peces pueden estar más profundo o cerca de agua en movimiento"));
+  else parts.push(T(lang, "oxygen is low and fish are likely sluggish, so try early morning or near inflows", "el oxígeno está bajo y los peces probablemente están lentos, así que prueba temprano o cerca de entradas de agua"));
   const tF = st.params.tempC ? cToF(st.params.tempC.value) : null;
-  if (tF != null && tF >= 85) parts.push(T(lang, `warm at ${tF}°F — try deeper, shaded water midday`, `tibia a ${tF}°F — prueba agua más profunda y con sombra al mediodía`));
-  else if (tF != null && tF <= 55) parts.push(T(lang, `cool at ${tF}°F — work baits slowly`, `fría a ${tF}°F — mueve el señuelo despacio`));
+  if (tF != null && tF >= 85) parts.push(T(lang, `the water is warm at ${tF}°F, so try deeper, shaded water at midday`, `el agua está tibia a ${tF}°F, así que prueba agua más profunda y con sombra al mediodía`));
+  else if (tF != null && tF <= 55) parts.push(T(lang, `the water is cool at ${tF}°F, so work baits slowly`, `el agua está fría a ${tF}°F, así que mueve el señuelo despacio`));
   const turb = st.params.turb?.value;
-  if (turb != null && turb >= 50) parts.push(T(lang, "stained water — scent and vibration baits shine", "agua turbia — señuelos de olor y vibración funcionan mejor"));
-  else if (turb != null && turb < 10) parts.push(T(lang, "clear water — go lighter and more natural", "agua clara — usa señuelos más ligeros y naturales"));
+  if (turb != null && turb >= 50) parts.push(T(lang, "the water is stained, which suits baits with scent or vibration", "el agua está turbia, lo que favorece señuelos con olor o vibración"));
+  else if (turb != null && turb < 10) parts.push(T(lang, "the water is clear, which suits lighter, natural-looking baits", "el agua está clara, lo que favorece señuelos más ligeros y de aspecto natural"));
   return parts.join("; ");
 }
 // Metric chips: the full water-quality suite, or a water-level chip.
@@ -192,8 +192,8 @@ export function fishingHtml(data, lang, samples = null) {
   const title = T(lang, "Crosby, TX Fishing Conditions", "Condiciones de pesca de Crosby, TX");
   const desc = T(
     lang,
-    "Water temperature, dissolved oxygen, pH and clarity for the waters people fish near Crosby, TX — Lake Houston, the San Jacinto and Trinity rivers — from USGS.",
-    "Temperatura del agua, oxígeno disuelto, pH y claridad de las aguas donde se pesca cerca de Crosby, TX — Lake Houston y los ríos San Jacinto y Trinity."
+    "Water temperature, dissolved oxygen, pH and clarity from USGS stations on the waters people fish near Crosby: Lake Houston, the San Jacinto and the Trinity.",
+    "Temperatura del agua, oxígeno disuelto, pH y claridad de las aguas donde se pesca cerca de Crosby, TX: Lake Houston y los ríos San Jacinto y Trinity."
   );
   const sections = stations.length
     ? fishingGroups(stations)
@@ -224,7 +224,7 @@ ${cards}
     </section>`;
         })
         .join("\n")
-    : `    <p class="none">${T(lang, "Fishing conditions are temporarily unavailable — try again shortly.", "Las condiciones de pesca no están disponibles temporalmente — inténtalo de nuevo en un momento.")}</p>`;
+    : `    <p class="none">${T(lang, "Fishing conditions are not available right now. Try again in a few minutes.", "Las condiciones de pesca no están disponibles en este momento. Inténtalo de nuevo en unos minutos.")}</p>`;
 
   return `<!DOCTYPE html>
 <html lang="${T(lang, "en", "es-MX")}">
@@ -265,18 +265,18 @@ ${WQ_CSS}
 ${topbar("/fishing", lang)}
 <main id="main">
   <h1>${esc(title)}</h1>
-  <p class="intro">${T(lang, "Live water conditions for the waters people actually fish around Crosby — matched to the nearest U.S. Geological Survey real-time station. Dissolved oxygen and temperature are what most drive whether fish are active; the reading is from a nearby station, not your exact spot.", "Condiciones del agua en vivo para las aguas donde realmente se pesca cerca de Crosby — con la estación en tiempo real del USGS más cercana. El oxígeno disuelto y la temperatura son lo que más determina si los peces están activos; la lectura es de una estación cercana, no de tu punto exacto.")}${data.updated ? ` ${T(lang, "Updated", "Actualizado")} ${dateStamp(data.updated, lang)}.` : ""}</p>
+  <p class="intro">${T(lang, "Water conditions on the lakes, rivers and bayous people fish around Crosby, each read from the nearest U.S. Geological Survey station. Dissolved oxygen and temperature do the most to decide whether fish are active. A reading comes from a station near the water, which may not be the spot where you fish.", "Condiciones del agua en los lagos, ríos y bayous donde se pesca cerca de Crosby, cada una tomada de la estación más cercana del Servicio Geológico de EE. UU. (USGS). El oxígeno disuelto y la temperatura son lo que más decide si los peces están activos. La lectura viene de una estación cercana al agua, que puede no ser el punto donde pescas.")}${data.updated ? ` ${T(lang, "Updated", "Actualizado")} ${dateStamp(data.updated, lang)}.` : ""}</p>
 ${sections}
   ${samplesHtml}
   <section class="fguide">
     <h2>${T(lang, "How to read it", "Cómo interpretarlo")}</h2>
     <ul>
-      <li>${T(lang, "<strong>Dissolved oxygen (mg/L)</strong> — above 6 is healthy; 4&ndash;6 is moderate; below 4 the fish get sluggish. Summer afternoons and warm, still water run lowest.", "<strong>Oxígeno disuelto (mg/L)</strong> — más de 6 es saludable; 4&ndash;6 moderado; por debajo de 4 los peces se vuelven lentos. Las tardes de verano y el agua tibia y quieta son las más bajas.")}</li>
-      <li>${T(lang, "<strong>Temperature</strong> drives activity by species; <strong>clarity</strong> (turbidity, FNU) hints at bait choice &mdash; clear water favors natural finesse, stained water favors scent and vibration.", "<strong>Temperatura</strong> afecta la actividad según la especie; <strong>claridad</strong> (turbidez, FNU) sugiere el señuelo &mdash; agua clara favorece lo natural y sutil, agua turbia favorece olor y vibración.")}</li>
-      <li>${T(lang, "These are water conditions, not a bite guarantee &mdash; wind, pressure, season, and time of day matter too.", "Estas son condiciones del agua, no una garantía de picada &mdash; el viento, la presión, la temporada y la hora también importan.")}</li>
+      <li>${T(lang, "<strong>Dissolved oxygen (mg/L).</strong> Above 6 is healthy, 4 to 6 is moderate, and below 4 the fish get sluggish. It runs lowest on summer afternoons and in warm, still water.", "<strong>Oxígeno disuelto (mg/L).</strong> Más de 6 es saludable, de 4 a 6 es moderado y por debajo de 4 los peces se ponen lentos. Baja más en las tardes de verano y en agua tibia y quieta.")}</li>
+      <li>${T(lang, "<strong>Temperature</strong> affects each species differently. <strong>Clarity</strong> (turbidity, in FNU) helps with choosing bait: natural-looking baits in clear water, scent and vibration in stained water.", "<strong>La temperatura</strong> afecta a cada especie de manera distinta. <strong>La claridad</strong> (turbidez, en FNU) ayuda a elegir el señuelo: de aspecto natural en agua clara, con olor y vibración en agua turbia.")}</li>
+      <li>${T(lang, "These numbers describe the water. They cannot promise a bite: wind, pressure, season and time of day matter too.", "Estos números describen el agua. No pueden prometer que piquen: el viento, la presión, la temporada y la hora también cuentan.")}</li>
     </ul>
   </section>
-  <p class="safety">${T(lang, "A Texas fishing license is required for most anglers &mdash; see <a href=\"https://tpwd.texas.gov/\">Texas Parks &amp; Wildlife</a>. Watch the water: never wade unfamiliar current, and in high water turn around, don't drown. River and bayou <a href=\"/water\">flood levels are here</a>.", "Se requiere licencia de pesca de Texas para la mayoría &mdash; consulta <a href=\"https://tpwd.texas.gov/\">Texas Parks &amp; Wildlife</a>. Cuida el agua: nunca vadees corrientes desconocidas, y con agua alta da la vuelta, no te arriesgues. Los <a href=\"/es/water\">niveles de inundación están aquí</a>.")}</p>
+  <p class="safety">${T(lang, "Most anglers need a Texas fishing license, sold by <a href=\"https://tpwd.texas.gov/\">Texas Parks &amp; Wildlife</a>. Never wade into current you do not know, and stay out of high water. River and bayou flood levels are on the <a href=\"/water\">water levels page</a>.", "La mayoría de los pescadores necesita una licencia de pesca de Texas, que vende <a href=\"https://tpwd.texas.gov/\">Texas Parks &amp; Wildlife</a>. Nunca te metas a una corriente que no conoces y no entres al agua cuando está alta. Los niveles de ríos y bayous están en la <a href=\"/es/water\">página de niveles de agua</a>.")}</p>
   <p class="intro"><a href="${lang === "es" ? "/es/water" : "/water"}">${T(lang, "Water levels", "Niveles de agua")}</a> &middot; <a href="${lang === "es" ? "/es/weather" : "/weather"}">${T(lang, "Forecast", "Pronóstico")}</a></p>
 </main>
 ${footer({ page: "/fishing", lang, source: T(lang, `Water data from the <a href="https://waterdata.usgs.gov/">U.S. Geological Survey</a> (real-time monitoring).${samplesHtml ? SAMPLES_SOURCE.en : ""}`, `Datos del agua del <a href="https://waterdata.usgs.gov/">Servicio Geológico de EE. UU.</a> (monitoreo en tiempo real).${samplesHtml ? SAMPLES_SOURCE.es : ""}`) })}

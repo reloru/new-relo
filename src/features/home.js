@@ -428,21 +428,21 @@ export function homeMarkdown(weather, water, news, cal, tropics, burnban, lang) 
   if (alerts.length) {
     const primary = alerts.reduce((x, y) => (alertRank(y) > alertRank(x) ? y : x));
     const summary = alertSummaryLine(primary);
-    out.push(`**⚠️ ${alerts.length} ${T(lang, alerts.length === 1 ? "active alert" : "active alerts", alerts.length === 1 ? "alerta activa" : "alertas activas")}:** ${[...new Set(alerts.map((a) => a.event))].join("; ")}${summary ? ` — ${summary}` : ""}. [${T(lang, "View all alerts", "Ver todas las alertas")}](${canonicalFor("/alerts", lang)})`, "");
+    out.push(`**${alerts.length} ${T(lang, alerts.length === 1 ? "active alert" : "active alerts", alerts.length === 1 ? "alerta activa" : "alertas activas")}:** ${[...new Set(alerts.map((a) => a.event))].join("; ")}${summary ? ` — ${summary}` : ""}. [${T(lang, "View all alerts", "Ver todas las alertas")}](${canonicalFor("/alerts", lang)})`, "");
   }
   const storms = tropics?.storms ?? [];
   if (storms.length) {
-    out.push(`**🌀 ${T(lang, "Tropical activity in the Atlantic", "Actividad tropical en el Atlántico")}:** ${storms.map((s) => tropicsStormLine(s, lang)).join("; ")}. [${T(lang, "Track them", "Seguirlos")}](${canonicalFor("/tropics", lang)})`, "");
+    out.push(`**${T(lang, "Tropical activity in the Atlantic", "Actividad tropical en el Atlántico")}:** ${storms.map((s) => tropicsStormLine(s, lang)).join("; ")}. [${T(lang, "Track them", "Seguirlos")}](${canonicalFor("/tropics", lang)})`, "");
   } else {
     // Same >=40% gate as the HTML banner, from the same helper, so the two
     // representations of the front page cannot disagree about what is worth
     // mentioning.
     const watching = tropicsWatchAreas(tropics);
     if (watching.length)
-      out.push(`**👀 ${T(lang, "Being watched in the Atlantic", "Bajo vigilancia en el Atlántico")}:** ${watching.map((d) => tropicsDisturbanceLine(d, lang)).join("; ")}. ${T(lang, "No named storm yet.", "Aún sin tormenta con nombre.")} [${T(lang, "Details", "Detalles")}](${canonicalFor("/tropics", lang)})`, "");
+      out.push(`**${T(lang, "Being watched in the Atlantic", "Bajo vigilancia en el Atlántico")}:** ${watching.map((d) => tropicsDisturbanceLine(d, lang)).join("; ")}. ${T(lang, "No named storm yet.", "Aún sin tormenta con nombre.")} [${T(lang, "Details", "Detalles")}](${canonicalFor("/tropics", lang)})`, "");
   }
   if (burnban?.status === "Yes") {
-    out.push(`**🔥 ${T(lang, "Harris County burn ban in effect", "Prohibición de quemas vigente en el condado de Harris")}:** ${T(lang, "No outdoor burning allowed countywide.", "No se permite quemar al aire libre en todo el condado.")} [${T(lang, "Details", "Detalles")}](${canonicalFor("/burn-ban", lang)})`, "");
+    out.push(`**${T(lang, "Harris County burn ban in effect", "Prohibición de quemas vigente en el condado de Harris")}:** ${T(lang, "No outdoor burning allowed countywide.", "No se permite quemar al aire libre en todo el condado.")} [${T(lang, "Details", "Detalles")}](${canonicalFor("/burn-ban", lang)})`, "");
   }
   const glance = todayGlance(weather, lang);
   if (glance.today.length || glance.now.length) {
