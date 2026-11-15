@@ -81,9 +81,12 @@ rm -rf .wrangler/state          # next `wrangler dev` starts truly empty
   `.github/workflows/pollen-watch.yml` now files a `pollen-watch` issue when
   HHD's index advertises a count newer than `/api/pollen` serves.
 - **`burnban`** — Harris County outdoor-burning ban status from the Texas A&M
-  Forest Service, shape `{ updated, status, startDate, statusSince,
-  trackingSince }` (`loadBurnBan()` checks `status` is `"Yes"` or `"No"`;
-  `startDate` is ISO or null). **Don't hand-write `statusSince` /
+  Forest Service, shape `{ updated, status, startDate, neighbors,
+  statusSince, trackingSince }` (`loadBurnBan()` checks `status` is `"Yes"`
+  or `"No"`; `startDate` is ISO or null; `neighbors` is
+  `[{ county, status }]` for the seven bordering counties, missing a county
+  whose TFS row was unusable — an entry without the field is refreshed on the
+  next cron tick). **Don't hand-write `statusSince` /
   `trackingSince`** — `trackingSince` is the first observation ever and never
   moves, `statusSince` moves only on a real status flip, and when they are
   EQUAL the page says "unchanged since we began tracking" rather than claiming

@@ -20,6 +20,7 @@ Crosby) from the Texas A&M Forest Service.
 | "Checked \<time\> CT." freshness line, directly under the panel | `data.updated` |
 | Status-history line, directly under the freshness line | `burnbanSince(data, lang)` |
 | "Right now in Crosby" fire-weather strip — wind/gusts/humidity/rain chance, plus any Red Flag Warning or Fire Weather Watch | `burnbanFireWeather(weather, lang)` from the `weather` KV |
+| "Neighboring counties" — two lines, counties with and without a ban | `burnbanNeighbors(data)` from the `burnban` KV `neighbors` field |
 | "Before you burn" — a lead paragraph, then the 6-item checklist | `burnbanLead(data, lang)` + `burnbanChecklist(lang)` |
 | "What a burn ban means" evergreen guide — issuing authority, unincorporated scope, Class C penalty, TFS-is-not-the-authority | static |
 | "Frequently asked questions" (5 `<details>`) | `burnbanFaq(lang)` |
@@ -232,6 +233,22 @@ page where the guides stay excluded (`docs/ops/search.md` has the site-wide
 rule); revisit only with search-result evidence. The "Right now in Crosby"
 wind and humidity strip is also `data-nosnippet`, for the opposite reason: it
 is stale within the hour.
+
+## Neighboring counties
+
+The seven counties bordering Harris (`BURNBAN_NEIGHBORS`: Brazoria, Chambers,
+Fort Bend, Galveston, Liberty, Montgomery, Waller, from the Census Bureau's
+`county_adjacency2024.txt`) come from the same TFS query as Harris
+(`where=County IN (...)`). The strip lists them in two lines, "Burn ban" and
+"No burn ban", with `data-nosnippet`; it is hidden when the cached entry has
+no neighbors.
+
+Harris alone decides the page. A neighbor whose row is missing or whose
+`BurnBan` is not "Yes"/"No" is dropped from the strip, and the fetch still
+succeeds; only a missing or unrecognized Harris row throws. An entry cached
+before the strip shipped has no `neighbors` field, and the cron refreshes it on
+its next tick instead of waiting out the 4-hour gate. Tested by
+`scripts/test-burnban-neighbors.mjs` ("Check burn-ban neighbors" in CI).
 
 ## Past burn bans
 
