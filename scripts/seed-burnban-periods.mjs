@@ -15,11 +15,15 @@
 //          reported from the county's statements (end_source 'news', outlet
 //          and URL in `note`).
 //
+// Before 2021, both ends come from news reports and a ban is entered only when
+// reports date both: bans reported in 2003, 2005, 2009, 2010 and 2011 were not
+// entered because the reports found (2026-11-15) do not date both ends.
+//
 // Coverage: the court's Legistar records begin in February 2021. Every item
 // whose title mentions "burn" was listed through the public API
 // (webapi.legistar.com/v1/harriscountytx/matters) on 2026-11-15; the rows
-// below are all the burn-ban adoptions and terminations it holds. Bans before
-// 2021 (one is reported for 2015) are not entered. The burn-ban page says so.
+// below are all the burn-ban adoptions and terminations it holds. The
+// burn-ban page states both limits.
 //
 // Each URL is the record's canonical LegislationDetail page, resolved from
 // the API's MatterId through Legistar's gateway (gateway.aspx?M=L&ID=<id>),
@@ -36,6 +40,17 @@ import { execFileSync } from "node:child_process";
 const LEGISTAR = "https://harriscountytx.legistar.com/LegislationDetail.aspx";
 
 export const PAST_BANS = [
+  // Before Legistar (2021), both ends come from news reports (start_source
+  // and end_source 'news', each outlet and URL in `note`).
+  {
+    started: "2015-08-11",
+    ended: "2015-08-25",
+    start_source: "news",
+    url: null,
+    end_source: "news",
+    end_url: null,
+    note: "Start as reported by Houston Public Media (https://www.houstonpublicmedia.org/articles/news/2015/08/11/120945/harris-county-officials-issue-outdoor-burn-ban/): commissioners approved it Aug. 11, 2015, effective immediately. Lift date as reported by Houston Public Media (https://www.houstonpublicmedia.org/articles/news/2015/08/25/119495/thanks-to-the-rain-harris-county-lifts-burn-ban/), and by the Houston Chronicle (https://www.houstonchronicle.com/news/houston-texas/houston/article/County-pulls-back-on-burn-ban-6465432.php): commissioners rescinded it Tuesday, Aug. 25, 2015. Burning in covered containers stayed allowed.",
+  },
   {
     started: "2022-06-28",
     ended: "2022-08-23",
@@ -82,7 +97,7 @@ const q = (v) => (v == null ? "NULL" : `'${String(v).replace(/'/g, "''")}'`);
 export const seedSql = () =>
   PAST_BANS.map(
     (b) =>
-      `INSERT INTO burnban_periods (started, ended, start_source, end_source, note, url, end_url) VALUES (${[b.started, b.ended, "order", b.end_source, b.note, b.url, b.end_url].map(q).join(", ")}) ` +
+      `INSERT INTO burnban_periods (started, ended, start_source, end_source, note, url, end_url) VALUES (${[b.started, b.ended, b.start_source ?? "order", b.end_source, b.note, b.url, b.end_url].map(q).join(", ")}) ` +
       `ON CONFLICT (started) DO UPDATE SET ended = excluded.ended, start_source = excluded.start_source, end_source = excluded.end_source, note = excluded.note, url = excluded.url, end_url = excluded.end_url;`,
   ).join("\n") + "\n";
 

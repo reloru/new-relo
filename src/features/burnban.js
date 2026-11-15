@@ -435,9 +435,10 @@ export async function loadBurnBanPeriods(env) {
 
 const banDay = (day, lang) => new Date(`${day}T12:00:00Z`).toLocaleDateString(lang === "es" ? "es-MX" : "en-US", { timeZone: "UTC", year: "numeric", month: "short", day: "numeric" });
 const banDays = (a, b) => Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 86400000);
-// The first outlet + link in a hand-entered note ("as reported by X (url)").
-const reportedBy = (note) => {
-  const m = String(note || "").match(/reported by ([^(]+?) \((https?:\/\/[^)\s]+)\)/);
+// The outlet + link a hand-entered note gives for one end of a ban:
+// "Start as reported by X (url)" or "Lift date ... as reported by X (url)".
+const reportedBy = (note, lead) => {
+  const m = String(note || "").match(new RegExp(`${lead}.*?reported by ([^(]+?) \\((https?:\\/\\/[^)\\s]+)\\)`));
   return m ? { outlet: m[1].trim(), url: m[2] } : null;
 };
 
@@ -447,11 +448,13 @@ export function banHistoryRows(periods, lang) {
     const end = p.ended ? banDay(p.ended, lang) : T(lang, "in effect", "vigente");
     const length = p.ended ? T(lang, `${banDays(p.started, p.ended)} days`, `${banDays(p.started, p.ended)} días`) : "";
     const court = T(lang, "Commissioners Court record", "registro de la Corte de Comisionados");
+    const startNews = p.start_source === "news" ? reportedBy(p.note, "Start") : null;
     const startSrc =
       p.start_source === "order" ? { text: court, url: p.url }
+      : startNews ? { text: T(lang, `as reported by ${startNews.outlet}`, `según ${startNews.outlet}`), url: startNews.url }
       : p.start_source === "tfs" ? { text: T(lang, "Texas A&M Forest Service start date", "fecha de inicio del Servicio Forestal de Texas A&M"), url: null }
       : { text: T(lang, "first seen by this site", "primera vez visto por este sitio"), url: null };
-    const news = p.end_source === "news" ? reportedBy(p.note) : null;
+    const news = p.end_source === "news" ? reportedBy(p.note, "Lift date") : null;
     const endSrc =
       !p.ended ? null
       : news ? { text: T(lang, `as reported by ${news.outlet}`, `según ${news.outlet}`), url: news.url }
@@ -465,8 +468,8 @@ export function banHistoryRows(periods, lang) {
 export function banHistoryNote(lang) {
   return T(
     lang,
-    "Dates come from Harris County Commissioners Court records, which are online from February 2021; every ban the court adopted since then is listed. The 2024 and 2025 bans ended without a court vote, because each order ends on its own once the Texas A&M Forest Service finds the drought is over, so those end dates are the ones news outlets reported from the county's statements. Bans before 2021 (one is reported for 2015) are not listed.",
-    "Las fechas vienen de los registros de la Corte de Comisionados del condado de Harris, disponibles en línea desde febrero de 2021; aparecen todas las prohibiciones que la corte adoptó desde entonces. Las de 2024 y 2025 terminaron sin votación de la corte, porque cada orden termina sola cuando el Servicio Forestal de Texas A&M determina que la sequía terminó, así que esas fechas de fin son las que reportaron medios a partir de declaraciones del condado. Las prohibiciones anteriores a 2021 (se reporta una en 2015) no aparecen.",
+    "Dates come from Harris County Commissioners Court records, which are online from February 2021; every ban the court adopted since then is listed. The 2024 and 2025 bans ended without a court vote, because each order ends on its own once the Texas A&M Forest Service finds the drought is over, so those end dates are the ones news outlets reported from the county's statements. Before 2021 the dates come from news reports, and a ban is listed only when reports date both its start and its end: bans reported in 2003, 2005, 2009, 2010 and 2011 are missing because the reports found do not date both ends.",
+    "Las fechas vienen de los registros de la Corte de Comisionados del condado de Harris, disponibles en línea desde febrero de 2021; aparecen todas las prohibiciones que la corte adoptó desde entonces. Las de 2024 y 2025 terminaron sin votación de la corte, porque cada orden termina sola cuando el Servicio Forestal de Texas A&M determina que la sequía terminó, así que esas fechas de fin son las que reportaron medios a partir de declaraciones del condado. Antes de 2021 las fechas vienen de reportes de prensa, y una prohibición aparece solo cuando los reportes fechan su inicio y su fin: faltan las reportadas en 2003, 2005, 2009, 2010 y 2011 porque los reportes encontrados no fechan ambos extremos.",
   );
 }
 

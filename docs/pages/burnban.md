@@ -261,7 +261,7 @@ never the live status (the page is a status page first).
 | Row kind | Start source | End source |
 |---|---|---|
 | Cron-observed (2026-09-17 onward) | `tfs` (Forest Service's own start date) or `observed` | `observed` (first tick seen lifted) |
-| Hand-entered (`scripts/seed-burnban-periods.mjs`) | `order`: the Commissioners Court record that adopted it (Legistar), URL in `url` | `order`: the court record that terminated it, URL in `end_url`; or `news` when no termination exists, outlet and URL in `note` |
+| Hand-entered (`scripts/seed-burnban-periods.mjs`) | `order`: the Commissioners Court record that adopted it (Legistar), URL in `url`; or, before 2021, `news`: "Start as reported by Outlet (url)" in `note` | `order`: the court record that terminated it, URL in `end_url`; or `news` when no termination exists, outlet and URL in `note` |
 
 Source: Harris County Commissioners Court records on Legistar
 (`harriscountytx.legistar.com`), online from February 2021. Every item whose
@@ -273,6 +273,7 @@ own ID does not open the page, so never build a link from it.
 
 | Ban | Adopted | Terminated |
 |---|---|---|
+| 2015-08-11 → 2015-08-25 | news: Houston Public Media | news: Houston Public Media, Houston Chronicle |
 | 2022-06-28 → 2022-08-23 | 22-4024 | 22-5227 |
 | 2022-10-25 → 2022-11-15 | 22-6919 | 22-7239 |
 | 2023-08-08 → 2023-10-10 | 23-4616 | 23-5855 |
@@ -285,6 +286,13 @@ adoption or a determination is made by the Texas Forest Service that drought
 conditions no longer exist" (§352.081(e)(1)), so it can end without a court
 vote. The 2022 and 2023 bans were still ended by one; the 2024 and 2025 bans
 have no termination record, which is why their end dates come from news. Not
-entered, and the page says so: bans before 2021 (2015 is reported). Add one
-only with a dated source for both ends. Tested by
+entered, and the page says so: bans reported in 2003, 2005, 2009, 2010 and
+2011, which the reports found on 2026-11-15 do not date at both ends (leads:
+North East Newsroom, June 2003; Houston Chronicle, July 13, 2005, which says
+the 2003 ban was lifted in June 2003 and the 2005 one enacted in late June;
+Lone Star College advisory, June 24, 2009; Star-Courier, Oct. 26, 2010;
+Houston Public Media, April 19, 2011, "re-institute"). Add one only with a
+dated source for both ends. A news-sourced end is read from the note's
+"Lift date ... as reported by Outlet (url)", a start from "Start as reported
+by Outlet (url)". Tested by
 `scripts/test-burnban-bans.mjs` ("Check burn-ban history table" in CI).

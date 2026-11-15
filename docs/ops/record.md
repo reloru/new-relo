@@ -100,7 +100,8 @@ when it gives one (`start_source = 'tfs'`), otherwise by the day we first saw it
 (`'observed'`). "No ban" closes whichever period is open on the day first seen
 lifted (`end_source = 'observed'`) — accurate to the 4-hour refresh. Rows
 entered by hand (`scripts/seed-burnban-periods.mjs`) use `start_source =
-'order'` with the Commissioners Court record (Legistar) in `url`, and either
+'order'` with the Commissioners Court record (Legistar) in `url` (before 2021,
+`start_source = 'news'` with "Start as reported by Outlet (url)" in `note`), and either
 `end_source = 'order'` with the terminating court record in `end_url`, or
 `end_source = 'news'` with the reporting outlet and link in `note` when the
 order ended on the Forest Service's determination without a court vote.
