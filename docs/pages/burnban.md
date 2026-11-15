@@ -23,7 +23,7 @@ Crosby) from the Texas A&M Forest Service.
 | "Neighboring counties" — two lines, counties with and without a ban | `burnbanNeighbors(data)` from the `burnban` KV `neighbors` field |
 | "Before you burn" — a lead paragraph, then the 6-item checklist | `burnbanLead(data, lang)` + `burnbanChecklist(lang)` |
 | "What a burn ban means" evergreen guide — issuing authority, unincorporated scope, Class C penalty, TFS-is-not-the-authority | static |
-| "Frequently asked questions" (5 `<details>`) | `burnbanFaq(lang)` |
+| "Frequently asked questions" (6 `<details>`, one telling Crosby County readers this is not their page) | `burnbanFaq(lang)` |
 | "Resources" section | `burnbanResources(lang)` |
 
 The Resources list renders as **rows, not bullets** (`.links` / `.link-note`):
