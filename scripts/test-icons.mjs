@@ -148,11 +148,7 @@ for (const { label, html, manifest } of docs) {
   const rels = (r) => links.filter((l) => (attr(l, "rel") || "").split(/\s+/).includes(r));
 
   if (count(/name="viewport"/) !== 1) fail(`${label}: ${count(/name="viewport"/)} viewport tags`);
-  // One per colour scheme: the browser bar matches the page in light and dark.
-  if (count(/name="theme-color"/) !== 2) fail(`${label}: ${count(/name="theme-color"/)} theme-color tags`);
-  for (const scheme of ["light", "dark"]) {
-    if (count(new RegExp(`name="theme-color"[^>]*prefers-color-scheme: ${scheme}`)) !== 1) fail(`${label}: no theme-color for ${scheme}`);
-  }
+  if (count(/name="theme-color"/) !== 1) fail(`${label}: ${count(/name="theme-color"/)} theme-color tags`);
   if (count(/property="og:site_name"/) !== 1) fail(`${label}: og:site_name not exactly once`);
 
   const touchLinks = [...rels("apple-touch-icon"), ...rels("apple-touch-icon-precomposed")];

@@ -41,7 +41,7 @@ export function topbar(current, lang = "en") {
   <a class="brand" href="${es ? "/es" : "/"}">crosbynews.com</a>
   <nav>
     <details class="nav-menu">
-      <summary>${t("Menu", "Menú")}</summary>
+      <summary aria-label="${t("Menu", "Menú")}"><span aria-hidden="true">&#9776;</span></summary>
       <div class="nav-links">${items.join(" ")}</div>
     </details>
     ${toggle}

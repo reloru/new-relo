@@ -30,9 +30,10 @@ ${sharedHead(lang)}
 ${hreflangTags("/radar")}
 ${JSONLD_SITE}
 <style>${BASE_CSS}
-  .radar-wrap { margin-top:1rem; }
-  .radar-wrap img { width:100%; height:auto; display:block; background:#000; }
-  .radar-meta { margin:0.5rem 0 0; font-size:0.85rem; color:var(--muted); }
+  .radar-wrap { margin-top:1rem; background:var(--card); border-radius:12px; padding:0.8rem; box-shadow:0 1px 3px rgba(0,0,0,0.07); }
+  .radar-wrap img { width:100%; height:auto; border-radius:8px; display:block; background:#000; }
+  .radar-meta { margin:0.6rem 0 0; font-size:0.85rem; color:var(--muted); }
+  .intro { color:var(--muted); margin:0.6rem 0 0; }
 </style>
 </head>
 <body>
