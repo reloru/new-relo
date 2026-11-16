@@ -68,43 +68,51 @@ ${sharedHead(lang)}
 ${hreflangTags("/hourly")}
 ${JSONLD_SITE}
 <style>${BASE_CSS}
-  .day { overflow-x:auto; }
-  .day-sun { font-family:system-ui,sans-serif; font-weight:400; font-size:0.85rem; color:var(--muted); margin-left:0.5rem; white-space:nowrap; }
-  /* Fixed layout and shared widths, so every day's table has the same
-     columns and they line up down the page. Widths sum to 100%. */
-  table { width:100%; border-collapse:collapse; font-size:0.95rem; table-layout:fixed; }
+  .day { margin-top:1rem; background:var(--card); border-radius:12px; padding:0.5rem 0.9rem 0.9rem; box-shadow:0 1px 3px rgba(0,0,0,0.07); overflow-x:auto; }
+  .day h2 { font-size:1.05rem; }
+  .day-sun { font-weight:400; font-size:0.78rem; color:var(--muted); margin-left:0.5rem; white-space:nowrap; }
+  /* Fixed layout + shared column widths: every day's table gets IDENTICAL
+     columns (they line up down the page), long condition names wrap whole at
+     spaces inside their known-width column (no hyphenation needed), and wind
+     stays on one line. Widths sum to 100%. */
+  table { width:100%; border-collapse:collapse; font-size:0.9rem; table-layout:fixed; }
   .c-time { width:9%; } .c-cond { width:39%; } .c-temp { width:11%; } .c-feels { width:12%; } .c-rain { width:9%; } .c-wind { width:20%; }
-  th, td { text-align:left; padding:0.4rem 0.5rem 0.4rem 0; border-bottom:1px solid var(--line); vertical-align:middle; }
-  th { font-size:0.85rem; font-weight:400; color:var(--muted); }
-  td img { vertical-align:middle; }
-  /* The text stays beside the icon: as inline content, a wrapped second word
-     drops under the icon on a narrow phone. */
+  th, td { text-align:left; padding:0.4rem 0.5rem; border-bottom:1px solid var(--line); vertical-align:middle; }
+  th { font-size:0.78rem; text-transform:uppercase; letter-spacing:0.03em; color:var(--muted); }
+  td img { vertical-align:middle; border-radius:4px; }
+  /* Keep conditions text beside the icon — as plain inline content, a wrapped
+     second word drops UNDER the icon on narrow (portrait phone) screens. */
   .cond { display:flex; align-items:center; gap:0.45rem; }
   .cond img { flex:none; }
   .num { text-align:right; white-space:nowrap; }
   .wet { color:var(--link); font-weight:700; }
-  .wind { color:var(--muted); white-space:nowrap; padding-left:1rem; }
-  th.c-wind { padding-left:1rem; }
+  .wind { color:var(--muted); white-space:nowrap; }
+  /* "(88°)" feels-like inline in the Temp cell is a phone-only rendering. */
   .feels-inline { display:none; }
-  .feels-note { display:none; font-size:0.85rem; }
+  .feels-note { display:none; font-size:0.8rem; }
   tr:last-child td { border-bottom:none; }
   @media (max-width:600px) {
+    .day { padding:0.5rem 0.6rem 0.7rem; }
     table { font-size:0.84rem; }
-    th, td { padding:0.35rem 0.2rem 0.35rem 0; }
-    th { font-size:0.75rem; }
-    .cond { gap:0.3rem; overflow-wrap:anywhere; }
+    th, td { padding:0.35rem 0.2rem; }
+    th { letter-spacing:0.01em; font-size:0.66rem; }
+    .cond { gap:0.3rem; }
     .cond img { width:22px; height:22px; }
-    /* Phones fold the Feels column into Temp ("82° (88°)"): five roomy
-       columns instead of six cramped ones. */
+    /* Phones: fold the Feels column into Temp ("82° (88°)") so five roomy
+       columns replace six cramped ones — full-word headers, aligned days. */
     .feels-col { display:none; }
     .feels-inline { display:inline; }
     .feels-note { display:block; }
     .tunit { display:none; }
-    .c-time { width:11%; } .c-cond { width:37%; } .c-temp { width:19%; } .c-rain { width:11%; } .c-wind { width:22%; }
-    th.c-wind, td.wind { padding-left:0.5rem; }
+    .c-time { width:10%; } .c-cond { width:34%; } .c-temp { width:19%; } .c-rain { width:12%; } .c-wind { width:25%; }
+    /* Gutters so adjacent headers/columns can't visually run together
+       (HORA|CONDICIONES and the right-aligned Rain against Wind). */
+    th.c-cond { padding-left:0.5rem; }
+    th.c-wind, td.wind { padding-left:0.4rem; }
     td.num { padding-left:0.35rem; }
     .wind { white-space:normal; }
   }
+  .intro { color:var(--muted); margin:0.6rem 0 0; }
 </style>
 </head>
 <body>

@@ -15,25 +15,19 @@ nav restructure.
 
 ## Content blocks
 
-Top to bottom. Nothing is boxed: each block is a section under a rule.
-
 | Block | Source |
 |---|---|
-| `<h1>` "Crosby, Texas" and the date (`glanceStamp`) | clock |
-| Alerts banner (`alertsBanner()`, `src/features/alerts.js`): hidden when quiet; a flat red block with the count, the types and `alertSummaryLine()` for 1–3 alerts; count and most serious type for 4 or more | `weather` KV `alerts`, ranked by `ALERT_SEVERITY_RANK` |
-| Tropics notice (`hubTropicsBanner`): a left-ruled notice, hidden when the basin is quiet | `tropics` KV |
-| Burn-ban notice (`hubBurnBanBanner`): shown only while a ban is in effect | `burnban` KV |
-| Current conditions (`.cur`): temperature, condition, feels-like, wind spelled out via `dirWord()`, rain chance, `Updated` stamp, then NWS `detailedForecast` as the outlook paragraph with a link to `/weather` | `weather` KV via `loadWeather`; current hour from `currentHourly(data)`, never `hourly[0]` |
-| Alerts and conditions: one list of three rows (weather alerts, rivers and bayous, burn ban), each a link, a status mark and a word; one line of stamps under it | `weather`, `water`, `burnban` KV; `hubWaterSummary`, `hubBurnBanSummary` |
-| Today (`todayGlance` → `{today, now}`): High, Low, Feels like, Rain chance, UV index, Wind, Gusts, then "Right now" over Humidity, Dew point, Air quality | `weather` KV, incl. the folded-in `uv` and `aqi` |
-| "What these numbers mean" (`glanceExplainers`): one `<details>` with a paragraph per number | static copy + `aqiSourceNote()` |
-| Data-source line (`glanceSourceLine`) | `weather.updated` |
-| Forecast: the next two periods, links to hourly, radar and rain | `weather` KV |
-| Local news: three headlines | `news` KV via `loadNews` (blocklist-filtered) |
-| Crosby ISD calendar: three events | `calendar` KV |
-
-The sections after the outlook sit in two CSS columns on a wide screen and
-one on a phone.
+| Hero — "Currently in Crosby, Texas" eyebrow, temp, condition, feels-like, wind spelled out via `dirWord()`, rain chance, NWS `detailedForecast` as the summary, `Updated` stamp | `weather` KV via `loadWeather` — current hour from `currentHourly(data)`, never `hourly[0]` |
+| Alerts banner (`alertsBanner()`, **now in `src/features/alerts.js`**) — progressive disclosure: hidden when quiet, compact red banner with count + condensed types + `alertSummaryLine()` for 1–3, count + highest-severity type only for 4+ | `weather` KV `alerts`, ranked by `ALERT_SEVERITY_RANK` |
+| Tropics strip (`hubTropicsBanner`) — violet, self-hides when the basin is quiet | `tropics` KV |
+| Today (`todayGlance` → `{today, now}`) — day outlook (High, Low, Feels like, Rain chance, UV index, Wind, Gusts), then a "Right now" sub-heading over Humidity, Dew point, Air quality | `weather` KV, incl. the folded-in `uv` and `aqi` objects |
+| "What these numbers mean" (`glanceExplainers`) — one native `<details>` with a paragraph per number | static copy + `aqiSourceNote()` for the air-quality one |
+| Glance date stamp (`glanceStamp`) and data-source footnote (`glanceSourceLine`) | `weather.updated` + `relTime()` |
+| Forecast card — the next two periods, then links to hourly, radar and measured rain | `weather` KV |
+| Alerts status card — count or "None" | `weather` KV `alerts` |
+| Water card — badge + `Updated` stamp; detail line only when not normal (`hubWaterSummary`) | `water` KV |
+| Local news card — three headlines and a "More headlines" link | `news` KV via `loadNews` (blocklist-filtered) |
+| Crosby ISD calendar card — three events and a "Full school calendar" link | `calendar` KV |
 
 **Escaping is at render, not at construction.** `hubWaterSummary` returns
 `label` and `detail` as raw text; `homeHtml` applies `esc()` at the point of use

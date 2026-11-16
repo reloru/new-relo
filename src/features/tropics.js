@@ -474,12 +474,13 @@ export function tropicsHtml(data, lang) {
   // the page while NHC was watching two areas at 50% and 60%.
   const disturbances = Array.isArray(data.disturbances) ? data.disturbances : null;
   const peak = tropicsWatchPeak(disturbances);
-  const panel = (cls, title, sub) =>
-    `<div class="status ${cls}" role="status"><div><p class="status-title">${title}</p><p class="status-sub">${sub}</p></div></div>`;
+  const panel = (cls, icon, title, sub) =>
+    `<div class="status ${cls}" role="status"><span class="status-icon" aria-hidden="true">${icon}</span><div><p class="status-title">${title}</p><p class="status-sub">${sub}</p></div></div>`;
 
   const status = storms.length
     ? panel(
         "status-storm",
+        "&#127744;",
         storms.length === 1 ? esc(tropicsStormLine(storms[0], lang)) : T(lang, `${storms.length} active systems in the Atlantic`, `${storms.length} sistemas activos en el Atlántico`),
         T(lang, "The latest advisory is below. If it threatens Crosby, the local watches and warnings will be on the alerts page.", "El aviso más reciente está abajo. Si amenaza a Crosby, las vigilancias y avisos locales estarán en la página de alertas.")
       )
@@ -488,12 +489,14 @@ export function tropicsHtml(data, lang) {
         // so we must not draw the green panel that says we have.
         panel(
           "status-unknown",
+          "&#8212;",
           T(lang, "Outlook unavailable", "Perspectiva no disponible"),
           T(lang, "The National Hurricane Center's outlook could not be read just now, so this page cannot say whether anything is being watched. The NHC's own site will have it.", "No se pudo leer la perspectiva del Centro Nacional de Huracanes en este momento, así que esta página no puede decir si hay algo bajo vigilancia. El sitio del NHC la tiene.")
         )
       : disturbances.length
         ? panel(
             "status-watch",
+            "&#128064;",
             disturbances.length === 1
               ? T(lang, "One area is being watched", "Una zona está bajo vigilancia")
               : T(lang, `${disturbances.length} areas are being watched`, `${disturbances.length} zonas están bajo vigilancia`),
@@ -505,6 +508,7 @@ export function tropicsHtml(data, lang) {
           )
         : panel(
             "status-ok",
+            "&#10004;",
             T(lang, "Nothing active in the Atlantic", "Nada activo en el Atlántico"),
             T(lang, "The National Hurricane Center has no named storm in the Atlantic and is not watching any area for one. This page checks again about every hour.", "El Centro Nacional de Huracanes no tiene ninguna tormenta con nombre en el Atlántico ni vigila ninguna zona. Esta página vuelve a revisar más o menos cada hora.")
           );
@@ -539,20 +543,43 @@ ${sharedHead(lang)}
 ${hreflangTags("/tropics")}
 ${JSONLD_SITE}
 <style>${BASE_CSS}
-  .status-storm { --mark:var(--severe); }
-  .status-watch { --mark:var(--warn); }
-  .watch { columns:2 20rem; column-gap:2.5rem; margin-top:1rem; }
-  .dz { break-inside:avoid; padding:0.2rem 0 0.2rem 0.9rem; margin-bottom:1.1rem; border-left:4px solid var(--warn); }
-  .dz h3 { margin:0 0 0.3rem; }
-  .dz-id { font-size:0.85rem; color:var(--muted); }
+  .status { display:flex; align-items:center; gap:1rem; border-radius:16px; padding:1.2rem 1.4rem; margin-top:0.8rem; color:#fff; }
+  .status-icon { font-size:2.4rem; line-height:1; flex:none; }
+  .status-title { margin:0; font-size:1.5rem; font-weight:800; line-height:1.1; }
+  .status-sub { margin:0.35rem 0 0; font-size:0.98rem; opacity:0.95; }
+  .status-ok { background:linear-gradient(135deg,#15693a,#1e8649); }
+  .status-storm { background:linear-gradient(135deg,#6f1fa0,#8e2ec2); }
+  /* Amber, not red: an area at 40% is something to be aware of, not a threat.
+     Both stops clear 4.5:1 against the white text (6.86 and 4.67), which the
+     older panel gradients on this site do not. */
+  .status-watch { background:linear-gradient(135deg,#8a4a00,#a86412); }
+  .status-unknown { background:linear-gradient(135deg,#5b6470,#6b7585); }
+  .watch { display:grid; gap:0.7rem; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); margin-top:0.9rem; }
+  .dz { background:var(--card); border-radius:12px; padding:0.75rem 0.9rem; box-shadow:0 1px 3px rgba(0,0,0,0.07); border-left:5px solid #a86412; }
+  .dz h3 { margin:0 0 0.35rem; font-size:1rem; }
+  .dz-id { font-size:0.78rem; font-weight:700; color:var(--muted); letter-spacing:0.03em; }
   .dz-cat { color:var(--muted); font-weight:400; }
-  .two-note { margin:0.9rem 0 0; }
-  .basin-note { margin:0.6rem 0 0; font-size:0.9rem; color:var(--muted); }
-  .two-prose { margin:0.5rem 0 0; font-size:0.95rem; color:var(--muted); white-space:pre-line; }
-  .storms { columns:2 20rem; column-gap:2.5rem; margin-top:1.2rem; }
-  .storm { break-inside:avoid; padding:0.2rem 0 0.2rem 0.9rem; margin-bottom:1.2rem; border-left:4px solid var(--severe); }
-  .storm-head h2 { margin:0 0 0.4rem; padding:0; border:0; }
-  .storm-meta { margin:0.5rem 0 0; font-size:0.85rem; color:var(--muted); }
+  .two-note { margin:0.9rem 0 0; font-size:0.9rem; line-height:1.55; }
+  /* Directly under the status panel, because that is where a reader who just
+     saw a Pacific storm on nhc.noaa.gov looks for it. Muted: it is context,
+     not news. */
+  .basin-note { margin:0.6rem 0 0; font-size:0.86rem; line-height:1.5; color:var(--muted); }
+  .two-prose { margin:0.5rem 0 0; font-size:0.9rem; line-height:1.55; color:var(--muted); white-space:pre-line; }
+  .storms { display:grid; gap:0.7rem; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); margin-top:1rem; }
+  .storm { background:var(--card); border-radius:12px; padding:0.85rem 1rem; box-shadow:0 1px 3px rgba(0,0,0,0.07); border-left:5px solid #8e2ec2; }
+  .storm-head h2 { margin:0 0 0.4rem; font-size:1.05rem; }
+  .storm-meta { margin:0.5rem 0 0; font-size:0.82rem; color:var(--muted); }
+  .peek { list-style:none; margin:0; padding:0; }
+  .peek li { display:flex; justify-content:space-between; gap:0.6rem; padding:0.28rem 0; border-bottom:1px solid var(--line); font-size:0.9rem; }
+  .peek li:last-child { border-bottom:none; }
+  .pk-label { color:var(--muted); flex:none; }
+  .pk-val { text-align:right; }
+  .intro { color:var(--muted); margin:0.6rem 0 0; }
+  .guide { margin-top:1.6rem; }
+  .guide h2 { font-size:1.15rem; }
+  .guide p { font-size:0.95rem; line-height:1.55; }
+  .guide .links { margin:0.5rem 0 0; padding-left:1.1rem; }
+  .guide .links li { margin:0.3rem 0; font-size:0.92rem; }
 </style>
 </head>
 <body>

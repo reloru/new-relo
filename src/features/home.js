@@ -73,10 +73,10 @@ export function hubTropicsBanner(tropics, lang) {
   const tUrl = lang === "es" ? "/es/tropics" : "/tropics";
   if (storms.length) {
     const list = storms.map((s) => tropicsStormLine(s, lang)).join(" · ");
-    return `<a class="notice storm" href="${tUrl}">
-    <p class="n-title">${storms.length === 1 ? T(lang, "Tropical system in the Atlantic", "Sistema tropical en el Atlántico") : T(lang, `${storms.length} tropical systems in the Atlantic`, `${storms.length} sistemas tropicales en el Atlántico`)}</p>
-    <p>${esc(list)}</p>
-    <p class="n-more">${T(lang, "Where they are headed", "Hacia dónde van")}</p>
+    return `<a class="tropics-banner" href="${tUrl}">
+    <p class="tb-title"><span aria-hidden="true">&#127744;</span> ${storms.length === 1 ? T(lang, "Tropical system in the Atlantic", "Sistema tropical en el Atlántico") : T(lang, `${storms.length} tropical systems in the Atlantic`, `${storms.length} sistemas tropicales en el Atlántico`)}</p>
+    <p class="tb-detail">${esc(list)}</p>
+    <p class="tb-link">${T(lang, "Where they are headed", "Hacia dónde van")}</p>
   </a>`;
   }
   // No named storm, but NHC may still be watching areas for development. The
@@ -87,10 +87,10 @@ export function hubTropicsBanner(tropics, lang) {
   const watching = tropicsWatchAreas(tropics);
   if (!watching.length) return "";
   const peak = tropicsWatchPeak(watching);
-  return `<a class="notice watch" href="${tUrl}">
-    <p class="n-title">${watching.length === 1 ? T(lang, "Forecasters are watching one area of the Atlantic", "Los meteorólogos vigilan una zona del Atlántico") : T(lang, `Forecasters are watching ${watching.length} areas of the Atlantic`, `Los meteorólogos vigilan ${watching.length} zonas del Atlántico`)}</p>
-    <p>${esc(watching.map((d) => tropicsDisturbanceLine(d, lang)).join(" · "))}</p>
-    <p>${T(lang, `No named storm yet${peak != null ? `. Up to ${peak}% chance one forms.` : "."}`, `Aún sin tormenta con nombre${peak != null ? `. Hasta ${peak}% de probabilidad de que se forme una.` : "."}`)} <span class="n-more">${T(lang, "Tropics page", "Página de trópicos")}</span></p>
+  return `<a class="tropics-banner tropics-watch" href="${tUrl}">
+    <p class="tb-title"><span aria-hidden="true">&#128064;</span> ${watching.length === 1 ? T(lang, "Forecasters are watching one area of the Atlantic", "Los meteorólogos vigilan una zona del Atlántico") : T(lang, `Forecasters are watching ${watching.length} areas of the Atlantic`, `Los meteorólogos vigilan ${watching.length} zonas del Atlántico`)}</p>
+    <p class="tb-detail">${esc(watching.map((d) => tropicsDisturbanceLine(d, lang)).join(" · "))}</p>
+    <p class="tb-link">${T(lang, `No named storm yet${peak != null ? `. Up to ${peak}% chance one forms.` : "."}`, `Aún sin tormenta con nombre${peak != null ? `. Hasta ${peak}% de probabilidad de que se forme una.` : "."}`)}</p>
   </a>`;
 }
 
@@ -101,9 +101,10 @@ export function hubTropicsBanner(tropics, lang) {
 export function hubBurnBanBanner(burnban, lang) {
   if (burnban?.status !== "Yes") return "";
   const bUrl = lang === "es" ? "/es/burn-ban" : "/burn-ban";
-  return `<a class="notice fire" href="${bUrl}">
-    <p class="n-title">${T(lang, "Burn ban in effect for Harris County", "Prohibición de quemas vigente en el condado de Harris")}</p>
-    <p>${T(lang, "No outdoor burning anywhere in the county.", "No se permite quemar al aire libre en ningún lugar del condado.")} <span class="n-more">${T(lang, "What the ban covers", "Qué abarca la prohibición")}</span></p>
+  return `<a class="burnban-banner" href="${bUrl}">
+    <p class="bb-title"><span aria-hidden="true">&#128293;</span> ${T(lang, "Burn ban in effect for Harris County", "Prohibición de quemas vigente en el condado de Harris")}</p>
+    <p class="bb-detail">${T(lang, "No outdoor burning anywhere in the county.", "No se permite quemar al aire libre en ningún lugar del condado.")}</p>
+    <p class="bb-link">${T(lang, "What the ban covers", "Qué abarca la prohibición")}</p>
   </a>`;
 }
 
@@ -255,21 +256,21 @@ export function homeHtml(weather, water, news, cal, tropics, burnban, lang) {
       : "";
   const popNow = now ? pop(now) : 0;
   const updatedLine = weather.updated ? `${T(lang, "Updated", "Actualizado")} ${dateStamp(weather.updated, lang)}` : "";
-  const cond = now ? esc(translateConditions(now.shortForecast, lang)) : "";
   const hero = now
-    ? `<section class="cur">
-      ${now.icon ? `<img src="${iconUrl(now.icon, "large")}" alt="" width="86" height="86" fetchpriority="high">` : ""}
-      <div>
-        <p class="cur-temp">${esc(now.temperature)}&deg;</p>
-        <p class="cur-cond">${cond}</p>
-        ${feels != null ? `<p class="cur-line">${T(lang, "Feels like", "Sensación térmica de")} ${esc(feels)}&deg;</p>` : ""}
-        ${windLine ? `<p class="cur-line">${T(lang, "Wind", "Viento de")} ${windLine}</p>` : ""}
-        ${popNow ? `<p class="cur-line">${popNow}% ${T(lang, "chance of rain", "de probabilidad de lluvia")}</p>` : ""}
-        <p class="cur-stamp">${updatedLine}</p>
+    ? `<section class="hub-hero">
+      ${now.icon ? `<img class="hero-icon" src="${iconUrl(now.icon, "large")}" alt="${esc(translateConditions(now.shortForecast, lang))}" width="104" height="104" fetchpriority="high">` : ""}
+      <div class="hub-hero-now">
+        <p class="hub-eyebrow">${T(lang, "Currently in Crosby, Texas", "Actualmente en Crosby, Texas")}</p>
+        <p class="hub-temp">${esc(now.temperature)}&deg;<span>${esc(now.temperatureUnit)}</span> <span class="hub-cond-inline">${esc(translateConditions(now.shortForecast, lang))}</span></p>
+        ${feels != null ? `<p class="hub-line">${T(lang, "Feels like", "Sensación térmica de")} ${esc(feels)}&deg;</p>` : ""}
+        ${windLine ? `<p class="hub-line">${T(lang, "Wind", "Viento de")} ${windLine}</p>` : ""}
+        ${popNow ? `<p class="hub-line">${popNow}% ${T(lang, "chance of rain", "de probabilidad de lluvia")}</p>` : ""}
+        <p class="hub-hero-meta">${updatedLine}</p>
       </div>
+      <a class="hub-cta" href="${wUrl}">${T(lang, "Seven-day forecast", "Pronóstico de siete días")}</a>
     </section>
-    ${lead?.detailedForecast ? `<p class="outlook"><strong>${esc(translatePeriodName(lead.name, lang))}.</strong> ${esc(lead.detailedForecast)} <a href="${wUrl}">${T(lang, "Seven-day forecast", "Pronóstico de siete días")}</a></p>` : `<p class="outlook"><a href="${wUrl}">${T(lang, "Seven-day forecast", "Pronóstico de siete días")}</a></p>`}`
-    : `<p class="outlook">${T(lang, "Current conditions are not available right now.", "Las condiciones actuales no están disponibles en este momento.")} <a href="${wUrl}">${T(lang, "Seven-day forecast", "Pronóstico de siete días")}</a></p>`;
+    ${lead?.detailedForecast ? `<p class="hub-summary"><strong>${esc(translatePeriodName(lead.name, lang))}.</strong> ${esc(lead.detailedForecast)}</p>` : ""}`
+    : `<section class="hub-hero"><div class="hub-hero-now"><p class="hub-cond">${T(lang, "Live weather for Crosby, Texas", "Clima en vivo para Crosby, Texas")}</p><p class="hub-hero-meta">${T(lang, "Current conditions are not available right now.", "Las condiciones actuales no están disponibles en este momento.")}</p></div><a class="hub-cta" href="${wUrl}">${T(lang, "Seven-day forecast", "Pronóstico de siete días")}</a></section>`;
 
   const dayPeek = (weather.periods ?? [])
     .slice(0, 2)
@@ -301,44 +302,47 @@ export function homeHtml(weather, water, news, cal, tropics, burnban, lang) {
   const bb = hubBurnBanSummary(burnban, lang);
   const bbUpdated = burnban?.updated ? `${T(lang, "Checked", "Verificado")} ${clockStamp(burnban.updated, lang)}` : "";
   const alertTypes = [...new Set(alerts.map((a) => a.event))];
-  const waterOff = WATER_FLOOD_CATS.some((c) => ws.cls === waterCatClass(c)) || ws.cls === "w-unknown";
-  const row = (href, label, cls, value, detail) =>
-    `<li><span class="pk-label"><a href="${lk(href)}">${label}</a></span><span class="pk-val"><span class="mark ${cls}">${value}</span>${detail ? `<br><small>${detail}</small>` : ""}</span></li>`;
-  const stamps = [
-    alertsUpdated ? `${T(lang, "Alerts and water updated", "Alertas y agua actualizadas a las")} ${clockStamp(weather.updated, lang)}.` : "",
-    bbUpdated ? `${T(lang, "Burn ban checked", "Prohibición de quemas verificada a las")} ${clockStamp(burnban.updated, lang)}.` : "",
-  ].filter(Boolean).join(" ");
-  const cards = `<div class="cols">
-      <section class="conds" data-nosnippet>
-        <h2>${T(lang, "Alerts and conditions", "Alertas y condiciones")}</h2>
-        <ul class="peek">
-          ${row("/alerts", T(lang, "Weather alerts", "Alertas del clima"), alerts.length ? "w-moderate" : "w-normal", alerts.length ? `${alerts.length} ${T(lang, "active", alerts.length === 1 ? "activa" : "activas")}` : T(lang, "None", "Ninguna"), alerts.length ? esc(alertTypes.slice(0, 3).join(", ")) + (alertTypes.length > 3 ? " …" : "") : "")}
-          ${row("/water", T(lang, "Rivers and bayous", "Ríos y bayous"), ws.cls, esc(ws.label), waterOff ? esc(ws.detail) : "")}
-          ${row("/burn-ban", T(lang, "Burn ban", "Prohibición de quemas"), bb.cls, esc(bb.label), bb.cls === "w-unknown" ? esc(bb.detail) : "")}
-        </ul>
-        ${stamps ? `<p class="sub">${stamps}</p>` : ""}
-      </section>
-      ${glanceTodayRows || glanceNowRows ? `<section data-nosnippet>
+  const cards = `<div class="hub-grid">
+      ${glanceTodayRows || glanceNowRows ? `<section class="hub-card" data-nosnippet>
         <h2>${T(lang, "Today", "Hoy")}</h2>
+        <p class="hub-stamp">${glanceStamp(weather, lang)}</p>
         ${glanceTodayRows ? `<ul class="peek">${glanceTodayRows}</ul>` : ""}
-        ${glanceNowRows ? `<p class="sub">${T(lang, "Right now", "Ahora mismo")}</p><ul class="peek">${glanceNowRows}</ul>` : ""}
+        ${glanceNowRows ? `<p class="glance-group">${T(lang, "Right now", "Ahora mismo")}</p><ul class="peek">${glanceNowRows}</ul>` : ""}
         ${glanceExplainers(lang, weather.aqi)}
-        ${glanceSrc ? `<p class="sub">${glanceSrc}</p>` : ""}
+        ${glanceSrc ? `<p class="glance-source">${glanceSrc}</p>` : ""}
       </section>` : ""}
-      <section data-nosnippet>
+      <section class="hub-card" data-nosnippet>
         <h2><a href="${lk("/weather")}">${T(lang, "Forecast", "Pronóstico")}</a></h2>
         <ul class="peek">${dayPeek || `<li class="muted">${T(lang, "The forecast is not available right now.", "El pronóstico no está disponible en este momento.")}</li>`}</ul>
-        <p class="more"><a href="${lk("/hourly")}">${T(lang, "Hour by hour", "Hora por hora")}</a>, <a href="${lk("/radar")}">${T(lang, "radar", "radar")}</a>, <a href="${lk("/rain")}">${T(lang, "measured rain", "lluvia medida")}</a></p>
+        <p class="hub-links"><a href="${lk("/hourly")}">${T(lang, "Hour by hour", "Hora por hora")}</a>, <a href="${lk("/radar")}">${T(lang, "radar", "radar")}</a>, <a href="${lk("/rain")}">${T(lang, "measured rain", "lluvia medida")}</a></p>
       </section>
-      <section>
+      <section class="hub-card" data-nosnippet>
+        <h2><a href="${lk("/alerts")}">${T(lang, "Alerts", "Alertas")}</a></h2>
+        <p class="hub-water ${alerts.length ? "w-moderate" : "w-normal"}"><span class="hub-water-badge">${alerts.length ? `${alerts.length} ${T(lang, "active", alerts.length === 1 ? "activa" : "activas")}` : T(lang, "None", "Ninguna")}</span></p>
+        <p class="hub-water-detail">${alerts.length ? esc(alertTypes.slice(0, 3).join(", ")) + (alertTypes.length > 3 ? " …" : "") : T(lang, "No active weather alerts", "Sin alertas meteorológicas activas")}</p>
+        ${alertsUpdated ? `<p class="hub-stamp">${alertsUpdated}</p>` : ""}
+      </section>
+      <section class="hub-card" data-nosnippet>
+        <h2><a href="${lk("/water")}">${T(lang, "Water levels", "Niveles de agua")}</a></h2>
+        <p class="hub-water ${ws.cls}"><span class="hub-water-badge">${esc(ws.label)}</span></p>
+        ${WATER_FLOOD_CATS.some((c) => ws.cls === waterCatClass(c)) || ws.cls === "w-unknown" ? `<p class="hub-water-detail">${esc(ws.detail)}</p>` : ""}
+        ${waterUpdated ? `<p class="hub-stamp">${waterUpdated}</p>` : ""}
+      </section>
+      <section class="hub-card">
+        <h2><a href="${lk("/burn-ban")}">${T(lang, "Burn ban", "Prohibición de quemas")}</a></h2>
+        <p class="hub-water ${bb.cls}"><span class="hub-water-badge">${esc(bb.label)}</span></p>
+        ${bb.cls !== "w-normal" ? `<p class="hub-water-detail">${esc(bb.detail)}</p>` : ""}
+        ${bbUpdated ? `<p class="hub-stamp">${bbUpdated}</p>` : ""}
+      </section>
+      <section class="hub-card">
         <h2><a href="${lk("/news")}">${T(lang, "Local news", "Noticias locales")}</a></h2>
-        <ul class="heads">${newsList}</ul>
-        <p class="more"><a href="${lk("/news")}">${T(lang, "More headlines", "Más titulares")}</a></p>
+        <ul class="hub-news">${newsList}</ul>
+        <p class="hub-links"><a href="${lk("/news")}">${T(lang, "More headlines", "Más titulares")}</a></p>
       </section>
-      <section>
+      <section class="hub-card">
         <h2><a href="${lk("/calendar")}">${T(lang, "Crosby ISD calendar", "Calendario de Crosby ISD")}</a></h2>
         <ul class="peek">${calList}</ul>
-        <p class="more"><a href="${lk("/calendar")}">${T(lang, "Full school calendar", "Calendario escolar completo")}</a></p>
+        <p class="hub-links"><a href="${lk("/calendar")}">${T(lang, "Full school calendar", "Calendario escolar completo")}</a></p>
       </section>
     </div>`;
 
@@ -364,40 +368,80 @@ ${sharedHead(lang)}
 ${hreflangTags("/")}
 ${JSONLD_SITE}
 <style>${BASE_CSS}
-  .place { margin:0.5rem 0 0; }
-  .dateline { margin:0.1rem 0 0; color:var(--muted); font-size:0.95rem; }
-  .cols { columns:2 20rem; column-gap:2.5rem; margin-top:0.4rem; }
-  .cols section { break-inside:avoid; overflow:hidden; }
-  .cols h2 a { color:inherit; text-decoration:none; }
-  .cols h2 a:hover { text-decoration:underline; }
-  .pk-label a { color:var(--ink); }
-  .conds .pk-val { font-weight:600; }
-  .w-normal { --mark:var(--ok); } .w-action { --mark:var(--warn); } .w-minor { --mark:var(--hot); } .w-moderate { --mark:var(--bad); } .w-major { --mark:var(--severe); }
-  .sub { margin:0.6rem 0 0; font-size:0.85rem; color:var(--muted); }
-  .sub + .peek { margin-top:0.2rem; }
-  .more { margin:0.6rem 0 0; font-size:0.95rem; }
-  .heads { list-style:none; margin:0; padding:0; }
-  .heads li { padding:0.4rem 0; border-bottom:1px solid var(--line); }
-  .heads li:last-child { border-bottom:none; }
-  .heads a { color:var(--ink); text-decoration:none; }
-  .heads a:hover { text-decoration:underline; }
-  .muted { color:var(--muted); }
+  .hub-hero { display:flex; align-items:center; gap:1rem; background:linear-gradient(135deg,var(--blue),var(--btn)); color:#fff; border-radius:16px; padding:1.1rem 1.3rem; margin-top:0.8rem; flex-wrap:wrap; }
+  .hub-hero .hero-icon { border-radius:12px; background:rgba(255,255,255,0.12); flex:none; }
+  .hub-hero-now { flex:1 1 auto; min-width:0; }
+  .hub-temp { margin:0; font-size:3rem; font-weight:800; line-height:1; }
+  .hub-temp span { font-size:1.1rem; font-weight:600; vertical-align:super; opacity:0.85; }
+  .hub-cond { margin:0.2rem 0 0; font-size:1.15rem; font-weight:600; }
+  .hub-hero-meta { margin:0.3rem 0 0; font-size:0.85rem; opacity:0.85; }
+  .hub-eyebrow { margin:0 0 0.2rem; font-size:0.72rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; opacity:0.85; }
+  .hub-cta { flex:none; background:rgba(255,255,255,0.16); color:#fff; text-decoration:none; font-weight:700; padding:0.5rem 0.9rem; border-radius:10px; white-space:nowrap; }
+  .hub-cta:hover { background:rgba(255,255,255,0.28); }
+  .hub-grid { display:grid; gap:0.8rem; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); margin-top:1rem; }
+  .hub-card { background:var(--card); border-radius:12px; padding:0.9rem 1.05rem; box-shadow:0 1px 3px rgba(0,0,0,0.07); }
+  .hub-card h2 { margin:0 0 0.5rem; font-size:1.05rem; }
+  .hub-card h2 a { color:var(--ink); text-decoration:none; }
+  .hub-card h2 a:hover { color:var(--link); }
+  .peek { list-style:none; margin:0; padding:0; }
+  .peek li { display:flex; justify-content:space-between; gap:0.6rem; padding:0.28rem 0; border-bottom:1px solid var(--line); font-size:0.9rem; }
+  .peek li:last-child { border-bottom:none; }
+  .pk-label { color:var(--muted); flex:none; }
+  .pk-val { text-align:right; }
+  .hub-links { margin:0.55rem 0 0; font-size:0.85rem; color:var(--muted); }
+  .hub-links a { color:var(--link); text-decoration:none; }
+  .hub-news { list-style:none; margin:0; padding:0; }
+  .hub-news li { padding:0.3rem 0; border-bottom:1px solid var(--line); font-size:0.9rem; }
+  .hub-news li:last-child { border-bottom:none; }
+  .hub-news a { color:var(--ink); text-decoration:none; }
+  .hub-news a:hover { color:var(--link); text-decoration:underline; }
+  .hub-water { margin:0.3rem 0 0.4rem; }
+  .hub-water-badge { display:inline-block; font-size:0.9rem; font-weight:800; padding:0.3rem 0.7rem; border-radius:999px; color:#fff; background:#5b6470; }
+  .hub-water.w-normal .hub-water-badge { background:#187a40; }
+  .hub-water.w-action .hub-water-badge { background:#8f6800; }
+  .hub-water.w-minor .hub-water-badge { background:#bf5608; }
+  .hub-water.w-moderate .hub-water-badge { background:#b5301f; }
+  .hub-water.w-major .hub-water-badge { background:#6f1fa0; }
+  .hub-water-detail { margin:0; font-size:0.85rem; color:var(--muted); }
+  .hub-stamp { margin:0.35rem 0 0; font-size:0.78rem; color:var(--muted); }
+  .glance-group { margin:0.75rem 0 0.15rem; font-size:0.72rem; font-weight:700; letter-spacing:0.04em; text-transform:uppercase; color:var(--muted); }
+  .glance-source { margin:0.6rem 0 0; font-size:0.72rem; line-height:1.35; color:var(--muted); }
+  .muted { color:var(--muted); font-style:italic; }
+  .hub-cond-inline { font-size:1.15rem; font-weight:600; vertical-align:baseline; margin-left:0.3rem; }
+  .hub-line { margin:0.22rem 0 0; font-size:0.95rem; opacity:0.95; }
+  .hub-summary { margin:0.7rem 0 0; color:var(--muted); font-size:0.95rem; }
   ${ALERT_BANNER_CSS}
-  .notice { display:block; color:var(--ink); text-decoration:none; border-left:4px solid var(--mark); padding:0.15rem 0 0.15rem 0.9rem; margin-top:1rem; }
-  .notice p { margin:0; }
-  .notice .n-title { font-weight:700; }
-  .notice .n-more { color:var(--link); text-decoration:underline; }
-  .notice.fire { --mark:var(--hot); } .notice.storm { --mark:var(--severe); } .notice.watch { --mark:var(--warn); }
-  .about { margin-top:0.6rem; font-size:0.92rem; }
+  .tropics-banner { display:block; background:linear-gradient(135deg,#6f1fa0,#8e2ec2); color:#fff; text-decoration:none; border-radius:12px; padding:0.85rem 1.05rem; margin-top:0.8rem; }
+  .tropics-banner:hover .tb-link { text-decoration:underline; }
+  /* Amber for a watch area, matching /tropics' own watch panel — visually
+     quieter than the purple named-storm banner, because it is quieter news. */
+  .tropics-banner.tropics-watch { background:linear-gradient(135deg,#8a4a00,#a86412); }
+  .tb-title { margin:0; font-weight:800; font-size:1.05rem; }
+  .tb-detail { margin:0.35rem 0 0; font-size:0.9rem; opacity:0.95; }
+  .tb-link { margin:0.45rem 0 0; font-size:0.88rem; font-weight:700; }
+  .burnban-banner { display:block; background:linear-gradient(135deg,#b3400d,#c15416); color:#fff; text-decoration:none; border-radius:12px; padding:0.85rem 1.05rem; margin-top:0.8rem; }
+  .burnban-banner:hover .bb-link { text-decoration:underline; }
+  .bb-title { margin:0; font-weight:800; font-size:1.05rem; }
+  .bb-detail { margin:0.35rem 0 0; font-size:0.9rem; opacity:0.95; }
+  .bb-link { margin:0.45rem 0 0; font-size:0.88rem; font-weight:700; }
+  .about { margin-top:0.45rem; font-size:0.85rem; }
   .about summary { cursor:pointer; color:var(--link); }
-  .about p { margin:0.5rem 0 0; color:var(--muted); }
+  .about p { margin:0.3rem 0 0.2rem; color:var(--muted); }
+  .alerts { display:grid; gap:0.6rem; margin-top:0.8rem; }
+  .alert { background:#fff4f3; border-left:5px solid #c0392b; border-radius:10px; padding:0.8rem 1rem; }
+  .alert h3 { margin:0 0 0.3rem; color:#a3271b; }
+  .alert .headline { font-weight:700; }
+  .alert .instruction { background:rgba(255,255,255,0.65); border-radius:6px; padding:0.5rem 0.7rem; }
+  .alert .meta { font-size:0.8rem; color:var(--muted); }
+  @media (prefers-color-scheme: dark) { .alert { background:#2a1715; } .alert .instruction { background:rgba(0,0,0,0.25); } }
+  .hub-intro { color:var(--muted); margin:0.2rem 0 0; }
+  .visually-h1 { font-size:1.25rem; margin:0.2rem 0 0; letter-spacing:0.01em; }
 </style>
 </head>
 <body>
 ${topbar("/", lang)}
 <main id="main">
-  <h1 class="place">Crosby, Texas</h1>
-  ${weather.updated ? `<p class="dateline">${glanceStamp(weather, lang)}</p>` : ""}
+  <h1 class="visually-h1">${T(lang, "Crosby, Texas", "Crosby, Texas")}</h1>
   <div data-nosnippet>
   ${alertsBanner(alerts, lang)}
   ${hubTropicsBanner(tropics, lang)}

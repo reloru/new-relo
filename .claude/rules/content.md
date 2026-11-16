@@ -39,36 +39,35 @@ paths:
 
 ## Look
 
-The site is laid out like a printed bulletin. `test-look` renders every page
-and enforces the first four rules; `test-contrast` measures the colours.
+Coloured panels and cards on a grey page: a navy header, a gradient panel for
+current conditions and each page's status, white cards with a soft shadow for
+sections, and pill badges for a status word. The flat "bulletin" layout of
+PR #291 was withdrawn because sections became hard to tell apart; don't
+flatten the site again without asking.
 
-- Content sits on the page. No cards, drop shadows, gradients, rounded
-  corners, pill badges or letter-spaced capitals. Sections are divided by a
-  rule above an `<h2>`; rows by a hairline.
-- Headings and large numerals use `--serif`, everything else the system sans.
-  No web fonts, no icon fonts, no images for decoration.
-- No emoji or symbols as icons, and no arrows on links. A link's own words
-  say where it goes ("Past floods at this gauge", not "Details →").
-- A status is a word in the text colour with a square (`.mark`,
-  `.gauge-badge`) or a 4px left rule in a status colour. A page sets `--mark`
-  or `--pg` to one of the tokens `--ok --warn --hot --bad --severe --maroon
-  --info --quiet`, never a raw hex: each has a dark-theme value and clears
-  3:1 on `--bg`. The colour never carries text.
-- White text on a fill is for an active alert (`.status-alert`,
-  `.alert-banner`) and buttons only, flat, at 4.5:1.
-- Each page has an inline `<style>` built on `BASE_CSS`, which holds the
-  shared pieces (`.status`, `.cur`, `.peek`, `.tbl`, `.lede`, `.intro`).
-  A page adds only what is its own.
-- `--link` is coloured text, `--btn` is a fill under white text and does not
-  flip between themes, `--accent` is decoration only.
+- Each page has an inline `<style>` built on `BASE_CSS`.
+- The three blues are not interchangeable: `--accent` is decoration only (it
+  fails AA as text), `--link` is coloured text, `--btn` is a surface under
+  white text and does not flip between themes. White text on any fill must
+  clear 4.5:1 at every gradient stop; badge bases use `#5b6470`.
+  `test-contrast` measures the real rules.
+- Flood-category colours are `WATER_STATE_CSS` in `src/features/water.js`,
+  shared by `/water` and the gauge pages.
+- A symbol or emoji is decoration only and sits in a
+  `<span aria-hidden="true">` (the status panels' `.status-icon`, the menu
+  button, the banner titles). The words beside it carry the meaning.
+  `test-wording` refuses a symbol anywhere else in a page's text.
 - Desktop nav depends on
   `.nav-menu::details-content { content-visibility: visible }`; removing it
   hides the desktop links.
 
 ## Wording
 
-Text a visitor reads, in both languages:
+Text a visitor reads, in both languages. `test-wording` renders every page and
+enforces the link-arrow rule; the rest is by hand.
 
+- No arrows on links. A link's own words say where it goes ("Past floods at
+  this gauge", not "Details →").
 - Say the thing, then stop. No sentence that announces what the next one will
   say, and no closing line that repeats the paragraph.
 - No dash asides. Two short sentences, a comma or a colon do the job. A dash

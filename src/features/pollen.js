@@ -335,24 +335,34 @@ ${hreflangTags("/pollen")}
 ${JSONLD_SITE}
 <style>${BASE_CSS}
   .stamp { color:var(--muted); margin:0.6rem 0 0; }
-  .pgrid { display:grid; gap:1rem 2rem; grid-template-columns:repeat(auto-fill,minmax(170px,1fr)); margin-top:1.4rem; }
-  .pgroup { padding-left:0.8rem; border-left:4px solid var(--pg,var(--quiet)); }
-  .pgroup h2 { margin:0; padding:0; border:0; font-family:inherit; font-size:0.95rem; font-weight:400; color:var(--muted); }
-  .pcat { margin:0.15rem 0 0; font-family:var(--serif); font-size:1.6rem; font-weight:700; line-height:1.1; }
-  .pcount { margin:0.2rem 0 0; font-size:0.95rem; color:var(--muted); }
-  .punit { font-size:0.85rem; }
-  .c-none { --pg:var(--quiet); } .c-low { --pg:var(--ok); } .c-med { --pg:var(--warn); } .c-heavy { --pg:var(--hot); } .c-extreme { --pg:var(--bad); }
-  .species { columns:3 15rem; column-gap:2.5rem; margin-top:0.6rem; }
-  .sp { break-inside:avoid; margin-bottom:1rem; }
-  .sp h3 { margin:0 0 0.2rem; }
+  .pgrid { display:grid; gap:0.7rem; grid-template-columns:repeat(auto-fill,minmax(170px,1fr)); margin-top:1rem; }
+  .pgroup { border-radius:12px; padding:0.85rem 1rem; background:var(--card); box-shadow:0 1px 3px rgba(0,0,0,0.07); border-left:5px solid var(--pg, #9aa4af); }
+  .pgroup h2 { margin:0; font-size:0.95rem; color:var(--muted); font-weight:600; }
+  .pcat { margin:0.25rem 0 0; font-size:1.35rem; font-weight:800; line-height:1.1; }
+  .pcount { margin:0.3rem 0 0; font-size:0.95rem; color:var(--muted); }
+  .punit { font-size:0.8rem; }
+  .c-none { --pg:#9aa4af; } .c-none .pcat { color:#6f7a84; }
+  .c-low { --pg:#1f8b4c; } .c-low .pcat { color:#1f8b4c; }
+  .c-med { --pg:#b58900; } .c-med .pcat { color:#9a7400; }
+  .c-heavy { --pg:#d9480f; } .c-heavy .pcat { color:#d9480f; }
+  .c-extreme { --pg:#c92a2a; } .c-extreme .pcat { color:#d63a3a; }
+  .species { display:grid; gap:0.7rem; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); margin-top:0.8rem; }
+  .sp { background:var(--card); border-radius:12px; padding:0.75rem 1rem; box-shadow:0 1px 3px rgba(0,0,0,0.07); }
+  .sp h3 { margin:0 0 0.3rem; font-size:0.95rem; }
   .sp ul { list-style:none; margin:0; padding:0; }
-  .sp li { display:flex; justify-content:space-between; gap:0.6rem; padding:0.25rem 0; border-bottom:1px solid var(--line); }
+  .sp li { display:flex; justify-content:space-between; gap:0.6rem; padding:0.22rem 0; border-bottom:1px solid var(--line); font-size:0.9rem; }
   .sp li:last-child { border-bottom:none; }
   .sp-n { color:var(--muted); }
+  .guide { margin-top:1.6rem; }
+  .guide h2 { font-size:1.15rem; }
+  .guide h3 { font-size:1rem; margin-bottom:0.3rem; }
+  .guide p { font-size:0.95rem; line-height:1.55; }
+  .guide .links { margin:0.5rem 0 0; padding-left:1.1rem; }
+  .guide .links li { margin:0.3rem 0; font-size:0.92rem; }
   .scale-wrap { overflow-x:auto; }
-  .scale { border-collapse:collapse; margin-top:0.5rem; font-size:0.92rem; min-width:430px; }
-  .scale th, .scale td { border-bottom:1px solid var(--line); padding:0.4rem 1rem 0.4rem 0; text-align:left; }
-  .scale th { border-bottom-color:var(--rule); font-weight:600; }
+  .scale { border-collapse:collapse; margin-top:0.5rem; font-size:0.88rem; min-width:430px; }
+  .scale th, .scale td { border:1px solid var(--line); padding:0.35rem 0.6rem; text-align:left; }
+  .scale th { background:var(--card); }
 </style>
 </head>
 <body>

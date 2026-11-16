@@ -260,12 +260,12 @@ export function trafficHtml(data, lang) {
     incidents === null
       ? `<p class="none">${T(lang, "Incident data is not available right now. TranStar's own map is linked below.", "Los datos de incidentes no están disponibles en este momento. El mapa de TranStar está enlazado más abajo.")}</p>`
       : incidents.length
-        ? `<div class="status status-inc" role="status"><div><p class="status-title">${
+        ? `<div class="status status-inc" role="status"><span class="status-icon" aria-hidden="true">&#9888;</span><div><p class="status-title">${
             incidents.length === 1
               ? T(lang, "1 incident on Crosby-area roads", "1 incidente en los caminos del área de Crosby")
               : T(lang, `${incidents.length} incidents on Crosby-area roads`, `${incidents.length} incidentes en los caminos del área de Crosby`)
           }</p><p class="status-sub">${T(lang, "Each one is listed below. Houston TranStar updates them about once a minute.", "Cada uno aparece abajo. Houston TranStar los actualiza más o menos cada minuto.")}</p></div></div>`
-        : `<div class="status status-ok" role="status"><div><p class="status-title">${T(lang, "No incidents on Crosby-area roads", "Sin incidentes en los caminos del área de Crosby")}</p><p class="status-sub">${T(lang, "TranStar is reporting no monitored incidents on US-90, FM-2100, FM-1942, or the Crosby stretch of IH-10 East right now.", "TranStar no reporta incidentes en US-90, FM-2100, FM-1942 ni el tramo de Crosby de IH-10 East en este momento.")}</p></div></div>`;
+        : `<div class="status status-ok" role="status"><span class="status-icon" aria-hidden="true">&#10004;</span><div><p class="status-title">${T(lang, "No incidents on Crosby-area roads", "Sin incidentes en los caminos del área de Crosby")}</p><p class="status-sub">${T(lang, "TranStar is reporting no monitored incidents on US-90, FM-2100, FM-1942, or the Crosby stretch of IH-10 East right now.", "TranStar no reporta incidentes en US-90, FM-2100, FM-1942 ni el tramo de Crosby de IH-10 East en este momento.")}</p></div></div>`;
 
   const incidentCards = (incidents ?? [])
     .map(
@@ -311,19 +311,32 @@ ${sharedHead(lang)}
 ${hreflangTags("/traffic")}
 ${JSONLD_SITE}
 <style>${BASE_CSS}
-  .status-inc { --mark:var(--warn); }
-  .incs { columns:2 20rem; column-gap:2.5rem; margin-top:1.2rem; }
-  .inc { break-inside:avoid; padding:0.2rem 0 0.2rem 0.9rem; margin-bottom:1.1rem; border-left:4px solid var(--mark,#a67a00); }
-  .inc-water { --mark:var(--bad); }
-  .inc-head { display:flex; justify-content:space-between; align-items:baseline; gap:0.8rem; }
-  .inc-head h3 { margin:0; font-size:1.1rem; }
-  .inc-badge { flex:none; font-size:0.9rem; font-weight:600; white-space:nowrap; }
-  .inc-meta { margin:0.35rem 0 0; font-size:0.9rem; color:var(--muted); }
-  .closures { list-style:none; margin:0.6rem 0 0; padding:0; max-width:70ch; }
-  .closures li { padding:0.5rem 0; border-bottom:1px solid var(--line); }
+  .status { display:flex; align-items:center; gap:1rem; border-radius:16px; padding:1.2rem 1.4rem; margin-top:0.8rem; color:#fff; }
+  .status-icon { font-size:2.4rem; line-height:1; flex:none; }
+  .status-title { margin:0; font-size:1.5rem; font-weight:800; line-height:1.1; }
+  .status-sub { margin:0.35rem 0 0; font-size:0.98rem; opacity:0.95; }
+  .status-ok { background:linear-gradient(135deg,#15693a,#1e8649); }
+  .status-inc { background:linear-gradient(135deg,#8a6400,#956f00); }
+  .incs { display:grid; gap:0.7rem; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); margin-top:1rem; }
+  .inc { background:var(--card); border-radius:12px; padding:0.85rem 1rem; box-shadow:0 1px 3px rgba(0,0,0,0.07); border-left:5px solid #e0a800; }
+  .inc-water { border-left-color:#d44230; }
+  .inc-head { display:flex; justify-content:space-between; align-items:flex-start; gap:0.5rem; }
+  .inc-head h3 { margin:0; font-size:1rem; }
+  .inc-badge { flex:none; font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.03em; padding:0.15rem 0.5rem; border-radius:999px; color:#fff; background:#8f6800; white-space:nowrap; }
+  .inc-water .inc-badge { background:#b5301f; }
+  .inc-meta { margin:0.45rem 0 0; font-size:0.85rem; color:var(--muted); }
+  .closures { list-style:none; margin:0.6rem 0 0; padding:0; }
+  .closures li { padding:0.5rem 0; border-bottom:1px solid var(--line); font-size:0.92rem; }
   .closures li:last-child { border-bottom:none; }
-  .cl-meta { color:var(--muted); font-size:0.9rem; }
-  .none { margin-top:0.8rem; }
+  .cl-meta { color:var(--muted); font-size:0.85rem; }
+  .none { color:var(--muted); margin-top:0.8rem; }
+  .intro { color:var(--muted); margin:0.6rem 0 0; }
+  .section-h { margin:1.6rem 0 0; font-size:1.15rem; }
+  .guide { margin-top:1.6rem; }
+  .guide h2 { font-size:1.15rem; }
+  .guide p { font-size:0.95rem; line-height:1.55; }
+  .guide .links { margin:0.5rem 0 0; padding-left:1.1rem; }
+  .guide .links li { margin:0.3rem 0; font-size:0.92rem; }
 </style>
 </head>
 <body>
