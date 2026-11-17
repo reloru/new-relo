@@ -214,6 +214,11 @@ jobs:
       # aria-hidden span and an arrow in a link label. Pure node.
       - name: Check wording
         run: node scripts/test-wording.mjs
+      # What a page shows for a reading: repeated lane closures listed once,
+      # a measured air reading never called modeled, AirNow's stamp in the
+      # site's format, the water and fishing terms explained. Pure node.
+      - name: Check page display
+        run: node scripts/test-display.mjs
 
   # Build gate: parse wrangler.jsonc and bundle the Worker without uploading.
   # Catches config/bundling errors and the compat-date/wrangler-pin coupling
