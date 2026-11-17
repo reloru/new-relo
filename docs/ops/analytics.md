@@ -79,7 +79,8 @@ no cookie, and touches no CSP directive.
 
 **Counted:** the JSON-RPC method, the tool name for `tools/call`, an outcome
 class (ok / notification / rpc_error / tool_error), elapsed ms per tool, the
-`clientInfo.name` an MCP client sends at `initialize`, and two volume counters
+`clientInfo.name` an MCP client sends when it connects (at `initialize`, or
+in `_meta` on `server/discover` for a 2026-07-28 client), and two volume counters
 (messages, and POSTs).
 
 **Not counted, ever:** IP addresses, User-Agent, tool arguments, request or
@@ -89,7 +90,8 @@ row exists
 even transiently, so there is nothing to correlate back to a caller.
 
 Every stored name is allow-listed first, because `method` and `params.name`
-arrive from the caller: methods outside the MCP spec's fixed 25 collapse to
+arrive from the caller: methods outside the fixed 35 names in the MCP spec
+schemas (2025-03-26 through 2026-07-28, plus the tasks extension) collapse to
 `(other)`, unknown tools to `(unknown)`, and client names are sanitised,
 truncated and capped at 100 distinct values. Without that, a loop of random
 method names would grow the record without bound. The method list covers the

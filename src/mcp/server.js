@@ -2,10 +2,15 @@
 // single endpoint at POST /mcp. Published to the official registry as
 // com.crosbynews/weather.
 //
-// initialize echoes a requested protocolVersion ONLY if it is in
-// MCP_SUPPORTED_VERSIONS; otherwise it answers with our latest, per spec.
-// Never parrot an unsupported version back — that would falsely promise that
-// revision's semantics.
+// Dual-era (MCP 2026-07-28 "Backward Compatibility"):
+//   - Legacy (2025-03-26, 2025-06-18, 2025-11-25): an initialize handshake.
+//     initialize echoes a requested protocolVersion ONLY if it is in
+//     MCP_LEGACY_VERSIONS and otherwise answers with the newest of them; it
+//     never answers a modern version, which would promise that era's semantics.
+//   - Modern (2026-07-28): no handshake. A single message whose
+//     params._meta carries io.modelcontextprotocol/protocolVersion is served
+//     statelessly by mcpHandleModern(); that _meta key is the ONLY era signal.
+//     The MCP-Protocol-Version header is not one: legacy clients send it too.
 //
 // Bump MCP_SERVER_INFO.version together with server.json whenever the tool set
 // changes. Five hand-maintained prose surfaces also name the tools and go
@@ -38,16 +43,19 @@ import { uvCurrent, uvPeakToday, uvCategory,
 
 // A stateless Model Context Protocol server exposing the weather as callable
 // tools. Single endpoint at /mcp: POST a JSON-RPC message, get one back.
-export const MCP_PROTOCOL_VERSION = "2025-06-18";
-// Versions this server can honestly claim when a client requests them. Per
-// spec, an UNSUPPORTED requested version gets answered with our latest —
-// never echoed back (echoing e.g. "2026-07-28" would falsely promise the
-// stateless-core semantics of that revision).
-export const MCP_SUPPORTED_VERSIONS = ["2025-03-26", "2025-06-18"];
+// Legacy versions initialize can negotiate, and the newest of them, which is
+// initialize's answer to any version it does not support.
+export const MCP_LEGACY_VERSIONS = ["2025-03-26", "2025-06-18", "2025-11-25"];
+export const MCP_PROTOCOL_VERSION = "2025-11-25";
+// Modern versions served per request, without a handshake.
+export const MCP_MODERN_VERSIONS = ["2026-07-28"];
+// Every version, newest first: server/discover's supportedVersions, the
+// -32022 error's `supported`, and the cards' supportedProtocolVersions.
+export const MCP_SUPPORTED_VERSIONS = [...MCP_MODERN_VERSIONS, ...MCP_LEGACY_VERSIONS].sort().reverse();
 // Version moves in lockstep with `server.json`'s registry version on any
 // tool-set change — they drifted apart (1.2.0 vs 1.4.0) when `get_air_quality`
 // and `get_fishing` shipped without a bump, so both now carry the same number.
-export const MCP_SERVER_INFO = { name: "crosbynews-weather", version: "1.8.1", title: "Crosby, TX Weather" };
+export const MCP_SERVER_INFO = { name: "crosbynews-weather", version: "1.9.0", title: "Crosby, TX Weather" };
 // The official registry name (server.json `name`). serverInfo.name above is
 // the short name clients already see in initialize and stays as it is; the
 // discovery card carries both so a crawler can match the card to the listing.
@@ -55,17 +63,17 @@ export const MCP_REGISTRY_NAME = "com.crosbynews/weather";
 export const MCP_CORS = {
   "access-control-allow-origin": "*",
   "access-control-allow-methods": "POST, OPTIONS",
-  "access-control-allow-headers": "content-type, mcp-protocol-version, mcp-session-id, authorization",
+  "access-control-allow-headers": "content-type, mcp-protocol-version, mcp-method, mcp-name, mcp-session-id, authorization",
   "access-control-max-age": "86400",
 };
 
 export const rpcResult = (id, result) => ({ jsonrpc: "2.0", id, result });
 export const rpcError = (id, code, message) => ({ jsonrpc: "2.0", id, error: { code, message } });
 
-export function mcpJson(payload, status) {
+export function mcpJson(payload, status, version = MCP_PROTOCOL_VERSION) {
   return new Response(JSON.stringify(payload), {
     status,
-    headers: { "content-type": "application/json", "mcp-protocol-version": MCP_PROTOCOL_VERSION, ...MCP_CORS },
+    headers: { "content-type": "application/json", "mcp-protocol-version": version, ...MCP_CORS },
   });
 }
 
@@ -691,7 +699,7 @@ export function mcpReadResource(uri) {
 // server.json's `description` (100 characters at most, the registry's limit
 // and the Server Card's). test-mcp-server holds the two equal.
 export const MCP_REGISTRY_DESCRIPTION =
-  "Crosby, TX weather, air quality, tropics, floods, fishing, pollen, burn bans, radar, news & schools.";
+  "Crosby, TX weather, air, tropics, floods, fishing, pollen, roads, burn bans, radar, news & schools.";
 
 // Identity and connection fields shared by both cards and server.json.
 function mcpCardIdentity() {
@@ -705,7 +713,7 @@ function mcpCardIdentity() {
       {
         type: "streamable-http",
         url: `${SITE}/mcp`,
-        supportedProtocolVersions: [...MCP_SUPPORTED_VERSIONS].sort().reverse(),
+        supportedProtocolVersions: [...MCP_SUPPORTED_VERSIONS],
       },
     ],
   };
@@ -1376,6 +1384,117 @@ async function runTool(name, args, env) {
   throw err;
 }
 
+const MCP_CAPABILITIES = { tools: { listChanged: false }, prompts: { listChanged: false }, resources: { listChanged: false } };
+const MCP_INSTRUCTIONS =
+  "Live Crosby, Texas data: weather from the U.S. National Weather Service, a measured air-quality index (EPA/AirNow), the daily pollen and mold count, the Atlantic tropical outlook, river/bayou flood levels, USGS water conditions for nearby fishing waters, road incidents and lane closures, a radar image, local news headlines, the Crosby ISD school calendar, and an emergency-contacts directory.";
+
+// --- modern era (2026-07-28) ---------------------------------------------------
+
+const META_VERSION = "io.modelcontextprotocol/protocolVersion";
+const META_CAPABILITIES = "io.modelcontextprotocol/clientCapabilities";
+const META_SERVER_INFO = "io.modelcontextprotocol/serverInfo";
+export const MCP_HEADER_MISMATCH = -32020;
+export const MCP_UNSUPPORTED_PROTOCOL_VERSION = -32022;
+// Methods a modern request may call. initialize, ping and logging/setLevel do
+// not exist in 2026-07-28 and answer -32601 on this path.
+const MODERN_METHODS = new Set([
+  "server/discover", "tools/list", "tools/call", "prompts/list", "prompts/get",
+  "resources/list", "resources/templates/list", "resources/read",
+]);
+// Results the 2026-07-28 schema types as CacheableResult (ttlMs + cacheScope).
+// Everything here changes only with a deploy, and none of it is per-user.
+const CACHEABLE = new Set([
+  "server/discover", "tools/list", "prompts/list", "resources/list", "resources/templates/list", "resources/read",
+]);
+const CACHE_TTL_MS = 3600000;
+
+export function mcpDiscoverResult() {
+  return { supportedVersions: [...MCP_SUPPORTED_VERSIONS], capabilities: MCP_CAPABILITIES, instructions: MCP_INSTRUCTIONS };
+}
+
+// Every modern result carries resultType; serverInfo rides in _meta; the
+// cacheable ones add ttlMs and cacheScope.
+function modernResult(method, result) {
+  const out = { ...result, resultType: "complete", _meta: { ...(result && result._meta), [META_SERVER_INFO]: MCP_SERVER_INFO } };
+  if (CACHEABLE.has(method)) {
+    out.ttlMs = CACHE_TTL_MS;
+    out.cacheScope = "public";
+  }
+  return out;
+}
+
+// True when a parsed body is a single modern-era message.
+export function isModernMessage(msg) {
+  const meta = msg && typeof msg === "object" && !Array.isArray(msg) && msg.jsonrpc === "2.0" && typeof msg.method === "string" &&
+    msg.params && typeof msg.params === "object" && msg.params._meta;
+  return !!meta && typeof meta === "object" && Object.prototype.hasOwnProperty.call(meta, META_VERSION);
+}
+
+// Mcp-Name may carry =?base64?…?= (UTF-8). null means malformed.
+function decodeHeaderValue(v) {
+  if (/[^\t\x20-\x7e]/.test(v)) return null;
+  if (v.startsWith("=?base64?") && v.endsWith("?=")) {
+    try {
+      const bin = atob(v.slice(9, -2));
+      return new TextDecoder("utf-8", { fatal: true }).decode(Uint8Array.from(bin, (c) => c.charCodeAt(0)));
+    } catch {
+      return null;
+    }
+  }
+  return v;
+}
+
+// Serve one modern message. `headers` is the request's Headers. Returns the
+// JSON-RPC response (null for a notification), the HTTP status, and the
+// version to echo in the MCP-Protocol-Version response header.
+export async function mcpHandleModern(msg, env, headers) {
+  const { id, method, params } = msg;
+  const isRequest = id !== undefined && id !== null;
+  const meta = params._meta;
+  const version = meta[META_VERSION];
+  const echo = MCP_MODERN_VERSIONS.includes(version) ? version : MCP_MODERN_VERSIONS[0];
+  const fail = (status, code, message, data) => ({
+    status,
+    version: echo,
+    body: { jsonrpc: "2.0", id: isRequest ? id : null, error: data ? { code, message, data } : { code, message } },
+  });
+
+  if (typeof version !== "string") return fail(400, -32602, `Invalid params: _meta["${META_VERSION}"] must be a string`);
+
+  // Headers must mirror the body (Streamable HTTP "Server Validation").
+  const hVersion = headers.get("mcp-protocol-version");
+  if (hVersion === null) return fail(400, MCP_HEADER_MISMATCH, "Header mismatch: MCP-Protocol-Version header is missing");
+  if (hVersion !== version) return fail(400, MCP_HEADER_MISMATCH, `Header mismatch: MCP-Protocol-Version header '${hVersion}' does not match _meta value '${version}'`);
+  const hMethod = headers.get("mcp-method");
+  if (hMethod === null) return fail(400, MCP_HEADER_MISMATCH, "Header mismatch: Mcp-Method header is missing");
+  if (hMethod !== method) return fail(400, MCP_HEADER_MISMATCH, `Header mismatch: Mcp-Method header '${hMethod}' does not match body value '${method}'`);
+  const nameField = method === "resources/read" ? "uri" : method === "tools/call" || method === "prompts/get" ? "name" : null;
+  if (nameField) {
+    const raw = headers.get("mcp-name");
+    if (raw === null) return fail(400, MCP_HEADER_MISMATCH, "Header mismatch: Mcp-Name header is missing");
+    const decoded = decodeHeaderValue(raw);
+    if (decoded === null) return fail(400, MCP_HEADER_MISMATCH, "Header mismatch: Mcp-Name header value is malformed");
+    if (decoded !== params[nameField]) return fail(400, MCP_HEADER_MISMATCH, `Header mismatch: Mcp-Name header value '${decoded}' does not match body value '${params[nameField]}'`);
+  }
+
+  if (!MCP_MODERN_VERSIONS.includes(version)) {
+    return fail(400, MCP_UNSUPPORTED_PROTOCOL_VERSION, "Unsupported protocol version", { supported: [...MCP_SUPPORTED_VERSIONS], requested: version });
+  }
+  const caps = meta[META_CAPABILITIES];
+  if (!caps || typeof caps !== "object" || Array.isArray(caps)) {
+    return fail(400, -32602, `Invalid params: _meta["${META_CAPABILITIES}"] is required`);
+  }
+
+  // 2026-07-28 defines no client notifications over Streamable HTTP; accept
+  // and ignore one.
+  if (!isRequest) return { status: 202, version, body: null };
+  if (!MODERN_METHODS.has(method)) return fail(404, -32601, `Method not found: ${method}`);
+
+  const r = method === "server/discover" ? rpcResult(id, mcpDiscoverResult()) : await mcpHandle(msg, env);
+  if (r && r.result) return { status: 200, version, body: rpcResult(id, modernResult(method, r.result)) };
+  return { status: 200, version, body: r };
+}
+
 export async function mcpHandle(msg, env) {
   if (!msg || msg.jsonrpc !== "2.0" || typeof msg.method !== "string") {
     return msg && msg.id != null ? rpcError(msg.id, -32600, "Invalid Request") : null;
@@ -1385,12 +1504,17 @@ export async function mcpHandle(msg, env) {
   switch (method) {
     case "initialize":
       return rpcResult(id, {
-        protocolVersion: MCP_SUPPORTED_VERSIONS.includes(params?.protocolVersion) ? params.protocolVersion : MCP_PROTOCOL_VERSION,
-        capabilities: { tools: { listChanged: false }, prompts: { listChanged: false }, resources: { listChanged: false } },
+        protocolVersion: MCP_LEGACY_VERSIONS.includes(params?.protocolVersion) ? params.protocolVersion : MCP_PROTOCOL_VERSION,
+        capabilities: MCP_CAPABILITIES,
         serverInfo: MCP_SERVER_INFO,
-        instructions:
-          "Live Crosby, Texas data: weather from the U.S. National Weather Service, a measured air-quality index (EPA/AirNow), the daily pollen and mold count, the Atlantic tropical outlook, river/bayou flood levels, USGS water conditions for nearby fishing waters, road incidents and lane closures, a radar image, local news headlines, the Crosby ISD school calendar, and an emergency-contacts directory.",
+        instructions: MCP_INSTRUCTIONS,
       });
+    // A bare server/discover (no _meta, so not a modern request) is still
+    // answered: it is a read with no version-dependent meaning, and probes
+    // send it that way. The modern path answers the full form.
+    case "server/discover":
+      if (!isRequest) return null;
+      return rpcResult(id, modernResult("server/discover", mcpDiscoverResult()));
     case "ping":
       return rpcResult(id, {});
     case "tools/list":

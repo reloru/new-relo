@@ -81,7 +81,7 @@ usefully separate a warm cache from a cold one.
 ## What is recorded, and what is not
 
 Recorded per JSON-RPC message: the method, the tool name for `tools/call`, an
-outcome class, elapsed ms, and for `initialize` the `clientInfo.name`. Plus two
+outcome class, elapsed ms, and the `clientInfo.name` from `initialize` or from a 2026-07-28 `server/discover` `_meta`. Plus two
 volume counters — `calls` (messages) and `requests` (POSTs), which differ
 because one batch carries many messages.
 
@@ -113,17 +113,22 @@ anyway. Measured 2026-09-20, the whole record was 2,950 bytes; at this cap it
 projects to well under 1% of the 25 MiB limit after a year.
 
 The method allow-list is deliberately **wider than what the server dispatches**:
-it is the full 25-method list from the MCP spec schema for both protocol
-versions in `MCP_SUPPORTED_VERSIONS`, split three ways in `src/mcp/metrics.js`.
+it is every `method` in the MCP spec schemas for 2025-03-26, 2025-06-18,
+2025-11-25 and 2026-07-28, plus `tasks/update` from the 2026 tasks extension:
+35 names, split three ways in `src/mcp/metrics.js`.
 
 | Set | Count | Why it is separate |
 |---|---|---|
-| `METHODS_IMPLEMENTED` | 8 | dispatched by `mcpHandle` |
-| `METHODS_UNIMPLEMENTED` | 8 | spec **requests** this server answers `-32601` to — a nonzero count is a client asking for a capability that is not here |
-| `METHODS_NOTIFICATIONS` | 9 | spec notifications; ignoring one is correct protocol behaviour, not a gap, so these are never reported as missing |
+| `METHODS_IMPLEMENTED` | 10 | answered by `mcpHandle` or `mcpHandleModern` |
+| `METHODS_UNIMPLEMENTED` | 13 | spec **requests** this server answers `-32601` to — a nonzero count is a client asking for a capability that is not here |
+| `METHODS_NOTIFICATIONS` | 12 | spec notifications; ignoring one is correct protocol behaviour, not a gap, so these are never reported as missing |
 
 Anything outside all three becomes `(other)`. The ceiling is therefore fixed at
-25 names plus `(other)` and `(invalid)`.
+35 names plus `(other)` and `(invalid)`. Error codes are a closed set too:
+JSON-RPC's five, plus 2026-07-28's `-32020`, `-32021` and `-32022`.
+
+`initialize` and `ping` count as implemented although a 2026-07-28 request for
+either answers 404 `-32601`: the method name is counted, not the era.
 
 A spec method collapsed into `(other)` would be indistinguishable from junk,
 which is the whole reason for the wider list: the most actionable thing in the

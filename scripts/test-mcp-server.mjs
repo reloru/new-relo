@@ -172,13 +172,17 @@ try {
     );
     check("serverInfo.name is unchanged from initialize", card.serverInfo?.name === "crosbynews-weather", String(card.serverInfo?.name));
     const claimed = card.remotes[0].supportedProtocolVersions;
-    check("card claims exactly 2025-06-18 and 2025-03-26", JSON.stringify(claimed) === JSON.stringify(["2025-06-18", "2025-03-26"]), JSON.stringify(claimed));
-    for (const v of claimed) {
+    check("card claims 2026-07-28 and the three legacy versions", JSON.stringify(claimed) === JSON.stringify(["2026-07-28", "2025-11-25", "2025-06-18", "2025-03-26"]), JSON.stringify(claimed));
+    // initialize negotiates only the legacy versions; 2026-07-28 is served per
+    // request (scripts/test-mcp-modern.mjs), never through a handshake.
+    for (const v of ["2025-11-25", "2025-06-18", "2025-03-26"]) {
       const r = await mcpHandle({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: v, capabilities: {}, clientInfo: { name: "t", version: "0" } } }, stubEnv());
-      check(`initialize echoes claimed version ${v}`, r?.result?.protocolVersion === v, String(r?.result?.protocolVersion));
+      check(`initialize echoes legacy version ${v}`, r?.result?.protocolVersion === v, String(r?.result?.protocolVersion));
     }
-    const un = await mcpHandle({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-11-25", capabilities: {}, clientInfo: { name: "t", version: "0" } } }, stubEnv());
-    check("an unclaimed version (2025-11-25) is answered with 2025-06-18", un?.result?.protocolVersion === "2025-06-18", String(un?.result?.protocolVersion));
+    for (const v of ["2026-07-28", "2024-11-05"]) {
+      const r = await mcpHandle({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: v, capabilities: {}, clientInfo: { name: "t", version: "0" } } }, stubEnv());
+      check(`initialize asked ${v} answers 2025-11-25`, r?.result?.protocolVersion === "2025-11-25", String(r?.result?.protocolVersion));
+    }
 
     // 11b. The SEP-2127 Server Card agrees with server.json and the registry.
     const v1 = mcpServerCardV1();

@@ -1,22 +1,65 @@
 # `POST /mcp` — MCP JSON-RPC transport
 
 The Model Context Protocol server. Stateless, Streamable HTTP, JSON-RPC 2.0.
+**Dual-era**: it serves legacy clients (an `initialize` handshake, protocol
+versions 2025-03-26, 2025-06-18 and 2025-11-25) and modern clients
+(2026-07-28, per-request `_meta`, no handshake) on the same endpoint, as the
+2026-07-28 "Backward Compatibility" section allows.
 
 **`GET /mcp` is a different interface** — a human explainer page, documented in
 `docs/pages/mcp.md`, which also records the full method-dispatch order.
 
 | | |
 |---|---|
-| **Handlers** | `mcpHandle(msg, env)` (`src/mcp/server.js`), dispatched from `routeRequest` |
+| **Handlers** | `mcpHandle(msg, env)` (legacy) and `mcpHandleModern(msg, env, headers)` (2026-07-28), both in `src/mcp/server.js`, dispatched from `routeRequest` |
 | **Methods** | `POST` for the protocol; `OPTIONS` → 204; `GET`/`HEAD` → the page (or 405 for `Accept: text/event-stream`); anything else → 405 |
-| **CORS** | `MCP_CORS` |
+| **CORS** | `MCP_CORS`; allowed request headers include `mcp-protocol-version`, `mcp-method` and `mcp-name` |
 | **Language** | English-only. `POST /es/mcp` **404s** — that path is a page, not an endpoint. |
 | **Registry** | published as `com.crosbynews/weather`, `remotes: [{streamable-http, https://crosbynews.com/mcp}]` |
 | **Anthropic directory** | ready to submit — checklist and portal fields in `docs/ops/anthropic-directory.md` |
-| **Origin** | not checked, deliberately — a strict `Origin` check is a documented cause of Claude connector `initialize` timeouts, and the server is public and read-only |
-| **Test** | `scripts/test-mcp-server.mjs` (CI step "Check MCP server contract") |
+| **Origin** | not checked, deliberately. 2025-11-25 and 2026-07-28 require a 403 only for an *invalid* `Origin`; for a public, read-only server with no credentials every origin is valid, so nothing is rejected. A strict `Origin` check is also a documented cause of Claude connector `initialize` timeouts |
+| **Tests** | `scripts/test-mcp-server.mjs` (CI step "Check MCP server contract"); `scripts/test-mcp-modern.mjs` (CI step "Check MCP dual-era contract": status codes, headers, both eras through the real Worker) |
 
-## Request and batching
+## Which era a request is
+
+A request is **modern** only when the body is a single JSON-RPC message whose
+`params._meta` has the key `io.modelcontextprotocol/protocolVersion`
+(`isModernMessage()`). Nothing else selects it: in particular not the
+`MCP-Protocol-Version` header, which legacy clients send after `initialize`.
+Everything else, batches included, takes the legacy path, which is unchanged.
+
+## Modern requests (2026-07-28)
+
+Checked in this order; the first failure answers:
+
+| Check | Failure |
+|---|---|
+| `_meta` version is a string | **400**, `-32602` |
+| `MCP-Protocol-Version` header present and equal to the `_meta` version | **400**, `-32020` HeaderMismatch |
+| `Mcp-Method` header present and equal to `method` | **400**, `-32020` |
+| `Mcp-Name` present and equal to `params.name` (`tools/call`, `prompts/get`) or `params.uri` (`resources/read`), after decoding `=?base64?…?=` | **400**, `-32020` |
+| version is in `MCP_MODERN_VERSIONS` (`2026-07-28`) | **400**, `-32022` UnsupportedProtocolVersion, `data: {supported, requested}`; `supported` is every version, newest first |
+| `_meta` has `io.modelcontextprotocol/clientCapabilities` (an object) | **400**, `-32602` (`clientInfo` is optional in the schema and is not required) |
+| a notification (no `id`) | **202**, no body (2026-07-28 defines no client notifications over HTTP) |
+| method is one of `server/discover`, `tools/list`, `tools/call`, `prompts/list`, `prompts/get`, `resources/list`, `resources/templates/list`, `resources/read` | **404**, `-32601`; this covers `initialize`, `ping` and `logging/setLevel`, which 2026-07-28 removed |
+
+A served request answers 200 with the same result as the legacy path, plus
+`resultType: "complete"` and `_meta["io.modelcontextprotocol/serverInfo"]`.
+`server/discover`, the three `*/list` methods, `resources/templates/list` and
+`resources/read` are `CacheableResult`s and also carry `ttlMs: 3600000` and
+`cacheScope: "public"` (the lists change only with a deploy and are not
+per-user). A JSON-RPC error from the handler itself (an unknown tool or
+resource, `-32602`) stays a 200. The response's `MCP-Protocol-Version` header
+echoes the request's modern version.
+
+`server/discover` returns `supportedVersions` (`2026-07-28`, `2025-11-25`,
+`2025-06-18`, `2025-03-26`), the same `capabilities` and `instructions` as
+`initialize`, and `serverInfo` in `_meta`. A bare `server/discover` with no
+`_meta` is malformed by the spec, but the legacy path answers it with the same
+result: it is a read with no version-dependent meaning, and probes send it
+that way.
+
+## Request and batching (legacy)
 
 A single JSON-RPC message, or an array of them. Each is handled in turn.
 
@@ -32,11 +75,12 @@ A strict client opening the optional SSE stream sends `GET` with
 SSE here" signal. That check runs *before* markdown negotiation so it wins for a
 combined `Accept`.
 
-## Methods
+## Methods (legacy path)
 
 | Method | Behavior |
 |---|---|
-| `initialize` | Echoes a requested `protocolVersion` **only if it is in `MCP_SUPPORTED_VERSIONS`** (`2025-03-26`, `2025-06-18`); otherwise answers with our latest, per spec. Never parrot an unsupported version back — echoing e.g. `2026-07-28` would falsely promise that revision's semantics. Returns `serverInfo` and prose `instructions`. |
+| `initialize` | Echoes a requested `protocolVersion` **only if it is in `MCP_LEGACY_VERSIONS`** (`2025-03-26`, `2025-06-18`, `2025-11-25`); otherwise answers `2025-11-25`. It never answers `2026-07-28`, which has no handshake. Returns `serverInfo` and prose `instructions`. |
+| `server/discover` | as on the modern path (see above), when sent without `_meta` |
 | `ping` | `{}` |
 | `tools/list` | `mcpTools()` |
 | `tools/call` | `mcpCallTool(name, args, env)`, in this order: (1) unknown tool → JSON-RPC **`-32602`**, before any KV read; (2) `validateToolArgs()` checks the arguments against the tool's own `inputSchema` and returns an **`isError: true` result** on failure, also before any KV read (see *Argument validation*); (3) the tool runs, and a data-load failure becomes an **`isError: true` result** naming the feed and the human page (`MCP_TOOL_SOURCES`), with the upstream detail kept in parentheses. Tool-level failures are results, not JSON-RPC errors, which is the MCP convention and lets the model read and act on them. |

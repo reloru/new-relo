@@ -30,8 +30,8 @@ hand-written and needs updating when the data surface changes.
 ## Tests
 
 `scripts/test-mcp-server.mjs` checks the shared fields against `server.json`,
-and that every claimed protocol version is echoed by `initialize` and an
-unclaimed one is not. `scripts/test-routes.mjs` checks status, content type,
+the claimed protocol versions as literals, and that `initialize` echoes every
+legacy one and answers `2025-11-25` to 2026-07-28 and to an unknown version. `scripts/test-routes.mjs` checks status, content type,
 name and that the tool list is present.
 
 ## Versioning
