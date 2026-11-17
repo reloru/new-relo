@@ -82,7 +82,9 @@ rm -rf .wrangler/state          # next `wrangler dev` starts truly empty
   HHD's index advertises a count newer than `/api/pollen` serves.
 - **`burnban`** — Harris County outdoor-burning ban status from the Texas A&M
   Forest Service, shape `{ updated, status, startDate, neighbors,
-  statusSince, trackingSince }` (`loadBurnBan()` checks `status` is `"Yes"`
+  statusSince, trackingSince }`, plus `mapStatus`, `mapStartDate` and
+  `liftedBy: { day, url }` while a Fire Marshal's lift overrides the map's
+  "Yes" (`applyHcfmoLift()`) (`loadBurnBan()` checks `status` is `"Yes"`
   or `"No"`; `startDate` is ISO or null; `neighbors` is
   `[{ county, status }]` for the seven bordering counties, missing a county
   whose TFS row was unusable — an entry without the field is refreshed on the

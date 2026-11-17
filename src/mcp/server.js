@@ -261,7 +261,7 @@ export function mcpTools() {
       name: "get_burn_ban",
       title: "Burn ban status",
       description:
-        "Current outdoor-burning ban status for Harris County, TX (which includes Crosby) from the Texas A&M Forest Service. Countywide only — TFS has no sub-county resolution, so this is never a Crosby-specific status.",
+        "Current outdoor-burning ban status for Harris County, TX (which includes Crosby) from the Texas A&M Forest Service, with a lift the Harris County Fire Marshal's Office has announced before the map shows it. Countywide only — TFS has no sub-county resolution, so this is never a Crosby-specific status.",
       inputSchema: { type: "object", properties: {}, additionalProperties: false },
       outputSchema: {
         type: "object",
@@ -274,6 +274,9 @@ export function mcpTools() {
           trackingSince: { type: ["string", "null"], description: "The first observation ever recorded for this feed." },
           lastChecked: isoStamp,
           officialUrl: { type: "string" },
+          mapStatus: { type: "string", description: "Present only while the Harris County Fire Marshal's Office has announced a lift the Forest Service map does not show yet: the map's own status." },
+          mapStartDate: { type: ["string", "null"], description: "With mapStatus: the start date the map still reports." },
+          liftedBy: { type: "object", description: "With mapStatus: the Fire Marshal's announcement (day, url).", properties: { day: { type: "string" }, url: { type: "string" } } },
         },
         required: ["county", "source"],
       },

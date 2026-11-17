@@ -34,7 +34,7 @@ import { fetchFishing, FISHING_KV_KEY } from "./features/fishing.js";
 import { fetchTropics, TROPICS_KV_KEY } from "./features/tropics.js";
 import { fetchTraffic, TRAFFIC_KV_KEY } from "./features/traffic.js";
 import { fetchPollen, POLLEN_KV_KEY } from "./features/pollen.js";
-import { fetchBurnBan, burnbanHistory, BURNBAN_KV_KEY } from "./features/burnban.js";
+import { fetchBurnBan, fetchHcfmoLift, applyHcfmoLift, burnbanHistory, BURNBAN_KV_KEY } from "./features/burnban.js";
 import { ctDateStr, carryUvToday, uvNightlyGap } from "./features/air.js";
 import { pushSevereAlerts } from "./push.js";
 import { cronRunRecorder, recordCronRun } from "./api/health.js";
@@ -220,7 +220,11 @@ export async function scheduled(event, env, ctx) {
         // burnbanHistory carries the status-history stamps forward off the
         // PREVIOUS entry, so the write has to be built from `cur` — a bare
         // fetchBurnBan() result would reset "since when" on every refresh.
-        const fresh = burnbanHistory(cur, await fetchBurnBan());
+        // While the map says "Yes", check the Fire Marshal's homepage for a
+        // lift the map has not shown yet. Its failure never costs the refresh.
+        const tfs = await fetchBurnBan();
+        const lift = tfs.status === "Yes" ? await fetchHcfmoLift().catch((e) => (console.error("Fire Marshal lift check failed:", e && e.message), null)) : null;
+        const fresh = burnbanHistory(cur, applyHcfmoLift(tfs, lift));
         await env.WEATHER.put(BURNBAN_KV_KEY, JSON.stringify(fresh));
         seen.burnban = fresh;
         run.ok("burnban");

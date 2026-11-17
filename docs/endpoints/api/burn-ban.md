@@ -19,6 +19,12 @@ unavailable), `startDate` (ISO, `null` with no active ban), `lastChecked`
 renamed here for a clearer public field name), and `officialUrl` (the TFS
 tracker).
 
+While the Harris County Fire Marshal's Office has announced a lift the Forest
+Service map does not show yet, `status` is `"No"` and three more fields
+appear: `mapStatus` (the map's `"Yes"`), `mapStartDate` (the start date the
+map still reports) and `liftedBy` (`{ day, url }`, the announcement). `source`
+then names the Fire Marshal's Office. See `docs/pages/burnban.md`.
+
 **Countywide only.** There is no sub-county resolution — this is Harris
 County's status, not a Crosby-specific one.
 

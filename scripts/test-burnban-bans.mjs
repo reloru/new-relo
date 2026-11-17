@@ -44,7 +44,7 @@ const page = async (path, accept = "text/html") => (await h.get(path, { headers:
   ok(!html.includes("How a ban starts and ends"), "the record page carries dates and records, not commentary");
   ok(!main.includes("What a burn ban means"), "the general explainer is gone from /burn-ban");
   has(main, "It is a Class C misdemeanor, with a fine of up to $500.", "the penalty is a question now");
-  has(main, "The Harris County Fire Marshal's Office announces a ban and its end, and the map can lag behind it.", "the intro names the authority");
+  has(main, "When the Harris County Fire Marshal&#39;s Office announces a lift before the map shows it, this page follows the office.".replace("&#39;", "'"), "the intro says the page follows the office");
   has(bans, "<tr><td>Nov 10, 2026</td><td>in effect</td><td>—</td><td>Texas A&amp;M Forest Service start date</td></tr>", "an open ban, dated by TFS");
   has(bans, '<tr><td>Sep 17, 2026</td><td>Nov 16, 2026</td><td>60 days</td><td>Texas A&amp;M Forest Service start date; <a href="https://www.hcfmo.net/Portals/15/Images/burnbanlifted11.26.png">Fire Marshal\'s Office announcement</a></td></tr>', "the 2026 ban, closed by the Fire Marshal\'s announcement");
   has(bans, "<td>Aug 8, 2023</td><td>Oct 10, 2023</td><td>63 days</td>", "a past ban with its length");

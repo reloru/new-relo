@@ -374,6 +374,58 @@ export async function fetchBurnBan() {
   return { updated: new Date().toISOString(), status, startDate, neighbors };
 }
 
+// The Harris County Fire Marshal's Office announces a lift on its homepage
+// before the Forest Service map catches up (2026-11-16: lifted that day, still
+// on the map the next morning). Its homepage carries the lift as text, in a
+// sentence and in the graphic's alt text:
+//   "the burn ban in unincorporated Harris County was lifted November 16, 2026"
+//   "the burn ban in unincorporated Harris County has been lifted, effective
+//    November 16, 2026"
+// parseHcfmoLift() returns the latest such date as YYYY-MM-DD, or null. A
+// newer dated announcement of a ban on the same page (approved, issued,
+// enacted, in effect, in place) cancels it, so a stale slide cannot outlive a
+// new ban. It is only ever used to confirm a lift the map has not shown yet:
+// see applyHcfmoLift().
+export const HCFMO_HOME_URL = "https://www.hcfmo.net/";
+const MONTHS = { january: 1, february: 2, march: 3, april: 4, may: 5, june: 6, july: 7, august: 8, september: 9, october: 10, november: 11, december: 12 };
+const DATE_RE = "((?:January|February|March|April|May|June|July|August|September|October|November|December) \\d{1,2}, \\d{4}|\\d{1,2}/\\d{1,2}/\\d{4})";
+const isoDay = (s) => {
+  let m = /^(\w+) (\d{1,2}), (\d{4})$/.exec(s);
+  if (m && MONTHS[m[1].toLowerCase()]) return `${m[3]}-${String(MONTHS[m[1].toLowerCase()]).padStart(2, "0")}-${m[2].padStart(2, "0")}`;
+  m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(s);
+  return m ? `${m[3]}-${m[1].padStart(2, "0")}-${m[2].padStart(2, "0")}` : null;
+};
+export function parseHcfmoLift(html) {
+  const text = String(html ?? "")
+    .replace(/<[^>]*\balt="([^"]*)"[^>]*>/gi, " $1 ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;|&#160;/g, " ")
+    .replace(/\s+/g, " ");
+  const latest = (re) => [...text.matchAll(re)].map((m) => isoDay(m[1])).filter(Boolean).sort().at(-1) ?? null;
+  const lift = latest(new RegExp(`burn ban in unincorporated Harris County (?:was|has been) lifted,? (?:effective |on )?${DATE_RE}`, "gi"));
+  if (!lift) return null;
+  const ban = [
+    latest(new RegExp(`(?:approves|approved|issues|issued|enacted|enacts) (?:a |the )?(?:countywide )?burn ban[^.]{0,80}?${DATE_RE}`, "gi")),
+    latest(new RegExp(`burn ban (?:is )?(?:now )?in (?:effect|place)[^.]{0,80}?${DATE_RE}`, "gi")),
+  ].filter(Boolean).sort().at(-1);
+  return ban && ban > lift ? null : lift;
+}
+export async function fetchHcfmoLift() {
+  const res = await fetch(HCFMO_HOME_URL, { headers: { "User-Agent": "crosbynews.com", Accept: "text/html" } });
+  if (!res.ok) throw new Error(`Fire Marshal homepage request failed: ${res.status}`);
+  return parseHcfmoLift(await res.text());
+}
+// Apply a Fire Marshal's lift to a fresh map reading. Only ever turns "Yes"
+// into "No", only when the map dates the ban's start, and only for a lift on
+// or after that start, so an old announcement can never hide a new ban. The
+// map's own reading is kept beside it (mapStatus, mapStartDate).
+export function applyHcfmoLift(tfs, liftDay) {
+  if (tfs?.status !== "Yes" || !tfs.startDate || !liftDay) return tfs;
+  const start = new Date(tfs.startDate).toLocaleDateString("en-CA", { timeZone: "America/Chicago" });
+  if (liftDay < start) return tfs;
+  return { ...tfs, status: "No", startDate: null, mapStatus: "Yes", mapStartDate: tfs.startDate, liftedBy: { day: liftDay, url: HCFMO_HOME_URL } };
+}
+
 // The neighbor strip's two lists, or null when the cached entry has none
 // (written before neighbors were fetched, or every row was unusable).
 export function burnbanNeighbors(data) {
@@ -409,8 +461,13 @@ const neighborLines = (nb, lang) =>
 // observed history yet", which is the correct and honest degradation.
 export function burnbanHistory(prev, next) {
   const prevStatus = prev?.status === "Yes" || prev?.status === "No" ? prev.status : null;
+  // A lift the Fire Marshal's Office announced stays named once the map
+  // catches up, for as long as there is no ban: the map's flip is not the day
+  // the ban ended.
+  const keptLift = next.status === "No" && !next.liftedBy && prevStatus === "No" && prev?.liftedBy ? { liftedBy: prev.liftedBy } : {};
   return {
     ...next,
+    ...keptLift,
     // Carried forward only when the status is genuinely unchanged.
     statusSince: prevStatus === next.status && prev?.statusSince ? prev.statusSince : next.updated,
     trackingSince: prev?.trackingSince ?? next.updated,
@@ -532,6 +589,16 @@ export function burnbanSince(data, lang) {
     }
     return "";
   }
+  if (data.liftedBy?.day) {
+    const day = d(`${data.liftedBy.day}T12:00:00Z`);
+    return data.mapStatus === "Yes"
+      ? T(
+          lang,
+          `Lifted by the Harris County Fire Marshal's Office on ${day}. The Texas A&M Forest Service map still lists a ban.`,
+          `Levantada por la Oficina del Jefe de Bomberos del condado de Harris el ${day}. El mapa del Servicio Forestal de Texas A&M todavía muestra una prohibición.`
+        )
+      : T(lang, `Lifted by the Harris County Fire Marshal's Office on ${day}.`, `Levantada por la Oficina del Jefe de Bomberos del condado de Harris el ${day}.`);
+  }
   if (!data.statusSince) return "";
   return data.statusSince === data.trackingSince
     ? T(
@@ -554,8 +621,12 @@ export function burnbanSince(data, lang) {
 export function apiBurnBan(data) {
   return {
     county: "Harris",
-    source: "Texas A&M Forest Service (tfsweb.tamu.edu)",
+    source: data.liftedBy ? "Harris County Fire Marshal's Office (hcfmo.net), ahead of the Texas A&M Forest Service map" : "Texas A&M Forest Service (tfsweb.tamu.edu)",
     status: data.status ?? null,
+    // Present only while the Fire Marshal's Office has announced a lift the
+    // Forest Service map does not show yet: the map's own reading, and the day
+    // and page of the announcement.
+    ...(data.liftedBy ? { mapStatus: data.mapStatus ?? null, mapStartDate: data.mapStartDate ?? null, liftedBy: data.liftedBy } : {}),
     startDate: data.startDate ?? null,
     // When we FIRST OBSERVED the current status. Read it against
     // trackingSince: equal values mean we have never witnessed a change, so
@@ -709,7 +780,7 @@ ${JSONLD_SITE}
 ${topbar("/burn-ban", lang)}
 <main id="main">
   <h1>${esc(title)}</h1>
-  <p class="intro">${T(lang, "Whether outdoor burning is banned in unincorporated Harris County, which includes Crosby. The status comes from the Texas A&M Forest Service's statewide map and is checked every 15 minutes. The Harris County Fire Marshal's Office announces a ban and its end, and the map can lag behind it.", "Si está prohibido quemar al aire libre en la parte no incorporada del condado de Harris, que incluye a Crosby. El estado viene del mapa estatal del Servicio Forestal de Texas A&M y se revisa cada 15 minutos. La Oficina del Jefe de Bomberos del condado de Harris anuncia cada prohibición y su fin, y el mapa puede tardar en reflejarlo.")}</p>
+  <p class="intro">${T(lang, "Whether outdoor burning is banned in unincorporated Harris County, which includes Crosby. The status comes from the Texas A&M Forest Service's statewide map and is checked every 15 minutes. When the Harris County Fire Marshal's Office announces a lift before the map shows it, this page follows the office.", "Si está prohibido quemar al aire libre en la parte no incorporada del condado de Harris, que incluye a Crosby. El estado viene del mapa estatal del Servicio Forestal de Texas A&M y se revisa cada 15 minutos. Cuando la Oficina del Jefe de Bomberos del condado de Harris anuncia que se levantó antes de que el mapa lo muestre, esta página sigue a la oficina.")}</p>
   ${status}
   ${checkedLine}
   ${sinceLine}
@@ -739,7 +810,7 @@ ${resources}
     </ul>
   </section>
 </main>
-${footer({ page: "/burn-ban", lang, source: T(lang, `Burn ban data from the <a href="https://tfsweb.tamu.edu/">Texas A&amp;M Forest Service</a>.`, `Datos de prohibición de quemas del <a href="https://tfsweb.tamu.edu/">Servicio Forestal de Texas A&amp;M</a>.`) })}
+${footer({ page: "/burn-ban", lang, source: T(lang, `Burn ban data from the <a href="https://tfsweb.tamu.edu/">Texas A&amp;M Forest Service</a> and the <a href="https://www.hcfmo.net/">Harris County Fire Marshal's Office</a>.`, `Datos de prohibición de quemas del <a href="https://tfsweb.tamu.edu/">Servicio Forestal de Texas A&amp;M</a> y de la <a href="https://www.hcfmo.net/">Oficina del Jefe de Bomberos del condado de Harris</a>.`) })}
 </body>
 </html>`;
 }
