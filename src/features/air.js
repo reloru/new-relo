@@ -78,6 +78,17 @@ export async function fetchUv() {
   }
 }
 
+// EPA's hourly product answers 404 every night from about local midnight until
+// the new forecast day posts, around 3:15 AM Central (seen Nov 13 and Nov 17,
+// 2026, and nightly through the week between). The daily peak still answers,
+// the site shows it, and UV is 0 at night anyway, so a 404 before 4 AM Central
+// is the product's schedule, not an outage.
+export function uvNightlyGap(degraded, ms = Date.now()) {
+  if (!degraded || !/\b404\b/.test(String(degraded))) return false;
+  const hour = Number(new Date(ms).toLocaleString("en-US", { timeZone: TZ, hour: "2-digit", hour12: false })) % 24;
+  return hour < 4;
+}
+
 // Current-hour and peak-of-today UV from the stored entries, matched on the
 // CT wall clock (the convention EPA publishes in). Null-safe: cache entries
 // written before this feature have no `uv`, and hours outside the product's

@@ -35,7 +35,7 @@ import { fetchTropics, TROPICS_KV_KEY } from "./features/tropics.js";
 import { fetchTraffic, TRAFFIC_KV_KEY } from "./features/traffic.js";
 import { fetchPollen, POLLEN_KV_KEY } from "./features/pollen.js";
 import { fetchBurnBan, burnbanHistory, BURNBAN_KV_KEY } from "./features/burnban.js";
-import { ctDateStr, carryUvToday } from "./features/air.js";
+import { ctDateStr, carryUvToday, uvNightlyGap } from "./features/air.js";
 import { pushSevereAlerts } from "./push.js";
 import { cronRunRecorder, recordCronRun } from "./api/health.js";
 import { mcpRollUp } from "./mcp/metrics.js";
@@ -66,7 +66,7 @@ export async function scheduled(event, env, ctx) {
       run.ok("weather");
       if (airOk) run.ok("air");
       else run.failed("air", "AQI fetch returned nothing (AirNow and Open-Meteo both failed; see Worker logs)");
-      if (uvOk && !data.uv.degraded) run.ok("uv");
+      if (uvOk && (!data.uv.degraded || uvNightlyGap(data.uv.degraded))) run.ok("uv");
       else if (uvOk) run.failed("uv", `EPA's hourly UV product is unavailable (${data.uv.degraded}); showing EPA's daily peak forecast only`);
       else run.failed("uv", "EPA UV fetch returned nothing (see Worker logs)");
       // After a fresh forecast, wake push subscribers for any NEW severe

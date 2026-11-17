@@ -16,7 +16,7 @@
 //
 // Run: node scripts/test-uv-peak.mjs
 
-import { uvPeakToday, uvPeakOn, uvCurrent, carryUvToday, parseUvDaily, fetchUv } from "../src/features/air.js";
+import { uvPeakToday, uvPeakOn, uvCurrent, carryUvToday, parseUvDaily, fetchUv, uvNightlyGap } from "../src/features/air.js";
 import { todayGlance } from "../src/features/home.js";
 
 let failed = 0;
@@ -105,6 +105,17 @@ check("hourly 404 falls back to the daily peak, marked degraded", [fell.hourly.l
 globalThis.fetch = respond(gone, gone);
 check("both products down still throws", await fetchUv().then(() => "resolved", (e) => /404/.test(e.message)), true);
 globalThis.fetch = realFetch;
+
+// EPA's hourly product is gone every night from about midnight to 3:15 AM
+// Central. Instants written out by hand; CST is UTC-6 in November.
+const MSG = "EPA UV request failed: 404";
+check("a 404 at 12:18 AM CST is the nightly gap", uvNightlyGap(MSG, Date.parse("2026-11-13T06:18:00Z")), true);
+check("a 404 at 3:59 AM CST is still the gap", uvNightlyGap(MSG, Date.parse("2026-11-17T09:59:00Z")), true);
+check("a 404 at 4:00 AM CST is an outage", uvNightlyGap(MSG, Date.parse("2026-11-17T10:00:00Z")), false);
+check("a 404 at 2 PM CST is an outage", uvNightlyGap(MSG, Date.parse("2026-11-10T20:00:00Z")), false);
+check("a 500 at 1 AM CST is an outage", uvNightlyGap("EPA UV request failed: 500", Date.parse("2026-11-17T07:00:00Z")), false);
+check("no degradation is no gap", uvNightlyGap(undefined, Date.parse("2026-11-17T07:00:00Z")), false);
+check("in summer (CDT, UTC-5) 1 AM local is still the gap", uvNightlyGap(MSG, Date.parse("2026-07-04T06:00:00Z")), true);
 
 console.log(failed ? `\n${failed} UV peak check(s) FAILED\n` : "\nUV peak OK — today's real peak survives the evening rollover, never 0 or null.\n");
 process.exit(failed ? 1 : 0);
