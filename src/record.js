@@ -413,11 +413,15 @@ export async function recordAqi(env, weather) {
 
 // Keep one row per ban. An active ban opens a period (with the Forest
 // Service's own start date when it gives one); "no ban" closes whichever
-// period is open, dated the day we first saw it lifted.
+// period is open, dated the day this site first saw it lifted, or the day the
+// Fire Marshal's Office gave when its announcement is what showed the lift
+// (data.liftedBy, from applyHcfmoLift).
 export async function recordBurnBan(env, data, nowIso = new Date().toISOString()) {
   if (!env?.DB || (data?.status !== "Yes" && data?.status !== "No")) return 0;
   if (data.status === "No") {
-    const r = await env.DB.prepare("UPDATE burnban_periods SET ended = ?, end_source = 'observed' WHERE ended IS NULL AND end_unknown = 0").bind(ctDay(nowIso)).run();
+    const fmo = data.liftedBy && /^\d{4}-\d{2}-\d{2}$/.test(data.liftedBy.day) ? data.liftedBy : null;
+    const r = await env.DB.prepare("UPDATE burnban_periods SET ended = ?, end_source = ?, end_url = ? WHERE ended IS NULL AND end_unknown = 0")
+      .bind(fmo ? fmo.day : ctDay(nowIso), fmo ? "fmo" : "observed", fmo ? fmo.url : null).run();
     return r?.meta?.changes ?? 0;
   }
   if (await env.DB.prepare("SELECT 1 AS x FROM burnban_periods WHERE ended IS NULL AND end_unknown = 0 LIMIT 1").first()) return 0;

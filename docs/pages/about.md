@@ -24,7 +24,8 @@ and the independence disclaimer.
 1. **The data-source list.** It names NWS, EPA (UV), EPA/AirNow with the
    Open-Meteo modeled fallback, NOAA (river levels, tropical storms), USGS
    (rain, fishing waters), TCEQ (water samples), the Houston Health
-   Department, the Texas A&M Forest Service, Houston TranStar, Crosby ISD,
+   Department, the Texas A&M Forest Service and the Harris County Fire
+   Marshal's Office, Houston TranStar, Crosby ISD,
    Google News, and the Iowa Environmental Mesonet (warnings before the site
    began recording), then links `/methods`. Adding an
    upstream anywhere on the site means adding it here — in **both** `ABOUT` and

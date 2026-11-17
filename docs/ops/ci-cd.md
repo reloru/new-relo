@@ -105,6 +105,10 @@ see `docs/README.md`.
   reading is never called modeled, AirNow's local stamp is shown in the
   site's format, the fishing note never repeats its badge, and `/water`
   explains "Monitored", action stage and cfs.
+- **Check Fire Marshal lift** (`node scripts/test-burnban-hcfmo.mjs`) — same
+  job, no install. Reads the Fire Marshal's homepage fixture, refuses an old
+  lift over a newer ban, closes the record on the office's day, and checks
+  what `/burn-ban` and `/api/burn-ban` say.
 - **Check MCP server contract** (`node scripts/test-mcp-server.mjs`) — same
   job, added with the Anthropic directory preparation. Pins what that review
   tests directly: bad arguments return an actionable `isError` result before

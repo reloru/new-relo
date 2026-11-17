@@ -224,6 +224,12 @@ jobs:
       # site's format, the water and fishing terms explained. Pure node.
       - name: Check page display
         run: node scripts/test-display.mjs
+      # A lift the Fire Marshal's Office announces before the Forest Service
+      # map shows it: read from the saved homepage, applied only to a ban it
+      # can follow (never an older lift over a newer ban), recorded on the
+      # office's day, and said on the page. Pure node.
+      - name: Check Fire Marshal lift
+        run: node scripts/test-burnban-hcfmo.mjs
 
   # Build gate: parse wrangler.jsonc and bundle the Worker without uploading.
   # Catches config/bundling errors and the compat-date/wrangler-pin coupling

@@ -32,6 +32,7 @@ export const PRIVACY = {
         "Google News: local news headlines aggregated from public RSS feeds by an out-of-band process and cached.",
         "Crosby ISD (crosbyisd.org): the school district's public iCal calendar feed.",
         "Texas A&M Forest Service (tfs.tamu.edu): the Harris County outdoor-burning ban status.",
+        "Harris County Fire Marshal's Office (hcfmo.net): its homepage, read while the Forest Service map shows a ban, for a lift the map does not show yet.",
       ],
     },
     {
@@ -92,6 +93,7 @@ export const PRIVACY_ES = {
         "Google News: titulares de noticias locales recopilados de fuentes RSS públicas mediante un proceso externo y almacenados en caché.",
         "Crosby ISD (crosbyisd.org): el calendario público iCal del distrito escolar.",
         "Servicio Forestal de Texas A&M (tfs.tamu.edu): el estado de la prohibición de quemas al aire libre en el condado de Harris.",
+        "Oficina del Jefe de Bomberos del condado de Harris (hcfmo.net): su página principal, leída mientras el mapa del Servicio Forestal muestra una prohibición, por si anuncia que se levantó antes que el mapa.",
       ],
     },
     {

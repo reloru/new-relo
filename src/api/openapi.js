@@ -181,6 +181,9 @@ export function openApiSpec() {
       trackingSince: { type: ["string", "null"], format: "date-time", description: "The first observation ever recorded for this feed." },
       lastChecked: { type: ["string", "null"], format: "date-time", description: "When we last checked TFS's feed." },
       officialUrl: { type: "string", format: "uri", description: "The Texas A&M Forest Service's official burn-ban tracker." },
+      mapStatus: { type: "string", enum: ["Yes"], description: "Present only while the Harris County Fire Marshal's Office has announced a lift the Forest Service map does not show yet: the map's own status, which `status` overrides with \"No\"." },
+      mapStartDate: { type: ["string", "null"], format: "date-time", description: "With mapStatus: the start date the map still reports." },
+      liftedBy: { type: "object", description: "With mapStatus: the Fire Marshal's announcement.", properties: { day: { type: "string", format: "date", description: "The day the Fire Marshal's Office gives for the lift." }, url: { type: "string", format: "uri" } } },
     },
   };
   const FishingStation = {

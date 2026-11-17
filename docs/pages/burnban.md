@@ -183,6 +183,31 @@ feature code was written against it.
 
 On throw: `renderError`, 502.
 
+### A lift the Fire Marshal's Office announces first
+
+The Forest Service map follows what counties report and can trail the county:
+the Fire Marshal's Office lifted the ban on 2026-11-16 and the map still listed
+it on the morning of 2026-11-17. So while the map says "Yes", the cron also
+reads the office's homepage (`fetchHcfmoLift()`, `HCFMO_HOME_URL`).
+`parseHcfmoLift()` finds "the burn ban in unincorporated Harris County was
+lifted <date>" or "has been lifted, effective <date>" (the sentence and the
+graphic's alt text) and returns the latest date, unless the same page dates a
+newer ban (approved, issued, enacted, in effect, in place).
+`applyHcfmoLift()` uses it only to turn the map's "Yes" into "No", only when
+the map dates the ban's start, and only for a lift on or after that start, so
+an old slide never hides a new ban. The entry keeps the map's reading
+(`mapStatus`, `mapStartDate`) and the announcement (`liftedBy: { day, url }`).
+The status line then reads "Lifted by the Harris County Fire Marshal's Office
+on <day>. The Texas A&M Forest Service map still lists a ban.", and the record
+closes the open ban on the office's day (`end_source = 'fmo'`). When the map
+later shows "No" too, `burnbanHistory()` keeps `liftedBy` for as long as
+there is no ban, so the line becomes "Lifted by the Harris County Fire
+Marshal's Office on <day>." rather than dating the end by the map's flip. A failed read
+of the homepage is logged and changes nothing. Worker reachability was
+canary-verified from the deployed runtime before this shipped (see the PR).
+Tested by `scripts/test-burnban-hcfmo.mjs` against the homepage as served on
+2026-11-17 (`scripts/fixtures/hcfmo/`).
+
 ## Canonical & sitemap
 
 - Canonical `https://crosbynews.com/burn-ban` · Spanish `/es/burn-ban`
