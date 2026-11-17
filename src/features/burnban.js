@@ -429,7 +429,7 @@ export function burnbanHistory(prev, next) {
 export async function loadBurnBanPeriods(env) {
   if (!env?.DB) return null;
   try {
-    return (await env.DB.prepare("SELECT started, ended, start_source, end_source, note, url, end_url FROM burnban_periods ORDER BY started DESC").all()).results || [];
+    return (await env.DB.prepare("SELECT started, ended, start_source, end_source, note, url, end_url, end_unknown, ended_by FROM burnban_periods ORDER BY started DESC").all()).results || [];
   } catch (e) {
     console.error("burn-ban history read failed:", e && e.stack);
     return null;
@@ -448,7 +448,15 @@ const reportedBy = (note, lead) => {
 export function banHistoryRows(periods, lang) {
   return (periods || []).map((p) => {
     const start = banDay(p.started, lang);
-    const end = p.ended ? banDay(p.ended, lang) : T(lang, "in effect", "vigente");
+    // A past ban no source dates the end of is "not found", or "by <day>" when
+    // a source bounds it. Only a row without either is the open ban.
+    const end = p.ended
+      ? banDay(p.ended, lang)
+      : p.end_unknown
+        ? p.ended_by
+          ? T(lang, `By ${banDay(p.ended_by, lang)}`, `Antes del ${banDay(p.ended_by, lang)}`)
+          : T(lang, "Not found", "No encontrada")
+        : T(lang, "in effect", "vigente");
     const length = p.ended ? T(lang, `${banDays(p.started, p.ended)} days`, `${banDays(p.started, p.ended)} días`) : "";
     const court = T(lang, "Commissioners Court record", "registro de la Corte de Comisionados");
     const fmo = T(lang, "Fire Marshal's Office announcement", "anuncio de la Oficina del Jefe de Bomberos");
@@ -461,7 +469,7 @@ export function banHistoryRows(periods, lang) {
       : { text: T(lang, "first seen by this site", "primera vez visto por este sitio"), url: null };
     const news = p.end_source === "news" ? reportedBy(p.note, "Lift date") : null;
     const endSrc =
-      !p.ended ? null
+      !p.ended && !p.end_unknown ? null
       : news ? { text: T(lang, `as reported by ${news.outlet}`, `según ${news.outlet}`), url: news.url }
       : p.end_source === "observed" ? { text: T(lang, "first seen lifted by this site", "visto levantado por este sitio"), url: null }
       : p.end_source === "order" ? { text: court, url: p.end_url }
@@ -474,8 +482,8 @@ export function banHistoryRows(periods, lang) {
 export function banHistoryNote(lang) {
   return T(
     lang,
-    "Dates come from Harris County Commissioners Court records, which are online from February 2021; every ban the court adopted since then is listed. The court's online records hold no vote ending the 2024, 2025 and 2026 bans. The Fire Marshal's Office announced each lift, and the end dates shown are the ones it announced. Before 2021 the dates come from the Harris County Fire Marshal's Office's own releases and from news reports, and a ban is listed only when they date both its start and its end. The 2005 and February 2009 bans were lifted by the Fire Marshal's Office itself, without a court vote. Bans reported in 2003, 2005, June 2009 and 2010 are missing because the sources found do not date both ends.",
-    "Las fechas vienen de los registros de la Corte de Comisionados del condado de Harris, disponibles en línea desde febrero de 2021; aparecen todas las prohibiciones que la corte adoptó desde entonces. Los registros en línea de la corte no contienen ninguna votación que pusiera fin a las prohibiciones de 2024, 2025 y 2026. La Oficina del Jefe de Bomberos anunció cada levantamiento, y las fechas de fin que se muestran son las que anunció. Antes de 2021 las fechas vienen de los comunicados de la Oficina del Jefe de Bomberos del condado de Harris y de reportes de prensa, y una prohibición aparece solo cuando fechan su inicio y su fin. Las prohibiciones de 2005 y de febrero de 2009 las levantó la propia Oficina del Jefe de Bomberos, sin votación de la corte. Faltan las reportadas en 2003, 2005, junio de 2009 y 2010 porque las fuentes encontradas no fechan ambos extremos.",
+    "Every ban Harris County Commissioners Court adopted since February 2021, when its records go online, is listed. Earlier bans come from the Fire Marshal's Office's releases and from news reports. \"Not found\" marks an end no source dates, and \"By\" the latest day a source allows. A 2003 ban has been reported, but no source found dates it.",
+    "Aparece cada prohibición que la Corte de Comisionados del condado de Harris adoptó desde febrero de 2021, cuando sus registros están en línea. Las anteriores vienen de los comunicados de la Oficina del Jefe de Bomberos y de reportes de prensa. «No encontrada» marca un fin que ninguna fuente fecha, y «Antes del» el último día que una fuente permite. Se ha reportado una prohibición en 2003, pero ninguna fuente encontrada la fecha."
   );
 }
 
@@ -722,7 +730,7 @@ ${faq}
   </section>
   <section class="more">
     <h2>${T(lang, "Past burn bans", "Prohibiciones anteriores")}</h2>
-    <p><a href="${lk("/burn-ban/history")}">${T(lang, "Every Harris County burn ban with known dates, and how a ban starts and ends", "Cada prohibición de quemas del condado de Harris con fechas conocidas, y cómo empieza y termina una prohibición")}</a></p>
+    <p><a href="${lk("/burn-ban/history")}">${T(lang, "Every past Harris County burn ban, with its sources", "Cada prohibición de quemas anterior del condado de Harris, con sus fuentes")}</a></p>
   </section>
   <section class="res">
     <h2>${T(lang, "Official sources and related pages", "Fuentes oficiales y páginas relacionadas")}</h2>
@@ -792,7 +800,7 @@ export function burnbanMarkdown(data, lang, weather) {
     ""
   );
   for (const f of burnbanFaq(lang)) out.push(`### ${f.q}`, "", f.a, "");
-  out.push(`## ${T(lang, "Past burn bans", "Prohibiciones anteriores")}`, "", `[${T(lang, "Every Harris County burn ban with known dates, and how a ban starts and ends", "Cada prohibición de quemas del condado de Harris con fechas conocidas, y cómo empieza y termina una prohibición")}](${canonicalFor("/burn-ban/history", lang)})`, "");
+  out.push(`## ${T(lang, "Past burn bans", "Prohibiciones anteriores")}`, "", `[${T(lang, "Every past Harris County burn ban, with its sources", "Cada prohibición de quemas anterior del condado de Harris, con sus fuentes")}](${canonicalFor("/burn-ban/history", lang)})`, "");
   out.push(`## ${T(lang, "Official sources and related pages", "Fuentes oficiales y páginas relacionadas")}`, "");
   for (const r of burnbanResources(lang)) {
     out.push(`- [${r.label}](${r.path ? canonicalFor(r.path, lang) : r.url}) — ${r.note}`);

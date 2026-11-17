@@ -1,9 +1,9 @@
 # `/burn-ban/history` — past Harris County burn bans
 
-Every Harris County burn ban with known dates, and how a ban starts and ends.
-One level below `/burn-ban`, which stays a live status page; this one is the
-record. Added 2026-11-17, when the owner found the status page crowded with
-its status, checklist, explainer, questions, history and links.
+Every past Harris County burn ban this site has found, with the source of
+each date. Dates and records only: no explanation of how bans work (the owner,
+2026-11-17: the page should give the dates and records, not commentary).
+One level below `/burn-ban`, which stays a live status page.
 
 | | |
 |---|---|
@@ -12,7 +12,7 @@ its status, checklist, explainer, questions, history and links.
 | **Spanish** | `/es/burn-ban/history` |
 | **Cache** | `public, max-age=3600` |
 | **Negotiation** | `Accept: text/markdown` or `?format=md`; `Vary: Accept` |
-| **Nav** | none; linked from `/burn-ban` ("Past burn bans") and listed in the sitemaps |
+| **Nav** | none; linked from `/burn-ban` ("Every past Harris County burn ban, with its sources") and listed in the sitemaps |
 | **D1 failure** | 502 (`loadBurnBanPeriods` returns null and the handler throws), never a table with rows missing |
 | **Sitemap date** | none: no `feeds`, no `lastmod` |
 
@@ -21,19 +21,15 @@ its status, checklist, explainer, questions, history and links.
 | Block | Source |
 |---|---|
 | Breadcrumb "Burn Ban Status › Past Harris County Burn Bans", with `BreadcrumbList` JSON-LD | static |
-| "Every ban with known dates" table and the gap note | D1 `burnban_periods` via `banHistoryRows` / `banHistoryNote` (`burnban.js`) |
-| "How a ban starts and ends" — four paragraphs: who asks and who votes; that no vote ends it (Forest Service finding, Fire Marshal's announcement, 90-day limit); the Keetch-Byram Drought Index with the Fire Marshal's dated thresholds (2013: considers a ban above 500; 2005: ends once below 480 for 72 hours); that the Forest Service map can trail the county (the 2026 lift, Nov 16, still on the map Nov 17) | `howBansWork(lang)` |
-| "Drought and the law" links — Fire Marshal's burn-ban page, U.S. Drought Monitor, Texas burn ban map, Local Government Code §352.081 | `historyLinks(lang)` |
+| "Every ban found" table and the note under it | D1 `burnban_periods` via `banHistoryRows` / `banHistoryNote` (`burnban.js`) |
+| "Drought and the law" links: Fire Marshal's burn-ban page, U.S. Drought Monitor, Texas burn ban map, Local Government Code §352.081 | `historyLinks(lang)` |
 
-The drought-index thresholds are the latest this site has found, and the page
-says the office may use others now. Sources: the Fire Marshal's Office release
-of June 21, 2005 ("The determining factor is KBDI value below 480 for 72
-consecutive hours", reprinted by the Houston Chronicle), and the Houston
-Chronicle of July 23, 2013 (the office "considers a ban ... if the index score
-is above 500"). The statute's text was read through FindLaw's copy on
-2026-11-17, because the official site renders it client-side.
+An end no source dates shows "Not found", or "By <day>" when a source bounds
+it (`end_unknown = 1`, `ended_by`; migration 0007). Those rows are 2005 (lifted
+by 2005-07-27, per the Houston Chronicle story of that date), June 2009 and
+October 2010. The note names the 2003 ban, which has no dated source at all.
 
-No `data-nosnippet`: everything here is the record or a guide.
+No `data-nosnippet`: everything here is the record.
 
 ## The table
 

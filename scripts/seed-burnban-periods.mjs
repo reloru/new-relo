@@ -27,12 +27,12 @@
 //          closed: the cron's insert for an open ban does nothing on a start
 //          date that already exists, and its close touches only open rows.
 //
-// Before 2021, each end comes from a Fire Marshal's Office release or a news
-// report, and a ban is entered only when sources date both ends. The 2005 and
-// February 2009 bans were lifted by the Fire Marshal's Office itself, with no
-// court vote. Bans reported in 2003, 2005, June 2009 and 2010 are not entered
-// because the sources found (2026-11-15, and the owner's sources read
-// 2026-11-17) do not date both ends. Issue #275 lists what each is missing.
+// Before 2021, each date comes from a Fire Marshal's Office release (the
+// county's archive at harriscountycitizencorps.com, read 2026-11-17) or a news
+// report. A ban with a dated start and no dated end is entered with
+// end_unknown, so the page says the end was not found: 2005 (lifted by
+// July 27), June 2009 and October 2010. A 2003 ban is reported with no dates
+// found, so it has no row; the page's note says so.
 //
 // Coverage: the court's Legistar records begin in February 2021. Every item
 // whose title mentions "burn" was listed through the public API
@@ -55,6 +55,42 @@ import { execFileSync } from "node:child_process";
 const LEGISTAR = "https://harriscountytx.legistar.com/LegislationDetail.aspx";
 
 export const PAST_BANS = [
+  // Bans with a dated start and no dated end (end_unknown). `ended` stays null,
+  // and the cron leaves such a row alone: it closes and opens only rows with
+  // end_unknown = 0. `ended_by` is the latest day a source allows.
+  {
+    started: "2005-06-21",
+    ended: null,
+    end_unknown: 1,
+    ended_by: "2005-07-27",
+    start_source: "fmo",
+    url: "https://www.harriscountycitizencorps.com/Portals/34/Documents/NewsArchives/2005NewsArchive/burnban06-21-05.pdf",
+    end_source: "news",
+    end_url: null,
+    note: "Start: Fire Marshal's Office release, \"Harris County Commissioners Court has ordered a burn ban effective June 21, until September 19, 2005\". Lift date not given; lifted by July 27, 2005 as reported by Houston Chronicle (https://www.chron.com/neighborhood/article/Harris-County-fire-marshal-lifts-burn-ban-9803725.php): the story, dated July 27, 2005, says the fire marshal lifted it, \"The fire marshal made the call and acted alone on this\", without saying on what day.",
+  },
+  {
+    started: "2009-06-23",
+    ended: null,
+    end_unknown: 1,
+    ended_by: null,
+    start_source: "fmo",
+    url: "https://www.harriscountycitizencorps.com/Portals/34/Documents/NewsArchives/2009NewsArchive/burnban.pdf",
+    end_source: null,
+    end_url: null,
+    note: "Start: Fire Marshal's Office release of June 23, 2009: \"Today, Commissioners approved a 90-day burn ban for unincorporated Harris County.\" No source found dates the end. The Baytown Sun reported it still in effect on July 31, 2009.",
+  },
+  {
+    started: "2010-10-26",
+    ended: null,
+    end_unknown: 1,
+    ended_by: null,
+    start_source: "fmo",
+    url: "https://www.harriscountycitizencorps.com/Portals/34/Documents/NewsArchives/2010NewsArchive/Burn_Ban_Oct2010.pdf",
+    end_source: null,
+    end_url: null,
+    note: "Start: Fire Marshal's Office release of Oct. 26, 2010: \"Today, Harris County Commissioners Court approved a burn ban\" (90 days). No source found dates the end. The Houston Chronicle (Chris Moran, Nov. 22, 2010, \"Harris County expected to lift burn ban\") reported the ban \"will be lifted today if Commissioners Court accepts the recommendation of the county fire marshal\"; that it did is not confirmed.",
+  },
   // Before Legistar (2021): a Fire Marshal's Office release ('fmo', URL in
   // `url`) or a news report ('news', outlet and URL in `note`).
   {
@@ -69,11 +105,11 @@ export const PAST_BANS = [
   {
     started: "2011-04-19",
     ended: "2011-12-21",
-    start_source: "news",
-    url: null,
+    start_source: "fmo",
+    url: "https://www.harriscountycitizencorps.com/Portals/34/Documents/NewsArchives/2011NewsArchive/90DayBurnBanApril2011.pdf",
     end_source: "news",
     end_url: null,
-    note: "Start as reported by Houston Chronicle (https://www.chron.com/news/houston-texas/article/harris-co-orders-three-month-burn-ban-during-1684831.php): \"Harris County Commissioners Court on Tuesday imposed a burn ban\", published Apr. 19, 2011; extended through October on June 21. Lift date as reported by ABC13 (https://abc13.com/archive/8474452/): \"Harris County eases burn ban restrictions\", Tuesday, Dec. 20, 2011, effective Wednesday, Dec. 21. The page is titled \"Harris County lifts all limitations on legal outdoor burning, except large ceremonial fires and burning of certain domestic waste at night\". Its date is the dateline as displayed, which the page's markup does not carry.",
+    note: "Start: Fire Marshal's Office release of Apr. 19, 2011, \"Harris County Commissioners Court Approves 90-day Burn Ban\": \"Today, Harris County Commissioners Court enacted a burn ban\". Extended through October on June 21, 2011. Lift date as reported by ABC13 (https://abc13.com/archive/8474452/): \"Harris County eases burn ban restrictions\", Tuesday, Dec. 20, 2011, effective Wednesday, Dec. 21.",
   },
   {
     started: "2013-07-09",
@@ -87,11 +123,11 @@ export const PAST_BANS = [
   {
     started: "2015-08-11",
     ended: "2015-08-25",
-    start_source: "news",
-    url: null,
+    start_source: "fmo",
+    url: "https://www.harriscountycitizencorps.com/Portals/34/Documents/NewsArchives/2015NewsArchive/outdoor-burn-ban.pdf",
     end_source: "news",
     end_url: null,
-    note: "Start as reported by Houston Public Media (https://www.houstonpublicmedia.org/articles/news/2015/08/11/120945/harris-county-officials-issue-outdoor-burn-ban/): commissioners approved it Aug. 11, 2015, effective immediately. Lift date as reported by Houston Public Media (https://www.houstonpublicmedia.org/articles/news/2015/08/25/119495/thanks-to-the-rain-harris-county-lifts-burn-ban/), and by the Houston Chronicle (https://www.houstonchronicle.com/news/houston-texas/houston/article/County-pulls-back-on-burn-ban-6465432.php): commissioners rescinded it Tuesday, Aug. 25, 2015. Burning in covered containers stayed allowed.",
+    note: "Start: Fire Marshal's Office release of Aug. 11, 2015, \"Increased Fire Risk Triggers Outdoor Burn Restrictions in Harris County\"; also reported by Houston Public Media (https://www.houstonpublicmedia.org/articles/news/2015/08/11/120945/harris-county-officials-issue-outdoor-burn-ban/). Lift date as reported by Houston Public Media (https://www.houstonpublicmedia.org/articles/news/2015/08/25/119495/thanks-to-the-rain-harris-county-lifts-burn-ban/), and by the Houston Chronicle (https://www.houstonchronicle.com/news/houston-texas/houston/article/County-pulls-back-on-burn-ban-6465432.php): commissioners rescinded it Tuesday, Aug. 25, 2015. Burning in covered containers stayed allowed.",
   },
   {
     started: "2022-06-28",
@@ -148,8 +184,8 @@ const q = (v) => (v == null ? "NULL" : `'${String(v).replace(/'/g, "''")}'`);
 export const seedSql = () =>
   PAST_BANS.map(
     (b) =>
-      `INSERT INTO burnban_periods (started, ended, start_source, end_source, note, url, end_url) VALUES (${[b.started, b.ended, b.start_source ?? "order", b.end_source, b.note, b.url, b.end_url].map(q).join(", ")}) ` +
-      `ON CONFLICT (started) DO UPDATE SET ended = excluded.ended, start_source = excluded.start_source, end_source = excluded.end_source, note = excluded.note, url = excluded.url, end_url = excluded.end_url;`,
+      `INSERT INTO burnban_periods (started, ended, start_source, end_source, note, url, end_url, end_unknown, ended_by) VALUES (${[b.started, b.ended, b.start_source ?? "order", b.end_source, b.note, b.url, b.end_url].map(q).join(", ")}, ${b.end_unknown ? 1 : 0}, ${q(b.ended_by)}) ` +
+      `ON CONFLICT (started) DO UPDATE SET ended = excluded.ended, start_source = excluded.start_source, end_source = excluded.end_source, note = excluded.note, url = excluded.url, end_url = excluded.end_url, end_unknown = excluded.end_unknown, ended_by = excluded.ended_by;`,
   ).join("\n") + "\n";
 
 if (import.meta.url === `file://${process.argv[1]}`) {

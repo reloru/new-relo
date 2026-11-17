@@ -53,7 +53,8 @@ paths:
   not carry. Before 2026-11-12 they come from the IEM archive.
 - Hand-entered rows (past burn bans) go through a committed script that
   dry-runs by default (`scripts/seed-burnban-periods.mjs`), and every date
-  must be sourced. An open row would be closed by the cron.
+  must be sourced. A row with no dated end is `end_unknown = 1`, never an
+  open row: the cron closes and opens only rows with `end_unknown = 0`.
 - Tables, scopes, the archive backfill and hand-entered rows:
   `docs/ops/record.md`.
 
