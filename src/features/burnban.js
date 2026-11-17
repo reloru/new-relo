@@ -448,9 +448,11 @@ export function banHistoryRows(periods, lang) {
     const end = p.ended ? banDay(p.ended, lang) : T(lang, "in effect", "vigente");
     const length = p.ended ? T(lang, `${banDays(p.started, p.ended)} days`, `${banDays(p.started, p.ended)} días`) : "";
     const court = T(lang, "Commissioners Court record", "registro de la Corte de Comisionados");
+    const fmo = T(lang, "Fire Marshal's Office release", "comunicado de la Oficina del Jefe de Bomberos");
     const startNews = p.start_source === "news" ? reportedBy(p.note, "Start") : null;
     const startSrc =
       p.start_source === "order" ? { text: court, url: p.url }
+      : p.start_source === "fmo" ? { text: fmo, url: p.url }
       : startNews ? { text: T(lang, `as reported by ${startNews.outlet}`, `según ${startNews.outlet}`), url: startNews.url }
       : p.start_source === "tfs" ? { text: T(lang, "Texas A&M Forest Service start date", "fecha de inicio del Servicio Forestal de Texas A&M"), url: null }
       : { text: T(lang, "first seen by this site", "primera vez visto por este sitio"), url: null };
@@ -460,6 +462,7 @@ export function banHistoryRows(periods, lang) {
       : news ? { text: T(lang, `as reported by ${news.outlet}`, `según ${news.outlet}`), url: news.url }
       : p.end_source === "observed" ? { text: T(lang, "first seen lifted by this site", "visto levantado por este sitio"), url: null }
       : p.end_source === "order" ? { text: court, url: p.end_url }
+      : p.end_source === "fmo" ? { text: fmo, url: p.end_url }
       : null;
     return { start, end, length, startSrc, endSrc };
   });
@@ -468,8 +471,8 @@ export function banHistoryRows(periods, lang) {
 export function banHistoryNote(lang) {
   return T(
     lang,
-    "Dates come from Harris County Commissioners Court records, which are online from February 2021; every ban the court adopted since then is listed. The 2024 and 2025 bans ended without a court vote, because each order ends on its own once the Texas A&M Forest Service finds the drought is over, so those end dates are the ones news outlets reported from the county's statements. Before 2021 the dates come from news reports, and a ban is listed only when reports date both its start and its end: bans reported in 2003, 2005, 2009 (two), 2010 and 2011 are missing because the reports found do not date both ends.",
-    "Las fechas vienen de los registros de la Corte de Comisionados del condado de Harris, disponibles en línea desde febrero de 2021; aparecen todas las prohibiciones que la corte adoptó desde entonces. Las de 2024 y 2025 terminaron sin votación de la corte, porque cada orden termina sola cuando el Servicio Forestal de Texas A&M determina que la sequía terminó, así que esas fechas de fin son las que reportaron medios a partir de declaraciones del condado. Antes de 2021 las fechas vienen de reportes de prensa, y una prohibición aparece solo cuando los reportes fechan su inicio y su fin: faltan las reportadas en 2003, 2005, 2009 (dos), 2010 y 2011 porque los reportes encontrados no fechan ambos extremos.",
+    "Dates come from Harris County Commissioners Court records, which are online from February 2021; every ban the court adopted since then is listed. The 2024 and 2025 bans ended without a court vote, because each order ends on its own once the Texas A&M Forest Service finds the drought is over, so those end dates are the ones news outlets reported from the county's statements. Before 2021 the dates come from the Harris County Fire Marshal's Office's own releases and from news reports, and a ban is listed only when they date both its start and its end. The 2005 and February 2009 bans were lifted by the Fire Marshal's Office itself, without a court vote. Bans reported in 2003, 2005, June 2009 and 2010 are missing because the sources found do not date both ends.",
+    "Las fechas vienen de los registros de la Corte de Comisionados del condado de Harris, disponibles en línea desde febrero de 2021; aparecen todas las prohibiciones que la corte adoptó desde entonces. Las de 2024 y 2025 terminaron sin votación de la corte, porque cada orden termina sola cuando el Servicio Forestal de Texas A&M determina que la sequía terminó, así que esas fechas de fin son las que reportaron medios a partir de declaraciones del condado. Antes de 2021 las fechas vienen de los comunicados de la Oficina del Jefe de Bomberos del condado de Harris y de reportes de prensa, y una prohibición aparece solo cuando fechan su inicio y su fin. Las prohibiciones de 2005 y de febrero de 2009 las levantó la propia Oficina del Jefe de Bomberos, sin votación de la corte. Faltan las reportadas en 2003, 2005, junio de 2009 y 2010 porque las fuentes encontradas no fechan ambos extremos.",
   );
 }
 

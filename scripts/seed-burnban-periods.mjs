@@ -5,7 +5,9 @@
 // was added — never from memory:
 //
 //   start  the Commissioners Court record that adopted the ban, on the
-//          county's Legistar site (start_source 'order', its URL in `url`).
+//          county's Legistar site (start_source 'order', its URL in `url`),
+//          or before 2021 the Harris County Fire Marshal's Office's own
+//          release announcing it (start_source 'fmo', its URL in `url`).
 //   end    the court record that terminated it (end_source 'order', its URL
 //          in `end_url`). The 2024 and 2025 bans have none: each order ran
 //          "until the earlier of 90 days after the date of adoption or a
@@ -15,11 +17,12 @@
 //          reported from the county's statements (end_source 'news', outlet
 //          and URL in `note`).
 //
-// Before 2021, both ends come from news reports and a ban is entered only when
-// reports date both: bans reported in 2003, 2005, 2009 (two), 2010 and 2011
-// were not entered because the reports found (2026-11-15, and the owner's
-// sources read 2026-11-17) do not date both ends. Issue #275 lists what each
-// one is missing.
+// Before 2021, each end comes from a Fire Marshal's Office release or a news
+// report, and a ban is entered only when sources date both ends. The 2005 and
+// February 2009 bans were lifted by the Fire Marshal's Office itself, with no
+// court vote. Bans reported in 2003, 2005, June 2009 and 2010 are not entered
+// because the sources found (2026-11-15, and the owner's sources read
+// 2026-11-17) do not date both ends. Issue #275 lists what each is missing.
 //
 // Coverage: the court's Legistar records begin in February 2021. Every item
 // whose title mentions "burn" was listed through the public API
@@ -42,8 +45,26 @@ import { execFileSync } from "node:child_process";
 const LEGISTAR = "https://harriscountytx.legistar.com/LegislationDetail.aspx";
 
 export const PAST_BANS = [
-  // Before Legistar (2021), both ends come from news reports (start_source
-  // and end_source 'news', each outlet and URL in `note`).
+  // Before Legistar (2021): a Fire Marshal's Office release ('fmo', URL in
+  // `url`) or a news report ('news', outlet and URL in `note`).
+  {
+    started: "2009-02-10",
+    ended: "2009-05-06",
+    start_source: "fmo",
+    url: "https://www.harriscountycitizencorps.com/Portals/34/Documents/NewsArchives/2009NewsArchive/2009burnban.pdf",
+    end_source: "news",
+    end_url: null,
+    note: "Start: Harris County Fire Marshal's Office release dated Feb. 10, 2009, \"Harris County Burn Ban Issued in Face of Continued Wildfire Threat\". Lift date as reported by Houston Chronicle (https://www.chron.com/neighborhood/tomball/news/article/Harris-County-burn-ban-lifted-9299533.php): \"The burn ban in unincorporated Harris County was lifted May 6\", according to the Fire Marshal's Office, which lifted it.",
+  },
+  {
+    started: "2011-04-19",
+    ended: "2011-12-21",
+    start_source: "news",
+    url: null,
+    end_source: "news",
+    end_url: null,
+    note: "Start as reported by Houston Chronicle (https://www.chron.com/news/houston-texas/article/harris-co-orders-three-month-burn-ban-during-1684831.php): \"Harris County Commissioners Court on Tuesday imposed a burn ban\", published Apr. 19, 2011; extended through October on June 21. Lift date as reported by ABC13 (https://abc13.com/archive/8474452/): \"Harris County eases burn ban restrictions\", Tuesday, Dec. 20, 2011, effective Wednesday, Dec. 21. The page is titled \"Harris County lifts all limitations on legal outdoor burning, except large ceremonial fires and burning of certain domestic waste at night\". Its date is the dateline as displayed, which the page's markup does not carry.",
+  },
   {
     started: "2013-07-09",
     ended: "2013-07-23",
