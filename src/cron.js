@@ -11,9 +11,9 @@
 // more often buys nothing, and on a day it publishes none the hourly floor is
 // the only thing that ends the retry), calendar ~24h (Crosby ISD's calendar
 // changes rarely), and
-// burnban ~4h (TFS updates roughly daily, not on a schedule, but a status
-// change during fire-weather conditions is worth catching sooner than half a
-// day out).
+// and burnban every tick (one small ArcGIS query; on 2026-11-16 the 4-hour
+// gate it had added up to four hours to the map's own lag behind the
+// Fire Marshal's Office).
 //
 // Every branch that actually FETCHES records its outcome through the recorder,
 // written once at the end to the `cron_status` key — the only place
@@ -205,20 +205,18 @@ export async function scheduled(event, env, ctx) {
       console.error("Cron pollen refresh failed:", e && e.stack);
       run.failed("pollen", e);
     }
-    // Refresh the Harris County burn-ban status at most ~every 4h — TFS's feed
-    // updates roughly daily (a county judge's order, not a schedule), so a flat
-    // 4h gate still doesn't hammer it while catching a change well inside a
-    // single day (was 12h; tightened 2026-08-26 so a status flip during active
-    // fire weather doesn't sit stale for half a day).
+    // Refresh the Harris County burn-ban status every tick. It was gated at 12h,
+    // then 4h (2026-08-26). On 2026-11-16 the Fire Marshal's Office lifted the
+    // ban, the Forest Service map followed the next day, and the 4h gate kept
+    // the site on "in effect" for hours after the map changed. The query is
+    // one small ArcGIS request, so there is no reason to add delay of our own.
     // fetchBurnBan() throws on failure, an error-shaped body, or an
     // unrecognized status, so a transient TFS outage skips the write and the
     // last good status survives.
     try {
       const cur = await env.WEATHER.get(BURNBAN_KV_KEY, "json");
       const age = cur?.updated ? Date.now() - new Date(cur.updated).getTime() : Infinity;
-      // An entry from before the neighbor strip shipped is refreshed at once
-      // rather than waiting out the 4-hour gate.
-      if (!cur || (cur.status !== "Yes" && cur.status !== "No") || !Array.isArray(cur.neighbors) || age > 4 * 3600 * 1000) {
+      if (!cur || (cur.status !== "Yes" && cur.status !== "No") || !Array.isArray(cur.neighbors) || age > 10 * 60 * 1000) {
         // burnbanHistory carries the status-history stamps forward off the
         // PREVIOUS entry, so the write has to be built from `cur` — a bare
         // fetchBurnBan() result would reset "since when" on every refresh.
