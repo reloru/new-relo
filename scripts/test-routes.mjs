@@ -156,6 +156,20 @@ for (const [label, mutate] of [["quiet", undefined], ["busy", busy]]) {
     }
   }
 
+  // --- the MCP discovery card answers at both of its paths, identically ---
+  {
+    const a = await text("/.well-known/mcp/server-card.json");
+    const b = await text("/mcp/server-card");
+    for (const [p, { r, body }] of [["/.well-known/mcp/server-card.json", a], ["/mcp/server-card", b]]) {
+      if (r.status !== 200) fail(`[${label}] ${p}: status ${r.status}, want 200`);
+      if (!(r.headers.get("content-type") || "").startsWith("application/json")) fail(`[${label}] ${p}: content-type ${r.headers.get("content-type")}`);
+      let card = null;
+      try { card = JSON.parse(body); } catch { fail(`[${label}] ${p}: body is not JSON`); }
+      if (card && card.name !== "com.crosbynews/weather") fail(`[${label}] ${p}: name ${card.name}, want com.crosbynews/weather`);
+    }
+    if (a.body !== b.body) fail(`[${label}] /mcp/server-card differs from /.well-known/mcp/server-card.json`);
+  }
+
   // --- the edges of the route table ---
   for (const [path, want] of [["/nope", 404], ["/es/nope", 404], ["/es/es", 404], ["/es/api/weather", 404], ["/weather/", 301], ["/es/", 301]]) {
     requests++;

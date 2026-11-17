@@ -217,7 +217,7 @@ export async function routeRequest(request, env, ctx) {
       });
     }
 
-    if (path === "/.well-known/mcp/server-card.json") {
+    if (path === "/.well-known/mcp/server-card.json" || path === "/mcp/server-card") {
       return new Response(JSON.stringify(mcpServerCard(), null, 2), {
         headers: { "content-type": "application/json; charset=utf-8", "cache-control": "public, max-age=3600", "access-control-allow-origin": "*" },
       });

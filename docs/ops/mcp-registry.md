@@ -17,6 +17,12 @@ Overwritten in place — no history; see `docs/README.md`.
   moves when someone runs the publish flow below, so a
   bumped-but-unpublished version is normal, and an unpublished version is
   skipped rather than backfilled.
+- **The discovery card mirrors `server.json`.** `mcpServerCard()` carries
+  the registry `name`, `version`, `websiteUrl`, `repository` and `remotes`
+  at its top level (served at `/.well-known/mcp/server-card.json` and
+  `/mcp/server-card`), so crawlers such as Lowdown can match it to the
+  listing. `scripts/test-mcp-server.mjs` fails if the two disagree; a change
+  to `server.json` metadata means the same change in the card.
 - **Five hand-maintained places name the tools — update every one when
   adding a tool.** `mcpTools()` is the only generated list; these five are
   prose that goes stale silently: `CROSBY_WEATHER_SKILL` (served at

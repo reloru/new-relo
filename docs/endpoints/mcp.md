@@ -122,4 +122,7 @@ registry listing only moves when someone runs the publish flow.
 
 ## Discovery
 
-`/.well-known/mcp/server-card.json`.
+`/.well-known/mcp/server-card.json`, also served at `/mcp/server-card` (the
+per-endpoint path some crawlers try). Both carry the registry name
+`com.crosbynews/weather` at the top level; see
+`docs/endpoints/.well-known/mcp/server-card.json.md`.
