@@ -14,6 +14,29 @@ towns, filters, and writes the result straight to the WEATHER KV `news`
 key via the Cloudflare KV API. The Worker only renders that key
 (`loadNews()` is read-only).
 
+## Fetching from Google News
+
+The five queries run one after another, 1.5 s apart, not all at once. Google
+answers some requests with HTTP 429 and an "automated queries" page, at random,
+even when they are spaced out (measured 2026-11-16 from a session container: 3
+of 10 requests 2 s apart refused). `fetchFeed()` retries a 429, a 5xx, a
+network error or a 200 that isn't RSS up to 4 tries, waiting 5, 10 then 20 s
+plus up to 5 s of jitter; other 4xx aren't retried. Each query's result is
+printed (`query 2/5: ok (200, 2 tries)`).
+
+`feedGate()`: the run writes KV **only when every query answered**. If any
+query still fails after its retries, the run exits 1 without writing and names
+the failed queries, so the last good snapshot stays. Before this, a refused
+query read as "no news" and a run that lost two queries replaced a 10-item
+snapshot with the other three queries' 5 items (2026-11-16). The cost: while
+Google keeps refusing one query, no run updates `/news` until one gets
+everything. `node scripts/test-fetch-news.mjs` pins this offline (CI: "Check
+news fetch retry").
+
+Article links are Google News redirect URLs (`news.google.com/rss/articles/…`,
+new `AU_yqL…` id format, not decodable offline), so a reader's tap goes through
+Google first and can meet the same "sorry" page from the reader's own IP.
+
 ## Filtering logic
 
 The script holds all the filtering logic (plus the Workers AI layer below):
@@ -116,9 +139,9 @@ scripts/fetch-news.mjs` (add `DRY_RUN=1` to print the would-be payload
 without writing KV — handy for testing the filters against live Google
 News). The routine just needs Bash (to run node) — NOT git write. If the
 routine stops, items age out at 45 days and `/news` shows an honest "no
-recent news" (never errors). If a run hits a total upstream failure (every
-Google query empty), it aborts WITHOUT writing, so a transient block can't
-wipe the last good snapshot.
+recent news" (never errors). If any Google query still fails after its
+retries, the run aborts WITHOUT writing, so a transient block can't wipe or
+shrink the last good snapshot.
 
 ## Firing on demand
 

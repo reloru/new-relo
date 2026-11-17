@@ -155,6 +155,11 @@ jobs:
       # strict) with a fake fetch. Pure node, no network.
       - name: Check news AI layer
         run: node scripts/test-news-ai.mjs
+      # Google News refuses some requests with 429. This pins the retry/backoff and
+      # the rule that the routine writes only when every query answered, so a
+      # refused query can't silently drop its stories from the snapshot.
+      - name: Check news fetch retry
+        run: node scripts/test-fetch-news.mjs
       # A contrast regression is invisible to every other gate: nothing throws,
       # the render check passes, the page returns 200, and it looks fine to
       # whoever changed it — it is only unreadable for the people who need it
