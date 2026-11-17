@@ -2,8 +2,8 @@
 //
 // Burn bans are COUNTYWIDE ONLY — TFS has no sub-county resolution, so this
 // page never implies anything finer-grained than "Harris County." TFS's feed
-// updates roughly daily (county judges declare/lift bans by order, not on a
-// schedule), so the cron throttles this to ~4h rather than every tick.
+// updates roughly daily (counties report bans as they start and end), and the
+// cron reads it every tick so the site adds no delay of its own.
 // Worker reachability to gis.tfs.tamu.edu was canary-verified from the
 // deployed runtime (200, real body) before this shipped.
 //
@@ -701,7 +701,7 @@ ${JSONLD_SITE}
 ${topbar("/burn-ban", lang)}
 <main id="main">
   <h1>${esc(title)}</h1>
-  <p class="intro">${T(lang, "Whether outdoor burning is banned in unincorporated Harris County, which includes Crosby. The status comes from the Texas A&M Forest Service's statewide map and is checked about every four hours. The Harris County Fire Marshal's Office announces a ban and its end, and the map can lag behind it.", "Si está prohibido quemar al aire libre en la parte no incorporada del condado de Harris, que incluye a Crosby. El estado viene del mapa estatal del Servicio Forestal de Texas A&M y se revisa más o menos cada cuatro horas. La Oficina del Jefe de Bomberos del condado de Harris anuncia cada prohibición y su fin, y el mapa puede tardar en reflejarlo.")}</p>
+  <p class="intro">${T(lang, "Whether outdoor burning is banned in unincorporated Harris County, which includes Crosby. The status comes from the Texas A&M Forest Service's statewide map and is checked every 15 minutes. The Harris County Fire Marshal's Office announces a ban and its end, and the map can lag behind it.", "Si está prohibido quemar al aire libre en la parte no incorporada del condado de Harris, que incluye a Crosby. El estado viene del mapa estatal del Servicio Forestal de Texas A&M y se revisa cada 15 minutos. La Oficina del Jefe de Bomberos del condado de Harris anuncia cada prohibición y su fin, y el mapa puede tardar en reflejarlo.")}</p>
   ${status}
   ${checkedLine}
   ${sinceLine}
@@ -741,7 +741,7 @@ export function burnbanMarkdown(data, lang, weather) {
   const out = [
     `# ${T(lang, "Harris County Burn Ban Status", "Estado de la prohibición de quemas del condado de Harris")}`,
     "",
-    `_${T(lang, "Outdoor-burning ban status for unincorporated Harris County, TX — which includes Crosby — from the Texas A&M Forest Service, rechecked about every 4 hours.", "Estado de la prohibición de quemas al aire libre para el condado de Harris, TX no incorporado — que incluye a Crosby — según el Servicio Forestal de Texas A&M, revisado aproximadamente cada 4 horas.")}_`,
+    `_${T(lang, "Outdoor-burning ban status for unincorporated Harris County, TX — which includes Crosby — from the Texas A&M Forest Service, rechecked every 15 minutes.", "Estado de la prohibición de quemas al aire libre para el condado de Harris, TX no incorporado — que incluye a Crosby — según el Servicio Forestal de Texas A&M, revisado cada 15 minutos.")}_`,
     "",
   ];
   // Pulled out of the intro sentence and made its own bold line, matching the
