@@ -9,13 +9,23 @@
 //          or before 2021 the Harris County Fire Marshal's Office's own
 //          release announcing it (start_source 'fmo', its URL in `url`).
 //   end    the court record that terminated it (end_source 'order', its URL
-//          in `end_url`). The 2024 and 2025 bans have none: each order ran
-//          "until the earlier of 90 days after the date of adoption or a
+//          in `end_url`). The court's online records hold none for the 2024,
+//          2025 and 2026 bans (searched 2026-11-17); each order ran "until
+//          the earlier of 90 days after the date of adoption or a
 //          determination is made by the Texas Forest Service that drought
-//          conditions no longer exist", so both ended on that determination
-//          without a court vote. Their end dates are the ones news outlets
-//          reported from the county's statements (end_source 'news', outlet
-//          and URL in `note`).
+//          conditions no longer exist". The Fire Marshal's Office announced
+//          each lift. The 2024 and 2025 ends cite the news outlet that
+//          reported it (end_source 'news', outlet and URL in `note`); the
+//          2026 end cites the Fire Marshal's announcement (end_source 'fmo',
+//          its URL in `end_url`).
+//
+//          The 2026 ban began while the cron was watching, so the cron opened
+//          its row. It is closed here because the Forest Service map, which
+//          the cron reads, still listed a ban on 2026-11-17, a day after the
+//          Fire Marshal's Office lifted it; left alone, the cron would date
+//          the end by the day the map caught up. A row closed here stays
+//          closed: the cron's insert for an open ban does nothing on a start
+//          date that already exists, and its close touches only open rows.
 //
 // Before 2021, each end comes from a Fire Marshal's Office release or a news
 // report, and a ban is entered only when sources date both ends. The 2005 and
@@ -122,6 +132,15 @@ export const PAST_BANS = [
     end_source: "news",
     end_url: null,
     note: "Adopted by Commissioners Court item 25-6399. Lift date (effective Dec. 5) as reported by Community Impact (https://communityimpact.com/houston/spring-klein/environment/2025/12/05/commissioners-lift-burn-ban-in-unincorporated-harris-county/), citing the county's announcement.",
+  },
+  {
+    started: "2026-09-17",
+    ended: "2026-11-16",
+    start_source: "tfs",
+    url: null,
+    end_source: "fmo",
+    end_url: "https://www.hcfmo.net/Portals/15/Images/burnbanlifted11.26.png",
+    note: "Started Sept. 17, 2026: the Texas A&M Forest Service map's start date, which the cron recorded; adopted by Commissioners Court item 26-5864. Lifted effective Nov. 16, 2026 by the Harris County Fire Marshal's Office, which announced it on hcfmo.net (\"the burn ban in unincorporated Harris County was lifted November 16, 2026\") and on its social media. The Forest Service map still listed a Harris County ban on Nov. 17, 2026.",
   },
 ];
 

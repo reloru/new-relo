@@ -282,21 +282,27 @@ own ID does not open the page, so never build a link from it.
 | 2023-08-08 → 2023-10-10 | 23-4616 | 23-5855 |
 | 2024-10-08 → 2024-11-25 | 24-6503 | none: end date from Community Impact |
 | 2025-10-16 → 2025-12-05 | 25-6399 | none: end date from Community Impact |
-| 2026-09-17 → (cron) | 26-5864 | — |
+| 2026-09-17 → 2026-11-16 | 26-5864 (row opened by the cron, start from the Forest Service map) | fmo: Fire Marshal's Office announcement on hcfmo.net; closed by hand in the seed script because the map still listed a ban on 2026-11-17 |
 
 Every order since 2022 runs "until the earlier of 90 days after the date of
 adoption or a determination is made by the Texas Forest Service that drought
 conditions no longer exist" (§352.081(e)(1)), so it can end without a court
-vote. The 2022 and 2023 bans were still ended by one; the 2024 and 2025 bans
-have no termination record, which is why their end dates come from news. Not
+vote. The 2022 and 2023 bans were still ended by one. The court's online
+records hold no item ending the 2024, 2025 or 2026 ban (Legistar API searched
+2026-11-17; the court's last meeting before the 2026 lift was Nov. 12). The
+Fire Marshal's Office announced each of those lifts, and its posts say "the
+Harris County Commissioners Court lifted the burn ban" for 2024 and 2025, so
+the page claims neither a vote nor its absence: it says the court's online
+records hold none and that the Fire Marshal's Office announced each lift. Not
 entered, and the page says so: bans reported in 2003, 2005, June 2009 and
 2010, which the sources found on 2026-11-15 and the owner's sources read on
 2026-11-17 do not date at both ends. Issue #275 lists, for each, the dated end
 and what is missing.
 
 Before 2021 a start can also be the Harris County Fire Marshal's Office's own
-release (`start_source = 'fmo'`, the release's URL in `url`; rendered as "Fire
-Marshal's Office release"). Its releases are on harriscountycitizencorps.com,
+release (`start_source = 'fmo'`, the release's URL in `url`), and any end can
+be a Fire Marshal's announcement (`end_source = 'fmo'`, URL in `end_url`).
+Both render as "Fire Marshal's Office announcement". Its releases are on harriscountycitizencorps.com,
 the county's archive. The 2005 and February 2009 bans were lifted by the Fire
 Marshal's Office itself, with no court vote ("The fire marshal made the call
 and acted alone on this", Houston Chronicle, July 27, 2005), and the page says
