@@ -102,7 +102,11 @@ Every page is content-negotiated — send `Accept: text/markdown` (or add
   `get_flood_history` (each nearby gauge's historic crests against today's flood
   stages, and its river flood warnings) and `get_warning_history` (NWS warnings
   that covered Crosby, by type and year).
-  Discovery card at
+  Server Card (SEP-2127) at
+  [`/mcp/server-card`](https://crosbynews.com/mcp/server-card), listed in the
+  AI Catalog at
+  [`/.well-known/ai-catalog.json`](https://crosbynews.com/.well-known/ai-catalog.json);
+  the older discovery card with the tool list is at
   [`/.well-known/mcp/server-card.json`](https://crosbynews.com/.well-known/mcp/server-card.json).
 - **[llms.txt](https://crosbynews.com/llms.txt)** — plain-language site summary
   for LLMs.

@@ -35,7 +35,7 @@ Every page supports \`Accept: text/markdown\` (or \`?format=md\`) for a clean ma
 
 ${ENDPOINTS.filter((e) => e.group === "api").map((e) => `- ${e.name.en}: \`GET ${SITE}${e.path}\` — ${e.llms}`).join("\n")}
 - MCP server (Streamable HTTP): \`${SITE}/mcp\` — tools: \`get_current_conditions\`, \`get_forecast\`, \`get_alerts\`, \`get_tropical_outlook\`, \`get_pollen\`, \`get_burn_ban\`, \`get_air_quality\`, \`get_river_levels\`, \`get_fishing\`, \`get_traffic\`, \`get_crosby_news\`, \`get_school_events\`, \`get_emergency_contacts\`, \`get_radar\`, \`get_flood_history\`, \`get_warning_history\`
-- MCP server card: \`${SITE}/.well-known/mcp/server-card.json\`
+- MCP Server Card (SEP-2127): \`${SITE}/mcp/server-card\`, listed in the AI Catalog at \`${SITE}/.well-known/ai-catalog.json\`; older discovery card with the tool list: \`${SITE}/.well-known/mcp/server-card.json\`
 
 ## Data policy
 

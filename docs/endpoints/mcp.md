@@ -123,7 +123,9 @@ registry listing only moves when someone runs the publish flow.
 
 ## Discovery
 
-`/.well-known/mcp/server-card.json`, also served at `/mcp/server-card` (the
-per-endpoint path some crawlers try). Both carry the registry name
-`com.crosbynews/weather` at the top level; see
-`docs/endpoints/.well-known/mcp/server-card.json.md`.
+- `/mcp/server-card`: the SEP-2127 Server Card (`docs/endpoints/mcp/server-card.md`).
+- `/.well-known/ai-catalog.json`: the AI Catalog that lists it
+  (`docs/endpoints/.well-known/ai-catalog.json.md`), also advertised by
+  `rel="ai-catalog"` in the homepage `Link` header.
+- `/.well-known/mcp/server-card.json`: the older card, with the tool list
+  (`docs/endpoints/.well-known/mcp/server-card.json.md`).

@@ -60,7 +60,7 @@ Non-page routes: `/robots.txt`, `/sitemap.xml`, `/llms.txt`,
 `/notification-badge.png` — all `image/png` except the ICO, served from
 Workers static assets), `/radar-image`,
 `/.well-known/api-catalog`, `/openapi.json`, `/.well-known/security.txt`,
-`/.well-known/mcp/server-card.json`, `/mcp/server-card`, `/.well-known/agent-skills/index.json`,
+`/.well-known/mcp/server-card.json`, `/mcp/server-card`, `/.well-known/ai-catalog.json`, `/.well-known/agent-skills/index.json`,
 `/.well-known/agent-skills/crosby-weather/SKILL.md`.
 
 `/mcp` matters more than its position suggests — it is the published MCP Registry
@@ -130,7 +130,7 @@ curl -s "$BASE$p" | wc -c    # content pages are >2KB; a bare error page is far 
 - `referrer-policy`
 - `permissions-policy`
 - `vary: Accept`
-- `link:` (advertises the markdown alternate, sitemap, api-catalog, openapi)
+- `link:` (advertises the markdown alternate, sitemap, api-catalog, ai-catalog, openapi)
 
 ## 3. Canonicalization — ONE hop each
 Without following redirects (`curl -sI`), each variant must `301` straight to the
