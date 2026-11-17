@@ -1078,7 +1078,7 @@ async function runTool(name, args, env) {
     const payload = apiTraffic(traffic);
     const incLines =
       payload.incidents === null
-        ? "Incident data is temporarily unavailable."
+        ? "Incident data is not available right now."
         : payload.incidents.length
           ? payload.incidents
               .map((i) => `- ${i.location}${i.type ? ` — ${i.type}` : ""}${i.status ? ` (${i.status})` : ""}${i.lanesAffected ? `. Lanes affected: ${i.lanesAffected}` : ""}`)
@@ -1086,7 +1086,7 @@ async function runTool(name, args, env) {
           : "No monitored incidents on Crosby-area roads right now (US-90, FM-2100, FM-1942, IH-10 East).";
     const clLine =
       payload.laneClosures === null
-        ? "Lane-closure data is temporarily unavailable."
+        ? "Lane-closure data is not available right now."
         : payload.laneClosures.length
           ? `${payload.laneClosures.length} scheduled lane closure(s) on the Crosby corridors — see structured data or ${SITE}/traffic.`
           : "No scheduled lane closures on the Crosby corridors.";
@@ -1102,7 +1102,7 @@ async function runTool(name, args, env) {
     });
     const text = parts.length
       ? `${parts.join(" · ")} — measured count for ${pollenDateLabel(payload.countDate, "en")} by the Houston Health Department (National Allergy Bureau station; new counts publish weekday mornings). Details: ${SITE}/pollen`
-      : `The pollen and mold count is temporarily unavailable. Official source: ${payload.officialUrl}`;
+      : `The pollen and mold count is not available right now. Official source: ${payload.officialUrl}`;
     return { content: [{ type: "text", text }], structuredContent: payload };
   }
   if (name === "get_burn_ban") {
@@ -1119,7 +1119,7 @@ async function runTool(name, args, env) {
         ? `Burn ban in effect: outdoor burning is prohibited in unincorporated Harris County, TX, which includes Crosby.${tail}`
         : payload.status === "No"
           ? `No burn ban in Harris County, TX right now.${tail}`
-          : `Burn ban status is temporarily unavailable. Official page: ${payload.officialUrl}`;
+          : `Burn ban status is not available right now. Official page: ${payload.officialUrl}`;
     return { content: [{ type: "text", text }], structuredContent: payload };
   }
   if (name === "get_air_quality") {
@@ -1128,7 +1128,7 @@ async function runTool(name, args, env) {
     const a = payload.airQuality;
     const text = a
       ? `US AQI ${a.usAqi} (${a.category})${a.dominantPollutant ? `, ${a.dominantPollutant}-driven` : ""} near Crosby, TX — ${a.measured ? `measured by the closest ${a.reportingAgency || "TCEQ/AirNow"} monitors${a.dominantMonitor ? ` (${a.dominantPollutant} from ${a.dominantMonitor})` : ""} in the ${a.reportingArea || "Houston-Galveston-Brazoria"} area` : "modeled (Open-Meteo fallback)"}. ${aqiHealth(a.usAqi, "en")} Details: ${SITE}/air`
-      : `The air quality reading is temporarily unavailable. See ${SITE}/air`;
+      : `The air quality reading is not available right now. See ${SITE}/air`;
     return { content: [{ type: "text", text }], structuredContent: payload };
   }
   if (name === "get_emergency_contacts") {
@@ -1161,7 +1161,7 @@ async function runTool(name, args, env) {
     } catch {}
     if (!res || !res.ok) {
       return {
-        content: [{ type: "text", text: `Radar imagery is temporarily unavailable — see ${SITE}/radar for the live loop.` }],
+        content: [{ type: "text", text: `Radar imagery is not available right now — see ${SITE}/radar for the live loop.` }],
       };
     }
     const data = bufToBase64(await res.arrayBuffer());
@@ -1211,7 +1211,7 @@ async function runTool(name, args, env) {
             return `- ${g.name}: ${g.stage != null ? `${g.stage} ft` : "n/a"} (${waterState(g, "en").label})${g.flow != null ? `, ${g.flow.toLocaleString("en-US")} cfs` : ""}${th ? ` [flood stages: ${th}]` : ""}`;
           })
           .join("\n")
-      : "Water level data is temporarily unavailable.";
+      : "Water level data is not available right now.";
     return { content: [{ type: "text", text }], structuredContent: payload };
   }
   if (name === "get_fishing") {
@@ -1229,7 +1229,7 @@ async function runTool(name, args, env) {
             return `- ${s.water}${s.spot ? ` (${s.spot})` : ""}: ${s.conditions} — ${wq}`;
           })
           .join("\n")
-      : "Fishing conditions are temporarily unavailable.";
+      : "Fishing conditions are not available right now.";
     return { content: [{ type: "text", text }], structuredContent: payload };
   }
 

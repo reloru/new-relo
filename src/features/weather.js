@@ -234,7 +234,7 @@ export function renderMarkdown(data, lang, burnban) {
     const uvNow = uvCurrent(data);
     const aqi = data.aqi;
     out.push(T(lang, "## Now", "## Ahora"));
-    out.push(`**${now.temperature}°${now.temperatureUnit}** — ${translateConditions(now.shortForecast, lang)} (${T(lang, "for the", "para la hora de las")} ${hourLabel(now.startTime, lang)} ${T(lang, "CT hour", "CT")})${feels != null ? ` · ${T(lang, "feels like", "sensación térmica de")} ${feels}°` : ""}${pop(now) ? ` · ${pop(now)}% ${T(lang, "precip", "prob. lluvia")}` : ""}${uvNow ? ` · ${T(lang, "UV", "UV")} ${uvNow} (${uvCategory(uvNow, lang)})` : ""}${aqi?.usAqi != null ? ` · ${T(lang, "Air", "Aire")} ${aqi.usAqi} (${aqiCategory(aqi.usAqi, lang)}, ${T(lang, "modeled", "modelado")})` : ""}`, "");
+    out.push(`**${now.temperature}°${now.temperatureUnit}** — ${translateConditions(now.shortForecast, lang)} (${T(lang, "for the", "para la hora de las")} ${hourLabel(now.startTime, lang)} ${T(lang, "CT hour", "CT")})${feels != null ? ` · ${T(lang, "feels like", "sensación térmica de")} ${feels}°` : ""}${pop(now) ? ` · ${pop(now)}% ${T(lang, "precip", "prob. lluvia")}` : ""}${uvNow ? ` · ${T(lang, "UV", "UV")} ${uvNow} (${uvCategory(uvNow, lang)})` : ""}${aqi?.usAqi != null ? ` · ${T(lang, "Air", "Aire")} ${aqi.usAqi} (${aqiCategory(aqi.usAqi, lang)}, ${aqiSourceTag(aqi, lang)})` : ""}`, "");
     if (sun) out.push(`${T(lang, "Sunrise", "Amanecer")} ${clockTime(sun.sunrise, lang)} · ${T(lang, "Sunset", "Atardecer")} ${clockTime(sun.sunset, lang)} CT`, "");
   }
   if (lead) out.push(`**${translatePeriodName(lead.name, lang)}:** ${lead.detailedForecast}`, "");
@@ -356,7 +356,7 @@ export function badgeSvg(data) {
       : `<text x="288" y="24" text-anchor="end" font-size="11" font-weight="700" fill="#7fd39b">&#10004; NO ALERTS</text>`;
   const title = data
     ? `Crosby, TX weather: ${temp} ${cur?.shortForecast || "unavailable"}${feels != null ? `, feels like ${feels}°` : ""}${alerts ? ` — ${alerts} active alert${alerts === 1 ? "" : "s"}` : " — no active alerts"} — crosbynews.com`
-    : "Crosby, TX weather — data temporarily unavailable — crosbynews.com";
+    : "Crosby, TX weather — data not available right now — crosbynews.com";
   return `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="80" viewBox="0 0 300 80" role="img" aria-labelledby="bt">
 <title id="bt">${esc(title)}</title>
 <rect width="300" height="80" rx="12" fill="#0b3d61"/>

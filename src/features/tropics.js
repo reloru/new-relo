@@ -675,8 +675,8 @@ export function tropicsMarkdown(data, lang) {
     "",
     T(
       lang,
-      "Season runs June 1 – November 30. Crosby's hurricane dangers are inland rain flooding, damaging wind, spin-off tornadoes, and extended power outages — not storm surge (we're ~35 miles inland). Watches mean possible within 48h; warnings mean expected within 36h.",
-      "La temporada va del 1 de junio al 30 de noviembre. Los peligros para Crosby son la inundación por lluvia, el viento dañino, los tornados derivados y los apagones prolongados — no la marejada (estamos a ~35 millas tierra adentro). Una vigilancia significa posible en 48 h; un aviso, esperado en 36 h."
+      "Atlantic hurricane season runs June 1 through November 30. Crosby is about 35 miles inland, so storm surge does not reach it. What reaches Crosby is flooding from rain, damaging wind, tornadoes spun off by landfalling storms, and long power outages. A watch means conditions are possible within 48 hours. A warning means they are expected within 36 hours.",
+      "La temporada de huracanes del Atlántico va del 1 de junio al 30 de noviembre. Crosby está a unas 35 millas tierra adentro, así que la marejada ciclónica no llega. Lo que sí llega es la inundación por lluvia, el viento dañino, los tornados que generan las tormentas al tocar tierra y los apagones prolongados. Una vigilancia significa que las condiciones son posibles en 48 horas. Un aviso significa que se esperan en 36 horas."
     ),
     "",
     "---",

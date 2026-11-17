@@ -456,7 +456,7 @@ export function pollenMarkdown(data, lang) {
       for (const s of sp) out.push(`- ${s.name}: ${s.count.toLocaleString("en-US")}`);
     }
   } else {
-    out.push(T(lang, "The count is temporarily unavailable — read it directly at the Houston Health Department:", "El conteo no está disponible temporalmente — consúltalo directamente en el Departamento de Salud de Houston:"), `<${POLLEN_ORIGIN + POLLEN_INDEX_PATH}>`);
+    out.push(T(lang, "The count is not available right now. The Houston Health Department publishes it here:", "El conteo no está disponible en este momento. El Departamento de Salud de Houston lo publica aquí:"), `<${POLLEN_ORIGIN + POLLEN_INDEX_PATH}>`);
   }
   out.push(
     "",

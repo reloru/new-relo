@@ -336,8 +336,8 @@ ${years.map(([y, c]) => `      <tr><td>${y}</td>${POINT_COLUMNS.map((k) => `<td 
       : ""
   }
 
-  <h2>${T(lang, `Zone products for ${ZONE}`, `Productos por zona para ${ZONE}`)}</h2>
-  <p class="intro">${T(lang, "Tropical, winter, heat, fire-weather and fog products issued for the forecast zone that contains Crosby.", "Productos tropicales, invernales, de calor, de clima propicio para incendios y de niebla emitidos para la zona de pronóstico que contiene a Crosby.")}</p>
+  <h2>${T(lang, `Alerts for Crosby's forecast zone (${ZONE})`, `Alertas para la zona de pronóstico de Crosby (${ZONE})`)}</h2>
+  <p class="intro">${T(lang, "Tropical, winter, heat, fire-weather and fog alerts are issued for a whole forecast zone, not for an area drawn around a storm. These are the ones issued for the zone that contains Crosby.", "Las alertas tropicales, invernales, de calor, de clima propicio para incendios y de niebla se emiten para toda una zona de pronóstico, no para un área trazada alrededor de una tormenta. Estas son las emitidas para la zona que contiene a Crosby.")}</p>
   ${d.zone.length ? zoneSections : `<p class="none">${T(lang, "None in the record.", "Ninguno en el registro.")}</p>`}
 
   <h2>${T(lang, "Harris County watches", "Vigilancias del condado de Harris")}</h2>
@@ -381,7 +381,7 @@ export function historyMarkdown(d, lang) {
   out.push(`## ${T(lang, "Every tornado warning that included Crosby", "Cada aviso de tornado que incluyó a Crosby")}`, "", ...(tor.length ? list(tor) : [T(lang, "None in the record.", "Ninguno en el registro.")]), "");
   if (dmg.length) out.push(`## ${T(lang, "Severe thunderstorm warnings with a damage threat", "Avisos de tormenta severa con amenaza de daños")}`, "", ...list(dmg), "");
   const table = (rs) => [`| ${T(lang, "Product", "Producto")} | ${T(lang, "Count", "Total")} | ${T(lang, "First", "Primero")} | ${T(lang, "Latest", "Más reciente")} |`, "|---|---|---|---|", ...rs.map((g) => `| ${eventName(g, lang)} | ${n(g.n, lang)} | ${dateText(g.first, lang)} | ${dateText(g.last, lang)} |`)];
-  out.push(`## ${T(lang, `Zone products for ${ZONE}`, `Productos por zona para ${ZONE}`)}`, "");
+  out.push(`## ${T(lang, `Alerts for Crosby's forecast zone (${ZONE})`, `Alertas para la zona de pronóstico de Crosby (${ZONE})`)}`, "");
   for (const sig of SIG_ORDER) {
     const rs = d.zone.filter((z) => z.significance === sig);
     if (rs.length) out.push(`### ${sigHeading(sig, lang)}`, "", ...table(rs), "");

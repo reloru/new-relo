@@ -326,7 +326,11 @@ console.log("\nrollup:\n");
 {
   // Retention: 90 days of detail, older days folded into months, lifetime intact.
   const days = {};
-  for (let i = 1; i <= 95; i++) days[day(i * 86400000)] = oneDay({ total: 1, outcomes: { ok: 1 } });
+  // Step back from midday, not from now. A Central day is 25 hours when
+  // daylight time ends, so 24-hour steps taken from 11 PM land twice on one
+  // date, two seeded days share a key, and a count goes missing from the seed.
+  const midday = Date.parse(`${day()}T18:00:00Z`);
+  for (let i = 1; i <= 95; i++) days[dayOf(midday - i * 86400000)] = oneDay({ total: 1, outcomes: { ok: 1 } });
   const seeded = { v: 1, rolledUpThrough: "", lifetime: oneDay({ total: 95, outcomes: { ok: 95 } }), months: {}, days, rollup: {} };
   const b = bucketEndingAgo(30 * 60000);
   const env = fakeKv({

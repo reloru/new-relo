@@ -92,8 +92,8 @@ export function burnbanChecklist(lang) {
       h: T(lang, "Check for a Red Flag Warning", "Revisa si hay una alerta de bandera roja"),
       p: T(
         lang,
-        "A Red Flag Warning or Fire Weather Watch means fire spreads dangerously fast that day. Any active one shows in the conditions above, and on our alerts page with everything else the National Weather Service has out for Crosby.",
-        "Una alerta de bandera roja (Red Flag Warning) o una vigilancia de clima de incendios (Fire Weather Watch) significa que ese día el fuego se propaga peligrosamente rápido. Si hay alguna activa aparece en las condiciones de arriba, y en nuestra página de alertas junto con todo lo demás que el Servicio Meteorológico Nacional tenga vigente para Crosby."
+        "A Red Flag Warning or Fire Weather Watch means fire spreads dangerously fast that day. Any active one shows in the conditions above, and on the alerts page with everything else the National Weather Service has out for Crosby.",
+        "Una alerta de bandera roja (Red Flag Warning) o una vigilancia de clima de incendios (Fire Weather Watch) significa que ese día el fuego se propaga peligrosamente rápido. Si hay alguna activa aparece en las condiciones de arriba, y en la página de alertas junto con todo lo demás que el Servicio Meteorológico Nacional tenga vigente para Crosby."
       ),
       path: "/alerts",
       label: T(lang, "See all active alerts", "Ver todas las alertas activas"),
@@ -514,7 +514,7 @@ export function burnbanSince(data, lang) {
   if (data.status === "Yes") {
     if (data.startDate) return T(lang, `In effect since ${d(data.startDate)}.`, `Vigente desde el ${d(data.startDate)}.`);
     if (data.statusSince && data.statusSince !== data.trackingSince) {
-      return T(lang, `First seen in our checks on ${d(data.statusSince)}.`, `Visto por primera vez en nuestras verificaciones el ${d(data.statusSince)}.`);
+      return T(lang, `First seen in this site's checks on ${d(data.statusSince)}.`, `Visto por primera vez en las verificaciones de este sitio el ${d(data.statusSince)}.`);
     }
     return "";
   }
@@ -522,13 +522,13 @@ export function burnbanSince(data, lang) {
   return data.statusSince === data.trackingSince
     ? T(
         lang,
-        `No ban in any check since we began tracking on ${d(data.trackingSince)}.`,
-        `Sin prohibición en ninguna verificación desde que empezamos a monitorear el ${d(data.trackingSince)}.`
+        `No ban in any check since this site began tracking on ${d(data.trackingSince)}.`,
+        `Sin prohibición en ninguna verificación desde que este sitio empezó a monitorear el ${d(data.trackingSince)}.`
       )
     : T(
         lang,
-        `No ban reported in our checks since ${d(data.statusSince)}.`,
-        `Sin prohibición reportada en nuestras verificaciones desde el ${d(data.statusSince)}.`
+        `No ban reported in this site's checks since ${d(data.statusSince)}.`,
+        `Sin prohibición reportada en las verificaciones de este sitio desde el ${d(data.statusSince)}.`
       );
 }
 

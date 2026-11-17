@@ -14,7 +14,7 @@ export const PRIVACY = {
   intro: "crosbynews.com doesn't set cookies, show ads, or run third-party tracking or advertising networks, and it never asks for or collects personal information about you.",
   sections: [
     {
-      h: "What we don't collect",
+      h: "What this site doesn't collect",
       p: [
         "No cookies, no fingerprinting, no sign-up, no login. There is no personal data to collect because the site never asks for any. There are no third-party analytics scripts, advertising networks, social-media widgets, or tracking pixels on any page.",
       ],
@@ -23,10 +23,11 @@ export const PRIVACY = {
       h: "Third-party data sources",
       p: [
         "The site displays data from several external, public sources. The site's server fetches all of it and keeps a copy, so your browser never contacts these sources and nothing about you is sent to them:",
-        "U.S. National Weather Service (api.weather.gov): public-domain forecasts, conditions, and alerts for Crosby, TX; and the U.S. EPA (UV index) and NOAA (river/bayou levels, tropical outlook).",
+        "U.S. National Weather Service (api.weather.gov): public-domain forecasts, conditions, and alerts for Crosby, TX; and the U.S. EPA (UV index) and NOAA (river and bayou levels, the tropical outlook and the radar image).",
         "EPA/AirNow (airnowapi.org): the measured air-quality index for the Houston-Galveston-Brazoria reporting area that includes Crosby; Open-Meteo provides a modeled fallback for Crosby's coordinates when AirNow isn't reporting (labeled measured vs modeled throughout).",
         "Houston Health Department (houstonhealth.org): the measured daily pollen and mold count (tree, weed, and grass pollen and mold spores, on the National Allergy Bureau scale) for the Houston area, which applies regionally to Crosby; published weekday mornings.",
-        "U.S. Geological Survey (api.waterdata.usgs.gov): real-time water conditions (temperature, dissolved oxygen, pH, turbidity, and stage) for the nearby waters people fish, behind the fishing page.",
+        "U.S. Geological Survey (api.waterdata.usgs.gov): real-time water conditions (temperature, dissolved oxygen, pH, turbidity, and stage) for the nearby waters people fish, and the rain measured at the Lake Houston dam.",
+        "Texas Commission on Environmental Quality, through the Water Quality Portal (waterqualitydata.us): dated water-sample results for the bayous and Lake Houston.",
         "Houston TranStar (houstontranstar.org): road incidents and scheduled lane closures for the Crosby corridors, from TranStar's public RSS feeds.",
         "Google News: local news headlines aggregated from public RSS feeds by an out-of-band process and cached.",
         "Crosby ISD (crosbyisd.org): the school district's public iCal calendar feed.",
@@ -36,15 +37,15 @@ export const PRIVACY = {
     {
       h: "Push notifications (optional)",
       p: [
-        "If you opt in to severe-weather alerts on the Alerts page, your browser creates an anonymous \"push subscription\": a unique address at your browser maker's push service (Google, Apple, Mozilla or Microsoft) and a pair of keys. We store only that subscription, so we can wake your device when a tornado, flash-flood, or hurricane warning is issued for Crosby. It carries no personal information and isn't tied to any identity.",
-        "We never send message content through it: the wake-up is empty, and the notification text is assembled on your own device from the public alerts feed. Turn it off anytime with the same button (or in your browser's site settings) and the stored subscription is deleted. Dead subscriptions are also pruned automatically.",
+        "If you opt in to severe-weather alerts on the Alerts page, your browser creates an anonymous \"push subscription\": a unique address at your browser maker's push service (Google, Apple, Mozilla or Microsoft) and a pair of keys. This site stores only that subscription, so it can wake your device when a tornado, flash-flood, or hurricane warning is issued for Crosby. It carries no personal information and isn't tied to any identity.",
+        "No message content is ever sent through it: the wake-up is empty, and the notification text is assembled on your own device from the public alerts feed. Turn it off anytime with the same button (or in your browser's site settings) and the stored subscription is deleted. Dead subscriptions are also pruned automatically.",
       ],
     },
     {
       h: "Analytics and page counts",
       p: [
         "crosbynews.com runs no analytics script. Nothing loads in your browser to count, profile or report your visit, and no outside analytics service is used.",
-        "The server does keep daily totals of page requests, so we can tell which pages are used and whether search engines can find them. Each request adds one to a total made of five things: the day, the page on this site, the response status, a broad label for what made the request (a web browser, or a named crawler such as Googlebot), and a broad label for where it came from (for example \"Google\", \"another website\", or \"no referrer\"). The labels are worked out from the request as it arrives, and only the label is kept.",
+        "The server does keep daily totals of page requests, to show which pages are used and whether search engines can find them. Each request adds one to a total made of five things: the day, the page on this site, the response status, a broad label for what made the request (a web browser, or a named crawler such as Googlebot), and a broad label for where it came from (for example \"Google\", \"another website\", or \"no referrer\"). The labels are worked out from the request as it arrives, and only the label is kept.",
         "No IP address, user-agent string, referring address, search term, cookie, or identifier is stored, and there is no record of any individual request, only the totals. They are kept for about 13 months and then deleted, are visible only to the site owner, and are not shared with or sold to anyone.",
         "Cloudflare, which serves the site, keeps aggregate server-side request logs as part of delivering the page, the way any web host does. That is not something this site adds to your browser, and it carries no analytics identifier.",
       ],
@@ -73,7 +74,7 @@ export const PRIVACY_ES = {
   intro: "crosbynews.com no usa cookies, no muestra anuncios ni ejecuta redes de rastreo o publicidad de terceros, y nunca pide ni recopila información personal sobre ti.",
   sections: [
     {
-      h: "Lo que no recopilamos",
+      h: "Lo que este sitio no recopila",
       p: [
         "Sin cookies, sin huellas digitales (fingerprinting), sin registro, sin inicio de sesión. No hay datos personales que recopilar porque el sitio nunca los solicita. No hay scripts de analítica de terceros, redes publicitarias, widgets de redes sociales ni píxeles de seguimiento en ninguna página.",
       ],
@@ -82,10 +83,11 @@ export const PRIVACY_ES = {
       h: "Fuentes de datos de terceros",
       p: [
         "El sitio muestra datos de varias fuentes externas y públicas. El servidor del sitio lo obtiene todo y guarda una copia, así que tu navegador nunca contacta estas fuentes y no se les envía nada sobre ti:",
-        "Servicio Meteorológico Nacional de EE. UU. (api.weather.gov): pronósticos, condiciones y alertas de dominio público para Crosby, TX; además de la EPA de EE. UU. (índice UV) y la NOAA (niveles de ríos/arroyos, panorama tropical).",
+        "Servicio Meteorológico Nacional de EE. UU. (api.weather.gov): pronósticos, condiciones y alertas de dominio público para Crosby, TX; además de la EPA de EE. UU. (índice UV) y la NOAA (niveles de ríos y arroyos, el panorama tropical y la imagen de radar).",
         "EPA/AirNow (airnowapi.org): el índice de calidad del aire medido para el área de reporte Houston-Galveston-Brazoria que incluye a Crosby; Open-Meteo aporta un respaldo modelado para las coordenadas de Crosby cuando AirNow no reporta (etiquetado como medido o modelado en todo el sitio).",
         "Departamento de Salud de Houston (houstonhealth.org): el conteo diario medido de polen y moho (polen de árboles, malezas y pastos, y esporas de moho, en la escala de la Oficina Nacional de Alergias) para el área de Houston, que aplica regionalmente a Crosby; publicado entre semana por la mañana.",
-        "Servicio Geológico de EE. UU. (api.waterdata.usgs.gov): condiciones del agua en tiempo real (temperatura, oxígeno disuelto, pH, turbidez y nivel) de las aguas de pesca cercanas, detrás de la página de pesca.",
+        "Servicio Geológico de EE. UU. (api.waterdata.usgs.gov): condiciones del agua en tiempo real (temperatura, oxígeno disuelto, pH, turbidez y nivel) de las aguas de pesca cercanas, y la lluvia medida en la presa de Lake Houston.",
+        "Comisión de Calidad Ambiental de Texas (TCEQ), a través del Water Quality Portal (waterqualitydata.us): resultados fechados de muestras de agua de los arroyos y de Lake Houston.",
         "Houston TranStar (houstontranstar.org): incidentes viales y cierres de carriles programados para los corredores de Crosby, desde los feeds RSS públicos de TranStar.",
         "Google News: titulares de noticias locales recopilados de fuentes RSS públicas mediante un proceso externo y almacenados en caché.",
         "Crosby ISD (crosbyisd.org): el calendario público iCal del distrito escolar.",
@@ -95,8 +97,8 @@ export const PRIVACY_ES = {
     {
       h: "Notificaciones push (opcional)",
       p: [
-        "Si te suscribes a las alertas de clima severo en la página de Alertas, tu navegador crea una «suscripción push» anónima: una dirección única en el servicio push de tu navegador (Google, Apple, Mozilla o Microsoft) más un par de claves. Solo guardamos esa suscripción para poder despertar tu dispositivo cuando se emita un aviso de tornado, inundación repentina o huracán para Crosby. No contiene información personal ni está vinculada a ninguna identidad.",
-        "Nunca enviamos contenido a través de ella: el aviso de despertar va vacío y el texto de la notificación se arma en tu propio dispositivo a partir del feed público de alertas. Desactívala cuando quieras con el mismo botón (o en la configuración del sitio de tu navegador) y la suscripción guardada se elimina. Las suscripciones inactivas también se depuran automáticamente.",
+        "Si te suscribes a las alertas de clima severo en la página de Alertas, tu navegador crea una «suscripción push» anónima: una dirección única en el servicio push de tu navegador (Google, Apple, Mozilla o Microsoft) más un par de claves. Este sitio solo guarda esa suscripción para poder despertar tu dispositivo cuando se emita un aviso de tornado, inundación repentina o huracán para Crosby. No contiene información personal ni está vinculada a ninguna identidad.",
+        "Nunca se envía contenido a través de ella: el aviso de despertar va vacío y el texto de la notificación se arma en tu propio dispositivo a partir del feed público de alertas. Desactívala cuando quieras con el mismo botón (o en la configuración del sitio de tu navegador) y la suscripción guardada se elimina. Las suscripciones inactivas también se depuran automáticamente.",
       ],
     },
     {

@@ -95,10 +95,24 @@ export function parseTrafficIncident(item) {
 // Lane-closure titles are the location; descriptions are
 // "<schedule> - Lanes Affected: <l> - Status: <s>".
 export function parseTrafficClosure(item) {
-  const schedule = (item.description.match(/^(.*?)(?:\s+-\s+Lanes Affected:)/i)?.[1] || item.description).trim();
+  const schedule = (item.description.match(/^(.*?)(?:\s+-\s+Lanes Affected:)/i)?.[1] || item.description).replace(/\s+/g, " ").trim();
   const lanes = (item.description.match(/Lanes Affected:\s*(.*?)(?:\s+-\s+Status:|$)/i)?.[1] || "").trim();
   const status = (item.description.match(/Status:\s*(.+)$/i)?.[1] || "").trim();
   return { location: item.title.trim(), schedule, lanes, status };
+}
+// TranStar's feed can carry the same closure several times over: the same
+// stretch, schedule and lanes (observed 2026-11-16: one closure four times).
+// The repeats tell a reader nothing, so keep one of each. Status is the only
+// field that can differ between them; a closure in place now ("Active") wins.
+export function uniqueClosures(list) {
+  const kept = new Map();
+  for (const c of list) {
+    const key = [c.location, c.schedule, c.lanes].join("\u0000");
+    const prior = kept.get(key);
+    if (!prior) kept.set(key, { ...c });
+    else if (/^active$/i.test(c.status) && !/^active$/i.test(prior.status)) prior.status = c.status;
+  }
+  return [...kept.values()];
 }
 
 // Fetch both feeds. Each side is independently failure-tolerant: a failed
@@ -125,10 +139,7 @@ export async function fetchTraffic() {
     console.error("TranStar incidents fetch failed:", e && e.message);
   }
   try {
-    closures = (await feed("laneclosures_rss.xml"))
-      .filter((it) => trafficRelevant(it.title))
-      .map(parseTrafficClosure)
-      .slice(0, 25);
+    closures = uniqueClosures((await feed("laneclosures_rss.xml")).filter((it) => trafficRelevant(it.title)).map(parseTrafficClosure)).slice(0, 25);
   } catch (e) {
     console.error("TranStar lane closures fetch failed:", e && e.message);
   }
@@ -281,7 +292,7 @@ export function trafficHtml(data, lang) {
 
   const closureRows =
     closures === null
-      ? `<p class="none">${T(lang, "Lane-closure data is temporarily unavailable.", "Los datos de cierres de carriles no están disponibles temporalmente.")}</p>`
+      ? `<p class="none">${T(lang, "Lane-closure data is not available right now.", "Los datos de cierres de carriles no están disponibles en este momento.")}</p>`
       : closures.length
         ? `<ul class="closures">${closures
             .map(
@@ -394,7 +405,7 @@ export function trafficMarkdown(data, lang) {
     "",
   ];
   if (incidents === null) {
-    out.push(T(lang, "Incident data is temporarily unavailable.", "Los datos de incidentes no están disponibles temporalmente."), "");
+    out.push(T(lang, "Incident data is not available right now.", "Los datos de incidentes no están disponibles en este momento."), "");
   } else if (incidents.length) {
     for (const i of incidents) {
       out.push(`- **${i.location}**${i.type ? ` — ${trafficTypeLabel(i.type, lang)}` : ""}${i.status ? ` (${trafficStatusLabel(i.status, lang)})` : ""}${i.lanes ? `. ${T(lang, "Lanes affected", "Carriles afectados")}: ${i.lanes}` : ""}`);
@@ -405,7 +416,7 @@ export function trafficMarkdown(data, lang) {
   }
   out.push(`## ${T(lang, "Scheduled lane closures", "Cierres de carriles programados")}`, "");
   if (closures === null) {
-    out.push(T(lang, "Lane-closure data is temporarily unavailable.", "Los datos de cierres no están disponibles temporalmente."), "");
+    out.push(T(lang, "Lane-closure data is not available right now.", "Los datos de cierres no están disponibles en este momento."), "");
   } else if (closures.length) {
     for (const c of closures) {
       out.push(`- **${c.location}** — ${c.schedule}${c.lanes ? `. ${T(lang, "Lanes affected", "Carriles afectados")}: ${c.lanes}` : ""}`);
