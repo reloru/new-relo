@@ -1,5 +1,5 @@
-// /burn-ban/history: every Harris County burn ban with known dates, and how a
-// ban starts and ends. One level below /burn-ban, which stays a live status
+// /burn-ban/history: every past Harris County burn ban this site has found,
+// with the source of each date. One level below /burn-ban, which stays a live status
 // page; this one is the record, read from D1 `burnban_periods`.
 //
 // Built on D1, so a D1 failure answers 502 (router.js) rather than rendering a
@@ -19,43 +19,15 @@ const title = (lang) => T(lang, "Past Harris County Burn Bans", "Prohibiciones d
 const desc = (lang) =>
   T(
     lang,
-    "Every Harris County burn ban with known start and end dates, with sources, and how a ban starts and ends.",
-    "Cada prohibición de quemas del condado de Harris con fechas conocidas, con sus fuentes, y cómo empieza y termina una prohibición."
+    "Every past Harris County burn ban this site has found, with its start and end dates and the record or report each date comes from.",
+    "Cada prohibición de quemas anterior del condado de Harris que este sitio encontró, con sus fechas y el registro o reporte de cada fecha."
   );
 const lede = (lang) =>
   T(
     lang,
-    "Every burn ban in unincorporated Harris County that this site has dates for, newest first. Each row links where its dates come from.",
-    "Cada prohibición de quemas en la parte no incorporada del condado de Harris de la que este sitio tiene fechas, de la más reciente a la más antigua. Cada fila enlaza de dónde vienen sus fechas."
+    "Every burn ban in unincorporated Harris County this site has found, newest first. Each row links where its dates come from.",
+    "Cada prohibición de quemas en la parte no incorporada del condado de Harris que este sitio encontró, de la más reciente a la más antigua. Cada fila enlaza de dónde vienen sus fechas."
   );
-
-// Plain paragraphs, in the order a reader needs them: who starts a ban, who
-// ends it, what they measure, and why this site's status can trail the county.
-// Every figure is dated to the source that gave it.
-export function howBansWork(lang) {
-  return [
-    T(
-      lang,
-      "The Harris County Fire Marshal's Office watches how dry the county is. When the wildfire risk is high, it asks Commissioners Court for a ban, and the court votes one in. A ban covers the unincorporated county, Crosby included. Cities set their own rules.",
-      "La Oficina del Jefe de Bomberos del condado de Harris vigila qué tan seco está el condado. Cuando el riesgo de incendio es alto, pide una prohibición a la Corte de Comisionados, y la corte la aprueba. Una prohibición cubre la parte no incorporada del condado, incluida Crosby. Las ciudades fijan sus propias reglas."
-    ),
-    T(
-      lang,
-      "The court does not vote again to end it. The order runs until the Texas A&M Forest Service finds the drought is over, and the Fire Marshal's Office announces that the ban is lifted. Under state law an order also expires after 90 days unless the court adopts a new one.",
-      "La corte no vuelve a votar para terminarla. La orden sigue hasta que el Servicio Forestal de Texas A&M determina que la sequía terminó, y la Oficina del Jefe de Bomberos anuncia que se levantó. Por ley estatal, una orden también vence a los 90 días si la corte no aprueba otra."
-    ),
-    T(
-      lang,
-      "What the Fire Marshal's Office goes by is the Keetch-Byram Drought Index, which runs from 0 for soaked ground to 800 for the driest possible. In 2013 the office said it considers a ban when the index is above 500. In 2005 it said a ban ends once the index stays below 480 for 72 hours. Those are the latest figures this site has found, and the office may use others now.",
-      "Lo que usa la Oficina del Jefe de Bomberos es el índice de sequía Keetch-Byram, que va de 0 con el suelo empapado a 800 con lo más seco posible. En 2013 la oficina dijo que considera una prohibición cuando el índice pasa de 500. En 2005 dijo que una prohibición termina cuando el índice se mantiene por debajo de 480 durante 72 horas. Son las cifras más recientes que este sitio encontró, y la oficina puede usar otras hoy."
-    ),
-    T(
-      lang,
-      "This site reads the current status from the Forest Service's statewide map, which counties report to, and the map can trail the county. The Fire Marshal's Office lifted the 2026 ban on November 16, 2026, and the map still listed it the next morning.",
-      "Este sitio lee el estado actual del mapa estatal del Servicio Forestal, al que reportan los condados, y el mapa puede ir detrás del condado. La Oficina del Jefe de Bomberos levantó la prohibición de 2026 el 16 de noviembre de 2026, y el mapa todavía la mostraba a la mañana siguiente."
-    ),
-  ];
-}
 
 export function historyLinks(lang) {
   return [
@@ -137,7 +109,7 @@ ${topbar(BURNBAN_HISTORY_PATH, lang)}
   <h1>${esc(title(lang))}</h1>
   <p class="lede">${esc(lede(lang))}</p>
   <section class="card bans">
-    <h2>${T(lang, "Every ban with known dates", "Cada prohibición con fechas conocidas")}</h2>
+    <h2>${T(lang, "Every ban found", "Cada prohibición encontrada")}</h2>
     <div class="tbl-wrap"><table class="tbl">
       <thead><tr>${tableHeads(lang).map((h) => `<th>${h}</th>`).join("")}</tr></thead>
       <tbody>
@@ -145,10 +117,6 @@ ${rows}
       </tbody>
     </table></div>
     <p class="note">${esc(banHistoryNote(lang))}</p>
-  </section>
-  <section class="card">
-    <h2>${T(lang, "How a ban starts and ends", "Cómo empieza y termina una prohibición")}</h2>
-${howBansWork(lang).map((p) => `    <p>${esc(p)}</p>`).join("\n")}
   </section>
   <section class="card">
     <h2>${T(lang, "Drought and the law", "La sequía y la ley")}</h2>
@@ -164,12 +132,10 @@ ${footer({ page: BURNBAN_HISTORY_PATH, lang, source: T(lang, "Dates from Harris 
 
 export function burnbanHistoryMarkdown(periods, lang) {
   const link = (x) => (x ? (x.url ? `[${x.text}](${x.url})` : x.text) : "");
-  const out = [`# ${title(lang)}`, "", lede(lang), "", `## ${T(lang, "Every ban with known dates", "Cada prohibición con fechas conocidas")}`, ""];
+  const out = [`# ${title(lang)}`, "", lede(lang), "", `## ${T(lang, "Every ban found", "Cada prohibición encontrada")}`, ""];
   out.push(`| ${tableHeads(lang).join(" | ")} |`, "|---|---|---|---|");
   for (const r of banHistoryRows(periods, lang)) out.push(`| ${r.start} | ${r.end} | ${r.length || "—"} | ${[link(r.startSrc), link(r.endSrc)].filter(Boolean).join("; ")} |`);
-  out.push("", banHistoryNote(lang), "", `## ${T(lang, "How a ban starts and ends", "Cómo empieza y termina una prohibición")}`, "");
-  for (const p of howBansWork(lang)) out.push(p, "");
-  out.push(`## ${T(lang, "Drought and the law", "La sequía y la ley")}`, "");
+  out.push("", banHistoryNote(lang), "", `## ${T(lang, "Drought and the law", "La sequía y la ley")}`, "");
   for (const l of historyLinks(lang)) out.push(`- [${l.label}](${l.url}): ${l.note}`);
   out.push("", "---", `[${T(lang, "Burn ban status", "Estado de la prohibición de quemas")}](${canonicalFor("/burn-ban", lang)}) · [crosbynews.com](${canonicalFor("/", lang)})`);
   return out.join("\n");

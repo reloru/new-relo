@@ -112,12 +112,15 @@ await R.recordAqi(h.env, aqi(80, "2026-11-10 23:00 CST"));
 eq(await one("SELECT max_aqi, max_at, dominant, measured, readings FROM aqi_daily WHERE day = '2026-11-10'"), { max_aqi: 112, max_at: "2026-11-10 15:00 CST", dominant: "ozone", measured: 1, readings: 3 }, "the day's highest index keeps its own time and pollutant");
 eq(await R.recordAqi(h.env, { aqi: null }), 0, "no AQI, nothing recorded");
 
+// A past ban whose end no source dates is not an open ban: lifting must not
+// close it, and it must not stop a new ban from opening.
+await h.env.DB.prepare("INSERT INTO burnban_periods (started, ended, start_source, end_unknown) VALUES ('2009-06-23', NULL, 'fmo', 1)").run();
 await R.recordBurnBan(h.env, { status: "Yes", startDate: "2026-09-17T06:00:00.000Z" }, "2026-11-11T02:00:00Z");
 await R.recordBurnBan(h.env, { status: "Yes", startDate: "2026-09-17T06:00:00.000Z" }, "2026-11-11T06:00:00Z");
-eq(await all("SELECT started, ended, start_source FROM burnban_periods"), [{ started: "2026-09-17", ended: null, start_source: "tfs" }], "an active ban is one open period dated by the Forest Service");
+eq(await all("SELECT started, ended, start_source FROM burnban_periods WHERE end_unknown = 0"), [{ started: "2026-09-17", ended: null, start_source: "tfs" }], "an active ban is one open period dated by the Forest Service, beside a past ban with no known end");
 await R.recordBurnBan(h.env, { status: "No", startDate: null }, "2026-12-16T15:00:00Z");
 await R.recordBurnBan(h.env, { status: "No", startDate: null }, "2026-12-20T15:00:00Z");
-eq(await all("SELECT started, ended, end_source FROM burnban_periods"), [{ started: "2026-09-17", ended: "2026-12-16", end_source: "observed" }], "lifting closes it on the day first seen lifted, once");
+eq(await all("SELECT started, ended, end_source FROM burnban_periods ORDER BY started"), [{ started: "2009-06-23", ended: null, end_source: null }, { started: "2026-09-17", ended: "2026-12-16", end_source: "observed" }], "lifting closes the open ban on the day first seen lifted, once, and leaves a past ban with no known end alone");
 await R.recordBurnBan(h.env, { status: "Yes", startDate: null }, "2027-03-02T15:00:00Z");
 eq((await all("SELECT started, start_source FROM burnban_periods ORDER BY started")).at(-1), { started: "2027-03-02", start_source: "observed" }, "a ban with no official start date is dated by observation and says so");
 eq(await R.recordBurnBan(h.env, { status: null }), 0, "an unknown status records nothing");

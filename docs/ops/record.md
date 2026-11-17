@@ -113,8 +113,10 @@ and closed by the seed script, because the Forest Service map still listed
 a ban a day after the Fire Marshal's Office lifted it. A hand-closed row
 stays closed: the cron's insert does nothing on an existing start date, and
 its close touches only open rows.
-Every hand-entered row has `ended` set: an open row would be closed with
-today's date the next time the cron sees "no ban".
+Every hand-entered row has `ended` set, or `end_unknown = 1` when no source
+dates its end (with `ended_by`, the latest day a source allows, when one
+bounds it; migration 0007). The cron closes and opens only rows with
+`end_unknown = 0`, so an unknown end is never mistaken for an open ban.
 
 ## Backfill
 

@@ -417,10 +417,10 @@ export async function recordAqi(env, weather) {
 export async function recordBurnBan(env, data, nowIso = new Date().toISOString()) {
   if (!env?.DB || (data?.status !== "Yes" && data?.status !== "No")) return 0;
   if (data.status === "No") {
-    const r = await env.DB.prepare("UPDATE burnban_periods SET ended = ?, end_source = 'observed' WHERE ended IS NULL").bind(ctDay(nowIso)).run();
+    const r = await env.DB.prepare("UPDATE burnban_periods SET ended = ?, end_source = 'observed' WHERE ended IS NULL AND end_unknown = 0").bind(ctDay(nowIso)).run();
     return r?.meta?.changes ?? 0;
   }
-  if (await env.DB.prepare("SELECT 1 AS x FROM burnban_periods WHERE ended IS NULL LIMIT 1").first()) return 0;
+  if (await env.DB.prepare("SELECT 1 AS x FROM burnban_periods WHERE ended IS NULL AND end_unknown = 0 LIMIT 1").first()) return 0;
   const official = data.startDate && !Number.isNaN(new Date(data.startDate).getTime());
   await env.DB.prepare("INSERT INTO burnban_periods (started, ended, start_source) VALUES (?, NULL, ?) ON CONFLICT (started) DO NOTHING")
     .bind(ctDay(official ? data.startDate : nowIso), official ? "tfs" : "observed").run();
