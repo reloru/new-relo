@@ -291,31 +291,69 @@ async function loadBlocklist() {
   }
 }
 
+// --- Google News fetch with retry -------------------------------------------
+const QUERY_GAP_MS = 1500;
+const defaultSleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// One RSS fetch. Retries 429, 5xx, network errors and 200s that aren't RSS
+// (Google's "sorry" page), with exponential backoff plus jitter. Never throws.
+// Returns { ok, status, text, tries }; status is the HTTP code, "network" or "not-rss".
+async function fetchFeed(url, { fetchImpl = fetch, sleepImpl = defaultSleep, attempts = 4, baseMs = 5000, random = Math.random } = {}) {
+  let status = "network";
+  for (let t = 1; t <= attempts; t++) {
+    let retryable = true;
+    try {
+      const r = await fetchImpl(url, { headers: { "User-Agent": "crosbynews.com news routine" } });
+      status = r.status;
+      if (r.ok) {
+        const text = await r.text();
+        if (/<rss[\s>]/i.test(text)) return { ok: true, status, text, tries: t };
+        status = "not-rss";
+      } else if (r.status !== 429 && r.status < 500) {
+        retryable = false;
+      }
+    } catch {
+      status = "network";
+    }
+    if (!retryable || t === attempts) return { ok: false, status, text: "", tries: t };
+    await sleepImpl(baseMs * 2 ** (t - 1) + Math.floor(random() * baseMs));
+  }
+}
+
+// Write only when every query answered: a partial result silently drops the
+// missing queries' stories. Returns { write, message }.
+function feedGate(results) {
+  const failed = results.map((r, i) => (r.ok ? null : `query ${i + 1} (${r.status})`)).filter(Boolean);
+  if (!failed.length) return { write: true, message: "" };
+  if (failed.length === results.length) return { write: false, message: "All news queries failed (upstream failure) — leaving existing KV untouched." };
+  return { write: false, message: `${failed.length} of ${results.length} news queries failed after retries: ${failed.join(", ")} — leaving existing KV untouched so their stories aren't dropped.` };
+}
+
 async function main() {
   if (!TOKEN || !ACCOUNT) {
     console.error("Missing CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID");
     process.exit(1);
   }
-  const xmls = await Promise.all(
-    QUERIES.map(async (q) => {
-      const url = `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=en-US&gl=US&ceid=US:en`;
-      try {
-        const r = await fetch(url, { headers: { "User-Agent": "crosbynews.com news routine" } });
-        return r.ok ? await r.text() : "";
-      } catch {
-        return "";
-      }
-    })
-  );
-  // If every source came back empty, this is an upstream/network failure (e.g.
-  // Google rate-limiting the routine's IP) — NOT a genuinely quiet news day.
-  // Bail without writing so a transient blip can't overwrite the last good
-  // snapshot with an empty list. (A real quiet day still returns feeds with zero
-  // matching items, which is allowed through below to prune to an honest empty.)
-  if (xmls.every((x) => !x)) {
-    console.error("All news queries returned empty (upstream failure) — leaving existing KV untouched.");
+  // Serial, staggered, with retries: Google News answers bursts (and some single
+  // requests) with 429 "automated queries". A query that still fails after its
+  // retries must NOT read as "no news": a run that lost a query would overwrite
+  // the snapshot with only the other queries' stories (2026-11-16: 10 -> 5).
+  // (A real quiet day still returns valid feeds with zero matching items, which
+  // is allowed through below to prune to an honest empty.)
+  const results = [];
+  for (const [i, q] of QUERIES.entries()) {
+    if (i) await defaultSleep(QUERY_GAP_MS);
+    const url = `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=en-US&gl=US&ceid=US:en`;
+    const r = await fetchFeed(url);
+    console.log(`  query ${i + 1}/${QUERIES.length}: ${r.ok ? "ok" : "FAILED"} (${r.status}, ${r.tries} tr${r.tries === 1 ? "y" : "ies"})`);
+    results.push(r);
+  }
+  const gate = feedGate(results);
+  if (!gate.write) {
+    console.error(gate.message);
     process.exit(1);
   }
+  const xmls = results.map((r) => r.text);
 
   const now = Date.now();
   const minTs = now - MAX_AGE_DAYS * 86400000;
@@ -478,4 +516,4 @@ async function main() {
 // imported, so the pure helpers above can be unit-tested.
 if (import.meta.url === pathToFileURL(process.argv[1] || "").href) main();
 
-export { areaTier, areaCandidate, hasEventCue, isCrime, crimeFamily, parseEventDate, stalePastEvent, decodeEntities };
+export { fetchFeed, feedGate, areaTier, areaCandidate, hasEventCue, isCrime, crimeFamily, parseEventDate, stalePastEvent, decodeEntities };
