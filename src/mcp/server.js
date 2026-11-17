@@ -1349,6 +1349,10 @@ export async function mcpHandle(msg, env) {
       }
     case "resources/list":
       return rpcResult(id, { resources: MCP_RESOURCES });
+    // No templated resources, but the resources capability makes clients ask:
+    // an empty list is the honest answer, where -32601 read as a broken server.
+    case "resources/templates/list":
+      return rpcResult(id, { resourceTemplates: [] });
     case "resources/read": {
       const res = mcpReadResource(params?.uri);
       return res ? rpcResult(id, res) : rpcError(id, -32602, `Unknown resource: ${params?.uri}`);

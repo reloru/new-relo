@@ -97,6 +97,7 @@ const METHODS_IMPLEMENTED = new Set([
   "prompts/get",
   "resources/list",
   "resources/read",
+  "resources/templates/list",
   "tools/call",
 ]);
 
@@ -110,7 +111,6 @@ const METHODS_UNIMPLEMENTED = new Set([
   "logging/setLevel",
   "resources/subscribe",
   "resources/unsubscribe",
-  "resources/templates/list",
   "elicitation/create",
   "roots/list",
   "sampling/createMessage",
