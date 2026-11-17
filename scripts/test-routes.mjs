@@ -156,18 +156,56 @@ for (const [label, mutate] of [["quiet", undefined], ["busy", busy]]) {
     }
   }
 
-  // --- the MCP discovery card answers at both of its paths, identically ---
+  // --- MCP discovery: the older card, the SEP-2127 Server Card, the AI Catalog ---
   {
-    const a = await text("/.well-known/mcp/server-card.json");
-    const b = await text("/mcp/server-card");
-    for (const [p, { r, body }] of [["/.well-known/mcp/server-card.json", a], ["/mcp/server-card", b]]) {
-      if (r.status !== 200) fail(`[${label}] ${p}: status ${r.status}, want 200`);
-      if (!(r.headers.get("content-type") || "").startsWith("application/json")) fail(`[${label}] ${p}: content-type ${r.headers.get("content-type")}`);
-      let card = null;
-      try { card = JSON.parse(body); } catch { fail(`[${label}] ${p}: body is not JSON`); }
-      if (card && card.name !== "com.crosbynews/weather") fail(`[${label}] ${p}: name ${card.name}, want com.crosbynews/weather`);
+    const legacy = await text("/.well-known/mcp/server-card.json");
+    if (legacy.r.status !== 200) fail(`[${label}] /.well-known/mcp/server-card.json: status ${legacy.r.status}`);
+    if (!(legacy.r.headers.get("content-type") || "").startsWith("application/json")) fail(`[${label}] /.well-known/mcp/server-card.json: content-type ${legacy.r.headers.get("content-type")}`);
+    try {
+      const c = JSON.parse(legacy.body);
+      if (c.name !== "com.crosbynews/weather") fail(`[${label}] older card name ${c.name}`);
+      if (!Array.isArray(c.tools) || c.tools.length === 0) fail(`[${label}] older card lost its tool list`);
+    } catch { fail(`[${label}] /.well-known/mcp/server-card.json: body is not JSON`); }
+
+    const card = await text("/mcp/server-card");
+    const ch = (n) => card.r.headers.get(n);
+    if (card.r.status !== 200) fail(`[${label}] /mcp/server-card: status ${card.r.status}`);
+    if (ch("content-type") !== "application/mcp-server-card+json") fail(`[${label}] /mcp/server-card: content-type ${ch("content-type")}`);
+    if (ch("access-control-allow-origin") !== "*") fail(`[${label}] /mcp/server-card: allow-origin ${ch("access-control-allow-origin")}`);
+    if (ch("access-control-allow-methods") !== "GET") fail(`[${label}] /mcp/server-card: allow-methods ${ch("access-control-allow-methods")}`);
+    if (ch("access-control-allow-headers") !== "Content-Type, If-None-Match") fail(`[${label}] /mcp/server-card: allow-headers ${ch("access-control-allow-headers")}`);
+    if (ch("access-control-expose-headers") !== "ETag") fail(`[${label}] /mcp/server-card: expose-headers ${ch("access-control-expose-headers")}`);
+    if (ch("cache-control") !== "public, max-age=3600") fail(`[${label}] /mcp/server-card: cache-control ${ch("cache-control")}`);
+    const etag = ch("etag");
+    if (!etag) fail(`[${label}] /mcp/server-card: no ETag`);
+    try {
+      const c = JSON.parse(card.body);
+      if (c.$schema !== "https://static.modelcontextprotocol.io/schemas/v1/server-card.schema.json") fail(`[${label}] Server Card $schema ${c.$schema}`);
+      if (c.name !== "com.crosbynews/weather") fail(`[${label}] Server Card name ${c.name}`);
+      if (c.remotes?.[0]?.url !== "https://crosbynews.com/mcp") fail(`[${label}] Server Card remote ${JSON.stringify(c.remotes)}`);
+      for (const k of ["tools", "prompts", "resources", "capabilities"]) if (k in c) fail(`[${label}] Server Card carries ${k}, which SEP-2127 leaves to runtime listing`);
+      if (!(typeof c.description === "string" && c.description.length >= 1 && c.description.length <= 100)) fail(`[${label}] Server Card description length ${c.description?.length}`);
+    } catch { fail(`[${label}] /mcp/server-card: body is not JSON`); }
+    if (etag) {
+      requests++;
+      const again = await h.get("/mcp/server-card", { headers: { "if-none-match": etag } });
+      if (again.status !== 304) fail(`[${label}] /mcp/server-card with If-None-Match: status ${again.status}, want 304`);
     }
-    if (a.body !== b.body) fail(`[${label}] /mcp/server-card differs from /.well-known/mcp/server-card.json`);
+    requests += 2;
+    const pre = await h.get("/mcp/server-card", { method: "OPTIONS" });
+    if (pre.status !== 204) fail(`[${label}] OPTIONS /mcp/server-card: status ${pre.status}, want 204`);
+    const post = await h.get("/mcp/server-card", { method: "POST" });
+    if (post.status !== 405) fail(`[${label}] POST /mcp/server-card: status ${post.status}, want 405`);
+
+    const cat = await text("/.well-known/ai-catalog.json");
+    if (cat.r.headers.get("content-type") !== "application/ai-catalog+json") fail(`[${label}] ai-catalog content-type ${cat.r.headers.get("content-type")}`);
+    try {
+      const c = JSON.parse(cat.body);
+      const want = { specVersion: "1.0", host: { displayName: "crosbynews.com", identifier: "crosbynews.com", documentationUrl: "https://crosbynews.com/developers" }, entries: [{ identifier: "urn:air:crosbynews.com:mcp:weather", type: "application/mcp-server-card+json", url: "https://crosbynews.com/mcp/server-card" }] };
+      if (JSON.stringify(c) !== JSON.stringify(want)) fail(`[${label}] ai-catalog body ${JSON.stringify(c)}`);
+    } catch { fail(`[${label}] /.well-known/ai-catalog.json: body is not JSON`); }
+    const home = await text("/", { headers: { accept: "text/html" } });
+    if (!(home.r.headers.get("link") || "").includes('<https://crosbynews.com/.well-known/ai-catalog.json>; rel="ai-catalog"')) fail(`[${label}] / Link header does not advertise the AI Catalog`);
   }
 
   // --- the edges of the route table ---

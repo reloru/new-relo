@@ -37,5 +37,5 @@ refresh, whether that worked, and when its data last actually changed. See
 
 ## Advertised by
 
-`linkHeader()` (`rel="api-catalog"` on `/` and `/weather`), `llms.txt`'s
+`linkHeader()` (`rel="api-catalog"` on `/` and `/weather`, beside `rel="ai-catalog"` for `/.well-known/ai-catalog.json`), `llms.txt`'s
 `## Optional` section, `/developers`, and the `/sitemap` page.

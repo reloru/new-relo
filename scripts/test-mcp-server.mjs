@@ -7,7 +7,7 @@
 //
 // Run: node scripts/test-mcp-server.mjs
 
-import { mcpCallTool, mcpHandle, mcpTools, validateToolArgs, MCP_TOOL_SOURCES, MCP_EXAMPLE_PROMPTS, MCP_SERVER_INFO, mcpServerCard } from "../src/mcp/server.js";
+import { mcpCallTool, mcpHandle, mcpTools, validateToolArgs, MCP_TOOL_SOURCES, MCP_EXAMPLE_PROMPTS, MCP_SERVER_INFO, mcpServerCard, mcpServerCardV1 } from "../src/mcp/server.js";
 
 let failures = 0;
 function check(label, ok, detail = "") {
@@ -179,6 +179,17 @@ try {
     }
     const un = await mcpHandle({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-11-25", capabilities: {}, clientInfo: { name: "t", version: "0" } } }, stubEnv());
     check("an unclaimed version (2025-11-25) is answered with 2025-06-18", un?.result?.protocolVersion === "2025-06-18", String(un?.result?.protocolVersion));
+
+    // 11b. The SEP-2127 Server Card agrees with server.json and the registry.
+    const v1 = mcpServerCardV1();
+    check("Server Card $schema is the v1 URL", v1.$schema === "https://static.modelcontextprotocol.io/schemas/v1/server-card.schema.json", String(v1.$schema));
+    check("Server Card name matches server.json", v1.name === sj.name, `${v1.name} vs ${sj.name}`);
+    check("Server Card version matches server.json", v1.version === sj.version, `${v1.version} vs ${sj.version}`);
+    check("Server Card description matches server.json", v1.description === sj.description, `${v1.description} vs ${sj.description}`);
+    check("description is 1-100 characters", sj.description.length >= 1 && sj.description.length <= 100, String(sj.description.length));
+    check("Server Card title matches server.json", v1.title === sj.title, `${v1.title} vs ${sj.title}`);
+    check("Server Card remotes match the older card", JSON.stringify(v1.remotes) === JSON.stringify(card.remotes), JSON.stringify(v1.remotes));
+    check("Server Card lists no primitives or capabilities", !["tools", "prompts", "resources", "capabilities"].some((k) => k in v1));
 
     // 12. resources/templates/list is answered (empty), not -32601.
     const tl = await mcpHandle({ jsonrpc: "2.0", id: 5, method: "resources/templates/list" }, stubEnv());

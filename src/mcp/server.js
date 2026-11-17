@@ -688,10 +688,13 @@ export function mcpReadResource(uri) {
   return { contents: [{ uri, mimeType: r.mimeType, text }] };
 }
 
-// Served at /.well-known/mcp/server-card.json and at /mcp/server-card. The
-// top-level fields mirror server.json (registry name, version, remotes) so a
-// crawler can match this card to the registry listing; the rest predates them.
-export function mcpServerCard() {
+// server.json's `description` (100 characters at most, the registry's limit
+// and the Server Card's). test-mcp-server holds the two equal.
+export const MCP_REGISTRY_DESCRIPTION =
+  "Crosby, TX weather, air quality, tropics, floods, fishing, pollen, burn bans, radar, news & schools.";
+
+// Identity and connection fields shared by both cards and server.json.
+function mcpCardIdentity() {
   return {
     name: MCP_REGISTRY_NAME,
     title: MCP_SERVER_INFO.title,
@@ -705,6 +708,59 @@ export function mcpServerCard() {
         supportedProtocolVersions: [...MCP_SUPPORTED_VERSIONS].sort().reverse(),
       },
     ],
+  };
+}
+
+// The MCP Server Card (SEP-2127, the Server Card extension), served at
+// <endpoint>/server-card = /mcp/server-card and listed in
+// /.well-known/ai-catalog.json. The extension's schema requires `$schema` with
+// exactly this URL, and it deliberately carries no tools, prompts, resources
+// or capabilities: those are listed at runtime.
+export const MCP_SERVER_CARD_SCHEMA = "https://static.modelcontextprotocol.io/schemas/v1/server-card.schema.json";
+export function mcpServerCardV1() {
+  const id = mcpCardIdentity();
+  return {
+    $schema: MCP_SERVER_CARD_SCHEMA,
+    name: id.name,
+    version: id.version,
+    description: MCP_REGISTRY_DESCRIPTION,
+    title: id.title,
+    websiteUrl: id.websiteUrl,
+    repository: id.repository,
+    icons: [
+      { src: `${SITE}/icon-192.png`, mimeType: "image/png", sizes: ["192x192"] },
+      { src: `${SITE}/icon-512.png`, mimeType: "image/png", sizes: ["512x512"] },
+    ],
+    remotes: id.remotes,
+  };
+}
+
+// The domain's AI Catalog at /.well-known/ai-catalog.json: one entry pointing
+// at the Server Card. The identifier follows the extension's
+// urn:air:{publisher}:{namespace}:{name} form.
+export function aiCatalog() {
+  return {
+    specVersion: "1.0",
+    // Level 2 ("Discoverable") of the AI Catalog spec: a host object plus the
+    // well-known URI.
+    host: { displayName: "crosbynews.com", identifier: "crosbynews.com", documentationUrl: `${SITE}/developers` },
+    entries: [
+      {
+        identifier: "urn:air:crosbynews.com:mcp:weather",
+        type: "application/mcp-server-card+json",
+        url: `${SITE}/mcp/server-card`,
+      },
+    ],
+  };
+}
+
+// The older discovery card (SEP-1649 era), served at
+// /.well-known/mcp/server-card.json, which crawlers still request. Kept for
+// existing readers: it lists tools, prompts and resources, which the SEP-2127
+// card above leaves out by design. Its top-level fields match that card.
+export function mcpServerCard() {
+  return {
+    ...mcpCardIdentity(),
     serverInfo: MCP_SERVER_INFO,
     protocolVersion: MCP_PROTOCOL_VERSION,
     description:

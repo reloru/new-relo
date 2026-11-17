@@ -5,14 +5,15 @@ import { SITE } from "../config.js";
 import { esPath } from "../i18n.js";
 
 // Shared cache + discovery headers for the homepage in either representation.
-// Homepage discovery headers: markdown alternate, sitemap, API catalog, and
-// the OpenAPI service description (RFC 8288 Link relations).
+// Homepage discovery headers: markdown alternate, sitemap, API catalog, AI
+// Catalog, and the OpenAPI service description (RFC 8288 Link relations).
 export function linkHeader(enPath, lang) {
   const alt = SITE + (lang === "es" ? esPath(enPath) : enPath);
   return (
     `<${alt}>; rel="alternate"; type="text/markdown", ` +
     `<${SITE}/sitemap.xml>; rel="sitemap", ` +
     `<${SITE}/.well-known/api-catalog>; rel="api-catalog", ` +
+    `<${SITE}/.well-known/ai-catalog.json>; rel="ai-catalog"; type="application/ai-catalog+json", ` +
     `<${SITE}/openapi.json>; rel="service-desc"; type="application/json"`
   );
 }

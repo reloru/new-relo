@@ -63,7 +63,9 @@ export const DEVELOPERS = {
       ],
       links: [
         { href: "/mcp", label: "/mcp", note: "MCP endpoint (POST JSON-RPC); a GET shows a human explainer (also in Spanish at /es/mcp)" },
-        { href: "/.well-known/mcp/server-card.json", label: "MCP server card", note: "discovery metadata" },
+        { href: "/mcp/server-card", label: "MCP Server Card", note: "SEP-2127 discovery card: identity, endpoint, protocol versions" },
+        { href: "/.well-known/ai-catalog.json", label: "/.well-known/ai-catalog.json", note: "AI Catalog: the domain index that points to the Server Card" },
+        { href: "/.well-known/mcp/server-card.json", label: "/.well-known/mcp/server-card.json", note: "older discovery card, with the tool list" },
       ],
     },
     {
@@ -148,7 +150,9 @@ export const DEVELOPERS_ES = {
       links: [
         { href: "/mcp", label: "/mcp", note: "endpoint MCP (POST JSON-RPC) — el servidor funciona solo en inglés" },
         { href: "/es/mcp", label: "/es/mcp", note: "página explicativa en español (no es un endpoint: un POST aquí devuelve 404)" },
-        { href: "/.well-known/mcp/server-card.json", label: "Tarjeta del servidor MCP", note: "metadatos de descubrimiento" },
+        { href: "/mcp/server-card", label: "Tarjeta del servidor MCP", note: "tarjeta de descubrimiento SEP-2127: identidad, endpoint, versiones del protocolo" },
+        { href: "/.well-known/ai-catalog.json", label: "/.well-known/ai-catalog.json", note: "catálogo de IA: el índice del dominio que apunta a la tarjeta" },
+        { href: "/.well-known/mcp/server-card.json", label: "/.well-known/mcp/server-card.json", note: "tarjeta de descubrimiento anterior, con la lista de herramientas" },
       ],
     },
     {

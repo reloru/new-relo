@@ -44,7 +44,7 @@ import { loadPollen, pollenHtml, pollenMarkdown, apiPollen } from "./features/po
 import { loadBurnBan, loadBurnBanPeriods, burnbanHtml, burnbanMarkdown, apiBurnBan } from "./features/burnban.js";
 import { burnbanHistoryHtml, burnbanHistoryMarkdown } from "./features/burnban-history.js";
 import { homeHtml, homeMarkdown, renderError } from "./features/home.js";
-import { MCP_CORS, mcpHandle, mcpJson, rpcError, mcpServerCard, mcpInfoHtml, mcpInfoMarkdown } from "./mcp/server.js";
+import { MCP_CORS, mcpHandle, mcpJson, rpcError, mcpServerCard, mcpServerCardV1, aiCatalog, mcpInfoHtml, mcpInfoMarkdown } from "./mcp/server.js";
 import { mcpRecord, mcpBatchRecorded, mcpUsageReport, mcpUsageText } from "./mcp/metrics.js";
 import { apiCatalog, openApiSpec } from "./api/openapi.js";
 import { healthReport, CRON_STATUS_KV_KEY } from "./api/health.js";
@@ -217,10 +217,20 @@ export async function routeRequest(request, env, ctx) {
       });
     }
 
-    if (path === "/.well-known/mcp/server-card.json" || path === "/mcp/server-card") {
+    if (path === "/.well-known/mcp/server-card.json") {
       return new Response(JSON.stringify(mcpServerCard(), null, 2), {
         headers: { "content-type": "application/json; charset=utf-8", "cache-control": "public, max-age=3600", "access-control-allow-origin": "*" },
       });
+    }
+
+    // The SEP-2127 Server Card and the AI Catalog that lists it. Media types,
+    // CORS, Cache-Control and the ETag/If-None-Match pair are what the Server
+    // Card extension's discovery document asks of a host.
+    if (path === "/mcp/server-card") {
+      return discoveryJson(request, mcpServerCardV1(), "application/mcp-server-card+json");
+    }
+    if (path === "/.well-known/ai-catalog.json") {
+      return discoveryJson(request, aiCatalog(), "application/ai-catalog+json");
     }
 
     // Spanish HUMAN explainer for the MCP server (GET/HEAD only). The protocol
@@ -743,6 +753,29 @@ async function servePage(page, handler, c) {
   if (Number.isFinite(modified)) headers["last-modified"] = new Date(modified).toUTCString();
 
   const inm = c.request.headers.get("if-none-match");
+  if (inm && (inm.trim() === "*" || inm.split(",").map((x) => x.trim()).includes(headers.etag))) {
+    return new Response(null, { status: 304, headers });
+  }
+  return new Response(body, { headers });
+}
+
+// A public, read-only discovery document (Server Card, AI Catalog): GET and
+// HEAD with an entity tag and 304 revalidation, OPTIONS for a browser
+// preflight, 405 for anything else.
+const DISCOVERY_CORS = {
+  "access-control-allow-origin": "*",
+  "access-control-allow-methods": "GET",
+  "access-control-allow-headers": "Content-Type, If-None-Match",
+  "access-control-expose-headers": "ETag",
+};
+async function discoveryJson(request, doc, contentType) {
+  if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: { ...DISCOVERY_CORS, "access-control-max-age": "86400" } });
+  if (request.method !== "GET" && request.method !== "HEAD") {
+    return new Response("Method Not Allowed", { status: 405, headers: { allow: "GET, HEAD, OPTIONS", ...DISCOVERY_CORS } });
+  }
+  const body = JSON.stringify(doc, null, 2);
+  const headers = { "content-type": contentType, "cache-control": "public, max-age=3600", etag: await bodyEtag(body), ...DISCOVERY_CORS };
+  const inm = request.headers.get("if-none-match");
   if (inm && (inm.trim() === "*" || inm.split(",").map((x) => x.trim()).includes(headers.etag))) {
     return new Response(null, { status: 304, headers });
   }

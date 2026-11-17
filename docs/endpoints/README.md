@@ -48,6 +48,7 @@ file.
 | `api/site-usage.md` | `GET /api/site-usage` — aggregate page-request counts, owner-only |
 | `api/push/*.md` | the Web Push endpoints |
 | `mcp.md` | `POST /mcp` — the JSON-RPC transport (`GET /mcp` is `docs/pages/mcp.md`) |
+| `mcp/server-card.md` | `GET /mcp/server-card` — the SEP-2127 MCP Server Card |
 | `openapi.json.md` | `/openapi.json` |
 | `robots.txt.md`, `llms.txt.md`, `sitemap.xml.md` | discovery files |
 | `alerts.xml.md`, `news.xml.md` | the RSS feeds |
@@ -56,7 +57,7 @@ file.
 | `badge.svg.md` | the hotlinkable weather badge |
 | `radar-image.md` | the KHGX radar proxy |
 | `icons.md` | the `/icons/*` NWS icon proxy |
-| `.well-known/*.md` | security.txt, api-catalog, the MCP server card, agent skills |
+| `.well-known/*.md` | security.txt, api-catalog, ai-catalog.json, the older MCP server card, agent skills |
 
 ## Language
 
