@@ -185,6 +185,13 @@ because the hourly product is down ("EPA's hourly UV product is unavailable …
 showing EPA's daily peak forecast only"). The page has a UV number in that
 state; the row says the primary product does not.
 
+Except before 4 AM Central: EPA's hourly product answers 404 every night from
+about midnight until the new forecast day posts, around 3:15 AM (observed
+nightly from 2026-11-10 to 2026-11-17, issue #285). A 404 in that window is
+the product's schedule, so `uvNightlyGap()` keeps the row `ok: true` while the
+page shows the daily peak. A 404 at any other hour, or any other error, still
+reports `ok: false`.
+
 So each gets its own row, defined in `FEEDS` with `part: "aqi"` / `part: "uv"`:
 
 - **`ok`** is set by the cron from the fresh fetch: `false`, with an `error`,
