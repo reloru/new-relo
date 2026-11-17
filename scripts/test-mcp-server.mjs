@@ -179,6 +179,10 @@ try {
     }
     const un = await mcpHandle({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-11-25", capabilities: {}, clientInfo: { name: "t", version: "0" } } }, stubEnv());
     check("an unclaimed version (2025-11-25) is answered with 2025-06-18", un?.result?.protocolVersion === "2025-06-18", String(un?.result?.protocolVersion));
+
+    // 12. resources/templates/list is answered (empty), not -32601.
+    const tl = await mcpHandle({ jsonrpc: "2.0", id: 5, method: "resources/templates/list" }, stubEnv());
+    check("resources/templates/list → {resourceTemplates: []}", JSON.stringify(tl) === '{"jsonrpc":"2.0","id":5,"result":{"resourceTemplates":[]}}', JSON.stringify(tl));
   }
 
   // The prose lists of tools are written by hand (deriving them would import

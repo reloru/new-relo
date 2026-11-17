@@ -136,7 +136,8 @@ console.log("\nclassification (real mcpHandle):\n");
     ["prompts/get unknown name", { jsonrpc: "2.0", id: 7, method: "prompts/get", params: { name: "nope" } }, "prompts/get", null, "rpc_error", "-32602", null],
     ["unknown method", { jsonrpc: "2.0", id: 8, method: "no/such/method" }, "(other)", null, "rpc_error", "-32601", null],
     ["notification", { jsonrpc: "2.0", method: "notifications/initialized" }, "notifications/initialized", null, "notification", null, null],
-    ["unimplemented spec request", { jsonrpc: "2.0", id: 13, method: "resources/templates/list" }, "resources/templates/list", null, "rpc_error", "-32601", null],
+    ["unimplemented spec request", { jsonrpc: "2.0", id: 13, method: "completion/complete" }, "completion/complete", null, "rpc_error", "-32601", null],
+    ["resources/templates/list", { jsonrpc: "2.0", id: 14, method: "resources/templates/list" }, "resources/templates/list", null, "ok", null, null],
     ["unknown tool", { jsonrpc: "2.0", id: 9, method: "tools/call", params: { name: "no_such_tool" } }, "tools/call", "(unknown)", "rpc_error", "-32602", null],
     ["real tool, no KV needed", { jsonrpc: "2.0", id: 10, method: "tools/call", params: { name: "get_emergency_contacts" } }, "tools/call", "get_emergency_contacts", "ok", null, null],
     // The trap: a non-null response that is NOT a request.
@@ -434,7 +435,7 @@ console.log("\nunimplemented requests:\n");
         total: 9,
         // a real client probing a capability we lack, a correct notification,
         // and ordinary traffic — only the first is a gap
-        methods: { "resources/templates/list": 4, "notifications/initialized": 3, "tools/list": 2 },
+        methods: { "completion/complete": 4, "notifications/initialized": 3, "tools/list": 2 },
         outcomes: { rpc_error: 4, notification: 3, ok: 2 },
         codes: { "-32601": 4 },
       }),
@@ -442,7 +443,7 @@ console.log("\nunimplemented requests:\n");
       days: {
         [day()]: oneDay({
           total: 9,
-          methods: { "resources/templates/list": 4, "notifications/initialized": 3, "tools/list": 2 },
+          methods: { "completion/complete": 4, "notifications/initialized": 3, "tools/list": 2 },
           outcomes: { rpc_error: 4, notification: 3, ok: 2 },
           codes: { "-32601": 4 },
         }),
@@ -451,13 +452,13 @@ console.log("\nunimplemented requests:\n");
     },
   });
   const report = await mcpUsageReport(env);
-  assert("the gap is named with its count", report.unimplementedRequested.lifetime, { "resources/templates/list": 4 });
+  assert("the gap is named with its count", report.unimplementedRequested.lifetime, { "completion/complete": 4 });
   assert("a correct notification is not a gap", "notifications/initialized" in report.unimplementedRequested.lifetime, false);
   assert("an implemented method is not a gap", "tools/list" in report.unimplementedRequested.lifetime, false);
 
   const text = mcpUsageText(report);
   assert("the text report calls it out", text.includes("asked for, NOT implemented here"), true);
-  assert("...and names it", text.includes("resources/templates/list"), true);
+  assert("...and names it", text.includes("completion/complete"), true);
   const widest = Math.max(...text.split("\n").map((l) => l.length));
   assert("still fits a phone terminal", widest <= 60, true);
 }
@@ -498,15 +499,19 @@ console.log("\nrequest path:\n");
     [{ jsonrpc: "2.0", id: 6, method: "tools/call", params: { name: "nope" } }, { error: { code: -32602 } }],
     [{ jsonrpc: "2.0", id: 7, method: "no/such" }, { error: { code: -32601 } }],
   ];
+  // The write lands a few seconds later, so a run that starts just before a
+  // bucket boundary can land in the next bucket; either one is current.
+  const bucketBefore = bucketOf(Date.now());
   for (const [m, r] of session) mcpRecord(env, ctx, m, r, 20);
   mcpBatchRecorded(env, ctx);
 
   await Promise.all(pending);
+  const bucketAfter = bucketOf(Date.now());
 
   const shards = [...env.store.keys()].filter((k) => k.startsWith(MCP_SHARD_PREFIX));
   assert("a burst of 8 messages writes ONE shard", shards.length, 1);
   assert("shard key is mcpm:<bucket>:<shard>", /^mcpm:\d{8}-\d{4}:[0-9a-f]{8}$/.test(shards[0]), true);
-  assert("the bucket is the current one", shards[0].split(":")[1], bucketOf(Date.now()));
+  assert("the bucket is the current one", [bucketBefore, bucketAfter].includes(shards[0]?.split(":")[1]), true);
 
   const v = JSON.parse(env.store.get(shards[0]));
   const d = v.days[day()];
