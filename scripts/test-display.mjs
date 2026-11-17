@@ -102,6 +102,16 @@ const home = await page("/");
 has(home, '<p class="hub-water-detail">No gauge near Crosby is at flood stage</p>', "/: the water card says what All normal means");
 lacks(home, "Fast, ad-free", "/: a sales word in the description");
 
+// News links are the publisher's; the RSS guid stays the Google link the item
+// was first published under, so feed readers don't see every item as new.
+const news = JSON.parse(h.kv.store.get("news"));
+news.items[0] = { ...news.items[0], gnLink: "https://news.google.com/rss/articles/CBMiTEST?oc=5", link: "https://abc13.com/post/test/1/" };
+h.kv.store.set("news", JSON.stringify(news));
+const rss = await (await h.get("/news.xml")).text();
+has(rss, '<link>https://abc13.com/post/test/1/</link>', "/news.xml: the publisher link");
+has(rss, '<guid isPermaLink="false">https://news.google.com/rss/articles/CBMiTEST?oc=5</guid>', "/news.xml: the guid stays the Google link");
+has(await page("/news"), 'href="https://abc13.com/post/test/1/"', "/news: the publisher link");
+
 // A modeled reading is still labelled as one.
 const weather = JSON.parse(h.kv.store.get("weather"));
 weather.aqi = { ...weather.aqi, measured: false, source: "open-meteo", observed: null, dominantSite: null };
