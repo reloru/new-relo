@@ -64,7 +64,8 @@ flatten the site again without asking.
 ## Wording
 
 Text a visitor reads, in both languages. `test-wording` renders every page and
-enforces the link-arrow rule; the rest is by hand.
+enforces the link-arrow rule, "this site" over "we", and "not available right
+now" over "temporarily unavailable"; the rest is by hand.
 
 - No arrows on links. A link's own words say where it goes ("Past floods at
   this gauge", not "Details →").

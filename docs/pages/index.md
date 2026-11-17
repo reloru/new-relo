@@ -25,7 +25,7 @@ nav restructure.
 | Glance date stamp (`glanceStamp`) and data-source footnote (`glanceSourceLine`) | `weather.updated` + `relTime()` |
 | Forecast card — the next two periods, then links to hourly, radar and measured rain | `weather` KV |
 | Alerts status card — count or "None" | `weather` KV `alerts` |
-| Water card — badge + `Updated` stamp; detail line only when not normal (`hubWaterSummary`) | `water` KV |
+| Water card — badge + `Updated` stamp, and the detail line from `hubWaterSummary`: the worst gauge when one is at action stage or above, "No gauge near Crosby is at flood stage" when all are normal, or why it is unavailable | `water` KV |
 | Local news card — three headlines and a "More headlines" link | `news` KV via `loadNews` (blocklist-filtered) |
 | Crosby ISD calendar card — three events and a "Full school calendar" link | `calendar` KV |
 

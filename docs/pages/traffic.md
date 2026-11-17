@@ -57,6 +57,15 @@ about once a minute; incidents and high-water reports move fast).
 `traffic.houstontranstar.org/data/rss/incidents_rss.xml` and
 `laneclosures_rss.xml` — parsed by the hand-rolled `parseRssItems`.
 
+**Repeated closures are collapsed at the fetch.** TranStar's closure feed can
+list one closure several times with the same location, schedule and lanes
+(observed 2026-11-16: one closure four times, another twice). `uniqueClosures()`
+keeps one of each, and when the repeats disagree on status an "Active" one
+wins. Schedules are read with runs of spaces collapsed, because TranStar
+sometimes double-spaces them. Because this happens in `fetchTraffic()`, the
+page, `/api/traffic` and `get_traffic` all show the collapsed list, and a
+deploy takes effect at the next cron tick. `scripts/test-display.mjs` pins it.
+
 **Each feed side is independently failure-tolerant, and the distinction is
 load-bearing: `null` means that feed was unreachable at the last refresh, `[]`
 means quiet roads.** `fetchTraffic()` throws only when *both* fail, so a total

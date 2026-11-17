@@ -21,13 +21,16 @@ and the independence disclaimer.
 
 **Two claims on this page are load-bearing and must stay accurate:**
 
-1. **The data-source list.** It names NWS, NOAA NWPS and NHC, EPA (UV),
-   EPA/AirNow with the Open-Meteo modeled fallback, the Houston Health
-   Department, USGS, Houston TranStar, Crosby ISD, and Google News. Adding an
+1. **The data-source list.** It names NWS, EPA (UV), EPA/AirNow with the
+   Open-Meteo modeled fallback, NOAA (river levels, tropical storms), USGS
+   (rain, fishing waters), TCEQ (water samples), the Houston Health
+   Department, the Texas A&M Forest Service, Houston TranStar, Crosby ISD,
+   Google News, and the Iowa Environmental Mesonet (warnings before the site
+   began recording), then links `/methods`. Adding an
    upstream anywhere on the site means adding it here — in **both** `ABOUT` and
    `ABOUT_ES`. (A missing Houston Health Department line in `ABOUT_ES` was a real
    shipped bug, fixed in #116.)
-2. **"We don't adjust the numbers", with its two stated exceptions.** Everything
+2. **"The numbers are not adjusted", with its two stated exceptions.** Everything
    is NWS verbatim except the two values computed in-Worker: "feels like"
    (`feelsLikeF` — heat index or wind chill, from NWS's own published formulas
    applied to the temperature/humidity/wind NWS already returns) and
