@@ -13,7 +13,7 @@ Shared contract: `docs/endpoints/api/README.md`.
 
 ## Response
 
-`incidents` (location, type, status, lanesAffected) and `laneClosures` (location, schedule, lanesAffected, status) — **each `null` when that feed was unreachable at the last refresh, versus `[]` meaning quiet roads.** Plus the static `cameras` catalog (name, roadway, lat, lon, `pageUrl` to TranStar's own camera pages on `traffic.houstontranstar.org` — never image URLs, per TxDOT's no-hotlinking terms) and `liveMapUrl`.
+`incidents` (location, type, status, lanesAffected) and `laneClosures` (location, schedule, lanesAffected, status; one entry per distinct closure, since TranStar's repeats are collapsed at the fetch, see `docs/pages/traffic.md`) — **each `null` when that feed was unreachable at the last refresh, versus `[]` meaning quiet roads.** Plus the static `cameras` catalog (name, roadway, lat, lon, `pageUrl` to TranStar's own camera pages on `traffic.houstontranstar.org` — never image URLs, per TxDOT's no-hotlinking terms) and `liveMapUrl`.
 
 ## Page
 

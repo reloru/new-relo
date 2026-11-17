@@ -103,7 +103,7 @@ export const EMERGENCY = {
     {
       h: "About this page",
       p: [
-        "Every link and number here was checked when this page was last updated, but services change. If a number stops working, dial 211 and they will point you to the right one. Please also tell us so we can fix it.",
+        "Every link and number here was checked when this page was last updated, but services change. If a number stops working, dial 211 and they will point you to the right one. Please also report it through the contact page so it can be fixed here.",
         "crosbynews.com is an independent project, not a government service. This page is a list of official resources and is not updated minute by minute. If a life is in danger, do not read a website. Call 911.",
       ],
       links: [
@@ -200,7 +200,7 @@ export const EMERGENCY_ES = {
     {
       h: "Sobre esta página",
       p: [
-        "Cada enlace y número se verificó en la última actualización de esta página, pero los servicios cambian. Si un número deja de funcionar, marca 211 y te dirán a cuál llamar. Avísanos también para corregirlo.",
+        "Cada enlace y número se verificó en la última actualización de esta página, pero los servicios cambian. Si un número deja de funcionar, marca 211 y te dirán a cuál llamar. Repórtalo también en la página de contacto para corregirlo aquí.",
         "crosbynews.com es un proyecto independiente, no un servicio del gobierno. Esta página es una lista de recursos oficiales y no se actualiza minuto a minuto. Si una vida está en peligro, no leas un sitio web. Llama al 911.",
       ],
       links: [

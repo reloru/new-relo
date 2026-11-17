@@ -44,8 +44,8 @@ export function hubWaterSummary(water, lang) {
     // that CodeQL flagged (js/incomplete-multi-character-sanitization, #5).
     return { cls: waterCatClass(worst.category), label: waterCatLabel(worst.category, lang), detail: String(worst.name ?? "") };
   }
-  if (!gauges.length) return { cls: "w-unknown", label: T(lang, "Unavailable", "No disponible"), detail: T(lang, "Water data temporarily unavailable", "Datos de agua no disponibles temporalmente") };
-  return { cls: "w-normal", label: T(lang, "All normal", "Todo normal"), detail: T(lang, "No area gauges at flood stage", "Ningún medidor del área en etapa de inundación") };
+  if (!gauges.length) return { cls: "w-unknown", label: T(lang, "Unavailable", "No disponible"), detail: T(lang, "Water levels not available right now", "Niveles de agua no disponibles en este momento") };
+  return { cls: "w-normal", label: T(lang, "All normal", "Todo normal"), detail: T(lang, "No gauge near Crosby is at flood stage", "Ningún medidor cerca de Crosby está en etapa de inundación") };
 }
 
 // Same hub-water badge language as hubWaterSummary — w-moderate (the same
@@ -55,7 +55,7 @@ export function hubWaterSummary(water, lang) {
 export function hubBurnBanSummary(burnban, lang) {
   if (burnban?.status === "Yes") return { cls: "w-moderate", label: T(lang, "In effect", "Vigente"), detail: T(lang, "Applies to all of Harris County", "Aplica a todo el condado de Harris") };
   if (burnban?.status === "No") return { cls: "w-normal", label: T(lang, "None", "Ninguna"), detail: "" };
-  return { cls: "w-unknown", label: T(lang, "Unavailable", "No disponible"), detail: T(lang, "Burn ban data temporarily unavailable", "Datos de prohibición de quemas no disponibles temporalmente") };
+  return { cls: "w-unknown", label: T(lang, "Unavailable", "No disponible"), detail: T(lang, "Burn ban status not available right now", "Estado de la prohibición de quemas no disponible en este momento") };
 }
 
 // Compass abbreviations spelled out for the hero's plain-language wind line
@@ -211,8 +211,8 @@ export function glanceExplainers(lang, aqi) {
   const items = [
     T(
       lang,
-      "<strong>Feels like</strong> is the heat index or wind chill, worked out with the National Weather Service's formulas. In the table it is the highest value forecast for the rest of today. Beside the temperature at the top of the page it is the current hour. Phone apps use their own formulas and often read a few degrees cooler on humid days.",
-      "<strong>Sensación térmica</strong>: el índice de calor o la sensación por viento, calculados con las fórmulas del Servicio Meteorológico Nacional. En la tabla es el valor más alto previsto para lo que resta del día. Junto a la temperatura de arriba es el de la hora actual. Las apps del teléfono usan sus propias fórmulas y suelen marcar unos grados menos en días húmedos."
+      "<strong>Feels like</strong> is the heat index or wind chill, worked out with the National Weather Service's formulas. It is shown only where it adds something. The table lists it when the highest value forecast for the rest of today is at or above the day's high. The top of the page shows it beside the temperature when the current hour feels noticeably different from the air temperature. Phone apps use their own formulas and often read a few degrees cooler on humid days.",
+      "<strong>Sensación térmica</strong>: el índice de calor o la sensación por viento, calculados con las fórmulas del Servicio Meteorológico Nacional. Solo se muestra donde aporta algo. La tabla la incluye cuando el valor más alto previsto para lo que resta del día iguala o supera la máxima del día. Arriba de la página aparece junto a la temperatura cuando la hora actual se siente notablemente distinta a la temperatura del aire. Las apps del teléfono usan sus propias fórmulas y suelen marcar unos grados menos en días húmedos."
     ),
     T(
       lang,
@@ -325,7 +325,7 @@ export function homeHtml(weather, water, news, cal, tropics, burnban, lang) {
       <section class="hub-card" data-nosnippet>
         <h2><a href="${lk("/water")}">${T(lang, "Water levels", "Niveles de agua")}</a></h2>
         <p class="hub-water ${ws.cls}"><span class="hub-water-badge">${esc(ws.label)}</span></p>
-        ${WATER_FLOOD_CATS.some((c) => ws.cls === waterCatClass(c)) || ws.cls === "w-unknown" ? `<p class="hub-water-detail">${esc(ws.detail)}</p>` : ""}
+        ${ws.detail ? `<p class="hub-water-detail">${esc(ws.detail)}</p>` : ""}
         ${waterUpdated ? `<p class="hub-stamp">${waterUpdated}</p>` : ""}
       </section>
       <section class="hub-card">
@@ -349,8 +349,8 @@ export function homeHtml(weather, water, news, cal, tropics, burnban, lang) {
   const title = T(lang, "Crosby, TX — Weather, Water, News & Schools", "Crosby, TX — Clima, agua, noticias y escuelas");
   const desc = T(
     lang,
-    "Crosby, Texas front page: live NWS weather, river and bayou flood levels, local headlines, and the Crosby ISD calendar. Fast, ad-free, no trackers.",
-    "Portada de Crosby, Texas: clima del NWS en vivo, niveles de inundación, titulares locales y calendario de Crosby ISD. Rápida, sin anuncios ni rastreadores."
+    "Crosby, Texas front page: live NWS weather, river and bayou flood levels, local headlines, and the Crosby ISD calendar. No ads and no trackers.",
+    "Portada de Crosby, Texas: clima del NWS en vivo, niveles de inundación, titulares locales y calendario de Crosby ISD. Sin anuncios ni rastreadores."
   );
   return `<!DOCTYPE html>
 <html lang="${T(lang, "en", "es-MX")}">
@@ -503,13 +503,12 @@ export function homeMarkdown(weather, water, news, cal, tropics, burnban, lang) 
     out.push("");
   }
   const ws = hubWaterSummary(water, lang);
-  const wsNormal = ws.cls === "w-normal";
   const wsStamp = water.updated ? ` (${T(lang, "updated", "actualizado")} ${clockTime(water.updated, lang)} CT)` : "";
   // Both fields arrive raw from hubWaterSummary, so markdown uses them as-is.
   // The entity-strip and tag-strip that used to sit here were no-ops undoing an
   // esc() applied at construction — waterCatLabel returns plain text, and the
   // pre-escaped detail had no literal "<" left to strip.
-  out.push(`**${T(lang, "Water levels", "Niveles de agua")}:** ${ws.label}${wsNormal ? "" : ` — ${ws.detail}`}${wsStamp}. [${T(lang, "All gauges", "Todos los medidores")}](${canonicalFor("/water", lang)})`, "");
+  out.push(`**${T(lang, "Water levels", "Niveles de agua")}:** ${ws.label}${ws.detail ? ` — ${ws.detail}` : ""}${wsStamp}. [${T(lang, "All gauges", "Todos los medidores")}](${canonicalFor("/water", lang)})`, "");
   const bb = hubBurnBanSummary(burnban, lang);
   out.push(`**${T(lang, "Burn ban", "Prohibición de quemas")}:** ${bb.label}${bb.cls === "w-normal" ? "" : ` — ${bb.detail}`}. [${T(lang, "Details", "Detalles")}](${canonicalFor("/burn-ban", lang)})`, "");
   const newsItems = (news.items ?? []).filter((n) => !n.crime).slice(0, 3);
@@ -543,11 +542,11 @@ export function renderError(err, source = "a data source") {
   console.error("Page render failed:", source, "-", err && err.stack);
   return `<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8">
-<title>crosbynews.com &mdash; temporarily unavailable</title>
+<title>crosbynews.com &mdash; not available right now</title>
 ${sharedHead("en")}</head>
 <body style="font-family:system-ui,sans-serif;max-width:640px;margin:3rem auto;padding:0 1rem">
-<h1>Temporarily unavailable</h1>
-<p>We couldn't reach ${esc(source)} just now. Please try again shortly.</p>
+<h1>Not available right now</h1>
+<p>This site could not reach ${esc(source)} just now. Try again in a few minutes.</p>
 <p><a href="/">Back to the front page</a></p>
 </body></html>`;
 }

@@ -15,17 +15,18 @@ Live flood gauges for the waters that flood Crosby and NE Harris County.
 
 | Block | Source |
 |---|---|
-| Per-gauge cards — name, colored flood-category badge, observed stage (ft), flow (cfs), threshold line, context line | `water` KV |
+| Intro — what the page compares, then what action stage means (where preparation starts; flooding begins at minor) and that flow is in cubic feet per second (cfs) | static |
+| Per-gauge cards — name, colored flood-category badge, observed stage (ft), flow (cfs), threshold line, context line. A gauge with no NWS flood categories ("Monitored", Lake Houston) shows `noStagesNote()` in place of the threshold line, the same sentence as its gauge page | `water` KV |
 | Safety note — 911, turn around don't drown | static |
 | Per-gauge link to the official NWPS page | `nwpsGaugeUrl(lid)` |
-| "Flood history →" link on the four gauges that have a page (`gaugePagePath(lid)`, from the registry); the Markdown lists the same URL | `src/registry.js` — see `docs/pages/water-gauges.md` |
+| "Past floods at this gauge" link on the four gauges that have a page (`gaugePagePath(lid)`, from the registry); the Markdown lists the same URL | `src/registry.js` — see `docs/pages/water-gauges.md` |
 
 Gauges (`WATER_GAUGES`, NWPS location IDs): Cedar Bayou nr Crosby, San Jacinto R
 nr Sheldon, San Jacinto R at Lake Houston, Luce Bayou nr Huffman, Goose Creek,
 E Fork San Jacinto.
 
 **The badge is NWPS's own `floodCategory`** — Normal → Action → Minor → Moderate
-→ Major, via `waterCatLabel` / `waterCatClass`. We never invent a classification.
+→ Major, via `waterCatLabel` / `waterCatClass`. The site never invents a classification.
 Reading and thresholds come from the same gauge datum, so they are directly
 comparable and are never mixed across data.
 

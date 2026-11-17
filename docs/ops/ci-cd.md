@@ -95,7 +95,16 @@ see `docs/README.md`.
   "blue on blue".
 - **Check wording** (`node scripts/test-wording.mjs`) — same job, no
   install. Renders every page in both languages and refuses a symbol or
-  emoji outside an `aria-hidden` span and an arrow in a link label.
+  emoji outside an `aria-hidden` span, an arrow in a link label, and "we",
+  "us" or "our" (nosotros, nuestro) on a page whose text is the site's own. A
+  ".us" web address is not "us". It also reads `src/features` and `src/pages`
+  for "temporarily unavailable", because the outage branches never render
+  against the fixtures.
+- **Check page display** (`node scripts/test-display.mjs`) — same job, no
+  install. Repeated TranStar lane closures collapse to one, a measured air
+  reading is never called modeled, AirNow's local stamp is shown in the
+  site's format, the fishing note never repeats its badge, and `/water`
+  explains "Monitored", action stage and cfs.
 - **Check MCP server contract** (`node scripts/test-mcp-server.mjs`) — same
   job, added with the Anthropic directory preparation. Pins what that review
   tests directly: bad arguments return an actionable `isError` result before

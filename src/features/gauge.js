@@ -25,7 +25,7 @@ import { JSONLD_SITE, sharedHead } from "../seo.js";
 import { SITE } from "../config.js";
 import { pageFor, gaugePagePath } from "../registry.js";
 import { FLOOD_RANK_NAME, RIVER_WARNINGS_OBSERVED_FROM, ctDay } from "../record.js";
-import { WATER_GAUGES, WATER_STATE_CSS, loadWater, waterState, waterContext, waterCatLabel, nwpsGaugeUrl } from "./water.js";
+import { WATER_GAUGES, WATER_STATE_CSS, loadWater, waterState, waterContext, waterCatLabel, nwpsGaugeUrl, noStagesNote } from "./water.js";
 import { loadWaterSamples, stationsForGauge, waterSamplesHtml, waterSamplesMarkdown, WQ_CSS } from "./waterquality.js";
 
 const STAGE_KEYS = ["action", "minor", "moderate", "major"];
@@ -199,7 +199,7 @@ function stagesText(d, lang) {
   const th = d.gauge?.thresholds;
   const defined = STAGE_KEYS.filter((k) => typeof th?.[k] === "number");
   if (!d.gauge) return T(lang, "Flood stages are unavailable while the current reading is.", "Las etapas de inundación no están disponibles mientras la lectura actual no lo esté.");
-  if (!defined.length) return T(lang, "The National Weather Service defines no flood stages for this gauge.", "El Servicio Meteorológico Nacional no define etapas de inundación para este medidor.");
+  if (!defined.length) return noStagesNote(lang);
   return defined.map((k) => `${waterCatLabel(k, lang)}: ${ft(th[k])} ft`).join(" · ");
 }
 
@@ -249,8 +249,8 @@ function warningsText(d, lang) {
   const from = d.warningsArchiveFrom ? ctDate(d.warningsArchiveFrom, lang) : null;
   return T(
     lang,
-    `Since ${live} this site records river flood warnings itself, from the National Weather Service's own flood products; earlier ones come from the Iowa Environmental Mesonet's archive of NWS products.${from ? ` The earliest river flood warning in the record for any gauge this site tracks is dated ${from}, so no entry before then is not evidence of no flooding.` : ""}`,
-    `Desde el ${live} este sitio registra los avisos de inundación fluvial por su cuenta, a partir de los productos de inundación del Servicio Meteorológico Nacional; los anteriores provienen del archivo de productos del NWS del Iowa Environmental Mesonet.${from ? ` El aviso de inundación fluvial más antiguo del registro para los medidores que sigue este sitio es del ${from}, así que la falta de registros antes de esa fecha no prueba que no hubo inundaciones.` : ""}`,
+    `Since ${live} this site records river flood warnings itself, from the National Weather Service's own flood products; earlier ones come from the Iowa Environmental Mesonet's archive of NWS products.${from ? ` The earliest river flood warning in the record for any gauge this site tracks is dated ${from}. The record does not reach back further, so a flood before that date can be missing from this list.` : ""}`,
+    `Desde el ${live} este sitio registra los avisos de inundación fluvial por su cuenta, a partir de los productos de inundación del Servicio Meteorológico Nacional; los anteriores provienen del archivo de productos del NWS del Iowa Environmental Mesonet.${from ? ` El aviso de inundación fluvial más antiguo del registro para los medidores que sigue este sitio es del ${from}. El registro no llega más atrás, así que una inundación anterior a esa fecha puede faltar en esta lista.` : ""}`,
   );
 }
 

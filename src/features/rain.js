@@ -251,7 +251,7 @@ ${d.daily.map((r) => `      <tr><td><time datetime="${esc(r.day)}">${esc(dayText
   <ul class="notes">
 ${notes(lang).map((n) => `    <li>${esc(n)}</li>`).join("\n")}
   </ul>
-  <p class="intro"><a href="${href("/weather")}">${T(lang, "Forecast", "Pronóstico")}</a> &middot; <a href="${href("/water")}">${T(lang, "Water levels", "Niveles de agua")}</a> &middot; <a href="${RAIN_STATION_URL}">${T(lang, "The USGS station", "La estación del USGS")}</a></p>
+  <p class="intro">${T(lang, "Related:", "Relacionado:")} <a href="${href("/weather")}">${T(lang, "forecast", "pronóstico")}</a>, <a href="${href("/water")}">${T(lang, "water levels", "niveles de agua")}</a>, <a href="${RAIN_STATION_URL}">${T(lang, "the USGS station's own page", "la página de la estación en el USGS")}</a>.</p>
 </main>
 ${footer({ page: PATH, lang, source: T(lang, `Rain data from the U.S. Geological Survey, station 08072000 (<a href="${RAIN_STATION_URL}">Lake Houston near Sheldon</a>).`, `Datos de lluvia del Servicio Geológico de EE. UU., estación 08072000 (<a href="${RAIN_STATION_URL}">Lake Houston cerca de Sheldon</a>).`) })}
 </body>

@@ -18,9 +18,10 @@ the D1 record.
 | Block | Source |
 |---|---|
 | Station cards grouped by water body (`fishingGroups`) | `fishing` KV |
-| Per-station metrics (`fishingMetrics`) — water temp (°F), dissolved oxygen, pH, turbidity, gage height | `fishing` KV `params` |
+| Per-station metrics (`fishingMetrics`) — water temp (°F), dissolved oxygen, pH, turbidity (FNU; labelled "Turbidity", never "clarity", which on this page means the samples' Secchi depth), gage height | `fishing` KV `params` |
 | Dissolved-oxygen badge (`fishingState`) — > 6 healthy, 4–6 moderate, < 4 low | derived from `params.do` |
-| Honest-labeling note (`fishingNote`) — nearby station, not the exact hole; conditions, not a guaranteed bite | static |
+| Station note (`fishingNote`) — full sentences on what stands out: moderate or low oxygen, water at 85°F or more or 55°F or less, turbidity under 10 (clear) or 50 and over (stained). Healthy oxygen adds nothing, because the badge says it, so a station with nothing else to remark on has no note. A level-only station says it has no water-quality sensor | derived from `params` |
+| "How to read it" — oxygen bands, turbidity defined (formazin nephelometric units, higher is cloudier, the clear and stained cutoffs), and that the numbers cannot promise a bite | static |
 | TPWD license + water-safety note linking `/water` | static |
 | Per-station link to the USGS monitoring-location page | `usgsSiteUrl(id)` |
 | Water samples: for each of the four TCEQ stations, the latest 6 sampling days (E. coli, oxygen, Secchi clarity in inches), its span on record, a link to its portal page, and the limits list (`waterSampleLimits`). Not `data-nosnippet`: it is the record | D1 `water_samples` |

@@ -9,7 +9,7 @@
 
 import { LAT, LON, TZ } from "../config.js";
 import { T, canonicalFor, hreflangTags } from "../i18n.js";
-import { esc, fmt, dateStamp } from "../lib/format.js";
+import { esc, fullTime, dateStamp } from "../lib/format.js";
 import { BASE_CSS } from "../assets/base-css.js";
 import { topbar, footer } from "../chrome.js";
 import { JSONLD_SITE, sharedHead } from "../seo.js";
@@ -431,15 +431,23 @@ export function aqiHealth(v, lang) {
   return T(lang, "Health warning of emergency conditions: everyone should avoid all outdoor exertion.", "Advertencia de salud por condiciones de emergencia: todos deben evitar toda actividad al aire libre.");
 }
 
+// AirNow stamps a reading in local time ("2026-11-16 15:00 CST"). Pages show
+// it in the site's own stamp format, so turn it into an instant. Returns null
+// for anything that is not that shape, and the caller prints the raw string.
+export function aqiObservedIso(observed) {
+  const m = /^(\d{4}-\d{2}-\d{2})\s+(\d{1,2})(?::(\d{2}))?\s+(CST|CDT)$/.exec(String(observed ?? "").trim());
+  if (!m) return null;
+  const iso = `${m[1]}T${m[2].padStart(2, "0")}:${m[3] || "00"}:00${m[4] === "CDT" ? "-05:00" : "-06:00"}`;
+  return Number.isFinite(Date.parse(iso)) ? iso : null;
+}
+
 // A small cross-reference card for the nearest dedicated ozone monitor, with a
 // timestamp and a native <details> "i" expander (no JS — CSP-safe). Rendered on
 // /air only when a reading is present.
 export function nearbyOzoneCard(n, lang) {
   if (!n || n.aqi == null) return "";
   const band = aqiBand(n.aqi);
-  const when = n.observedIso
-    ? fmt(n.observedIso, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" }, lang)
-    : null;
+  const when = n.observedIso ? dateStamp(n.observedIso, lang) : null;
   const info = T(
     lang,
     `${n.site} is the nearest dedicated ozone monitor to Crosby (about ${n.distanceMi} mi). It measures ozone only. The main number above already uses the closest monitor reporting each pollutant, and this one is shown as a second check in case ozone is high near the ship channel. TCEQ measures it every hour and reports it through EPA's AirNow.`,
@@ -450,7 +458,7 @@ export function nearbyOzoneCard(n, lang) {
     <article class="pgroup ${band.cls} nearby-card">
       <h3>${esc(n.site)} <span class="dom">${T(lang, "· ozone", "· ozono")}</span></h3>
       <p class="pcat">${n.aqi}</p>
-      <p class="pcount">${esc(T(lang, band.en, band.es))}${when ? `<br><span class="psite">${T(lang, "Updated", "Actualizado")} ${esc(when)}</span>` : ""}</p>
+      <p class="pcount">${esc(T(lang, band.en, band.es))}${when ? `<br><span class="psite">${T(lang, "Measured", "Medido")} ${when}</span>` : ""}</p>
     </article>
   </section>`;
 }
@@ -550,7 +558,7 @@ ${topbar("/air", lang)}
     <span class="aqi-num">${aqi.usAqi}</span>
     <div>
       <p class="aqi-cat">${esc(T(lang, band.en, band.es))}</p>
-      <p class="aqi-sub">${aqi.dominant ? `${T(lang, "Main pollutant", "Contaminante principal")}: ${esc(aqiDominantLabel(aqi.dominant, lang))} , ` : ""}${esc(aqiSourceTag(aqi, lang))}${aqi.observed ? `, ${esc(aqi.observed)}` : ""}</p>
+      <p class="aqi-sub">${aqi.dominant ? `${T(lang, "Main pollutant", "Contaminante principal")}: ${esc(aqiDominantLabel(aqi.dominant, lang))}, ` : ""}${esc(aqiSourceTag(aqi, lang))}${aqi.observed ? `, ${T(lang, "measured", "medido")} ${aqiObservedIso(aqi.observed) ? dateStamp(aqiObservedIso(aqi.observed), lang) : esc(aqi.observed)}` : ""}</p>
     </div>
   </div>
   <p class="stamp">${aqiSourceNote(aqi, lang)}${weather.updated ? ` ${T(lang, "Checked", "Verificado")} ${dateStamp(weather.updated, lang)}.` : ""}</p>
@@ -600,7 +608,7 @@ export function airMarkdown(weather, lang) {
     out.push(
       `**${T(lang, "US AQI", "AQI de EE. UU.")}: ${aqi.usAqi} — ${T(lang, band.en, band.es)}**${aqi.dominant ? ` (${T(lang, "main pollutant", "contaminante principal")}: ${aqiDominantLabel(aqi.dominant, lang)})` : ""}`,
       "",
-      `_${aqiSourceNote(aqi, lang)}${aqi.observed ? ` ${T(lang, "Observed", "Observado")} ${aqi.observed}.` : ""}_`,
+      `_${aqiSourceNote(aqi, lang)}${aqi.observed ? ` ${T(lang, "Measured", "Medido")} ${aqiObservedIso(aqi.observed) ? `${fullTime(aqiObservedIso(aqi.observed), lang)} CT` : aqi.observed}.` : ""}_`,
       ""
     );
     if (aqi.subIndices && Object.keys(aqi.subIndices).length) {
@@ -613,18 +621,18 @@ export function airMarkdown(weather, lang) {
     }
     if (aqi.nearby && aqi.nearby.aqi != null) {
       const nb = aqi.nearby;
-      const nbWhen = nb.observedIso ? fmt(nb.observedIso, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" }, lang) : null;
+      const nbWhen = nb.observedIso ? `${fullTime(nb.observedIso, lang)} CT` : null;
       out.push(
         `## ${T(lang, "Nearby ozone monitor", "Monitor de ozono cercano")}`,
         "",
-        `- ${nb.site} (${T(lang, "ozone", "ozono")}): ${nb.aqi} (${T(lang, aqiBand(nb.aqi).en, aqiBand(nb.aqi).es)})${nbWhen ? ` — ${T(lang, "updated", "actualizado")} ${nbWhen}` : ""}`,
+        `- ${nb.site} (${T(lang, "ozone", "ozono")}): ${nb.aqi} (${T(lang, aqiBand(nb.aqi).en, aqiBand(nb.aqi).es)})${nbWhen ? ` — ${T(lang, "measured", "medido")} ${nbWhen}` : ""}`,
         `  ${T(lang, `Nearest dedicated ozone monitor (~${nb.distanceMi} mi); a cross-check so a locally elevated reading isn't hidden by the closest-per-pollutant headline.`, `El monitor de ozono dedicado más cercano (~${nb.distanceMi} mi); una verificación para que una lectura localmente elevada no quede oculta por el titular del monitor más cercano por contaminante.`)}`,
         ""
       );
     }
     out.push(`## ${T(lang, "What this means", "Qué significa")}`, "", aqiHealth(aqi.usAqi, lang), "");
   } else {
-    out.push(T(lang, "The air quality reading is temporarily unavailable.", "La lectura de calidad del aire no está disponible temporalmente."), "");
+    out.push(T(lang, "The air quality reading is not available right now.", "La lectura de calidad del aire no está disponible en este momento."), "");
   }
   out.push(
     "---",

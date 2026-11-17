@@ -22,7 +22,7 @@ back-filled year.
 | Warnings drawn around Crosby, by year (2007 → current year, zeros shown): tornado, severe thunderstorm, flash flood, flood warning, flood advisory, with totals | `scope = 'point'` |
 | Every tornado warning that included Crosby, with NWS's issue-time tags | `scope = 'point'`, `TO.W` |
 | Severe thunderstorm warnings with a considerable/destructive damage-threat tag | `scope = 'point'`, `SV.W`, `tags` has `damage` |
-| Zone products for TXZ213, grouped warnings / watches / advisories / statements: count, first, latest | `scope = 'zone'` |
+| "Alerts for Crosby's forecast zone (TXZ213)", with an intro saying these are issued for a whole zone rather than an area drawn around a storm, grouped warnings / watches / advisories / statements: count, first, latest | `scope = 'zone'` |
 | Harris County watches | `scope = 'county'` |
 | River flood warnings per gauge (linked to the gauge page where one exists) | `scope = 'gauge'` |
 | How this is counted | static text with computed dates |

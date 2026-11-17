@@ -2,7 +2,7 @@
 //
 // Why this file exists: the failure mode here is a SENTENCE THAT READS FINE
 // AND IS FALSE. If statusSince is rendered without checking it against
-// trackingSince, a freshly deployed feed says "No ban reported in our checks
+// trackingSince, a freshly deployed feed says "No ban reported in this site's checks
 // since August 24, 2026" — which a reader takes as "a ban ended that day".
 // Nothing throws, nothing 500s, the page looks healthy, and the claim is
 // invented. `node --check` cannot see it and a render test cannot see it,
@@ -65,14 +65,14 @@ check("...while statusSince starts fresh", salvage.statusSince, T2);
 
 console.log("\nburnbanSince — the sentence, and the one it must never write:\n");
 
-const NEVER = /reported in our checks since|reportada en nuestras verificaciones desde/;
+const NEVER = /reported in this site's checks since|reportada en las verificaciones de este sitio desde/;
 
 // THE case this file exists for.
 const fresh = burnbanSince({ status: "No", statusSince: T2, trackingSince: T2 }, "en");
 checkThat("no witnessed change says 'began tracking'", /began tracking/.test(fresh));
 checkThat("no witnessed change NEVER implies a transition", !NEVER.test(fresh));
 const freshEs = burnbanSince({ status: "No", statusSince: T2, trackingSince: T2 }, "es");
-checkThat("...same in Spanish", /empezamos a monitorear/.test(freshEs) && !NEVER.test(freshEs));
+checkThat("...same in Spanish", /empezó a monitorear/.test(freshEs) && !NEVER.test(freshEs));
 
 // Once a change is actually witnessed, claiming the date is honest.
 const witnessed = burnbanSince({ status: "No", statusSince: T1, trackingSince: T0 }, "en");
@@ -81,7 +81,7 @@ checkThat("a witnessed change may claim the date", NEVER.test(witnessed));
 // An active ban prefers TFS's authoritative startDate over our polling.
 const banned = burnbanSince({ status: "Yes", startDate: T1, statusSince: T2, trackingSince: T0 }, "en");
 checkThat("an active ban quotes TFS's startDate", /In effect since/.test(banned));
-checkThat("...and does not substitute our own observation", !/our checks/.test(banned));
+checkThat("...and does not substitute our own observation", !/site's checks/.test(banned));
 
 // No authoritative date and nothing witnessed: say nothing at all.
 check("a ban with no date and no history stays silent", burnbanSince({ status: "Yes", startDate: null, statusSince: T2, trackingSince: T2 }, "en"), "");

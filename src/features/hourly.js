@@ -122,7 +122,7 @@ ${topbar("/hourly", lang)}
   <p class="intro">${T(lang, `Hour-by-hour forecast for Crosby, Texas from the U.S. National Weather Service, covering the next ${hours.length} hours. Updated ${dateStamp(data.updated, lang)}.`, `Pronóstico hora por hora para Crosby, Texas del Servicio Meteorológico Nacional de EE. UU., para las próximas ${hours.length} horas. Actualizado ${dateStamp(data.updated, lang)}.`)}</p>
   ${lang === "es" ? `<p class="intro nws-note">${ES_NWS_NOTE}</p>` : ""}
   <p class="intro feels-note">${T(lang, "Temp shows the “feels like” temperature in parentheses.", "La temperatura muestra la sensación térmica entre paréntesis.")}</p>
-${body || `<p class="none">${T(lang, "Hourly forecast is temporarily unavailable.", "El pronóstico por hora no está disponible temporalmente.")}</p>`}
+${body || `<p class="none">${T(lang, "Hourly forecast is not available right now.", "El pronóstico por hora no está disponible en este momento.")}</p>`}
   <p class="intro">${T(lang, "Related:", "Relacionado:")} <a href="${lang === "es" ? "/es/weather" : "/weather"}">${T(lang, "seven-day forecast", "pronóstico de siete días")}</a>, <a href="${lang === "es" ? "/es/radar" : "/radar"}">${T(lang, "radar", "radar")}</a>.</p>
 </main>
 ${footer({ page: "/hourly", lang, source: T(lang, `Data from the U.S. National Weather Service (<a href="https://weather.gov">weather.gov</a>).`, `Datos del Servicio Meteorológico Nacional de EE. UU. (<a href="https://weather.gov">weather.gov</a>).`), data })}

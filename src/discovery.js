@@ -199,7 +199,7 @@ MCP server (Streamable HTTP, JSON-RPC):
 - GET https://crosbynews.com/api/traffic - Crosby-corridor road incidents and
   lane closures from Houston TranStar (JSON); MCP tool: get_traffic
 - GET https://crosbynews.com/api/fishing - water conditions (temperature,
-  dissolved oxygen, pH, clarity) for the waters people fish near Crosby, from
+  dissolved oxygen, pH, turbidity) for the waters people fish near Crosby, from
   USGS real-time monitoring (JSON); MCP tool: get_fishing
 - MCP-only tools: get_emergency_contacts (Crosby emergency directory),
   get_radar (latest NWS KHGX radar still, returned as an inline image),

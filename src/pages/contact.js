@@ -11,9 +11,9 @@ import { topbar, footer } from "../chrome.js";
 import { JSONLD_SITE, sharedHead, ORG_ID, WEBSITE_ID } from "../seo.js";
 
 export const CONTACT = {
-  title: "Contact Us",
+  title: "Contact",
   description: "How to reach crosbynews.com with a question, a news tip or a security report.",
-  intro: "crosbynews.com is an independent community weather and news project for Crosby, Texas. We welcome questions, corrections, and local news tips.",
+  intro: "crosbynews.com is an independent community weather and news project for Crosby, Texas, run by one person. Questions, corrections and local news tips are welcome.",
   sections: [
     {
       h: "General inquiries",
@@ -40,7 +40,7 @@ export const CONTACT = {
 export const CONTACT_ES = {
   title: "Contacto",
   description: "Cómo comunicarte con crosbynews.com para una pregunta, un dato de noticia o un reporte de seguridad.",
-  intro: "crosbynews.com es un proyecto comunitario independiente de clima y noticias para Crosby, Texas. Recibimos con gusto preguntas, correcciones y datos de noticias locales.",
+  intro: "crosbynews.com es un proyecto comunitario independiente de clima y noticias para Crosby, Texas, a cargo de una sola persona. Las preguntas, correcciones y datos de noticias locales son bienvenidos.",
   sections: [
     {
       h: "Consultas generales",

@@ -194,6 +194,11 @@ export async function loadWater(env) {
   return data;
 }
 
+// The line a gauge without flood categories gets in place of its stages, so
+// the "Monitored" badge is explained where it appears.
+export const noStagesNote = (lang) =>
+  T(lang, "The National Weather Service defines no flood stages for this gauge.", "El Servicio Meteorológico Nacional no define etapas de inundación para este medidor.");
+
 // Discharge for display: NWPS gives kcfs; cfs reads better for these waters.
 export const waterFlowCfs = (flowKcfs) => (flowKcfs == null ? null : Math.round(flowKcfs * 1000));
 
@@ -201,7 +206,7 @@ export const waterFlowCfs = (flowKcfs) => (flowKcfs == null ? null : Math.round(
 // the normal case (action defined + stage below it); flooding states let the
 // badge speak for itself rather than compute anything fragile.
 export function waterContext(g, lang) {
-  if (g.stage == null) return T(lang, "Reading temporarily unavailable", "Lectura no disponible temporalmente");
+  if (g.stage == null) return T(lang, "Reading not available right now", "Lectura no disponible en este momento");
   const action = g.thresholds.action;
   if (g.category === "no_flooding" && typeof action === "number" && g.stage < action) {
     return T(
@@ -240,7 +245,7 @@ export function waterHtml(data, lang) {
         <p class="gauge-stage">${g.stage != null ? `${esc(g.stage)}<span class="u"> ft</span>` : "&ndash;"}${cfs != null ? ` <span class="gauge-flow">&middot; ${esc(cfs.toLocaleString(lang === "es" ? "es-MX" : "en-US"))} ${T(lang, "cfs", "pie³/s")}</span>` : ""}</p>
         <p class="gauge-meta">${ctx ? `${esc(ctx)} &middot; ` : ""}${g.validTime ? `${T(lang, "as of", "a las")} ${timeTag(g.validTime, `${clockTime(g.validTime, lang)} CT`)}` : ""}</p>
         </div>
-        ${th ? `<p class="gauge-th">${th}</p>` : ""}
+        ${th ? `<p class="gauge-th">${th}</p>` : st.cls === "w-monitored" ? `<p class="gauge-th">${noStagesNote(lang)}</p>` : ""}
         ${page ? `<p class="gauge-more"><a href="${lang === "es" ? esPath(page) : page}">${T(lang, "Past floods at this gauge", "Inundaciones pasadas en este medidor")}</a></p>` : ""}
       </article>`;
     })
@@ -256,7 +261,7 @@ export function waterHtml(data, lang) {
     ? anyFlooding
       ? `<div class="status status-alert" role="status"><span class="status-icon" aria-hidden="true">&#9888;</span><div><p class="status-title">${T(lang, "Water is high", "El agua está alta")}</p><p class="status-sub">${T(lang, "At least one gauge is at or above flood stage. The readings are below.", "Al menos un medidor está en etapa de inundación o por encima. Las lecturas están abajo.")}</p></div></div>`
       : `<div class="status status-ok" role="status"><span class="status-icon" aria-hidden="true">&#10004;</span><div><p class="status-title">${T(lang, "All gauges are normal", "Todos los medidores están normales")}</p><p class="status-sub">${T(lang, "None of the gauges near Crosby is at flood stage. Readings are refreshed every 15 minutes.", "Ninguno de los medidores cerca de Crosby está en etapa de inundación. Las lecturas se actualizan cada 15 minutos.")}</p></div></div>`
-    : `<p class="none">${T(lang, "Water level data is temporarily unavailable.", "Los datos de nivel de agua no están disponibles temporalmente.")}</p>`;
+    : `<p class="none">${T(lang, "Water level data is not available right now.", "Los datos de nivel de agua no están disponibles en este momento.")}</p>`;
 
   return `<!DOCTYPE html>
 <html lang="${T(lang, "en", "es-MX")}">
@@ -300,7 +305,7 @@ ${WATER_STATE_CSS}
 ${topbar("/water", lang)}
 <main id="main">
   <h1>${esc(title)}</h1>
-  <p class="intro">${T(lang, "How high the water is on the rivers and bayous that flood Crosby and northeast Harris County, next to the stage at which the National Weather Service says each one floods. The reading and the flood stages come from the same gauge, so the two can be compared directly.", "Qué tan alta está el agua en los ríos y arroyos que inundan Crosby y el noreste del condado de Harris, junto a la etapa en la que el Servicio Meteorológico Nacional dice que cada uno se inunda. La lectura y las etapas de inundación vienen del mismo medidor, así que se pueden comparar directamente.")}${data.updated ? ` ${T(lang, "Updated", "Actualizado")} ${dateStamp(data.updated, lang)}.` : ""}</p>
+  <p class="intro">${T(lang, "How high the water is on the rivers and bayous that flood Crosby and northeast Harris County, next to the stage at which the National Weather Service says each one floods. The reading and the flood stages come from the same gauge, so the two can be compared directly. Action stage is the level at which the Weather Service and local officials start preparing for a possible flood. Flooding begins at the minor stage. Where a gauge also measures flow, it is given in cubic feet per second (cfs).", "Qué tan alta está el agua en los ríos y arroyos que inundan Crosby y el noreste del condado de Harris, junto a la etapa en la que el Servicio Meteorológico Nacional dice que cada uno se inunda. La lectura y las etapas de inundación vienen del mismo medidor, así que se pueden comparar directamente. La etapa de acción es el nivel en el que el Servicio Meteorológico y las autoridades locales empiezan a prepararse para una posible inundación. La inundación empieza en la etapa menor. Donde un medidor también mide el caudal, se da en pies cúbicos por segundo (pie³/s).")}${data.updated ? ` ${T(lang, "Updated", "Actualizado")} ${dateStamp(data.updated, lang)}.` : ""}</p>
   <div data-nosnippet>${status}</div>
   <div class="gauges">
 ${cards}
@@ -338,7 +343,7 @@ export function waterMarkdown(data, lang) {
       out.push(`- ${T(lang, "Official gauge", "Medidor oficial")}: ${nwpsGaugeUrl(g.lid)}`, "");
     }
   } else {
-    out.push(T(lang, "Water level data is temporarily unavailable.", "Los datos de nivel de agua no están disponibles temporalmente."));
+    out.push(T(lang, "Water level data is not available right now.", "Los datos de nivel de agua no están disponibles en este momento."));
   }
   out.push(
     "---",

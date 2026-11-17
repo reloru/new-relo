@@ -19,7 +19,7 @@ per-pollutant breakdown and health guidance.
 | AQI hero, colored by the EPA band (`AQI_BANDS`) | `weather.aqi.usAqi` |
 | Per-pollutant sub-index cards (O₃, PM2.5, PM10), dominant flagged, each naming its monitor site | `weather.aqi.subIndices` + `aqi.sites` |
 | Category health guidance (`aqiHealth`) | derived from the AQI value |
-| "Nearby ozone monitor" card (`nearbyOzoneCard`) — Channelview C15, with timestamp and a native `<details>` "i" expander | `weather.aqi.nearby`; **card hidden entirely when absent** |
+| "Nearby ozone monitor" card (`nearbyOzoneCard`) — Channelview C15, "Measured" with a `dateStamp()`, and a native `<details>` "i" expander | `weather.aqi.nearby`; **card hidden entirely when absent** |
 | EPA-band "how to read the AQI" table | static |
 | Evergreen Gulf Coast ozone / PM2.5 guide — ozone peaks on hot stagnant afternoons; TCEQ Ozone Action Days | static |
 | Source note (`aqiSourceNote`) — names the per-pollutant monitors, or says modeled | derived |
@@ -88,6 +88,12 @@ site names stay in their official English.
 Measured-vs-modeled is disclosed everywhere the number appears, via
 `aqiSourceTag()` (short — "Baytown Garth monitor" or "modeled") and
 `aqiSourceNote()` (the full sentence listing per-pollutant monitors): this page,
-the `/weather` hero, the homepage glance explainer and data-source footnote,
+the `/weather` hero and its Markdown "Now" line, the homepage glance explainer and data-source footnote,
 `/api/air`, `/api/weather`, and the MCP tools. The disclosure also lives on
 `/about`. Unlike UV, AQI is meaningful day and night, so it is never gated.
+
+AirNow stamps its reading in local time (`observed`, e.g. "2026-11-16 15:00
+CST"). The API keeps that string as published; the page and its Markdown turn
+it into an instant with `aqiObservedIso()` and print it in the site's stamp
+format ("measured Nov 16, 2026, 3:00 PM CT", in a `<time>`), falling back to
+the raw string for any other shape. `scripts/test-display.mjs` pins both.

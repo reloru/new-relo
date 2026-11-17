@@ -11,7 +11,9 @@
 //
 // Run: node scripts/test-wording.mjs
 
-import { createHarness } from "./lib/harness.mjs";
+import { readFile, readdir } from "node:fs/promises";
+import { join } from "node:path";
+import { createHarness, SRC } from "./lib/harness.mjs";
 import { PAGES } from "../src/registry.js";
 
 const h = await createHarness();
@@ -22,6 +24,13 @@ const fail = (msg) => failures.push(msg);
 const PICTOGRAPH = /[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{24D8}\u{2190}-\u{21FF}\u{2139}]/u;
 // Technical notation in the two developer pages is not decoration.
 const ARROW_OK = new Set(["/developers", "/mcp"]);
+
+// "We", "us" and "our" as words. Case matters: "US-90" and "U.S." are not "us",
+// and neither is the end of a web address ("waterqualitydata.us").
+const FIRST_PERSON_EN = /(?<![.\w])(?:[Ww]e|us|[Oo]urs?)\b/;
+const FIRST_PERSON_ES = /\b(?:[Nn]osotros|[Nn]uestr[oa]s?)\b/;
+// Pages whose text is mostly someone else's words.
+const THIRD_PARTY_TEXT = new Set(["/", "/weather", "/hourly", "/alerts", "/news", "/calendar", "/traffic"]);
 
 // Split HTML without regex replacement: drop everything between the open and
 // close of an element by index, and walk tags one character at a time.
@@ -83,6 +92,13 @@ for (const p of PAGES) {
     for (const [, label] of body.matchAll(/<a\b[^>]*>([\s\S]*?)<\/a>/g)) {
       if (/[←-⇿]/.test(label)) fail(`${path}: an arrow in a link: "${textOf(label).trim()}"`);
     }
+    // The site is run by one person, so it says "this site", not "we". Text
+    // the site did not write (headlines, NWS prose, school event titles) is
+    // quoted as published and is not held to this.
+    if (!THIRD_PARTY_TEXT.has(p.path)) {
+      const hit = (lang === "es" ? FIRST_PERSON_ES : FIRST_PERSON_EN).exec(text);
+      if (hit) fail(`${path}: first person "${hit[0]}" in the text: "${text.slice(Math.max(0, hit.index - 50), hit.index + 30).replace(/\s+/g, " ")}"`);
+    }
     // One <h1>, and the menu button has a name a screen reader can say.
     if ((html.match(/<h1\b/g) || []).length !== 1) fail(`${path}: ${(html.match(/<h1\b/g) || []).length} <h1> elements`);
     if (!html.includes(lang === "es" ? '<summary aria-label="Menú">' : '<summary aria-label="Menu">')) fail(`${path}: the menu button has no label`);
@@ -99,10 +115,20 @@ for (const [needle, why] of [
   ["<summary>What these numbers mean</summary>", "one explainer, not five"],
   [">Seven-day forecast</a>", "the button says where it goes"],
 ]) if (!home.includes(needle)) fail(`/: missing ${needle} (${why})`);
-for (const gone of ["at a Glance", "Full forecast", "Details"]) if (home.includes(gone)) fail(`/: "${gone}" is back`);
+for (const gone of ["at a Glance", "Full forecast", "Details", "Fast, ad-free"]) if (home.includes(gone)) fail(`/: "${gone}" is back`);
+
+// An outage branch is not rendered by the fixtures, so its wording is checked
+// in the source: "not available right now", never "temporarily unavailable".
+for (const dir of ["features", "pages"]) {
+  for (const f of (await readdir(join(SRC, dir))).filter((x) => x.endsWith(".js"))) {
+    const src = await readFile(join(SRC, dir, f), "utf8");
+    const hit = /temporarily unavailable|temporalmente/i.exec(src);
+    if (hit) fail(`src/${dir}/${f}: "${hit[0]}" (say "not available right now")`);
+  }
+}
 
 if (failures.length) {
   console.error(`Wording checks failed (${failures.length}):\n  ${failures.slice(0, 40).join("\n  ")}`);
   process.exit(1);
 }
-console.log(`Wording OK: ${pages} pages, no symbols in the text and no arrows on links.`);
+console.log(`Wording OK: ${pages} pages, no symbols in the text, no arrows on links and no "we".`);

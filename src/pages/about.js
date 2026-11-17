@@ -15,15 +15,17 @@ export const ABOUT = {
   description:
     "What crosbynews.com is, where its weather and local data come from, how often it updates, and how it's built.",
   intro:
-    "crosbynews.com is a front page for Crosby, Texas. It shows current conditions and the forecast from the National Weather Service, how high the rivers and bayous are, local headlines and the Crosby ISD school calendar. It has no ads and no trackers, and there is nothing to sign up for.",
+    "crosbynews.com is a front page for Crosby, Texas. It shows current conditions and the forecast from the National Weather Service, how high the rivers and bayous are, local headlines and the Crosby ISD school calendar. It also keeps a dated record of the town's weather warnings, floods, rainfall and burn bans. It has no ads and no trackers, and there is nothing to sign up for.",
   sections: [
     {
       h: "Where the data comes from",
       p: [
-        "Every forecast, reading and alert on this site comes from the U.S. National Weather Service (api.weather.gov) for Crosby, TX (latitude 29.9119, longitude -95.0608). NWS data is in the public domain. The UV index is the one weather number from somewhere else: the U.S. EPA's public UV forecast for Crosby's ZIP code, 77532. Road incidents and lane closures come from the public RSS feeds of Houston TranStar, the region's traffic agency, and are credited to it.",
+        "The forecast, current conditions and alerts come from the U.S. National Weather Service (api.weather.gov) for Crosby, TX (latitude 29.9119, longitude -95.0608). NWS data is in the public domain. The UV index is the one weather number from somewhere else: the U.S. EPA's public UV forecast for Crosby's ZIP code, 77532.",
+        "The other pages each name their own source: NOAA for river levels and tropical storms, the U.S. Geological Survey for measured rain and fishing-water conditions, the Texas Commission on Environmental Quality for water samples, the Houston Health Department for pollen, the Texas A&M Forest Service for the burn ban, Houston TranStar for road incidents and lane closures, Crosby ISD for the school calendar, and Google News for local headlines. Weather warnings from before this site began recording come from the Iowa Environmental Mesonet's archive of National Weather Service products, at Iowa State University. The methods page explains how each number is obtained and what it cannot tell you.",
         "The air quality index (AQI) comes from the monitors that report to EPA's AirNow for the Houston-Galveston-Brazoria area, which includes Crosby. Crosby has no monitor of its own, so the number is a real measurement taken elsewhere in the area, and the site says so. When those monitors are not reporting, the site shows Open-Meteo's modeled forecast for Crosby's coordinates and labels it \"modeled\". The air quality page has each pollutant.",
         "The numbers are shown as the agencies publish them, without adjustment or commentary. Two values are calculated here. The \"feels like\" temperature is the heat index or wind chill, worked out with the National Weather Service's published formulas from its own temperature, humidity and wind, and shown only when it differs noticeably from the air temperature. Sunrise and sunset come from standard astronomical formulas, because the NWS forecast does not include them.",
       ],
+      links: [{ href: "/methods", label: "How the numbers are made", note: "every source, how each number is computed, and its limits" }],
     },
     {
       h: "How often it updates",
@@ -50,7 +52,7 @@ export const ABOUT = {
     },
     {
       h: "Contact",
-      p: ["Questions, corrections, or a local news tip? Email us:"],
+      p: ["Questions, corrections, or a local news tip? Send an email:"],
       links: [
         { href: "mailto:contact@crosbynews.com", label: "contact@crosbynews.com", note: "general questions, corrections, and news tips" },
         { href: "mailto:security@crosbynews.com", label: "security@crosbynews.com", note: "security issues and vulnerability reports" },
@@ -75,15 +77,17 @@ export const ABOUT_ES = {
   description:
     "Qué es crosbynews.com, de dónde provienen sus datos meteorológicos y locales, con qué frecuencia se actualiza y cómo está construido.",
   intro:
-    "crosbynews.com es una portada para Crosby, Texas. Muestra las condiciones actuales y el pronóstico del Servicio Meteorológico Nacional, qué tan altos están los ríos y arroyos, titulares locales y el calendario escolar de Crosby ISD. No tiene anuncios ni rastreadores, y no hay que registrarse en nada.",
+    "crosbynews.com es una portada para Crosby, Texas. Muestra las condiciones actuales y el pronóstico del Servicio Meteorológico Nacional, qué tan altos están los ríos y arroyos, titulares locales y el calendario escolar de Crosby ISD. También lleva un registro fechado de los avisos meteorológicos, las inundaciones, la lluvia y las prohibiciones de quemas del pueblo. No tiene anuncios ni rastreadores, y no hay que registrarse en nada.",
   sections: [
     {
       h: "De dónde provienen los datos",
       p: [
-        "Cada pronóstico, lectura de condiciones y alerta de este sitio proviene directamente del Servicio Meteorológico Nacional de EE. UU. (api.weather.gov) para Crosby, TX (latitud 29.9119, longitud -95.0608). Los datos del NWS son de dominio público. El índice UV es el único dato meteorológico de otra fuente: el pronóstico UV público de la EPA de EE. UU. para el código postal de Crosby (77532). Los incidentes viales y cierres de carriles provienen de Houston TranStar (la agencia oficial de tráfico de la región, una alianza con TxDOT), republicados como hechos con atribución desde los feeds RSS que TranStar publica para suscripción pública.",
+        "El pronóstico, las condiciones actuales y las alertas provienen del Servicio Meteorológico Nacional de EE. UU. (api.weather.gov) para Crosby, TX (latitud 29.9119, longitud -95.0608). Los datos del NWS son de dominio público. El índice UV es el único dato meteorológico de otra fuente: el pronóstico UV público de la EPA de EE. UU. para el código postal de Crosby (77532).",
+        "Cada una de las demás páginas nombra su propia fuente: la NOAA para los niveles de los ríos y las tormentas tropicales, el Servicio Geológico de EE. UU. para la lluvia medida y las condiciones del agua para pescar, la Comisión de Calidad Ambiental de Texas para las muestras de agua, el Departamento de Salud de Houston para el polen, el Servicio Forestal de Texas A&M para la prohibición de quemas, Houston TranStar para los incidentes viales y cierres de carriles, Crosby ISD para el calendario escolar y Google News para los titulares locales. Los avisos meteorológicos anteriores a que este sitio empezara a registrarlos vienen del archivo de productos del Servicio Meteorológico Nacional del Iowa Environmental Mesonet, de la Universidad Estatal de Iowa. La página de métodos explica cómo se obtiene cada número y qué no puede decirte.",
         "El índice de calidad del aire (AQI) viene de los monitores que reportan a AirNow de la EPA para el área Houston-Galveston-Brazoria, que incluye a Crosby. Crosby no tiene un monitor propio, así que el número es una medición real tomada en otro punto del área, y el sitio lo dice. Cuando esos monitores no reportan, el sitio muestra el pronóstico modelado de Open-Meteo para las coordenadas de Crosby y lo marca como \"modelado\". La página de calidad del aire tiene cada contaminante.",
         "Las cifras se muestran como las publican las agencias, sin ajustes ni comentarios. Dos valores se calculan aquí. La \"sensación térmica\" es el índice de calor o la sensación por viento, calculada con las fórmulas publicadas del Servicio Meteorológico Nacional a partir de su propia temperatura, humedad y viento, y solo se muestra cuando difiere de forma notable de la temperatura del aire. El amanecer y el atardecer salen de fórmulas astronómicas estándar, porque el pronóstico del NWS no los incluye. Las condiciones se traducen al español con un diccionario propio; las descripciones detalladas del pronóstico y las alertas se muestran en su idioma oficial, inglés.",
       ],
+      links: [{ href: "/es/methods", label: "Cómo se obtienen las cifras", note: "cada fuente, cómo se calcula cada número y sus límites" }],
     },
     {
       h: "Con qué frecuencia se actualiza",
@@ -110,7 +114,7 @@ export const ABOUT_ES = {
     },
     {
       h: "Contacto",
-      p: ["¿Preguntas, correcciones o un dato de noticias local? Escríbenos:"],
+      p: ["¿Preguntas, correcciones o un dato de noticias local? Escribe a:"],
       links: [
         { href: "mailto:contact@crosbynews.com", label: "contact@crosbynews.com", note: "preguntas generales, correcciones y datos de noticias" },
         { href: "mailto:security@crosbynews.com", label: "security@crosbynews.com", note: "problemas de seguridad y reportes de vulnerabilidades" },
