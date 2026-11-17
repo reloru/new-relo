@@ -42,6 +42,7 @@ import { loadTropics, tropicsHtml, tropicsMarkdown, apiTropics } from "./feature
 import { loadTraffic, trafficHtml, trafficMarkdown, apiTraffic } from "./features/traffic.js";
 import { loadPollen, pollenHtml, pollenMarkdown, apiPollen } from "./features/pollen.js";
 import { loadBurnBan, loadBurnBanPeriods, burnbanHtml, burnbanMarkdown, apiBurnBan } from "./features/burnban.js";
+import { burnbanHistoryHtml, burnbanHistoryMarkdown } from "./features/burnban-history.js";
 import { homeHtml, homeMarkdown, renderError } from "./features/home.js";
 import { MCP_CORS, mcpHandle, mcpJson, rpcError, mcpServerCard, mcpInfoHtml, mcpInfoMarkdown } from "./mcp/server.js";
 import { mcpRecord, mcpBatchRecorded, mcpUsageReport, mcpUsageText } from "./mcp/metrics.js";
@@ -643,13 +644,24 @@ const PAGE_HANDLERS = {
     // Weather rides along failure-tolerant: it only ever ADDS the "right now"
     // strip, so a weather-cache hiccup must degrade this page to its
     // county-status form rather than 502 it.
-    // The ban history is read failure-tolerant too (null on a D1 error).
     load: async ({ env }) => {
-      const [data, wx, periods] = await Promise.all([loadBurnBan(env), loadWeather(env).then((r) => r.data).catch(() => null), loadBurnBanPeriods(env)]);
-      return { data, wx, periods };
+      const [data, wx] = await Promise.all([loadBurnBan(env), loadWeather(env).then((r) => r.data).catch(() => null)]);
+      return { data, wx };
     },
-    html: (d, lang) => burnbanHtml(d.data, lang, d.wx, d.periods),
-    md: (d, lang) => burnbanMarkdown(d.data, lang, d.wx, d.periods),
+    html: (d, lang) => burnbanHtml(d.data, lang, d.wx),
+    md: (d, lang) => burnbanMarkdown(d.data, lang, d.wx),
+  },
+  // The record of past bans, from D1: a read failure is a 502, never a table
+  // with its rows missing.
+  "/burn-ban/history": {
+    source: "this site's record",
+    load: async ({ env }) => {
+      const periods = await loadBurnBanPeriods(env);
+      if (periods === null) throw new Error("burn-ban history could not be read");
+      return periods;
+    },
+    html: (periods, lang) => burnbanHistoryHtml(periods, lang),
+    md: (periods, lang) => burnbanHistoryMarkdown(periods, lang),
   },
   "/news": {
     source: "our news source",

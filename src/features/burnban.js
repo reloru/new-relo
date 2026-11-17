@@ -143,6 +143,14 @@ export function burnbanChecklist(lang) {
 export function burnbanFaq(lang) {
   return [
     {
+      q: T(lang, "What happens if I burn during a ban?", "¿Qué pasa si quemo durante una prohibición?"),
+      a: T(
+        lang,
+        "It is a Class C misdemeanor, with a fine of up to $500. A fire that damages someone else's property can bring more serious charges, up to arson.",
+        "Es un delito menor clase C, con una multa de hasta $500. Un fuego que dañe la propiedad de otra persona puede traer cargos más graves, hasta incendio provocado."
+      ),
+    },
+    {
       q: T(lang, "Does “no burn ban” mean I can burn anything?", "¿«Sin prohibición» significa que puedo quemar lo que sea?"),
       a: T(
         lang,
@@ -335,11 +343,6 @@ export function burnbanResources(lang) {
       label: T(lang, "Texas burn ban map", "Mapa de prohibiciones de Texas"),
       note: T(lang, "Every county's current status, statewide.", "El estado actual de cada condado, en todo el estado."),
     },
-    {
-      url: BURNBAN_DROUGHT_URL,
-      label: T(lang, "Drought conditions for Harris County", "Condiciones de sequía del condado de Harris"),
-      note: T(lang, "Drought is what drives counties to issue a ban in the first place.", "La sequía es lo que lleva a los condados a emitir una prohibición."),
-    },
   ];
 }
 
@@ -420,9 +423,9 @@ export function burnbanHistory(prev, next) {
 //
 // Every ban the record holds, newest first: the ones the cron saw start and
 // end, and the earlier ones entered by hand from the county's releases
-// (scripts/seed-burnban-periods.mjs). Loaded failure-tolerant: this page is a
-// live status page first, so a database problem drops this section and never
-// the status above it. null means "could not read", [] means "none recorded".
+// (scripts/seed-burnban-periods.mjs). Rendered on /burn-ban/history
+// (burnban-history.js). null means "could not read", which that page turns
+// into a 502; [] means "none recorded".
 export async function loadBurnBanPeriods(env) {
   if (!env?.DB) return null;
   try {
@@ -556,22 +559,7 @@ export function apiBurnBan(data) {
   };
 }
 
-function banHistoryHtml(periods, lang) {
-  if (!Array.isArray(periods) || !periods.length) return "";
-  const link = (x) => (x ? (x.url ? `<a href="${esc(x.url)}">${esc(x.text)}</a>` : esc(x.text)) : "");
-  return `<section class="bans">
-    <h2>${T(lang, "Past burn bans in Harris County", "Prohibiciones de quemas anteriores en el condado de Harris")}</h2>
-    <div class="tbl-wrap"><table class="tbl">
-      <thead><tr><th>${T(lang, "Began", "Comenzó")}</th><th>${T(lang, "Ended", "Terminó")}</th><th>${T(lang, "Length", "Duración")}</th><th>${T(lang, "Sources", "Fuentes")}</th></tr></thead>
-      <tbody>
-${banHistoryRows(periods, lang).map((r) => `        <tr><td>${esc(r.start)}</td><td>${esc(r.end)}</td><td>${esc(r.length || "—")}</td><td>${[link(r.startSrc), link(r.endSrc)].filter(Boolean).join("; ")}</td></tr>`).join("\n")}
-      </tbody>
-    </table></div>
-    <p class="note">${esc(banHistoryNote(lang))}</p>
-  </section>`;
-}
-
-export function burnbanHtml(data, lang, weather, periods) {
+export function burnbanHtml(data, lang, weather) {
   const title = T(lang, "Harris County Burn Ban Status", "Estado de la prohibición de quemas del condado de Harris");
   const desc = T(
     lang,
@@ -654,11 +642,6 @@ ${sharedHead(lang)}
 ${hreflangTags("/burn-ban")}
 ${JSONLD_SITE}
 <style>${BASE_CSS}
-  .tbl-wrap { overflow-x:auto; margin-top:0.5rem; }
-  .tbl { border-collapse:collapse; font-size:0.88rem; width:100%; }
-  .tbl th, .tbl td { border:1px solid var(--line); padding:0.35rem 0.55rem; text-align:left; vertical-align:top; }
-  .tbl th { background:var(--card); }
-  .bans .note { font-size:0.85rem; color:var(--muted); }
   .status { display:flex; align-items:center; gap:1rem; border-radius:16px; padding:1.2rem 1.4rem; margin-top:0.8rem; color:#fff; }
   .status-icon { font-size:2.4rem; line-height:1; flex:none; }
   .status-title { margin:0; font-size:1.5rem; font-weight:800; line-height:1.1; }
@@ -697,7 +680,8 @@ ${JSONLD_SITE}
   .faq summary { cursor:pointer; font-weight:600; }
   .faq[open] summary { margin-bottom:0.2rem; }
   .faq p { margin:0.4rem 0 0.1rem; color:var(--muted); line-height:1.55; }
-  .res { margin-top:1.6rem; }
+  .res, .more { margin-top:1.6rem; }
+  .more h2 { font-size:1.15rem; }
   .res h2 { font-size:1.15rem; }
   /* Rows, not bullets. As "link &mdash; note" on one 0.92rem line this was eight
      same-coloured links stacked with nothing between them — no way to scan for
@@ -717,7 +701,7 @@ ${JSONLD_SITE}
 ${topbar("/burn-ban", lang)}
 <main id="main">
   <h1>${esc(title)}</h1>
-  <p class="intro">${T(lang, "Whether outdoor burning is banned in unincorporated Harris County, which includes Crosby. The status comes from the Texas A&M Forest Service and is checked about every four hours.", "Si está prohibido quemar al aire libre en la parte no incorporada del condado de Harris, que incluye a Crosby. El estado viene del Servicio Forestal de Texas A&M y se revisa más o menos cada cuatro horas.")}</p>
+  <p class="intro">${T(lang, "Whether outdoor burning is banned in unincorporated Harris County, which includes Crosby. The status comes from the Texas A&M Forest Service's statewide map and is checked about every four hours. The Harris County Fire Marshal's Office announces a ban and its end, and the map can lag behind it.", "Si está prohibido quemar al aire libre en la parte no incorporada del condado de Harris, que incluye a Crosby. El estado viene del mapa estatal del Servicio Forestal de Texas A&M y se revisa más o menos cada cuatro horas. La Oficina del Jefe de Bomberos del condado de Harris anuncia cada prohibición y su fin, y el mapa puede tardar en reflejarlo.")}</p>
   ${status}
   ${checkedLine}
   ${sinceLine}
@@ -733,21 +717,13 @@ ${checklist}
     </div>
   </section>
   <section class="guide" data-nosnippet>
-    <h2>${T(lang, "What a burn ban means", "Qué significa una prohibición de quemas")}</h2>
-    <p>${T(
-      lang,
-      "A burn ban is an order from the county judge or Commissioners Court that suspends outdoor burning when drought and fuel conditions raise the wildfire risk. In Harris County it covers the unincorporated areas, Crosby among them. Cities inside the county set their own rules. Violating it is a Class C misdemeanor, punishable by a fine of up to $500.",
-      "Una prohibición de quemas es una orden del juez del condado o de la Corte de Comisionados que suspende las quemas al aire libre cuando la sequía y las condiciones del combustible elevan el riesgo de incendios forestales. En el condado de Harris cubre las áreas no incorporadas, entre ellas Crosby. Las ciudades dentro del condado fijan sus propias reglas. Violarla es un delito menor clase C, con una multa de hasta $500."
-    )}</p>
-    <p>${T(
-      lang,
-      "This page follows the Texas A&M Forest Service's statewide burn-ban map, which counties report to. TFS doesn't issue the ban and says so itself, so if you need the exact wording, the exceptions, or any local notice, go to the Harris County Fire Marshal's Office.",
-      "Esta página sigue el mapa estatal de prohibiciones de quemas del Servicio Forestal de Texas A&M, al que reportan los condados. TFS no emite la prohibición y así lo aclara, así que si necesitas el texto exacto, las excepciones o algún aviso local, acude a la Oficina del Jefe de Bomberos del Condado de Harris."
-    )}</p>
     <h2>${T(lang, "Common questions", "Preguntas comunes")}</h2>
 ${faq}
   </section>
-  ${banHistoryHtml(periods, lang)}
+  <section class="more">
+    <h2>${T(lang, "Past burn bans", "Prohibiciones anteriores")}</h2>
+    <p><a href="${lk("/burn-ban/history")}">${T(lang, "Every Harris County burn ban with known dates, and how a ban starts and ends", "Cada prohibición de quemas del condado de Harris con fechas conocidas, y cómo empieza y termina una prohibición")}</a></p>
+  </section>
   <section class="res">
     <h2>${T(lang, "Official sources and related pages", "Fuentes oficiales y páginas relacionadas")}</h2>
     <ul class="links">
@@ -760,7 +736,7 @@ ${footer({ page: "/burn-ban", lang, source: T(lang, `Burn ban data from the <a h
 </html>`;
 }
 
-export function burnbanMarkdown(data, lang, weather, periods) {
+export function burnbanMarkdown(data, lang, weather) {
   const known = data.status === "Yes" || data.status === "No";
   const out = [
     `# ${T(lang, "Harris County Burn Ban Status", "Estado de la prohibición de quemas del condado de Harris")}`,
@@ -812,25 +788,11 @@ export function burnbanMarkdown(data, lang, weather, periods) {
   }
   out.push(
     "",
-    `## ${T(lang, "What a burn ban means", "Qué significa una prohibición de quemas")}`,
-    "",
-    T(
-      lang,
-      "A burn ban is an order from the county judge or Commissioners Court that suspends outdoor burning when drought and fuel conditions raise the wildfire risk. In Harris County it covers the unincorporated areas, Crosby among them. Cities inside the county set their own rules. Violating it is a Class C misdemeanor, punishable by a fine of up to $500.",
-      "Una prohibición de quemas es una orden del juez del condado o de la Corte de Comisionados que suspende las quemas al aire libre cuando la sequía y las condiciones del combustible elevan el riesgo de incendios forestales. En el condado de Harris cubre las áreas no incorporadas, entre ellas Crosby. Las ciudades dentro del condado fijan sus propias reglas. Violarla es un delito menor clase C, con una multa de hasta $500."
-    ),
-    "",
     `## ${T(lang, "Common questions", "Preguntas comunes")}`,
     ""
   );
   for (const f of burnbanFaq(lang)) out.push(`### ${f.q}`, "", f.a, "");
-  if (Array.isArray(periods) && periods.length) {
-    out.push(`## ${T(lang, "Past burn bans in Harris County", "Prohibiciones de quemas anteriores en el condado de Harris")}`, "");
-    out.push(`| ${T(lang, "Began", "Comenzó")} | ${T(lang, "Ended", "Terminó")} | ${T(lang, "Length", "Duración")} | ${T(lang, "Sources", "Fuentes")} |`, "|---|---|---|---|");
-    const link = (x) => (x ? (x.url ? `[${x.text}](${x.url})` : x.text) : "");
-    for (const r of banHistoryRows(periods, lang)) out.push(`| ${r.start} | ${r.end} | ${r.length || "—"} | ${[link(r.startSrc), link(r.endSrc)].filter(Boolean).join("; ")} |`);
-    out.push("", banHistoryNote(lang), "");
-  }
+  out.push(`## ${T(lang, "Past burn bans", "Prohibiciones anteriores")}`, "", `[${T(lang, "Every Harris County burn ban with known dates, and how a ban starts and ends", "Cada prohibición de quemas del condado de Harris con fechas conocidas, y cómo empieza y termina una prohibición")}](${canonicalFor("/burn-ban/history", lang)})`, "");
   out.push(`## ${T(lang, "Official sources and related pages", "Fuentes oficiales y páginas relacionadas")}`, "");
   for (const r of burnbanResources(lang)) {
     out.push(`- [${r.label}](${r.path ? canonicalFor(r.path, lang) : r.url}) — ${r.note}`);

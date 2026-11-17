@@ -174,6 +174,12 @@ export const PAGES = [
     feeds: ["burnban"],
   },
   {
+    path: "/burn-ban/history", section: "weather", maxAge: 3600,
+    name: { en: "Past Burn Bans", es: "Prohibiciones de quemas anteriores" },
+    desc: { en: "Every Harris County burn ban with known dates, with sources, and how a ban starts and ends.", es: "Cada prohibición de quemas del condado de Harris con fechas conocidas, con fuentes, y cómo empieza y termina una prohibición." },
+    llms: "Every Harris County burn ban with known start and end dates (2009 onward), each date linked to its source (Commissioners Court records, Fire Marshal's Office announcements, news reports), plus how a ban starts and ends: the court adopts it at the Fire Marshal's request, and it ends without a vote when the drought is over (Texas Local Government Code §352.081).",
+  },
+  {
     path: "/news", section: "community", maxAge: 900,
     name: { en: "News", es: "Noticias" },
     nav: { en: "News", es: "Noticias", desktop: true },

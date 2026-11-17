@@ -22,8 +22,8 @@ Crosby) from the Texas A&M Forest Service.
 | "Right now in Crosby" fire-weather strip — wind/gusts/humidity/rain chance, plus any Red Flag Warning or Fire Weather Watch | `burnbanFireWeather(weather, lang)` from the `weather` KV |
 | "Neighboring counties" — two lines, counties with and without a ban | `burnbanNeighbors(data)` from the `burnban` KV `neighbors` field |
 | "Before you burn" — a lead paragraph, then the 6-item checklist | `burnbanLead(data, lang)` + `burnbanChecklist(lang)` |
-| "What a burn ban means" evergreen guide — issuing authority, unincorporated scope, Class C penalty, TFS-is-not-the-authority | static |
-| "Frequently asked questions" (6 `<details>`, one telling Crosby County readers this is not their page) | `burnbanFaq(lang)` |
+| "Common questions" (7 `<details>`: the penalty first, then one telling Crosby County readers this is not their page, among others) | `burnbanFaq(lang)` |
+| "Past burn bans" — one link to `/burn-ban/history` | static |
 | "Resources" section | `burnbanResources(lang)` |
 
 The Resources list renders as **rows, not bullets** (`.links` / `.link-note`):
@@ -140,7 +140,7 @@ our checks" rather than claiming the hour a county order actually changed.
 | `BURNBAN_COUNTY_URL` | `hcfmo.net/Resources/Wildfire-Burn-Bans` | Harris County Fire Marshal — the local authority and the order's exceptions |
 | `BURNBAN_STATE_RULES_URL` | `tceq.texas.gov/goto/rg-049` | TCEQ "Outdoor Burning in Texas" (RG-049) — the statewide rules |
 | `BURNBAN_MAP_URL` | `tfsfrp.tamu.edu/wildfires/DecBan.png` | TFS statewide burn-ban map |
-| `BURNBAN_DROUGHT_URL` | `droughtmonitor.unl.edu/…?fips_48201` | US Drought Monitor, Harris County |
+| `BURNBAN_DROUGHT_URL` | `droughtmonitor.unl.edu/…?fips_48201` | US Drought Monitor, Harris County (linked from `/burn-ban/history`) |
 
 The last two are **linked, never embedded.** Embedding either would need an
 origin proxy (the CSP allows no external image host) *and* would trigger the
@@ -252,66 +252,8 @@ its next tick instead of waiting out the 4-hour gate. Tested by
 
 ## Past burn bans
 
-A "Past burn bans in Harris County" table (and Markdown section) lists every
-row of D1 `burnban_periods`, newest first: start, end ("in effect" while
-open), length in days, and where each date came from. Loaded by
-`loadBurnBanPeriods()`, failure-tolerant: a D1 error drops the table and
-never the live status (the page is a status page first).
+The record of past bans has its own page one level down,
+[`/burn-ban/history`](burnban-history.md). This page links to it in a short
+"Past burn bans" section after the questions and no longer reads D1, so a D1
+failure cannot touch it.
 
-| Row kind | Start source | End source |
-|---|---|---|
-| Cron-observed (2026-09-17 onward) | `tfs` (Forest Service's own start date) or `observed` | `observed` (first tick seen lifted) |
-| Hand-entered (`scripts/seed-burnban-periods.mjs`) | `order`: the Commissioners Court record that adopted it (Legistar), URL in `url`; or, before 2021, `news`: "Start as reported by Outlet (url)" in `note` | `order`: the court record that terminated it, URL in `end_url`; or `news` when no termination exists, outlet and URL in `note` |
-
-Source: Harris County Commissioners Court records on Legistar
-(`harriscountytx.legistar.com`), online from February 2021. Every item whose
-title mentions "burn" was listed through the public API
-(`webapi.legistar.com/v1/harriscountytx/matters`) on 2026-11-15. Each link is
-the record's canonical `LegislationDetail.aspx?ID=…&GUID=…` page, resolved
-from the API's `MatterId` through `gateway.aspx?M=L&ID=<MatterId>`. The API's
-own ID does not open the page, so never build a link from it.
-
-| Ban | Adopted | Terminated |
-|---|---|---|
-| 2009-02-10 → 2009-05-06 | fmo: Harris County Fire Marshal's Office release, Feb. 10, 2009 | news: Houston Chronicle (lifted by the Fire Marshal's Office) |
-| 2011-04-19 → 2011-12-21 | news: Houston Chronicle | news: ABC13, Dec. 20, 2011, effective Dec. 21 (dateline as displayed; not in the page's markup) |
-| 2013-07-09 → 2013-07-23 | news: Houston Chronicle | news: Houston Chronicle (the same article, published 2013-07-23) |
-| 2015-08-11 → 2015-08-25 | news: Houston Public Media | news: Houston Public Media, Houston Chronicle |
-| 2022-06-28 → 2022-08-23 | 22-4024 | 22-5227 |
-| 2022-10-25 → 2022-11-15 | 22-6919 | 22-7239 |
-| 2023-08-08 → 2023-10-10 | 23-4616 | 23-5855 |
-| 2024-10-08 → 2024-11-25 | 24-6503 | none: end date from Community Impact |
-| 2025-10-16 → 2025-12-05 | 25-6399 | none: end date from Community Impact |
-| 2026-09-17 → 2026-11-16 | 26-5864 (row opened by the cron, start from the Forest Service map) | fmo: Fire Marshal's Office announcement on hcfmo.net; closed by hand in the seed script because the map still listed a ban on 2026-11-17 |
-
-Every order since 2022 runs "until the earlier of 90 days after the date of
-adoption or a determination is made by the Texas Forest Service that drought
-conditions no longer exist" (§352.081(e)(1)), so it can end without a court
-vote. The 2022 and 2023 bans were still ended by one. The court's online
-records hold no item ending the 2024, 2025 or 2026 ban (Legistar API searched
-2026-11-17; the court's last meeting before the 2026 lift was Nov. 12). The
-Fire Marshal's Office announced each of those lifts, and its posts say "the
-Harris County Commissioners Court lifted the burn ban" for 2024 and 2025, so
-the page claims neither a vote nor its absence: it says the court's online
-records hold none and that the Fire Marshal's Office announced each lift. Not
-entered, and the page says so: bans reported in 2003, 2005, June 2009 and
-2010, which the sources found on 2026-11-15 and the owner's sources read on
-2026-11-17 do not date at both ends. Issue #275 lists, for each, the dated end
-and what is missing.
-
-Before 2021 a start can also be the Harris County Fire Marshal's Office's own
-release (`start_source = 'fmo'`, the release's URL in `url`), and any end can
-be a Fire Marshal's announcement (`end_source = 'fmo'`, URL in `end_url`).
-Both render as "Fire Marshal's Office announcement". Its releases are on harriscountycitizencorps.com,
-the county's archive. The 2005 and February 2009 bans were lifted by the Fire
-Marshal's Office itself, with no court vote ("The fire marshal made the call
-and acted alone on this", Houston Chronicle, July 27, 2005), and the page says
-so. (Earlier leads:
-North East Newsroom, June 2003; Houston Chronicle, July 13, 2005, which says
-the 2003 ban was lifted in June 2003 and the 2005 one enacted in late June;
-Lone Star College advisory, June 24, 2009; Star-Courier, Oct. 26, 2010;
-Houston Public Media, April 19, 2011, "re-institute"). Add one only with a
-dated source for both ends. A news-sourced end is read from the note's
-"Lift date ... as reported by Outlet (url)", a start from "Start as reported
-by Outlet (url)". Tested by
-`scripts/test-burnban-bans.mjs` ("Check burn-ban history table" in CI).

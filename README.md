@@ -57,7 +57,9 @@ with no framework and no runtime dependencies.
   (holidays, early-release, testing, athletics) with one-tap subscribe links.
 - **[Burn Ban Status](https://crosbynews.com/burn-ban)** — the current outdoor-
   burning ban status for Harris County, TX (which includes Crosby) from the
-  Texas A&M Forest Service, countywide only.
+  Texas A&M Forest Service, countywide only. One level down,
+  **[Past Burn Bans](https://crosbynews.com/burn-ban/history)** lists every ban
+  with known dates, each linked to its source, and how a ban starts and ends.
 - **[Emergency](https://crosbynews.com/emergency)** — emergency numbers, alert
   channels, flood tools, and hurricane-prep resources for NE Harris County.
 - **[About](https://crosbynews.com/about)** — what the site is and where the
