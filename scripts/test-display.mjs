@@ -32,8 +32,8 @@ const WEEK = "Closed daily from 9:00 AM to 3:30 PM, Monday, November 16 to Frida
 eq(
   uniqueClosures([
     { location: WB, schedule: WEEK, lanes: "1 Inside Lane(s)", status: "Inactive" },
-    { location: WB, schedule: WEEK, lanes: "1 Inside Lane(s)", status: "Inactive" },
     { location: WB, schedule: WEEK, lanes: "1 Inside Lane(s)", status: "Active" },
+    { location: WB, schedule: WEEK, lanes: "1 Inside Lane(s)", status: "Inactive" },
     { location: WB, schedule: WEEK, lanes: "2 Outside Lane(s)", status: "Inactive" },
     { location: "FM-2100 Northbound at US-90", schedule: WEEK, lanes: "1 Inside Lane(s)", status: "Inactive" },
   ]),
