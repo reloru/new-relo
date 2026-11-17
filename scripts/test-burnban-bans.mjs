@@ -21,7 +21,7 @@ for (const b of PAST_BANS) {
   else ok(b.end_source === "news" && b.end_url === null && NEWS_RE("Lift date").test(b.note), `${b.started}: end source names an outlet and a link`);
   ok(b.ended > b.started, `${b.started}: ends after it starts`);
 }
-ok(PAST_BANS.length === 6 && PAST_BANS[0].started === "2015-08-11" && PAST_BANS[1].started === "2022-06-28" && PAST_BANS[2].started === "2022-10-25", "the 2015 ban and both 2022 bans are entered");
+ok(PAST_BANS.length === 7 && PAST_BANS[0].started === "2013-07-09" && PAST_BANS[1].started === "2015-08-11" && PAST_BANS[2].started === "2022-06-28" && PAST_BANS[3].started === "2022-10-25", "the 2013 and 2015 bans and both 2022 bans are entered");
 
 const h = await createHarness();
 h.env.DB.raw.exec(seedSql());
@@ -37,7 +37,8 @@ const page = async (path, accept = "text/html") => (await h.get(path, { headers:
   has(bans, '<td>Aug 11, 2015</td><td>Aug 25, 2015</td><td>14 days</td><td><a href="https://www.houstonpublicmedia.org/articles/news/2015/08/11/120945/harris-county-officials-issue-outdoor-burn-ban/">as reported by Houston Public Media</a>; <a href="https://www.houstonpublicmedia.org/articles/news/2015/08/25/119495/thanks-to-the-rain-harris-county-lifts-burn-ban/">as reported by Houston Public Media</a></td>', "a pre-2021 ban sourced by news at both ends");
   has(bans, '<a href="https://communityimpact.com/houston/bay-area/government/2024/11/26/harris-county-commissioners-lift-burn-ban-for-unincorporated-harris-county">as reported by Community Impact</a>', "a news-sourced end names who reported it");
   ok(bans.indexOf("Sep 17, 2026") < bans.indexOf("Oct 16, 2025") && bans.indexOf("Oct 16, 2025") < bans.indexOf("Aug 8, 2023"), "newest first");
-  has(bans, "bans reported in 2003, 2005, 2009, 2010 and 2011 are missing because the reports found do not date both ends.", "the gap is stated");
+  has(bans, '<td>Jul 9, 2013</td><td>Jul 23, 2013</td><td>14 days</td><td><a href="https://www.chron.com/news/houston-texas/houston/article/harris-county-lifts-burn-ban-4681559.php">as reported by Houston Chronicle</a>; <a href="https://www.chron.com/news/houston-texas/houston/article/harris-county-lifts-burn-ban-4681559.php">as reported by Houston Chronicle</a></td>', "the 2013 ban, both ends from one Chronicle article");
+  has(bans, "bans reported in 2003, 2005, 2009 (two), 2010 and 2011 are missing because the reports found do not date both ends.", "the gap is stated");
   const es = await page("/es/burn-ban");
   has(es, "<td>vigente</td>", "Spanish open ban");
   has(es, "según Community Impact", "Spanish source wording");

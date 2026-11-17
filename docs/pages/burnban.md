@@ -273,6 +273,7 @@ own ID does not open the page, so never build a link from it.
 
 | Ban | Adopted | Terminated |
 |---|---|---|
+| 2013-07-09 → 2013-07-23 | news: Houston Chronicle | news: Houston Chronicle (the same article, published 2013-07-23) |
 | 2015-08-11 → 2015-08-25 | news: Houston Public Media | news: Houston Public Media, Houston Chronicle |
 | 2022-06-28 → 2022-08-23 | 22-4024 | 22-5227 |
 | 2022-10-25 → 2022-11-15 | 22-6919 | 22-7239 |
@@ -286,8 +287,10 @@ adoption or a determination is made by the Texas Forest Service that drought
 conditions no longer exist" (§352.081(e)(1)), so it can end without a court
 vote. The 2022 and 2023 bans were still ended by one; the 2024 and 2025 bans
 have no termination record, which is why their end dates come from news. Not
-entered, and the page says so: bans reported in 2003, 2005, 2009, 2010 and
-2011, which the reports found on 2026-11-15 do not date at both ends (leads:
+entered, and the page says so: bans reported in 2003, 2005, 2009 (two), 2010
+and 2011, which the reports found on 2026-11-15 and the owner's sources read
+on 2026-11-17 do not date at both ends. Issue #275 lists, for each, the dated
+end and what is missing (earlier leads:
 North East Newsroom, June 2003; Houston Chronicle, July 13, 2005, which says
 the 2003 ban was lifted in June 2003 and the 2005 one enacted in late June;
 Lone Star College advisory, June 24, 2009; Star-Courier, Oct. 26, 2010;

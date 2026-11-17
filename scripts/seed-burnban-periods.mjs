@@ -16,8 +16,10 @@
 //          and URL in `note`).
 //
 // Before 2021, both ends come from news reports and a ban is entered only when
-// reports date both: bans reported in 2003, 2005, 2009, 2010 and 2011 were not
-// entered because the reports found (2026-11-15) do not date both ends.
+// reports date both: bans reported in 2003, 2005, 2009 (two), 2010 and 2011
+// were not entered because the reports found (2026-11-15, and the owner's
+// sources read 2026-11-17) do not date both ends. Issue #275 lists what each
+// one is missing.
 //
 // Coverage: the court's Legistar records begin in February 2021. Every item
 // whose title mentions "burn" was listed through the public API
@@ -42,6 +44,15 @@ const LEGISTAR = "https://harriscountytx.legistar.com/LegislationDetail.aspx";
 export const PAST_BANS = [
   // Before Legistar (2021), both ends come from news reports (start_source
   // and end_source 'news', each outlet and URL in `note`).
+  {
+    started: "2013-07-09",
+    ended: "2013-07-23",
+    start_source: "news",
+    url: null,
+    end_source: "news",
+    end_url: null,
+    note: "Start as reported by Houston Chronicle (https://www.chron.com/news/houston-texas/houston/article/harris-county-lifts-burn-ban-4681559.php): \"On July 9, when court approved the ban\". Lift date as reported by Houston Chronicle (https://www.chron.com/news/houston-texas/houston/article/harris-county-lifts-burn-ban-4681559.php): Commissioners Court voted Tuesday, July 23, 2013, to lift the ban, \"in place for just two weeks\". Both ends are from the one article, published July 23, 2013.",
+  },
   {
     started: "2015-08-11",
     ended: "2015-08-25",
