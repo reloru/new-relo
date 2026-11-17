@@ -31,7 +31,7 @@ paths:
   Cloudflare Redirect rule in the zone, not the Worker (`docs/ops/domain.md`).
 - `src/index.js` stays thin: dispatch, then security headers and the
   canonical `Link` header.
-- Pages built on D1 (`/history`, `/rain`, `/water/<gauge>`) answer 502 on a D1 failure
-  rather than render with their history missing. `/burn-ban` and `/fishing`
-  are the exceptions: they are live status first, so a D1 failure drops only
-  the past-bans table or the water-samples section.
+- Pages built on D1 (`/history`, `/rain`, `/water/<gauge>`, `/burn-ban/history`)
+  answer 502 on a D1 failure rather than render with their history missing.
+  `/fishing` is the exception: it is live status first, so a D1 failure drops
+  only the water-samples section. `/burn-ban` reads no D1 at all.

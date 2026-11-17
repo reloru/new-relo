@@ -1,5 +1,6 @@
-// /burn-ban's "Past burn bans" table: what it says for each kind of row, and
-// that a database failure costs only the table, never the live status.
+// The past-bans record on /burn-ban/history: what it says for each kind of
+// row, that /burn-ban links to it, and that a database failure takes down
+// only the record page (502), never the live status page.
 //
 // Run: node scripts/test-burnban-bans.mjs
 
@@ -32,8 +33,18 @@ h.env.DB.raw.exec(seedSql());
 h.env.DB.raw.exec("INSERT INTO burnban_periods (started, ended, start_source) VALUES ('2026-11-10', NULL, 'tfs')");
 const page = async (path, accept = "text/html") => (await h.get(path, { headers: { accept } })).text();
 {
-  const html = await page("/burn-ban");
-  const bans = html.slice(html.indexOf('<section class="bans">'), html.indexOf("</section>", html.indexOf('<section class="bans">')));
+  const html = await page("/burn-ban/history");
+  const bans = html.slice(html.indexOf('<section class="card bans">'), html.indexOf("</section>", html.indexOf('<section class="card bans">')));
+  ok(bans.length > 1000, "the history page carries the table");
+  has(html, "The court does not vote again to end it.", "how a ban ends");
+  has(html, "In 2005 it said a ban ends once the index stays below 480 for 72 hours.", "the drought-index figures, dated");
+  has(html, '<p class="crumbs"><a href="/burn-ban">Burn Ban Status</a>', "the way back up");
+  const main = await page("/burn-ban");
+  ok(!main.includes("<table"), "/burn-ban no longer carries the table");
+  has(main, '<a href="/burn-ban/history">Every Harris County burn ban with known dates, and how a ban starts and ends</a>', "/burn-ban links down to the record");
+  ok(!main.includes("What a burn ban means"), "the general explainer is gone from /burn-ban");
+  has(main, "It is a Class C misdemeanor, with a fine of up to $500.", "the penalty is a question now");
+  has(main, "The Harris County Fire Marshal's Office announces a ban and its end, and the map can lag behind it.", "the intro names the authority");
   has(bans, "<tr><td>Nov 10, 2026</td><td>in effect</td><td>—</td><td>Texas A&amp;M Forest Service start date</td></tr>", "an open ban, dated by TFS");
   has(bans, '<tr><td>Sep 17, 2026</td><td>Nov 16, 2026</td><td>60 days</td><td>Texas A&amp;M Forest Service start date; <a href="https://www.hcfmo.net/Portals/15/Images/burnbanlifted11.26.png">Fire Marshal\'s Office announcement</a></td></tr>', "the 2026 ban, closed by the Fire Marshal\'s announcement");
   has(bans, "The court's online records hold no vote ending the 2024, 2025 and 2026 bans.", "the court-record sentence");
@@ -48,11 +59,13 @@ const page = async (path, accept = "text/html") => (await h.get(path, { headers:
   has(bans, '<td>Apr 19, 2011</td><td>Dec 21, 2011</td><td>246 days</td><td><a href="https://www.chron.com/news/houston-texas/article/harris-co-orders-three-month-burn-ban-during-1684831.php">as reported by Houston Chronicle</a>; <a href="https://abc13.com/archive/8474452/">as reported by ABC13</a></td>', "the 2011 ban, ended by ABC13's Dec 20 story");
   has(bans, "Bans reported in 2003, 2005, June 2009 and 2010 are missing because the sources found do not date both ends.", "the gap is stated");
   has(bans, "The 2005 and February 2009 bans were lifted by the Fire Marshal's Office itself, without a court vote.", "who lifted the early bans");
-  const es = await page("/es/burn-ban");
+  const es = await page("/es/burn-ban/history");
+  has(await page("/es/burn-ban"), '<a href="/es/burn-ban/history">', "Spanish link down");
   has(es, "<td>vigente</td>", "Spanish open ban");
   has(es, "según Community Impact", "Spanish source wording");
   has(es, "registro de la Corte de Comisionados", "Spanish court-record wording");
-  has(await page("/burn-ban", "text/markdown"), "| Oct 8, 2024 | Nov 25, 2024 | 48 days |", "Markdown row");
+  has(await page("/burn-ban/history", "text/markdown"), "| Oct 8, 2024 | Nov 25, 2024 | 48 days |", "Markdown row");
+  has(await page("/burn-ban", "text/markdown"), "(https://crosbynews.com/burn-ban/history)", "Markdown link down");
 }
 {
   const real = h.env.DB;
@@ -60,10 +73,10 @@ const page = async (path, accept = "text/html") => (await h.get(path, { headers:
   const quiet = console.error;
   console.error = () => {};
   const r = await h.get("/burn-ban", { headers: { accept: "text/html" } });
-  const body = await r.text();
+  const rh = await h.get("/burn-ban/history", { headers: { accept: "text/html" } });
   console.error = quiet;
   ok(r.status === 200, `a database failure keeps the live page up (got ${r.status})`);
-  ok(!body.includes('<section class="bans">'), "…and drops only the history table");
+  ok(rh.status === 502, `…and the record page answers 502 rather than a table with rows missing (got ${rh.status})`);
   h.env.DB = real;
 }
 
@@ -71,5 +84,5 @@ if (failures.length) {
   console.error(`\nBurn-ban history checks failed (${failures.length}):\n  ${failures.join("\n  ")}\n`);
   process.exit(1);
 }
-console.log("Burn-ban history OK — each past ban sourced, the open ban dated by TFS, gaps stated, and a D1 failure costs only the table.");
+console.log("Burn-ban history OK — each past ban sourced, the open ban dated by TFS, gaps stated, and a D1 failure costs only the record page.");
 process.exit(0);
