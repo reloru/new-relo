@@ -96,15 +96,18 @@ second, as NWPS publishes crests.
 ### `burnban_periods`
 
 An active ban opens one period, dated by the Forest Service's own start date
-when it gives one (`start_source = 'tfs'`), otherwise by the day we first saw it
+when it gives one (`start_source = 'tfs'`), otherwise by the day this site first saw it
 (`'observed'`). "No ban" closes whichever period is open on the day first seen
 lifted (`end_source = 'observed'`) — accurate to the 4-hour refresh. Rows
 entered by hand (`scripts/seed-burnban-periods.mjs`) use `start_source =
-'order'` with the Commissioners Court record (Legistar) in `url` (before 2021,
-`start_source = 'news'` with "Start as reported by Outlet (url)" in `note`), and either
-`end_source = 'order'` with the terminating court record in `end_url`, or
-`end_source = 'news'` with the reporting outlet and link in `note` when the
-order ended on the Forest Service's determination without a court vote.
+'order'` with the Commissioners Court record (Legistar) in `url`. Before 2021
+they use `start_source = 'fmo'` with the Harris County Fire Marshal's Office
+release in `url`, or `start_source = 'news'` with "Start as reported by Outlet
+(url)" in `note`. They end with either `end_source = 'order'` and the
+terminating court record in `end_url`, or `end_source = 'news'` and the
+reporting outlet and link in `note`: an order that ended on the Forest
+Service's determination without a court vote, or an early ban the Fire
+Marshal's Office lifted itself.
 Every hand-entered row has `ended` set: an open row would be closed with
 today's date the next time the cron sees "no ban".
 

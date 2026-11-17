@@ -10,18 +10,20 @@ const failures = [];
 const ok = (cond, what) => { if (!cond) failures.push(what); };
 const has = (body, text, what) => ok(body.includes(text), `${what}: expected ${JSON.stringify(text)}`);
 
-// Every hand-entered ban starts with a Commissioners Court record, and ends
-// with either the court record that terminated it or a named news source.
+// Every hand-entered ban starts with a Commissioners Court record, a Fire
+// Marshal's Office release, or a named news source, and ends with the court
+// record that terminated it or a named news source.
 const LEGISTAR_RE = /^https:\/\/harriscountytx\.legistar\.com\/LegislationDetail\.aspx\?ID=\d+&GUID=[0-9A-F-]{36}$/;
 const NEWS_RE = (lead) => new RegExp(`${lead}.*?reported by [^(]+ \\(https://[^)]+\\)`);
 for (const b of PAST_BANS) {
   if (b.start_source === "news") ok(b.url === null && NEWS_RE("Start").test(b.note), `${b.started}: news start names an outlet and a link`);
+  else if (b.start_source === "fmo") ok(b.started < "2021-02-01" && /^https:\/\/www\.harriscountycitizencorps\.com\/.+\.pdf$/.test(b.url), `${b.started}: a Fire Marshal's release start links the release`);
   else ok(LEGISTAR_RE.test(b.url), `${b.started}: start source is a court record`);
   if (b.end_source === "order") ok(LEGISTAR_RE.test(b.end_url), `${b.started}: end source is a court record`);
   else ok(b.end_source === "news" && b.end_url === null && NEWS_RE("Lift date").test(b.note), `${b.started}: end source names an outlet and a link`);
   ok(b.ended > b.started, `${b.started}: ends after it starts`);
 }
-ok(PAST_BANS.length === 7 && PAST_BANS[0].started === "2013-07-09" && PAST_BANS[1].started === "2015-08-11" && PAST_BANS[2].started === "2022-06-28" && PAST_BANS[3].started === "2022-10-25", "the 2013 and 2015 bans and both 2022 bans are entered");
+ok(JSON.stringify(PAST_BANS.map((b) => b.started)) === JSON.stringify(["2009-02-10", "2011-04-19", "2013-07-09", "2015-08-11", "2022-06-28", "2022-10-25", "2023-08-08", "2024-10-08", "2025-10-16"]), "the nine past bans, oldest first");
 
 const h = await createHarness();
 h.env.DB.raw.exec(seedSql());
@@ -38,7 +40,10 @@ const page = async (path, accept = "text/html") => (await h.get(path, { headers:
   has(bans, '<a href="https://communityimpact.com/houston/bay-area/government/2024/11/26/harris-county-commissioners-lift-burn-ban-for-unincorporated-harris-county">as reported by Community Impact</a>', "a news-sourced end names who reported it");
   ok(bans.indexOf("Sep 17, 2026") < bans.indexOf("Oct 16, 2025") && bans.indexOf("Oct 16, 2025") < bans.indexOf("Aug 8, 2023"), "newest first");
   has(bans, '<td>Jul 9, 2013</td><td>Jul 23, 2013</td><td>14 days</td><td><a href="https://www.chron.com/news/houston-texas/houston/article/harris-county-lifts-burn-ban-4681559.php">as reported by Houston Chronicle</a>; <a href="https://www.chron.com/news/houston-texas/houston/article/harris-county-lifts-burn-ban-4681559.php">as reported by Houston Chronicle</a></td>', "the 2013 ban, both ends from one Chronicle article");
-  has(bans, "bans reported in 2003, 2005, 2009 (two), 2010 and 2011 are missing because the reports found do not date both ends.", "the gap is stated");
+  has(bans, `<td>Feb 10, 2009</td><td>May 6, 2009</td><td>85 days</td><td><a href="https://www.harriscountycitizencorps.com/Portals/34/Documents/NewsArchives/2009NewsArchive/2009burnban.pdf">Fire Marshal's Office release</a>; <a href="https://www.chron.com/neighborhood/tomball/news/article/Harris-County-burn-ban-lifted-9299533.php">as reported by Houston Chronicle</a></td>`, "the February 2009 ban, started by the Fire Marshal's release");
+  has(bans, '<td>Apr 19, 2011</td><td>Dec 21, 2011</td><td>246 days</td><td><a href="https://www.chron.com/news/houston-texas/article/harris-co-orders-three-month-burn-ban-during-1684831.php">as reported by Houston Chronicle</a>; <a href="https://abc13.com/archive/8474452/">as reported by ABC13</a></td>', "the 2011 ban, ended by ABC13's Dec 20 story");
+  has(bans, "Bans reported in 2003, 2005, June 2009 and 2010 are missing because the sources found do not date both ends.", "the gap is stated");
+  has(bans, "The 2005 and February 2009 bans were lifted by the Fire Marshal's Office itself, without a court vote.", "who lifted the early bans");
   const es = await page("/es/burn-ban");
   has(es, "<td>vigente</td>", "Spanish open ban");
   has(es, "según Community Impact", "Spanish source wording");

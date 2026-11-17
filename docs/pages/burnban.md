@@ -273,6 +273,8 @@ own ID does not open the page, so never build a link from it.
 
 | Ban | Adopted | Terminated |
 |---|---|---|
+| 2009-02-10 → 2009-05-06 | fmo: Harris County Fire Marshal's Office release, Feb. 10, 2009 | news: Houston Chronicle (lifted by the Fire Marshal's Office) |
+| 2011-04-19 → 2011-12-21 | news: Houston Chronicle | news: ABC13, Dec. 20, 2011, effective Dec. 21 (dateline as displayed; not in the page's markup) |
 | 2013-07-09 → 2013-07-23 | news: Houston Chronicle | news: Houston Chronicle (the same article, published 2013-07-23) |
 | 2015-08-11 → 2015-08-25 | news: Houston Public Media | news: Houston Public Media, Houston Chronicle |
 | 2022-06-28 → 2022-08-23 | 22-4024 | 22-5227 |
@@ -287,10 +289,18 @@ adoption or a determination is made by the Texas Forest Service that drought
 conditions no longer exist" (§352.081(e)(1)), so it can end without a court
 vote. The 2022 and 2023 bans were still ended by one; the 2024 and 2025 bans
 have no termination record, which is why their end dates come from news. Not
-entered, and the page says so: bans reported in 2003, 2005, 2009 (two), 2010
-and 2011, which the reports found on 2026-11-15 and the owner's sources read
-on 2026-11-17 do not date at both ends. Issue #275 lists, for each, the dated
-end and what is missing (earlier leads:
+entered, and the page says so: bans reported in 2003, 2005, June 2009 and
+2010, which the sources found on 2026-11-15 and the owner's sources read on
+2026-11-17 do not date at both ends. Issue #275 lists, for each, the dated end
+and what is missing.
+
+Before 2021 a start can also be the Harris County Fire Marshal's Office's own
+release (`start_source = 'fmo'`, the release's URL in `url`; rendered as "Fire
+Marshal's Office release"). Its releases are on harriscountycitizencorps.com,
+the county's archive. The 2005 and February 2009 bans were lifted by the Fire
+Marshal's Office itself, with no court vote ("The fire marshal made the call
+and acted alone on this", Houston Chronicle, July 27, 2005), and the page says
+so. (Earlier leads:
 North East Newsroom, June 2003; Houston Chronicle, July 13, 2005, which says
 the 2003 ban was lifted in June 2003 and the 2005 one enacted in late June;
 Lone Star College advisory, June 24, 2009; Star-Courier, Oct. 26, 2010;
