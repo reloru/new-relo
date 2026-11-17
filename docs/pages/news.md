@@ -57,6 +57,10 @@ accounts and no public voting.
   `/news`, the homepage card, `/api/news`, `/news.xml`.
 - The news routine reads the same key (`loadBlocklist()`) and drops those links,
   so a nuked article **stays gone** even though Google's RSS keeps returning it.
+- Links are the publisher's (resolved by the routine, `docs/ops/news-pipeline.md`).
+  A block placed before 2026-11-17 is on the Google link (`gnLink`); the
+  routine still drops those. A block placed after is on the publisher link and
+  the Worker drops it at render.
 - `loadNews(env, {includeBlocked: true})` is the admin variant: it keeps blocked
   items and annotates them `.blocked`.
 - The whole feature no-ops if `ADMIN_KEY` is unset — endpoints 503, buttons never

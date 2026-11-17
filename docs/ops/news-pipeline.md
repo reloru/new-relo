@@ -33,9 +33,28 @@ Google keeps refusing one query, no run updates `/news` until one gets
 everything. `node scripts/test-fetch-news.mjs` pins this offline (CI: "Check
 news fetch retry").
 
-Article links are Google News redirect URLs (`news.google.com/rss/articles/…`,
-new `AU_yqL…` id format, not decodable offline), so a reader's tap goes through
-Google first and can meet the same "sorry" page from the reader's own IP.
+## Publisher links (#294)
+
+Google gives each item a redirect link (`news.google.com/rss/articles/<id>`,
+the newer `AU_yqL…` id format, not decodable offline). A reader's tap on one
+went through Google from the reader's own IP and often met the "sorry" page
+(2026-11-16, iPhone Safari: about three taps in four). So the routine resolves
+each chosen item to the publisher's URL, the way Google's own article page
+does: GET `news.google.com/rss/articles/<id>?hl=en-US&gl=US&ceid=US:en` for
+its `data-n-a-sg` (signature) and `data-n-a-ts` (timestamp), then POST them to
+`news.google.com/_/DotsSplashUi/data/batchexecute` (`garturlreq`), whose
+answer (`garturlres`) carries the URL. `resolveGoogleLink()` retries a refusal
+twice with backoff. A URL on a Google host is refused, and any failure keeps
+the Google link, so a lookup never blocks a news update.
+
+Each item stores `link` (the publisher's, or Google's on failure) and `gnLink`
+(Google's). The next run reuses a link already resolved in the stored snapshot
+by `gnLink`, so an item costs two Google requests once. The editorial blocklist
+still works both ways: the routine drops items blocked under their Google link
+before resolving, and the Worker drops items blocked under their publisher
+link at render. Verified from a session container on 2026-11-17: 9 of 9 items
+resolved in a dry run. Tested offline by `scripts/test-fetch-news.mjs` against
+a real article-page tag and answer (`scripts/fixtures/google-news/`).
 
 ## Filtering logic
 
