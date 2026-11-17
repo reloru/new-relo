@@ -48,6 +48,10 @@ export const MCP_SUPPORTED_VERSIONS = ["2025-03-26", "2025-06-18"];
 // tool-set change — they drifted apart (1.2.0 vs 1.4.0) when `get_air_quality`
 // and `get_fishing` shipped without a bump, so both now carry the same number.
 export const MCP_SERVER_INFO = { name: "crosbynews-weather", version: "1.8.1", title: "Crosby, TX Weather" };
+// The official registry name (server.json `name`). serverInfo.name above is
+// the short name clients already see in initialize and stays as it is; the
+// discovery card carries both so a crawler can match the card to the listing.
+export const MCP_REGISTRY_NAME = "com.crosbynews/weather";
 export const MCP_CORS = {
   "access-control-allow-origin": "*",
   "access-control-allow-methods": "POST, OPTIONS",
@@ -684,8 +688,23 @@ export function mcpReadResource(uri) {
   return { contents: [{ uri, mimeType: r.mimeType, text }] };
 }
 
+// Served at /.well-known/mcp/server-card.json and at /mcp/server-card. The
+// top-level fields mirror server.json (registry name, version, remotes) so a
+// crawler can match this card to the registry listing; the rest predates them.
 export function mcpServerCard() {
   return {
+    name: MCP_REGISTRY_NAME,
+    title: MCP_SERVER_INFO.title,
+    version: MCP_SERVER_INFO.version,
+    websiteUrl: `${SITE}/mcp`,
+    repository: { url: "https://github.com/reloru/new-relo", source: "github" },
+    remotes: [
+      {
+        type: "streamable-http",
+        url: `${SITE}/mcp`,
+        supportedProtocolVersions: [...MCP_SUPPORTED_VERSIONS].sort().reverse(),
+      },
+    ],
     serverInfo: MCP_SERVER_INFO,
     protocolVersion: MCP_PROTOCOL_VERSION,
     description:

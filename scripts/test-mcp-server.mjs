@@ -7,7 +7,7 @@
 //
 // Run: node scripts/test-mcp-server.mjs
 
-import { mcpCallTool, mcpHandle, mcpTools, validateToolArgs, MCP_TOOL_SOURCES, MCP_EXAMPLE_PROMPTS, MCP_SERVER_INFO } from "../src/mcp/server.js";
+import { mcpCallTool, mcpHandle, mcpTools, validateToolArgs, MCP_TOOL_SOURCES, MCP_EXAMPLE_PROMPTS, MCP_SERVER_INFO, mcpServerCard } from "../src/mcp/server.js";
 
 let failures = 0;
 function check(label, ok, detail = "") {
@@ -156,6 +156,29 @@ try {
     const { readFileSync } = await import("node:fs");
     const sj = JSON.parse(readFileSync(new URL("../server.json", import.meta.url), "utf8"));
     check("server.json version matches MCP_SERVER_INFO", sj.version === MCP_SERVER_INFO.version, `${sj.version} vs ${MCP_SERVER_INFO.version}`);
+
+    // 11. The discovery card names the registry listing, not just serverInfo,
+    // and claims only the protocol versions initialize really echoes.
+    const card = mcpServerCard();
+    check("card.name is the registry name", card.name === "com.crosbynews/weather", String(card.name));
+    check("card.name matches server.json", card.name === sj.name, `${card.name} vs ${sj.name}`);
+    check("card.version matches server.json", card.version === sj.version, `${card.version} vs ${sj.version}`);
+    check("card.websiteUrl matches server.json", card.websiteUrl === sj.websiteUrl, `${card.websiteUrl} vs ${sj.websiteUrl}`);
+    check("card.repository matches server.json", JSON.stringify(card.repository) === JSON.stringify(sj.repository));
+    check(
+      "card remotes match server.json (type, url)",
+      JSON.stringify(card.remotes.map((r) => ({ type: r.type, url: r.url }))) === JSON.stringify(sj.remotes),
+      JSON.stringify(card.remotes)
+    );
+    check("serverInfo.name is unchanged from initialize", card.serverInfo?.name === "crosbynews-weather", String(card.serverInfo?.name));
+    const claimed = card.remotes[0].supportedProtocolVersions;
+    check("card claims exactly 2025-06-18 and 2025-03-26", JSON.stringify(claimed) === JSON.stringify(["2025-06-18", "2025-03-26"]), JSON.stringify(claimed));
+    for (const v of claimed) {
+      const r = await mcpHandle({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: v, capabilities: {}, clientInfo: { name: "t", version: "0" } } }, stubEnv());
+      check(`initialize echoes claimed version ${v}`, r?.result?.protocolVersion === v, String(r?.result?.protocolVersion));
+    }
+    const un = await mcpHandle({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-11-25", capabilities: {}, clientInfo: { name: "t", version: "0" } } }, stubEnv());
+    check("an unclaimed version (2025-11-25) is answered with 2025-06-18", un?.result?.protocolVersion === "2025-06-18", String(un?.result?.protocolVersion));
   }
 
   // The prose lists of tools are written by hand (deriving them would import

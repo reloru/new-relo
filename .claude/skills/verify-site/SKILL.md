@@ -60,7 +60,7 @@ Non-page routes: `/robots.txt`, `/sitemap.xml`, `/llms.txt`,
 `/notification-badge.png` — all `image/png` except the ICO, served from
 Workers static assets), `/radar-image`,
 `/.well-known/api-catalog`, `/openapi.json`, `/.well-known/security.txt`,
-`/.well-known/mcp/server-card.json`, `/.well-known/agent-skills/index.json`,
+`/.well-known/mcp/server-card.json`, `/mcp/server-card`, `/.well-known/agent-skills/index.json`,
 `/.well-known/agent-skills/crosby-weather/SKILL.md`.
 
 `/mcp` matters more than its position suggests — it is the published MCP Registry
