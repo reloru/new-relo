@@ -138,6 +138,8 @@ console.log("\nclassification (real mcpHandle):\n");
     ["notification", { jsonrpc: "2.0", method: "notifications/initialized" }, "notifications/initialized", null, "notification", null, null],
     ["unimplemented spec request", { jsonrpc: "2.0", id: 13, method: "completion/complete" }, "completion/complete", null, "rpc_error", "-32601", null],
     ["resources/templates/list", { jsonrpc: "2.0", id: 14, method: "resources/templates/list" }, "resources/templates/list", null, "ok", null, null],
+    // 2026-07-28: the client name rides in _meta on server/discover.
+    ["modern server/discover", { jsonrpc: "2.0", id: 15, method: "server/discover", params: { _meta: { "io.modelcontextprotocol/protocolVersion": "2026-07-28", "io.modelcontextprotocol/clientInfo": { name: "Example-Client" }, "io.modelcontextprotocol/clientCapabilities": {} } } }, "server/discover", null, "ok", null, "example-client"],
     ["unknown tool", { jsonrpc: "2.0", id: 9, method: "tools/call", params: { name: "no_such_tool" } }, "tools/call", "(unknown)", "rpc_error", "-32602", null],
     ["real tool, no KV needed", { jsonrpc: "2.0", id: 10, method: "tools/call", params: { name: "get_emergency_contacts" } }, "tools/call", "get_emergency_contacts", "ok", null, null],
     // The trap: a non-null response that is NOT a request.
@@ -160,6 +162,12 @@ console.log("\nclassification (real mcpHandle):\n");
   const isErr = { jsonrpc: "2.0", id: 1, result: { content: [{ type: "text", text: "Error: boom" }], isError: true } };
   const ce = classify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "get_forecast" } }, isErr, 12);
   assert("isError result counts as a tool error", { outcome: ce.outcome, tool: ce.tool }, { outcome: "tool_error", tool: "get_forecast" });
+
+  // The 2026-07-28 rejection codes are counted by name, not as "(other)".
+  for (const code of [-32020, -32021, -32022]) {
+    const cx = classify({ jsonrpc: "2.0", id: 1, method: "tools/list" }, { jsonrpc: "2.0", id: 1, error: { code, message: "x" } }, 0);
+    assert(`${code} is recorded by name`, cx.code, String(code));
+  }
 }
 
 // --- 2. cardinality is bounded ----------------------------------------------
@@ -176,7 +184,7 @@ console.log("\ncardinality:\n");
   // advertises, must be recorded under its own name — a spec method collapsed
   // into "(other)" is indistinguishable from junk, which defeats the point of
   // recording it. Pinned verbatim against the schema at
-  // github.com/modelcontextprotocol/modelcontextprotocol/schema/{2025-03-26,2025-06-18}.
+  // github.com/modelcontextprotocol/modelcontextprotocol/schema/{2025-03-26,2025-06-18,2025-11-25,2026-07-28}.
   const SPEC_METHODS = [
     "initialize", "ping", "tools/list", "tools/call",
     "prompts/list", "prompts/get",
@@ -188,12 +196,18 @@ console.log("\ncardinality:\n");
     "notifications/message", "notifications/roots/list_changed",
     "notifications/prompts/list_changed", "notifications/resources/list_changed",
     "notifications/resources/updated", "notifications/tools/list_changed",
+    // 2025-11-25
+    "tasks/get", "tasks/list", "tasks/result", "tasks/cancel",
+    "notifications/elicitation/complete", "notifications/tasks/status",
+    // 2026-07-28, and its tasks extension's tasks/update
+    "server/discover", "subscriptions/listen", "notifications/subscriptions/acknowledged",
+    "tasks/update",
   ];
   const collapsed = SPEC_METHODS.filter(
     (m) => classify({ jsonrpc: "2.0", id: 1, method: m }, { result: {} }, 1).method !== m,
   );
   assert("every spec method is recorded by name", collapsed, []);
-  assert("the spec list is the full 25", SPEC_METHODS.length, 25);
+  assert("the spec list is the full 35", SPEC_METHODS.length, 35);
 
   // ...and the unimplemented-request split is a subset of it, so the report
   // cannot name something the allow-list would have dropped.

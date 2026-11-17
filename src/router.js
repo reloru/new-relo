@@ -44,7 +44,7 @@ import { loadPollen, pollenHtml, pollenMarkdown, apiPollen } from "./features/po
 import { loadBurnBan, loadBurnBanPeriods, burnbanHtml, burnbanMarkdown, apiBurnBan } from "./features/burnban.js";
 import { burnbanHistoryHtml, burnbanHistoryMarkdown } from "./features/burnban-history.js";
 import { homeHtml, homeMarkdown, renderError } from "./features/home.js";
-import { MCP_CORS, mcpHandle, mcpJson, rpcError, mcpServerCard, mcpServerCardV1, aiCatalog, mcpInfoHtml, mcpInfoMarkdown } from "./mcp/server.js";
+import { MCP_CORS, mcpHandle, mcpHandleModern, isModernMessage, mcpJson, rpcError, mcpServerCard, mcpServerCardV1, aiCatalog, mcpInfoHtml, mcpInfoMarkdown } from "./mcp/server.js";
 import { mcpRecord, mcpBatchRecorded, mcpUsageReport, mcpUsageText } from "./mcp/metrics.js";
 import { apiCatalog, openApiSpec } from "./api/openapi.js";
 import { healthReport, CRON_STATUS_KV_KEY } from "./api/health.js";
@@ -289,6 +289,17 @@ export async function routeRequest(request, env, ctx) {
         body = await request.json();
       } catch {
         return mcpJson(rpcError(null, -32700, "Parse error"), 400);
+      }
+      // A single message carrying a modern _meta version is served by the
+      // 2026-07-28 rules, with its own HTTP status codes. Everything else,
+      // batches included, keeps the legacy path below unchanged.
+      if (isModernMessage(body)) {
+        const t0 = Date.now();
+        const m = await mcpHandleModern(body, env, request.headers);
+        mcpRecord(env, ctx, body, m.body, Date.now() - t0);
+        mcpBatchRecorded(env, ctx);
+        if (m.body === null) return new Response(null, { status: m.status, headers: MCP_CORS });
+        return mcpJson(m.body, m.status, m.version);
       }
       const batch = Array.isArray(body);
       const out = [];

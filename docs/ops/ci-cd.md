@@ -116,6 +116,13 @@ see `docs/README.md`.
   the page, unknown tools are `-32602`, every tool has a `title` +
   `readOnlyHint` and a name ≤ 64 chars, and the `/mcp` example prompts name
   real tools. Real dispatcher, stubbed KV and `fetch`; no network.
+- **Check MCP dual-era contract** (`node scripts/test-mcp-modern.mjs`) — same
+  job. Drives `POST /mcp` through the real Worker: legacy traffic (the
+  `initialize` handshake, a legacy `MCP-Protocol-Version` header, batches)
+  is answered as before, and a 2026-07-28 request gets the header checks
+  (`-32020`), `-32022` for an unsupported version, 404 `-32601` for a removed
+  method, and `resultType`/`ttlMs`/`cacheScope` on results. Expected values
+  are written from the spec, not read from the code.
 - **Check app icons** (`node scripts/test-icons.mjs`) — same job. Whether
   Chrome on Android installs a real WebAPK and whether iOS Add to Home Screen
   shows the icon or a letter tile both fail silently: every page still

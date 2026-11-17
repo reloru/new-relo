@@ -197,6 +197,11 @@ jobs:
       # tools. Real dispatcher, stubbed KV and fetch. Pure node, no network.
       - name: Check MCP server contract
         run: node scripts/test-mcp-server.mjs
+      # The dual-era /mcp contract through the real Worker: legacy traffic
+      # unchanged, and 2026-07-28 requests get the spec's header checks, error
+      # codes, HTTP statuses and result fields. Pure node, no network.
+      - name: Check MCP dual-era contract
+        run: node scripts/test-mcp-modern.mjs
       # EPA's UV product rolls to the next day around 7 PM CT, after which a
       # plain max over today's remaining rows reported "peak today: 0" every
       # night. Pins the cron's carry-over of today's rows and the homepage's

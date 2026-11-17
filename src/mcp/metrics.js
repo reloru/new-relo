@@ -84,9 +84,9 @@ const INVALID = "(invalid)";
 // interesting thing in the whole record — it is a real client asking for a
 // capability we lack — and collapsing it into "(other)" alongside junk hides
 // exactly that. Recording it by name costs nothing, because the set below is
-// closed: it is the full method list from the spec schema for both protocol
-// versions in MCP_SUPPORTED_VERSIONS (2025-03-26 and 2025-06-18), so the
-// ceiling is 25 names plus "(other)" and "(invalid)", forever.
+// closed: it is every `method` in the spec schemas for 2025-06-18, 2025-11-25
+// and 2026-07-28 (2025-03-26 adds none), plus the 2026 tasks extension's
+// tasks/update, so the ceiling is 35 names plus "(other)" and "(invalid)".
 
 // Dispatched by mcpHandle. Everything else here answers -32601 or is ignored.
 const METHODS_IMPLEMENTED = new Set([
@@ -99,13 +99,16 @@ const METHODS_IMPLEMENTED = new Set([
   "resources/read",
   "resources/templates/list",
   "tools/call",
+  "server/discover",
 ]);
 
 // Spec REQUESTS this server does not implement, so each one answers -32601.
 // These are the names worth acting on: a nonzero count is a client asking for
-// a capability that is not here. The last three are server-to-client requests
-// a well-behaved client never sends us, kept because receiving one is itself
-// worth seeing rather than burying in "(other)".
+// a capability that is not here. elicitation/create, roots/list and
+// sampling/createMessage are server-to-client requests a well-behaved client
+// never sends us, kept because receiving one is itself worth seeing rather
+// than burying in "(other)". The tasks/* names are the 2025-11-25 tasks
+// utility and the 2026-07-28 tasks extension.
 const METHODS_UNIMPLEMENTED = new Set([
   "completion/complete",
   "logging/setLevel",
@@ -114,6 +117,12 @@ const METHODS_UNIMPLEMENTED = new Set([
   "elicitation/create",
   "roots/list",
   "sampling/createMessage",
+  "subscriptions/listen",
+  "tasks/get",
+  "tasks/list",
+  "tasks/result",
+  "tasks/cancel",
+  "tasks/update",
 ]);
 
 // Spec NOTIFICATIONS. Ignoring a notification is correct protocol behaviour,
@@ -129,6 +138,9 @@ const METHODS_NOTIFICATIONS = new Set([
   "notifications/resources/list_changed",
   "notifications/resources/updated",
   "notifications/tools/list_changed",
+  "notifications/elicitation/complete",
+  "notifications/tasks/status",
+  "notifications/subscriptions/acknowledged",
 ]);
 
 const METHODS = new Set([...METHODS_IMPLEMENTED, ...METHODS_UNIMPLEMENTED, ...METHODS_NOTIFICATIONS]);
@@ -136,7 +148,9 @@ const METHODS = new Set([...METHODS_IMPLEMENTED, ...METHODS_UNIMPLEMENTED, ...ME
 // Exported so the reader can separate "a client asked for this and we said
 // -32601" from ordinary traffic, without re-deriving the split.
 export const MCP_UNIMPLEMENTED_METHODS = METHODS_UNIMPLEMENTED;
-const CODES = new Set(["-32700", "-32600", "-32601", "-32602", "-32603"]);
+// JSON-RPC's own codes, then 2026-07-28's HeaderMismatch,
+// MissingRequiredClientCapability and UnsupportedProtocolVersion.
+const CODES = new Set(["-32700", "-32600", "-32601", "-32602", "-32603", "-32020", "-32021", "-32022"]);
 
 // --- per-isolate state -------------------------------------------------------
 // All of it lazily initialised. Generating random values in global scope is a
@@ -295,9 +309,14 @@ export function classify(m, r, ms) {
     tool = typeof n === "string" && knownTool(n) ? n : UNKNOWN;
   }
 
+  // The name a client reports when it connects: at initialize (legacy), or
+  // in _meta on server/discover (2026-07-28, where there is no handshake).
   let client = null;
   if (m.method === "initialize") {
     client = sanitizeClient(m.params && m.params.clientInfo && m.params.clientInfo.name);
+  } else if (m.method === "server/discover") {
+    const info = m.params && m.params._meta && m.params._meta["io.modelcontextprotocol/clientInfo"];
+    if (info) client = sanitizeClient(info.name);
   }
 
   let outcome;
