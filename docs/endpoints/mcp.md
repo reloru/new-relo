@@ -44,7 +44,7 @@ combined `Accept`.
 | `prompts/get` | `mcpGetPrompt(name, env)` |
 | `resources/list` | `MCP_RESOURCES` |
 | `resources/read` | `mcpReadResource(uri)`; unknown URI → `-32602` |
-| `resources/templates/list` | `{resourceTemplates: []}`. There are no templated resources, but clients ask because `resources` is advertised; it answered `-32601` until 2026-11-17 (801 lifetime requests by then, the largest share of all `-32601`s) |
+| `resources/templates/list` | `{resourceTemplates: []}`. There are no templated resources, but clients ask because `resources` is advertised; it answered `-32601` until 2026-11-17 |
 | anything else | `-32601` for a request; **no response** for a notification (e.g. `notifications/initialized`) |
 
 Invalid envelope (missing `jsonrpc: "2.0"` or a non-string `method`) → `-32600`,
