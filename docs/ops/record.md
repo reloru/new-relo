@@ -105,9 +105,14 @@ they use `start_source = 'fmo'` with the Harris County Fire Marshal's Office
 release in `url`, or `start_source = 'news'` with "Start as reported by Outlet
 (url)" in `note`. They end with either `end_source = 'order'` and the
 terminating court record in `end_url`, or `end_source = 'news'` and the
-reporting outlet and link in `note`: an order that ended on the Forest
-Service's determination without a court vote, or an early ban the Fire
-Marshal's Office lifted itself.
+reporting outlet and link in `note`, or `end_source = 'fmo'` and the Fire
+Marshal's Office announcement in `end_url`. The court's online records hold
+no vote ending the 2024, 2025 or 2026 ban; the Fire Marshal's Office lifted
+the 2005 and February 2009 bans itself. The 2026 row was opened by the cron
+and closed by the seed script, because the Forest Service map still listed
+a ban a day after the Fire Marshal's Office lifted it. A hand-closed row
+stays closed: the cron's insert does nothing on an existing start date, and
+its close touches only open rows.
 Every hand-entered row has `ended` set: an open row would be closed with
 today's date the next time the cron sees "no ban".
 
