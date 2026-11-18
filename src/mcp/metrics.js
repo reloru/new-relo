@@ -188,7 +188,13 @@ function sleep(ms) {
 // key is drawn from a closed set (allow-listed methods and tools, four
 // outcomes, eight latency buckets), so none of them can grow without bound.
 // Records written before they existed simply lack them.
-const COUNT_FIELDS = ["methods", "tools", "outcomes", "codes", "clients", "toolMs", "methodOutcomes", "toolOutcomes", "toolLat"];
+const COUNT_FIELDS = ["methods", "tools", "outcomes", "codes", "clients", "toolMs", "methodOutcomes", "toolOutcomes", "toolLat", "unknownTools"];
+
+// Tool names a client tried that this server does not have, by the name it
+// sent. Unlike methods the set is NOT closed, so it is sanitised, truncated and
+// capped like client names; the overflow folds into "(other)". tools["(unknown)"]
+// still counts every such call.
+const MAX_UNKNOWN_TOOLS = 50;
 
 // Upper edges, in ms, of the latency buckets; a call over the last edge lands
 // in a final open-ended bucket.
@@ -209,7 +215,7 @@ function latLabel(i) {
 }
 
 function emptyDay() {
-  return { total: 0, batches: 0, methods: {}, tools: {}, outcomes: {}, codes: {}, clients: {}, toolMs: {}, methodOutcomes: {}, toolOutcomes: {}, toolLat: {} };
+  return { total: 0, batches: 0, methods: {}, tools: {}, outcomes: {}, codes: {}, clients: {}, toolMs: {}, methodOutcomes: {}, toolOutcomes: {}, toolLat: {}, unknownTools: {} };
 }
 
 function bump(obj, key) {
@@ -308,6 +314,14 @@ function knownTool(name) {
   return toolNames.has(name);
 }
 
+// The name a caller tried to invoke: case kept (tool names are case-sensitive,
+// and "Get_Forecast" is worth seeing), charset narrowed, length capped.
+function sanitizeToolName(name) {
+  if (typeof name !== "string") return null;
+  const s = name.replace(/[^A-Za-z0-9._:/-]/g, "").slice(0, 40);
+  return s || OTHER;
+}
+
 function sanitizeClient(name) {
   if (typeof name !== "string") return null;
   const s = name.toLowerCase().replace(/[^a-z0-9._-]/g, "").slice(0, 32);
@@ -327,15 +341,17 @@ function sanitizeClient(name) {
 //      message was a request either.
 export function classify(m, r, ms) {
   if (!m || typeof m !== "object" || Array.isArray(m) || m.jsonrpc !== "2.0" || typeof m.method !== "string") {
-    return { method: INVALID, tool: null, client: null, outcome: "rpc_error", code: "-32600", ms: 0 };
+    return { method: INVALID, tool: null, attempted: null, client: null, outcome: "rpc_error", code: "-32600", ms: 0 };
   }
 
   const method = METHODS.has(m.method) ? m.method : OTHER;
 
   let tool = null;
+  let attempted = null;
   if (m.method === "tools/call") {
     const n = m.params && m.params.name;
     tool = typeof n === "string" && knownTool(n) ? n : UNKNOWN;
+    if (tool === UNKNOWN) attempted = sanitizeToolName(n);
   }
 
   // The name a client reports when it connects: at initialize (legacy), or
@@ -362,7 +378,7 @@ export function classify(m, r, ms) {
     outcome = "ok";
   }
 
-  return { method, tool, client, outcome, code, ms: Number.isFinite(ms) && ms > 0 ? ms : 0 };
+  return { method, tool, attempted, client, outcome, code, ms: Number.isFinite(ms) && ms > 0 ? ms : 0 };
 }
 
 // --- request path ------------------------------------------------------------
@@ -486,6 +502,10 @@ export function mcpRecord(env, ctx, m, r, ms) {
       if (c.ms) bump(d.toolLat, `${c.tool}|${latBucket(c.ms)}`);
       if (c.ms) d.toolMs[c.tool] = (d.toolMs[c.tool] || 0) + c.ms;
     }
+    if (c.attempted) {
+      bump(d.unknownTools, c.attempted);
+      d.unknownTools = capMap(d.unknownTools, MAX_UNKNOWN_TOOLS);
+    }
     if (c.client) {
       bump(d.clients, c.client);
       d.clients = capMap(d.clients, MAX_CLIENTS);
@@ -540,6 +560,7 @@ function trimDays(rec) {
     if (!rec.months[month]) rec.months[month] = emptyDay();
     mergeDay(rec.months[month], rec.days[d]);
     rec.months[month].clients = capMap(rec.months[month].clients, MAX_CLIENTS);
+    rec.months[month].unknownTools = capMap(rec.months[month].unknownTools || {}, MAX_UNKNOWN_TOOLS);
     delete rec.days[d];
   }
 }
@@ -594,8 +615,12 @@ export async function mcpRollUp(env) {
   }
 
   if (folded > 0) {
-    for (const d of Object.values(rec.days)) d.clients = capMap(d.clients, MAX_CLIENTS);
+    for (const d of Object.values(rec.days)) {
+      d.clients = capMap(d.clients, MAX_CLIENTS);
+      d.unknownTools = capMap(d.unknownTools || {}, MAX_UNKNOWN_TOOLS);
+    }
     rec.lifetime.clients = capMap(rec.lifetime.clients, MAX_CLIENTS);
+    rec.lifetime.unknownTools = capMap(rec.lifetime.unknownTools || {}, MAX_UNKNOWN_TOOLS);
     trimDays(rec);
     rec.rolledUpThrough = newest;
     rec.updated = new Date().toISOString();
@@ -772,6 +797,7 @@ export async function mcpUsageReport(env) {
     tools: { last7Days: rank(week.tools, week), lifetime: rank(lifetime.tools, lifetime) },
     methods: { last7Days: week.methods, lifetime: lifetime.methods },
     methodOutcomes: { since: MCP_DETAIL_SINCE, last7Days: nest(week.methodOutcomes), lifetime: nest(lifetime.methodOutcomes) },
+    unknownTools: { last7Days: week.unknownTools, lifetime: lifetime.unknownTools },
     clientMix: { last7Days: clientMix(week.clients), lifetime: clientMix(lifetime.clients) },
     // Spec requests this server answers -32601 to. Derived rather than stored,
     // so widening METHODS_UNIMPLEMENTED reclassifies history already recorded.
@@ -849,6 +875,18 @@ export function mcpUsageText(report) {
   toolBlock("tools, lifetime", report.tools.lifetime);
   L.push(`err, p95 and max count calls since ${MCP_DETAIL_SINCE} only.`);
   L.push("");
+
+  // What callers typed when they asked for a tool that does not exist.
+  for (const [title, tried] of [
+    ["tool names tried, not found, 7 days", report.unknownTools && report.unknownTools.last7Days],
+    ["tool names tried, not found, lifetime", report.unknownTools && report.unknownTools.lifetime],
+  ]) {
+    if (!tried || !Object.keys(tried).length) continue;
+    const names = Object.keys(tried).sort((a, b) => tried[b] - tried[a] || (a < b ? -1 : 1));
+    L.push(`${title} (${names.length})`);
+    for (const k of names) L.push(`  ${pad(k, 40)}${num(tried[k], 7)}`);
+    L.push("");
+  }
 
   // Every method the server recognises, used or not. Notification names are
   // shortened (n/) to stay inside the phone width.
