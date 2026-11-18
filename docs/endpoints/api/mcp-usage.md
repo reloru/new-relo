@@ -102,6 +102,26 @@ carries every kept name, and `?format=txt` prints all of them too: every tool
 for both 7 days and lifetime, every client for both windows, and the per-day and
 per-month tables. Nothing is truncated; the record's caps bound the length.
 
+Per-method and per-tool detail, added 2026-11-18 (earlier calls have none, and
+the report says so): `methodOutcomes` (`method|outcome`), `toolOutcomes`
+(`tool|outcome`) and `toolLat` (`tool|bucket`, a histogram over
+25/50/100/250/500/1000/2500 ms and an open-ended top bucket). All are additive
+maps over closed key sets, so shards, the cron fold and the month roll-up merge
+them like the other counters. The text report shows per tool: calls, errors
+(tool errors plus JSON-RPC errors), average, p95 and max, where p95 and max are
+bucket upper bounds, not exact timings. Every known method (with ok / notif /
+err), every unimplemented method and every error code (with its spec name) is
+listed even at 0. `clientMix` (JSON and text) splits sessions opened by whether
+the self-reported name looks like a monitor or scanner (`PROBE_RE`); it is a
+heuristic over caller-chosen strings, not an identity.
+
+`unknownTools` records the tool name a client tried when it is not one of ours
+(`tools/call` with an unknown name still counts under `(unknown)`). Unlike the
+method list this set is open, so it is capped like client names: characters
+narrowed to `[A-Za-z0-9._:/-]`, 40 long, 50 distinct per day, lifetime and
+month with the rest folded into `(other)`. The text report lists them under
+"tool names tried, not found".
+
 The cap's **existence** is the load-bearing part, not its value. `clientInfo.name`
 is caller-controlled, so without a ceiling a loop of unique names grows the
 record until a `put` crosses KV's 25 MiB value limit and the counters stop

@@ -268,7 +268,8 @@ console.log("\ncardinality:\n");
     assert("...including one that called once", wl.some((l) => l.startsWith("  one-call-today ")), true);
     const tl = mcpUsageText({ ...report, tools: { last7Days: [{ name: "get_forecast", calls: 3, ms: 30 }], lifetime: [] } }).split("\n");
     assert("every tool is listed, called or not", tl.filter((l) => /^ {2}get_[a-z_]+ /.test(l)).length >= 30, true);
-    assert("...a never-called tool shows 0", tl.some((l) => /^ {2}get_pollen\s+0\s+-$/.test(l)), true);
+    assert("...a never-called tool shows 0", tl.some((l) => /^ {2}get_pollen\s+0\s+0\s+-\s+-\s+-$/.test(l)), true);
+    assert("...every method and code is listed, used or not", tl.some((l) => l.startsWith("  resources/subscribe ")) && tl.some((l) => l.startsWith("  -32021 missing client capability")), true);
     const big = mcpUsageText({ ...report, lifetime: { calls: 205539, ok: 145165, notifications: 55557, rpcErrors: 4813, toolErrors: 4 } }).split("\n").find((l) => l.startsWith("lifetime"));
     assert("big lifetime totals keep their columns apart", /205539\s+145165\s+55557/.test(big), true);
     assert("...within a phone terminal", Math.max(...mcpUsageText(report).split("\n").map((l) => l.length)) <= 60, true);
@@ -490,7 +491,7 @@ console.log("\ncold start:\n");
   assert("no shards, no durable write", env.ops.put, 0);
   const report = await mcpUsageReport(env);
   assert("reports zero rather than failing", report.lifetime.calls, 0);
-  assert("renders with no data", mcpUsageText(report).includes("(none yet)"), true);
+  assert("renders with no data", mcpUsageText(report).includes("tools, 7 days ("), true);
 }
 
 // --- 7. the request path ----------------------------------------------------
@@ -515,6 +516,7 @@ console.log("\nrequest path:\n");
     [{ jsonrpc: "2.0", id: 4, method: "tools/call", params: { name: "get_pollen" } }, { result: {} }],
     [{ jsonrpc: "2.0", id: 5, method: "tools/call", params: { name: "get_forecast" } }, { result: {} }],
     [{ jsonrpc: "2.0", id: 6, method: "tools/call", params: { name: "nope" } }, { error: { code: -32602 } }],
+    [{ jsonrpc: "2.0", id: 8, method: "tools/call", params: { name: "Get_Forecast<x>" } }, { error: { code: -32602 } }],
     [{ jsonrpc: "2.0", id: 7, method: "no/such" }, { error: { code: -32601 } }],
   ];
   // The write lands a few seconds later, so a run that starts just before a
@@ -527,13 +529,13 @@ console.log("\nrequest path:\n");
   const bucketAfter = bucketOf(Date.now());
 
   const shards = [...env.store.keys()].filter((k) => k.startsWith(MCP_SHARD_PREFIX));
-  assert("a burst of 8 messages writes ONE shard", shards.length, 1);
+  assert("a burst of 9 messages writes ONE shard", shards.length, 1);
   assert("shard key is mcpm:<bucket>:<shard>", /^mcpm:\d{8}-\d{4}:[0-9a-f]{8}$/.test(shards[0]), true);
   assert("the bucket is the current one", [bucketBefore, bucketAfter].includes(shards[0]?.split(":")[1]), true);
 
   const v = JSON.parse(env.store.get(shards[0]));
   const d = v.days[day()];
-  assert("every message counted", d.total, 8);
+  assert("every message counted", d.total, 9);
   assert("the POST counted once", d.batches, 1);
   // notifications/initialized is a spec method, so it is named rather than
   // lumped in; only the genuinely unknown "no/such" lands in "(other)".
@@ -541,20 +543,93 @@ console.log("\nrequest path:\n");
     initialize: 1,
     "notifications/initialized": 1,
     "tools/list": 1,
-    "tools/call": 4,
+    "tools/call": 5,
     "(other)": 1,
   });
-  assert("tools tallied", d.tools, { get_forecast: 2, get_pollen: 1, "(unknown)": 1 });
+  assert("tools tallied", d.tools, { get_forecast: 2, get_pollen: 1, "(unknown)": 2 });
   // initialize, tools/list and three tools/call succeed; one notification; two
   // rpc errors (unknown tool, unknown method).
-  assert("outcomes tallied", d.outcomes, { ok: 5, notification: 1, rpc_error: 2 });
-  assert("error codes tallied", d.codes, { "-32602": 1, "-32601": 1 });
+  assert("outcomes tallied", d.outcomes, { ok: 5, notification: 1, rpc_error: 3 });
+  assert("error codes tallied", d.codes, { "-32602": 2, "-32601": 1 });
   assert("client recorded", d.clients, { "claude-ai": 1 });
-  assert("durations summed per tool", d.toolMs, { get_forecast: 40, get_pollen: 20, "(unknown)": 20 });
+  assert("durations summed per tool", d.toolMs, { get_forecast: 40, get_pollen: 20, "(unknown)": 40 });
+
+  assert("outcomes tallied per method", d.methodOutcomes, {
+    "initialize|ok": 1,
+    "notifications/initialized|notification": 1,
+    "tools/list|ok": 1,
+    "tools/call|ok": 3,
+    "tools/call|rpc_error": 2,
+    "(other)|rpc_error": 1,
+  });
+  assert("outcomes tallied per tool", d.toolOutcomes, { "get_forecast|ok": 2, "get_pollen|ok": 1, "(unknown)|rpc_error": 2 });
+  assert("20ms lands in the first latency bucket", d.toolLat, { "get_forecast|0": 2, "get_pollen|0": 1, "(unknown)|0": 2 });
+  assert("tried tool names are kept as sent, sanitised", d.unknownTools, { nope: 1, "Get_Forecastx": 1 });
 
   // And the reader sees it before any rollup has run.
   const report = await mcpUsageReport(env);
-  assert("unfolded shard is visible to the reader", report.today.calls, 8);
+  assert("unfolded shard is visible to the reader", report.today.calls, 9);
+  const rf = report.tools.last7Days.find((t) => t.name === "get_forecast");
+  assert("a tool reports errors and latency bounds", [rf.errors, rf.p95, rf.slowest], [0, "\u226425ms", "\u226425ms"]);
+  assert("an unknown tool's rpc error is counted", report.tools.last7Days.find((t) => t.name === "(unknown)").errors, 2);
+  assert("methods carry their outcomes", report.methodOutcomes.last7Days["tools/call"], { ok: 3, rpc_error: 2 });
+  const tx = mcpUsageText(report).split("\n");
+  assert("the text shows the per-tool row", tx.some((l) => /^ {2}get_forecast\s+2\s+0\s+20ms\s+\u226425ms\s+\u226425ms$/.test(l)), true);
+  assert("...and the per-method row", tx.some((l) => /^ {2}tools\/call\s+5\s+3\s+0\s+2$/.test(l)), true);
+  assert("the text lists what was tried", tx.some((l) => /^ {2}Get_Forecastx\s+1$/.test(l)) && tx.some((l) => /^ {2}nope\s+1$/.test(l)), true);
+  assert("...within a phone terminal", Math.max(...tx.map((l) => l.length)) <= 60, true);
+}
+
+// --- 8. latency percentiles and the client mix ------------------------------
+
+console.log("\nlatency and client mix:\n");
+{
+  const env = fakeKv({
+    [MCP_METRICS_KV_KEY]: {
+      v: 1,
+      rolledUpThrough: bucketEndingAgo(30 * 60000),
+      firstSeen: new Date(Date.now() - 86400000).toISOString(),
+      lifetime: oneDay({
+        total: 100,
+        tools: { get_radar: 100 },
+        toolMs: { get_radar: 9000 },
+        // 94 fast, 4 in <=500ms, 2 in the open-ended bucket: p95 is the 500ms
+        // bucket (cumulative 98% there), the slowest is >2.5s
+        toolLat: { "get_radar|1": 94, "get_radar|4": 4, "get_radar|7": 2 },
+        toolOutcomes: { "get_radar|ok": 97, "get_radar|tool_error": 2, "get_radar|rpc_error": 1 },
+        clients: { "glimind-probe": 5, "claude-code": 2, "agentic-registry": 4, "(other)": 3 },
+      }),
+      months: {},
+      days: {},
+      rollup: { at: new Date().toISOString(), ok: true, shards: 1, error: null },
+    },
+  });
+  const report = await mcpUsageReport(env);
+  const t = report.tools.lifetime[0];
+  assert("p95 is the bucket where 95% is reached", t.p95, "\u2264500ms");
+  assert("slowest is the highest populated bucket", t.slowest, ">2.5s");
+  assert("errors are tool errors plus rpc errors", t.errors, 3);
+  assert("client mix splits by name", report.clientMix.lifetime, { probeLike: 9, other: 2, unnamed: 3 });
+}
+
+// Tried tool names are caller-controlled and the set is open, so it must be
+// capped like client names or a loop of random names grows the record.
+{
+  const env = fakeKv();
+  const pending = [];
+  const ctx = { waitUntil: (p) => pending.push(p) };
+  for (let i = 0; i < 120; i++) {
+    mcpRecord(env, ctx, { jsonrpc: "2.0", id: i, method: "tools/call", params: { name: `junk_${i}` } }, { error: { code: -32602 } }, 5);
+  }
+  await Promise.all(pending);
+  const shardKey = [...env.store.keys()].find((k) => k.startsWith(MCP_SHARD_PREFIX));
+  const tried = JSON.parse(env.store.get(shardKey)).days[day()].unknownTools;
+  assert("120 distinct tried names are capped at 50 plus (other)", Object.keys(tried).length, 51);
+  assert("...and the overflow is counted in (other)", tried["(other)"] > 0, true);
+  const probe = classify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "x".repeat(200) } }, { error: { code: -32602 } }, 1);
+  assert("a tried name is truncated to 40 characters", probe.attempted.length, 40);
+  assert("a non-string name is not recorded as a name", classify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: 7 } }, { error: { code: -32602 } }, 1).attempted, null);
+  assert("a name that sanitises to nothing is (other)", classify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "<>" } }, { error: { code: -32602 } }, 1).attempted, "(other)");
 }
 
 console.log(
