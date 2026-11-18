@@ -101,6 +101,10 @@ jobs:
       # Harris, and the strip in both languages and Markdown.
       - name: Check burn-ban neighbors
         run: node scripts/test-burnban-neighbors.mjs
+      # The air-quality sentence an MCP client receives: its scope wording and
+      # how an upstream monitor name enters it. Hand-written expected strings.
+      - name: Check MCP text
+        run: node scripts/test-mcp-text.mjs
       # /rain sums USGS's 15-minute amounts at request time; a day boundary off
       # by one interval or a gap shown as a dry day would read fine and be
       # wrong. Hand-computed totals from seeded readings.
