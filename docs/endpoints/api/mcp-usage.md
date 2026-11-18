@@ -97,11 +97,10 @@ malformed envelope becomes `(invalid)`; error codes outside the five JSON-RPC
 codes become `(other)`; client names are lower-cased, stripped to
 `[a-z0-9._-]`, truncated to 32 characters and capped at 100 distinct values with
 the rest folded into `(other)`. Storage and display are separate: the JSON
-carries every kept name, while `?format=txt` prints the top 40 for the last 7
-days and the top 15 lifetime, totalling the remainder, because a phone terminal
-cannot use a hundred-line list. The 7-day block exists because the lifetime top
-15 is all monitoring bots: a client that connected once this week never reaches
-it.
+carries every kept name, and `?format=txt` prints all of them too: every tool
+(zero-call tools listed with 0), methods, unimplemented methods and error codes
+for both 7 days and lifetime, every client for both windows, and the per-day and
+per-month tables. Nothing is truncated; the record's caps bound the length.
 
 The cap's **existence** is the load-bearing part, not its value. `clientInfo.name`
 is caller-controlled, so without a ceiling a loop of unique names grows the
