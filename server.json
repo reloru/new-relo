@@ -3,7 +3,7 @@
   "name": "com.crosbynews/weather",
   "title": "Crosby, TX Weather",
   "description": "Crosby, TX weather, air, tropics, floods, fishing, pollen, roads, burn bans, radar, news & schools.",
-  "version": "1.9.0",
+  "version": "1.10.0",
   "websiteUrl": "https://crosbynews.com/mcp",
   "repository": { "url": "https://github.com/reloru/new-relo", "source": "github" },
   "remotes": [

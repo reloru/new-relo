@@ -102,6 +102,52 @@ eq(await h.env.DB.prepare("SELECT at, day FROM rain_readings WHERE at IN ('2026-
   h.env.DB = real;
 }
 
+// --- the get_rainfall tool, over the same seeded readings (values worked out by hand) ---
+{
+  const { runRainTool } = await import(pathToFileURL(join(SRC, "mcp/rain-tools.js")).href);
+  const { mcpCallTool } = await import(pathToFileURL(join(SRC, "mcp/server.js")).href);
+  const t = await runRainTool(h.env);
+  const s = t.structuredContent;
+  // Latest reading: Nov 6 18:30 UTC. Last hour = the four readings 17:30-18:30 UTC, all dry.
+  eq(s.latestReading, "2026-11-06T18:30:00.000Z", "latest reading is the newest one");
+  eq(s.windows.lastHour, { inches: 0, readings: 4, expectedReadings: 4, complete: true, provisionalReadings: 4 }, "last hour: four dry readings, complete");
+  // Last 24 h: Nov 5 after 18:30 UTC is dry (46 readings), Nov 6 to 18:30 holds 0.30 in over 50 readings.
+  eq(s.windows.last24Hours, { inches: 0.3, readings: 96, expectedReadings: 96, complete: true, provisionalReadings: 96 }, "last 24 hours: 0.30 in across 96 readings");
+  eq(s.windows.todaySoFar, { day: "2026-11-06", inches: 0.3, readings: 50, expectedReadings: 96, complete: false, provisionalReadings: 50 }, "day so far is dated and partial");
+  eq(s.recentDays, [
+    { day: "2026-11-06", inches: 0.3, readings: 50, expectedReadings: 96, complete: false },
+    { day: "2026-11-05", inches: 1.1, readings: 96, expectedReadings: 96, complete: true },
+    { day: "2026-11-01", inches: 0, readings: 100, expectedReadings: 100, complete: true },
+    { day: "2026-10-31", inches: 0.05, readings: 1, expectedReadings: 96, complete: false },
+  ], "recent days, newest first; the 0.004 in trace rounds to 0 and is still a complete day");
+  eq(s.since, "2026-10-31", "first recorded day");
+  ok(t.content[0].text.includes("through the reading of Nov 6, 2026, 12:30 PM CT"), "text dates the latest reading in Central time");
+  ok(t.content[0].text.includes("Last 24 hours: 0.30 in (96 of 96 readings)"), "text gives the 24-hour total with its reading count");
+  ok(t.content[0].text.includes("2026-11-06 so far: 0.30 in (50 of 96 readings for the day)."), "text names the day so far with its reading count");
+  ok(!t.content[0].text.includes("0.30000000000000004"), "no float residue in text");
+  ok(s.notes.length === 4 && s.notes.some((n) => n.includes("provisional") || n.includes("Provisional")), "notes say the data is provisional");
+  ok(s.station.id === "08072000" && s.page === SITE + "/rain", "station id and page link");
+
+  // Through the tool's MCP path: a D1 failure answers isError and names the feed.
+  const real = h.env.DB;
+  h.env.DB = { prepare: () => { throw new Error("D1 down"); } };
+  const quiet = console.error;
+  console.error = () => {};
+  const bad = await mcpCallTool("get_rainfall", {}, h.env);
+  console.error = quiet;
+  h.env.DB = real;
+  ok(bad.isError === true, "a database failure is an isError result");
+  ok(/rain record/.test(bad.content[0].text), `the error names the rain record: ${bad.content[0].text}`);
+
+  // No readings yet: no windows, no days, and the text says so.
+  const empty = await createHarness();
+  const e = await runRainTool(empty.env);
+  eq(e.structuredContent.windows, null, "no windows before any reading");
+  eq(e.structuredContent.recentDays, [], "no days before any reading");
+  eq(e.structuredContent.latestReading, null, "no latest reading before any reading");
+  ok(e.content[0].text.startsWith("No rain readings have been recorded yet"), "empty record says so");
+}
+
 if (failures.length) {
   console.error(`\nRain checks failed (${failures.length}):\n  ${failures.join("\n  ")}\n`);
   process.exit(1);
