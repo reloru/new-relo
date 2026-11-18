@@ -1212,8 +1212,11 @@ async function runTool(name, args, env) {
     const { data } = await loadWeather(env);
     const payload = apiAir(data);
     const a = payload.airQuality;
+    // Upstream names are data, not prose: one line, no markup or control
+    // characters, bounded, so a feed value cannot read as an instruction.
+    const oneLine = (v) => String(v ?? "").replace(/[\u0000-\u001f\u007f<>`]/g, " ").replace(/\s+/g, " ").trim().slice(0, 80);
     const text = a
-      ? `${a.measured ? "Houston metro reporting area (Houston-Galveston-Brazoria), not a Crosby-specific reading" : "Modeled estimate for Crosby, TX (Open-Meteo), not an EPA/AirNow monitor reading"}: US AQI ${a.usAqi} (${a.category})${a.dominantPollutant ? `, ${a.dominantPollutant}-driven` : ""}${a.measured && a.dominantMonitor ? ` (${a.dominantPollutant} from ${a.dominantMonitor})` : ""}. ${aqiHealth(a.usAqi, "en")} Details: ${SITE}/air`
+      ? `${a.measured ? "Houston metro reporting area (Houston-Galveston-Brazoria), not a Crosby-specific reading" : "Modeled estimate for Crosby, TX (Open-Meteo), not an EPA/AirNow monitor reading"}: US AQI ${a.usAqi} (${a.category})${a.dominantPollutant ? `, ${oneLine(a.dominantPollutant)}-driven` : ""}${a.measured && a.dominantMonitor ? ` (${oneLine(a.dominantPollutant)} from "${oneLine(a.dominantMonitor)}")` : ""}. ${aqiHealth(a.usAqi, "en")} Details: ${SITE}/air`
       : `The air quality reading is not available right now. See ${SITE}/air`;
     return { content: [{ type: "text", text }], structuredContent: payload };
   }
