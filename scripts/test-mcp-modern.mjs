@@ -170,13 +170,24 @@ try {
     check("notifications/initialized with a legacy _meta version → 202", note.status === 202, `${note.status} ${note.text}`);
   }
   {
-    // A 2026 _meta but no MCP-Protocol-Version header: the spec lets a server
-    // that supports pre-2025-06-18 clients treat it as 2025-03-26. A scanner
-    // probes server/discover exactly this way.
+    // A 2026 _meta but no MCP-Protocol-Version header: the MCP Playground
+    // scanner sends every 2026 request this way, with Mcp-Method and Mcp-Name.
+    // Served with 2026 semantics; any routing header that is sent must match.
     const d = await post({ jsonrpc: "2.0", id: 1, method: "server/discover", params: { _meta: META() } }, { "Mcp-Method": "server/discover" });
-    check("server/discover without the version header → 200 with the discover result", d.status === 200 && JSON.stringify(d.json?.result?.supportedVersions) === JSON.stringify(ALL) && d.json?.result?.resultType === "complete", `${d.status} ${d.text.slice(0, 150)}`);
+    check("no version header: server/discover → 200 with the discover result", d.status === 200 && JSON.stringify(d.json?.result?.supportedVersions) === JSON.stringify(ALL) && d.json?.result?.resultType === "complete", `${d.status} ${d.text.slice(0, 150)}`);
     const t = await post({ jsonrpc: "2.0", id: 2, method: "tools/list", params: { _meta: META() } }, { "Mcp-Method": "tools/list" });
-    check("tools/list without the version header → 200, legacy result", t.status === 200 && t.json?.result?.tools?.length === 16 && !("resultType" in t.json.result), `${t.status} ${t.text.slice(0, 150)}`);
+    check("no version header: tools/list → 200 with resultType, ttlMs, cacheScope", t.status === 200 && t.json?.result?.tools?.length === 16 && t.json.result.resultType === "complete" && t.json.result.ttlMs === 3600000 && t.json.result.cacheScope === "public", `${t.status} ${t.text.slice(0, 150)}`);
+    const bare = await post({ jsonrpc: "2.0", id: 3, method: "tools/list", params: { _meta: META() } });
+    check("no version header, no Mcp-Method: tools/list → 200, 2026 result", bare.status === 200 && bare.json?.result?.resultType === "complete", `${bare.status} ${bare.text.slice(0, 150)}`);
+    const mis = await post({ jsonrpc: "2.0", id: 4, method: "tools/list", params: { _meta: META() } }, { "Mcp-Method": "resources/list" });
+    check("no version header: Mcp-Method ≠ body → 400 -32020", isErr(mis, 400, -32020), `${mis.status} ${mis.text}`);
+    const call = { jsonrpc: "2.0", id: 5, method: "tools/call", params: { name: "get_emergency_contacts", arguments: {}, _meta: META() } };
+    const okCall = await post(call, { "Mcp-Method": "tools/call", "Mcp-Name": "get_emergency_contacts" });
+    check("no version header: tools/call with matching Mcp-Name → 200", okCall.status === 200 && okCall.json?.result?.resultType === "complete", `${okCall.status} ${okCall.text.slice(0, 150)}`);
+    const badCall = await post(call, { "Mcp-Method": "tools/call", "Mcp-Name": "get_alerts" });
+    check("no version header: Mcp-Name ≠ body → 400 -32020", isErr(badCall, 400, -32020), `${badCall.status} ${badCall.text}`);
+    const unk = await post({ jsonrpc: "2.0", id: 6, method: "tools/list", params: { _meta: META("1900-01-01") } });
+    check("no version header, unknown _meta version → legacy 200", unk.status === 200 && unk.json?.result?.tools?.length === 16 && !("resultType" in unk.json.result), `${unk.status} ${unk.text.slice(0, 150)}`);
   }
   {
     // initialize always selects legacy semantics on a dual-era server, even

@@ -1434,15 +1434,21 @@ function modernResult(method, result) {
 //   - A _meta version that is one of MCP_LEGACY_VERSIONS is a legacy request
 //     with extra _meta, which 2025-era _meta permits. Rejecting it with -32022
 //     broke a 2025-06-18 client that stamps every request this way.
-//   - No MCP-Protocol-Version header: a server that supports pre-2025-06-18
-//     clients "MAY treat a request that omits the header as protocol version
-//     2025-03-26" (Streamable HTTP, "Protocol Version Header").
+//   - No MCP-Protocol-Version header and a _meta version we do not serve:
+//     a server that supports pre-2025-06-18 clients "MAY treat a request that
+//     omits the header as protocol version 2025-03-26" (Streamable HTTP,
+//     "Protocol Version Header").
+// No header but a _meta version we serve (2026-07-28) is modern, validated
+// leniently in mcpHandleModern(): the MCP Playground scanner sends 2026
+// requests that way.
 export function isModernMessage(msg, headers) {
   const meta = msg && typeof msg === "object" && !Array.isArray(msg) && msg.jsonrpc === "2.0" && typeof msg.method === "string" &&
     msg.method !== "initialize" && msg.params && typeof msg.params === "object" && msg.params._meta;
   if (!meta || typeof meta !== "object" || !Object.prototype.hasOwnProperty.call(meta, META_VERSION)) return false;
-  if (MCP_LEGACY_VERSIONS.includes(meta[META_VERSION])) return false;
-  return !!headers && headers.get("mcp-protocol-version") !== null;
+  const version = meta[META_VERSION];
+  if (MCP_LEGACY_VERSIONS.includes(version)) return false;
+  if (!!headers && headers.get("mcp-protocol-version") !== null) return true;
+  return MCP_MODERN_VERSIONS.includes(version);
 }
 
 // Mcp-Name may carry =?base64?…?= (UTF-8). null means malformed.
@@ -1476,15 +1482,18 @@ export async function mcpHandleModern(msg, env, headers) {
 
   if (typeof version !== "string") return fail(400, -32602, `Invalid params: _meta["${META_VERSION}"] must be a string`);
 
-  // Headers must mirror the body (Streamable HTTP "Server Validation").
+  // Headers must mirror the body (Streamable HTTP "Server Validation"). With
+  // an MCP-Protocol-Version header every standard header is required. Without
+  // one (see isModernMessage), any Mcp-Method or Mcp-Name that is sent must
+  // still match the body, but a missing one is not an error.
   const hVersion = headers.get("mcp-protocol-version");
-  if (hVersion === null) return fail(400, MCP_HEADER_MISMATCH, "Header mismatch: MCP-Protocol-Version header is missing");
-  if (hVersion !== version) return fail(400, MCP_HEADER_MISMATCH, `Header mismatch: MCP-Protocol-Version header '${hVersion}' does not match _meta value '${version}'`);
+  const strict = hVersion !== null;
+  if (strict && hVersion !== version) return fail(400, MCP_HEADER_MISMATCH, `Header mismatch: MCP-Protocol-Version header '${hVersion}' does not match _meta value '${version}'`);
   const hMethod = headers.get("mcp-method");
-  if (hMethod === null) return fail(400, MCP_HEADER_MISMATCH, "Header mismatch: Mcp-Method header is missing");
-  if (hMethod !== method) return fail(400, MCP_HEADER_MISMATCH, `Header mismatch: Mcp-Method header '${hMethod}' does not match body value '${method}'`);
+  if (strict && hMethod === null) return fail(400, MCP_HEADER_MISMATCH, "Header mismatch: Mcp-Method header is missing");
+  if (hMethod !== null && hMethod !== method) return fail(400, MCP_HEADER_MISMATCH, `Header mismatch: Mcp-Method header '${hMethod}' does not match body value '${method}'`);
   const nameField = method === "resources/read" ? "uri" : method === "tools/call" || method === "prompts/get" ? "name" : null;
-  if (nameField) {
+  if (nameField && (strict || headers.get("mcp-name") !== null)) {
     const raw = headers.get("mcp-name");
     if (raw === null) return fail(400, MCP_HEADER_MISMATCH, "Header mismatch: Mcp-Name header is missing");
     const decoded = decodeHeaderValue(raw);

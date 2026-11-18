@@ -27,7 +27,16 @@ A request is **modern** only when all of these hold (`isModernMessage()`):
 1. the body is a single JSON-RPC message, and its method is not `initialize`;
 2. `params._meta["io.modelcontextprotocol/protocolVersion"]` is present and
    is **not** one of `MCP_LEGACY_VERSIONS`;
-3. the request has an `MCP-Protocol-Version` header.
+3. the request has an `MCP-Protocol-Version` header, **or** the `_meta`
+   version is one we serve (`2026-07-28`).
+
+With the header, validation is strict: every standard header is required
+and must match the body. Without it (the MCP Playground scanner sends every
+2026 request this way), a missing `Mcp-Method` or `Mcp-Name` is accepted, but
+one that is sent must still match the body (400 `-32020`). The spec lets a
+server that supports pre-2025-06-18 clients read a header-less request as
+2025-03-26; the 2026 result returned here is also a valid 2025-03-26 result,
+since 2025 results may carry extra fields.
 
 Everything else, batches included, takes the legacy path, which is unchanged.
 The header alone never selects the modern path: legacy clients send it after
@@ -40,12 +49,12 @@ and each matches traffic the first 1.9.0 deploy wrongly rejected (2026-11-17):
 - A legacy `_meta` version is a legacy request with extra `_meta`, which the
   2025 revisions permit. A 2025-06-18 client stamps `_meta` and the 2026
   headers on every request; 231 of its requests got -32022 in about nine hours.
-- No `MCP-Protocol-Version` header: "A server that supports clients
-  implementing protocol versions earlier than `2025-06-18` ... **MAY** treat a
-  request that omits the header as protocol version `2025-03-26`"
-  (Streamable HTTP, Protocol Version Header). The MCP Playground security
-  scanner probes `server/discover` this way, got -32020, and reported the
-  server as having no 2026-07-28 support.
+- No `MCP-Protocol-Version` header with an unknown `_meta` version: "A
+  server that supports clients implementing protocol versions earlier than
+  `2025-06-18` ... **MAY** treat a request that omits the header as protocol
+  version `2025-03-26`" (Streamable HTTP, Protocol Version Header). Before
+  the lenient branch above, the MCP Playground security scanner's header-less
+  `server/discover` got -32020 and it reported no 2026-07-28 support.
 
 ## Modern requests (2026-07-28)
 
@@ -54,9 +63,9 @@ Checked in this order; the first failure answers:
 | Check | Failure |
 |---|---|
 | `_meta` version is a string | **400**, `-32602` |
-| `MCP-Protocol-Version` header equal to the `_meta` version (its absence already made the request legacy) | **400**, `-32020` HeaderMismatch |
-| `Mcp-Method` header present and equal to `method` | **400**, `-32020` |
-| `Mcp-Name` present and equal to `params.name` (`tools/call`, `prompts/get`) or `params.uri` (`resources/read`), after decoding `=?base64?…?=` | **400**, `-32020` |
+| `MCP-Protocol-Version` header, when sent, equal to the `_meta` version | **400**, `-32020` HeaderMismatch |
+| `Mcp-Method` equal to `method` (required when the version header is sent) | **400**, `-32020` |
+| `Mcp-Name` equal to `params.name` (`tools/call`, `prompts/get`) or `params.uri` (`resources/read`), after decoding `=?base64?…?=` (required when the version header is sent) | **400**, `-32020` |
 | version is in `MCP_MODERN_VERSIONS` (`2026-07-28`) | **400**, `-32022` UnsupportedProtocolVersion, `data: {supported, requested}`; `supported` is every version, newest first |
 | `_meta` has `io.modelcontextprotocol/clientCapabilities` (an object) | **400**, `-32602` (`clientInfo` is optional in the schema and is not required) |
 | a notification (no `id`) | **202**, no body (2026-07-28 defines no client notifications over HTTP) |
