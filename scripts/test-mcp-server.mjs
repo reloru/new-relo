@@ -200,6 +200,14 @@ try {
     check("resources/templates/list → {resourceTemplates: []}", JSON.stringify(tl) === '{"jsonrpc":"2.0","id":5,"result":{"resourceTemplates":[]}}', JSON.stringify(tl));
   }
 
+  // Wording a third-party eval caught: the AQI tool must say it is a regional
+  // reading, and no description may name the internal NHC feed.
+  const aqiDesc = byName.get_air_quality.description;
+  check("get_air_quality says the measured reading is not Crosby-specific", aqiDesc.includes("not Crosby-specific"), aqiDesc);
+  check("get_air_quality says the modeled path is a Crosby point estimate", aqiDesc.includes("modeled estimate at Crosby's coordinates"), aqiDesc);
+  check("no tool description names the internal CurrentStorms feed", tools.every((t) => !t.description.includes("CurrentStorms")));
+  check("get_tropical_outlook says it is not Crosby-specific", byName.get_tropical_outlook.description.includes("Not specific to Crosby, TX"));
+
   // The prose lists of tools are written by hand (deriving them would import
   // the MCP server into modules it imports). They went stale every time a tool
   // shipped, so every tool name must appear in each one.
