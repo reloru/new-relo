@@ -395,3 +395,27 @@ byte-identical across five hours spanning several DCV token placements and
 withdrawals. **Auto-placed DCV tokens do not bump the zone serial**, which is
 further evidence they are not zone records — consistent with the
 `_acme-challenge` section above.
+
+## Rate limiting: one rule on `/mcp`, with an Anthropic skip
+
+Created 2026-11-18 through `CLOUDFLARE_ZONE_API_TOKEN` (Free plan). Two zone
+rules, both API-managed (no Worker code):
+
+| Phase | Rule |
+|---|---|
+| `http_ratelimit` | `http.request.uri.path eq "/mcp"` → block, 100 requests per 10 s, characteristics `ip.src` + `cf.colo.id`, 10 s timeout, custom 429 JSON-RPC body (`-32000`) |
+| `http_request_firewall_custom` | `ip.src in {160.79.104.0/21}` → skip phase `http_ratelimit` |
+
+- **Why the skip is a separate rule.** The Free plan refuses `ip.src` inside a
+  rate-limit expression ("Advanced Rate Limiting plan required") but allows it
+  in a custom rule. The Claude connector egresses from `160.79.104.0/21`
+  (`docs/ops/anthropic-directory.md`); a challenge or limit there breaks it.
+- **Free-plan limits.** One rate-limit rule, period fixed at 10 s, so 100 per
+  10 s is the "pretty high" setting; the per-IP rate is 600 a minute.
+- **Testing from a session.** A cloud session's own egress IP is inside the
+  skipped range, so a burst from it never trips the limit. To test, set the
+  skip rule `enabled: false`, lower `requests_per_period` (a 5-per-10 s
+  threshold blocked 6 of 60 requests), then restore both with `PUT`
+  `/zones/{id}/rulesets/phases/{phase}/entrypoint`. Counting is approximate,
+  not instant.
+- `/api/*` and the pages have no limit; `llms.txt` and the developer page say so.
