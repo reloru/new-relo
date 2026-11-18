@@ -14,7 +14,9 @@ paths:
   `MCP_LEGACY_VERSIONS` (2025-03-26 through 2025-11-25). `mcpHandleModern()`
   (2026-07-28) serves only a single non-`initialize` message whose `_meta`
   version is not a legacy one and which carries an `MCP-Protocol-Version`
-  header (`isModernMessage()`); everything else is legacy. The header alone
+  header or a `_meta` version we serve (`isModernMessage()`); everything
+  else is legacy. Without the header, routing headers are checked only when
+  sent. The header alone
   is never the signal: legacy clients send it too. Narrowing this list
   rejects real clients, as the first 1.9.0 deploy did
   (`docs/endpoints/mcp.md`, "Which era a request is"). Legacy response bodies are unchanged (the
