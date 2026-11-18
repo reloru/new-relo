@@ -145,6 +145,16 @@ const METHODS = new Set([...METHODS_IMPLEMENTED, ...METHODS_UNIMPLEMENTED, ...ME
 export const MCP_UNIMPLEMENTED_METHODS = METHODS_UNIMPLEMENTED;
 // JSON-RPC's own codes, then 2026-07-28's HeaderMismatch,
 // MissingRequiredClientCapability and UnsupportedProtocolVersion.
+const CODE_NAMES = {
+  "-32700": "parse error",
+  "-32600": "invalid request",
+  "-32601": "method not found",
+  "-32602": "invalid params",
+  "-32603": "internal error",
+  "-32020": "header mismatch",
+  "-32021": "missing client capability",
+  "-32022": "unsupported protocol version",
+};
 const CODES = new Set(["-32700", "-32600", "-32601", "-32602", "-32603", "-32020", "-32021", "-32022"]);
 
 // --- per-isolate state -------------------------------------------------------
@@ -172,10 +182,34 @@ function sleep(ms) {
 
 // --- shapes ------------------------------------------------------------------
 
-const COUNT_FIELDS = ["methods", "tools", "outcomes", "codes", "clients", "toolMs"];
+// methodOutcomes ("method|outcome"), toolOutcomes ("tool|outcome") and toolLat
+// ("tool|bucket", a latency histogram) are additive like the rest, so shards,
+// the cron fold and the month roll-up merge them with no special case. Every
+// key is drawn from a closed set (allow-listed methods and tools, four
+// outcomes, eight latency buckets), so none of them can grow without bound.
+// Records written before they existed simply lack them.
+const COUNT_FIELDS = ["methods", "tools", "outcomes", "codes", "clients", "toolMs", "methodOutcomes", "toolOutcomes", "toolLat"];
+
+// Upper edges, in ms, of the latency buckets; a call over the last edge lands
+// in a final open-ended bucket.
+const LAT_EDGES = [25, 50, 100, 250, 500, 1000, 2500];
+// Calls recorded before the per-method / per-tool outcome counters shipped have
+// no breakdown. The report says so rather than showing zeros as if measured.
+export const MCP_DETAIL_SINCE = "2026-11-18";
+
+function latBucket(ms) {
+  for (let i = 0; i < LAT_EDGES.length; i++) if (ms <= LAT_EDGES[i]) return i;
+  return LAT_EDGES.length;
+}
+
+function latLabel(i) {
+  if (i >= LAT_EDGES.length) return ">2.5s";
+  const e = LAT_EDGES[i];
+  return e >= 1000 ? `\u2264${e / 1000}s` : `\u2264${e}ms`;
+}
 
 function emptyDay() {
-  return { total: 0, batches: 0, methods: {}, tools: {}, outcomes: {}, codes: {}, clients: {}, toolMs: {} };
+  return { total: 0, batches: 0, methods: {}, tools: {}, outcomes: {}, codes: {}, clients: {}, toolMs: {}, methodOutcomes: {}, toolOutcomes: {}, toolLat: {} };
 }
 
 function bump(obj, key) {
@@ -444,9 +478,12 @@ export function mcpRecord(env, ctx, m, r, ms) {
     d.total += 1;
     bump(d.methods, c.method);
     bump(d.outcomes, c.outcome);
+    bump(d.methodOutcomes, `${c.method}|${c.outcome}`);
     if (c.code) bump(d.codes, c.code);
     if (c.tool) {
       bump(d.tools, c.tool);
+      bump(d.toolOutcomes, `${c.tool}|${c.outcome}`);
+      if (c.ms) bump(d.toolLat, `${c.tool}|${latBucket(c.ms)}`);
       if (c.ms) d.toolMs[c.tool] = (d.toolMs[c.tool] || 0) + c.ms;
     }
     if (c.client) {
@@ -611,10 +648,71 @@ function pickUnimplemented(methods) {
   return out;
 }
 
+function splitKey(k) {
+  const i = k.lastIndexOf("|");
+  return [k.slice(0, i), k.slice(i + 1)];
+}
+
+// {"name|x": n} -> {name: {x: n}}
+function nest(map) {
+  const out = {};
+  for (const k of Object.keys(map || {})) {
+    const [name, x] = splitKey(k);
+    (out[name] || (out[name] = {}))[x] = map[k];
+  }
+  return out;
+}
+
+// p95 and slowest populated bucket, as upper-bound labels (bucketed, so these
+// are bounds, not exact timings).
+function latSummary(hist) {
+  const idx = Object.keys(hist || {}).map(Number).filter((i) => hist[i] > 0).sort((a, b) => a - b);
+  if (!idx.length) return { p95: null, slowest: null };
+  const total = idx.reduce((n, i) => n + hist[i], 0);
+  let run = 0;
+  let p95 = idx[idx.length - 1];
+  for (const i of idx) {
+    run += hist[i];
+    if (run >= total * 0.95) {
+      p95 = i;
+      break;
+    }
+  }
+  return { p95: latLabel(p95), slowest: latLabel(idx[idx.length - 1]) };
+}
+
 function rank(obj, day) {
+  const outcomes = nest(day && day.toolOutcomes);
+  const lat = nest(day && day.toolLat);
   return Object.keys(obj || {})
-    .map((k) => ({ name: k, calls: obj[k], ms: day && day.toolMs ? day.toolMs[k] || 0 : 0 }))
+    .map((k) => {
+      const o = outcomes[k] || {};
+      return {
+        name: k,
+        calls: obj[k],
+        ms: day && day.toolMs ? day.toolMs[k] || 0 : 0,
+        errors: (o.tool_error || 0) + (o.rpc_error || 0),
+        ...latSummary(lat[k]),
+      };
+    })
     .sort((a, b) => b.calls - a.calls);
+}
+
+// Client names that read as monitors, scanners and registry crawlers. A name
+// heuristic over self-reported strings, so it is an estimate, and the report
+// says so.
+const PROBE_RE = /probe|scan|check|monitor|health|beat|registry|prober|crawl|bot$|doctor|rank|status|pulse|scoring|clock|catalog|verify|uptime|audit|bench|router|explorer|ping/;
+
+// Counts are sessions opened (initialize / server/discover), the only place a
+// client names itself.
+function clientMix(clients) {
+  const mix = { probeLike: 0, other: 0, unnamed: 0 };
+  for (const k of Object.keys(clients || {})) {
+    if (k === OTHER) mix.unnamed += clients[k];
+    else if (PROBE_RE.test(k)) mix.probeLike += clients[k];
+    else mix.other += clients[k];
+  }
+  return mix;
 }
 
 // Read the durable record and merge in the shards the cron has not folded yet,
@@ -673,6 +771,8 @@ export async function mcpUsageReport(env) {
     lifetime: summarise(lifetime),
     tools: { last7Days: rank(week.tools, week), lifetime: rank(lifetime.tools, lifetime) },
     methods: { last7Days: week.methods, lifetime: lifetime.methods },
+    methodOutcomes: { since: MCP_DETAIL_SINCE, last7Days: nest(week.methodOutcomes), lifetime: nest(lifetime.methodOutcomes) },
+    clientMix: { last7Days: clientMix(week.clients), lifetime: clientMix(lifetime.clients) },
     // Spec requests this server answers -32601 to. Derived rather than stored,
     // so widening METHODS_UNIMPLEMENTED reclassifies history already recorded.
     unimplementedRequested: {
@@ -723,7 +823,9 @@ export function mcpUsageText(report) {
   L.push("");
 
   // Every tool, never truncated: a tool with no calls in the window is listed
-  // with 0 so a dead tool is visible instead of silently absent.
+  // with 0 so a dead tool is visible instead of silently absent. err is tool
+  // errors plus JSON-RPC errors on that tool; p95 and max are latency-bucket
+  // upper bounds.
   const toolBlock = (title, ranked) => {
     const seen = new Set(ranked.map((t) => t.name));
     const rows = ranked.concat(
@@ -731,53 +833,82 @@ export function mcpUsageText(report) {
         .map((t) => t.name)
         .filter((n) => !seen.has(n))
         .sort()
-        .map((name) => ({ name, calls: 0, ms: 0 })),
+        .map((name) => ({ name, calls: 0, ms: 0, errors: 0, p95: null, slowest: null })),
     );
     L.push(`${title} (${rows.length})`);
+    L.push(`  ${pad("", 23)}${num("calls", 6)}${num("err", 5)}${num("avg", 7)}${num("p95", 8)}${num("max", 8)}`);
     for (const t of rows) {
       const per = t.calls ? Math.round(t.ms / t.calls) : 0;
-      L.push(`  ${pad(t.name, 26)}${num(t.calls, 7)}${num(per ? `${per}ms` : "-", 9)}`);
+      L.push(
+        `  ${pad(t.name, 23)}${num(t.calls, 6)}${num(t.errors || 0, 5)}${num(per ? `${per}ms` : "-", 7)}${num(t.p95 || "-", 8)}${num(t.slowest || "-", 8)}`,
+      );
     }
     L.push("");
   };
   toolBlock("tools, 7 days", report.tools.last7Days);
   toolBlock("tools, lifetime", report.tools.lifetime);
+  L.push(`err, p95 and max count calls since ${MCP_DETAIL_SINCE} only.`);
+  L.push("");
 
-  const methodBlock = (title, methods) => {
-    L.push(title);
-    if (!Object.keys(methods).length) L.push("  (none yet)");
-    for (const k of Object.keys(methods).sort((a, b) => methods[b] - methods[a])) {
-      L.push(`  ${pad(k, 26)}${num(methods[k], 7)}`);
+  // Every method the server recognises, used or not. Notification names are
+  // shortened (n/) to stay inside the phone width.
+  const short = (k) => k.replace(/^notifications\//, "n/");
+  const methodBlock = (title, methods, detail) => {
+    const names = [...new Set([...METHODS, OTHER, INVALID, ...Object.keys(methods)])];
+    names.sort((a, b) => (methods[b] || 0) - (methods[a] || 0) || (a < b ? -1 : 1));
+    L.push(`${title} (${names.length})`);
+    L.push(`  ${pad("", 29)}${num("calls", 7)}${num("ok", 6)}${num("notif", 6)}${num("err", 6)}`);
+    for (const k of names) {
+      const o = detail[k] || {};
+      L.push(
+        `  ${pad(short(k), 29)}${num(methods[k] || 0, 7)}${num(o.ok || 0, 6)}${num(o.notification || 0, 6)}${num((o.rpc_error || 0) + (o.tool_error || 0), 6)}`,
+      );
     }
     L.push("");
   };
-  methodBlock("methods, 7 days", report.methods.last7Days);
-  methodBlock("methods, lifetime", report.methods.lifetime);
+  const mo = report.methodOutcomes || { since: MCP_DETAIL_SINCE, last7Days: {}, lifetime: {} };
+  methodBlock("methods, 7 days", report.methods.last7Days, mo.last7Days);
+  methodBlock("methods, lifetime", report.methods.lifetime, mo.lifetime);
+  L.push(`ok, notif and err count calls since ${mo.since} only.`);
+  L.push("");
 
-  // Called out separately, not left as a row in the table above: a client
-  // asking for a capability this server lacks is the one thing in here that
-  // suggests an action, and it reads as ordinary traffic otherwise.
+  // Called out separately: a client asking for a capability this server lacks
+  // is the one thing in here that suggests an action. Every such method is
+  // listed, zero or not.
   for (const [title, missing] of [
     ["asked for, NOT implemented, 7 days", report.unimplementedRequested.last7Days],
     ["asked for, NOT implemented, lifetime", report.unimplementedRequested.lifetime],
   ]) {
-    if (!Object.keys(missing).length) continue;
     L.push(title);
-    for (const k of Object.keys(missing).sort((a, b) => missing[b] - missing[a])) {
-      L.push(`  ${pad(k, 26)}${num(missing[k], 7)}`);
+    for (const k of [...MCP_UNIMPLEMENTED_METHODS].sort((a, b) => (missing[b] || 0) - (missing[a] || 0) || (a < b ? -1 : 1))) {
+      L.push(`  ${pad(k, 29)}${num(missing[k] || 0, 7)}`);
     }
     L.push("");
   }
 
+  // Every code the server records, with its spec name, used or not.
   for (const [title, codes] of [
     ["error codes, 7 days", report.errorCodes.last7Days],
     ["error codes, lifetime", report.errorCodes.lifetime],
   ]) {
-    if (!Object.keys(codes).length) continue;
+    const names = [...CODES, OTHER].concat(Object.keys(codes).filter((k) => !CODES.has(k) && k !== OTHER));
+    names.sort((a, b) => (codes[b] || 0) - (codes[a] || 0) || (a < b ? -1 : 1));
     L.push(title);
-    for (const k of Object.keys(codes).sort((a, b) => codes[b] - codes[a])) {
-      L.push(`  ${pad(k, 26)}${num(codes[k], 7)}`);
+    for (const k of names) L.push(`  ${pad(CODE_NAMES[k] ? `${k} ${CODE_NAMES[k]}` : k, 36)}${num(codes[k] || 0, 7)}`);
+    L.push("");
+  }
+
+  // Sessions opened, split by whether the self-reported name looks like a
+  // monitor or scanner.
+  if (report.clientMix) {
+    const m7 = report.clientMix.last7Days;
+    const ml = report.clientMix.lifetime;
+    L.push("client mix, sessions opened");
+    L.push(`  ${pad("", 18)}${num("7 days", 9)}${num("lifetime", 10)}`);
+    for (const [label, f] of [["probe-like name", "probeLike"], ["other name", "other"], ["(other)", "unnamed"]]) {
+      L.push(`  ${pad(label, 18)}${num(m7[f], 9)}${num(ml[f], 10)}`);
     }
+    L.push("  probe-like is a guess from the name.");
     L.push("");
   }
 
