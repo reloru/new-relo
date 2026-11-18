@@ -293,7 +293,7 @@ export async function routeRequest(request, env, ctx) {
       // A single message carrying a modern _meta version is served by the
       // 2026-07-28 rules, with its own HTTP status codes. Everything else,
       // batches included, keeps the legacy path below unchanged.
-      if (isModernMessage(body)) {
+      if (isModernMessage(body, request.headers)) {
         const t0 = Date.now();
         const m = await mcpHandleModern(body, env, request.headers);
         mcpRecord(env, ctx, body, m.body, Date.now() - t0);
