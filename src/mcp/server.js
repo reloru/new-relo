@@ -26,6 +26,7 @@ import { openApiSpec } from "../api/openapi.js";
 import { JSONLD_SITE, sharedHead } from "../seo.js";
 import { llmsTxt, CROSBY_WEATHER_SKILL } from "../discovery.js";
 import { HISTORY_TOOLS, runHistoryTool } from "./history-tools.js";
+import { RAIN_TOOLS, runRainTool } from "./rain-tools.js";
 import { loadWeather } from "../features/weather.js";
 import { loadWater, waterState, waterCatLabel, WATER_FLOOD_CATS, apiWater } from "../features/water.js";
 import { loadFishing, apiFishing } from "../features/fishing.js";
@@ -55,7 +56,7 @@ export const MCP_SUPPORTED_VERSIONS = [...MCP_MODERN_VERSIONS, ...MCP_LEGACY_VER
 // Version moves in lockstep with `server.json`'s registry version on any
 // tool-set change — they drifted apart (1.2.0 vs 1.4.0) when `get_air_quality`
 // and `get_fishing` shipped without a bump, so both now carry the same number.
-export const MCP_SERVER_INFO = { name: "crosbynews-weather", version: "1.9.0", title: "Crosby, TX Weather" };
+export const MCP_SERVER_INFO = { name: "crosbynews-weather", version: "1.10.0", title: "Crosby, TX Weather" };
 // The official registry name (server.json `name`). serverInfo.name above is
 // the short name clients already see in initialize and stays as it is; the
 // discovery card carries both so a crawler can match the card to the listing.
@@ -556,6 +557,7 @@ export function mcpTools() {
       annotations: MCP_READ_ONLY,
     },
     ...HISTORY_TOOLS(MCP_READ_ONLY),
+    ...RAIN_TOOLS(MCP_READ_ONLY),
   ];
   // The directory reads `annotations.title`, not the top-level `title`; derive it so the two cannot drift.
   return tools.map((t) => ({
@@ -775,7 +777,7 @@ export function mcpServerCard() {
     serverInfo: MCP_SERVER_INFO,
     protocolVersion: MCP_PROTOCOL_VERSION,
     description:
-      "Live Crosby, Texas data: weather from the U.S. National Weather Service (current conditions, forecast, active alerts), a measured air-quality index (EPA/AirNow, with an Open-Meteo modeled fallback), the Houston Health Department's daily pollen and mold count, the Atlantic tropical outlook, river/bayou flood levels, USGS water conditions for nearby fishing waters, road incidents and lane closures, a live radar image, recent local news headlines, the Crosby ISD school calendar, and an emergency-contacts directory.",
+      "Live Crosby, Texas data: weather from the U.S. National Weather Service (current conditions, forecast, active alerts), a measured air-quality index (EPA/AirNow, with an Open-Meteo modeled fallback), the Houston Health Department's daily pollen and mold count, the Atlantic tropical outlook, river/bayou flood levels, USGS water conditions for nearby fishing waters, road incidents and lane closures, a live radar image, measured rain at the Lake Houston dam station, recent local news headlines, the Crosby ISD school calendar, and an emergency-contacts directory.",
     transport: { type: "streamable-http", endpoint: `${SITE}/mcp` },
     capabilities: { tools: { listChanged: false }, prompts: { listChanged: false }, resources: { listChanged: false } },
     tools: mcpTools().map((t) => ({ name: t.name, title: t.title, description: t.description })),
@@ -1049,6 +1051,7 @@ export const MCP_TOOL_SOURCES = {
   get_traffic: ["Houston TranStar traffic", "/traffic"],
   get_flood_history: ["flood-record", "/water"],
   get_warning_history: ["warning-record", "/history"],
+  get_rainfall: ["rain record", "/rain"],
 };
 
 // Per-argument advice appended to a validation error, so the caller learns
@@ -1123,6 +1126,7 @@ export async function mcpCallTool(name, args, env) {
 async function runTool(name, args, env) {
   // The record tools read D1, not KV.
   if (name === "get_flood_history" || name === "get_warning_history") return runHistoryTool(name, env);
+  if (name === "get_rainfall") return runRainTool(env);
   // News, calendar, water, and tropics tools read their own KV keys — handled
   // first so they don't pay for (or fail on) a weather load they never use.
   if (name === "get_tropical_outlook") {
@@ -1389,7 +1393,7 @@ async function runTool(name, args, env) {
 
 const MCP_CAPABILITIES = { tools: { listChanged: false }, prompts: { listChanged: false }, resources: { listChanged: false } };
 const MCP_INSTRUCTIONS =
-  "Live Crosby, Texas data: weather from the U.S. National Weather Service, a measured air-quality index (EPA/AirNow), the daily pollen and mold count, the Atlantic tropical outlook, river/bayou flood levels, USGS water conditions for nearby fishing waters, road incidents and lane closures, a radar image, local news headlines, the Crosby ISD school calendar, and an emergency-contacts directory.";
+  "Live Crosby, Texas data: weather from the U.S. National Weather Service, a measured air-quality index (EPA/AirNow), the daily pollen and mold count, the Atlantic tropical outlook, river/bayou flood levels, USGS water conditions for nearby fishing waters, road incidents and lane closures, a radar image, measured rain at the Lake Houston dam station, local news headlines, the Crosby ISD school calendar, and an emergency-contacts directory.";
 
 // --- modern era (2026-07-28) ---------------------------------------------------
 

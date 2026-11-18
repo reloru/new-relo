@@ -66,7 +66,7 @@ try {
     // alone must never select the modern path.
     const r = await post({ jsonrpc: "2.0", id: 2, method: "tools/list" }, { "MCP-Protocol-Version": "2025-06-18" });
     check("legacy tools/list with a version header → 200", r.status === 200, String(r.status));
-    check("legacy tools/list lists 16 tools", r.json?.result?.tools?.length === 16, String(r.json?.result?.tools?.length));
+    check("legacy tools/list lists 17 tools", r.json?.result?.tools?.length === 17, String(r.json?.result?.tools?.length));
     check("legacy tools/list has no resultType/ttlMs", r.json?.result && !("resultType" in r.json.result) && !("ttlMs" in r.json.result));
     const p = await post({ jsonrpc: "2.0", id: 3, method: "ping" }, { "MCP-Protocol-Version": "2025-06-18" });
     check("legacy ping → {}", JSON.stringify(p.json) === '{"jsonrpc":"2.0","id":3,"result":{}}', p.text);
@@ -102,7 +102,7 @@ try {
   }
   {
     const r = await modern("tools/list");
-    check("modern tools/list → 200 with 16 tools", r.status === 200 && r.json?.result?.tools?.length === 16, `${r.status} ${r.json?.result?.tools?.length}`);
+    check("modern tools/list → 200 with 17 tools", r.status === 200 && r.json?.result?.tools?.length === 17, `${r.status} ${r.json?.result?.tools?.length}`);
     check("modern tools/list is a CacheableResult", r.json?.result?.resultType === "complete" && r.json?.result?.ttlMs === 3600000 && r.json?.result?.cacheScope === "public");
     for (const m of ["prompts/list", "resources/list", "resources/templates/list"]) {
       const x = await modern(m);
@@ -165,7 +165,7 @@ try {
     );
     check("initialize with a legacy _meta version → 200, negotiates 2025-06-18", init.status === 200 && init.json?.result?.protocolVersion === "2025-06-18", `${init.status} ${init.text.slice(0, 150)}`);
     const list = await modern("tools/list", {}, { version: "2025-06-18" });
-    check("tools/list with a legacy _meta version → 200, legacy result", list.status === 200 && list.json?.result?.tools?.length === 16 && !("resultType" in list.json.result), `${list.status} ${list.text.slice(0, 150)}`);
+    check("tools/list with a legacy _meta version → 200, legacy result", list.status === 200 && list.json?.result?.tools?.length === 17 && !("resultType" in list.json.result), `${list.status} ${list.text.slice(0, 150)}`);
     const note = await post({ jsonrpc: "2.0", method: "notifications/initialized", params: { _meta: META("2025-06-18") } }, { "MCP-Protocol-Version": "2025-06-18", "Mcp-Method": "notifications/initialized" });
     check("notifications/initialized with a legacy _meta version → 202", note.status === 202, `${note.status} ${note.text}`);
   }
@@ -176,7 +176,7 @@ try {
     const d = await post({ jsonrpc: "2.0", id: 1, method: "server/discover", params: { _meta: META() } }, { "Mcp-Method": "server/discover" });
     check("no version header: server/discover → 200 with the discover result", d.status === 200 && JSON.stringify(d.json?.result?.supportedVersions) === JSON.stringify(ALL) && d.json?.result?.resultType === "complete", `${d.status} ${d.text.slice(0, 150)}`);
     const t = await post({ jsonrpc: "2.0", id: 2, method: "tools/list", params: { _meta: META() } }, { "Mcp-Method": "tools/list" });
-    check("no version header: tools/list → 200 with resultType, ttlMs, cacheScope", t.status === 200 && t.json?.result?.tools?.length === 16 && t.json.result.resultType === "complete" && t.json.result.ttlMs === 3600000 && t.json.result.cacheScope === "public", `${t.status} ${t.text.slice(0, 150)}`);
+    check("no version header: tools/list → 200 with resultType, ttlMs, cacheScope", t.status === 200 && t.json?.result?.tools?.length === 17 && t.json.result.resultType === "complete" && t.json.result.ttlMs === 3600000 && t.json.result.cacheScope === "public", `${t.status} ${t.text.slice(0, 150)}`);
     const bare = await post({ jsonrpc: "2.0", id: 3, method: "tools/list", params: { _meta: META() } });
     check("no version header, no Mcp-Method: tools/list → 200, 2026 result", bare.status === 200 && bare.json?.result?.resultType === "complete", `${bare.status} ${bare.text.slice(0, 150)}`);
     const mis = await post({ jsonrpc: "2.0", id: 4, method: "tools/list", params: { _meta: META() } }, { "Mcp-Method": "resources/list" });
@@ -187,7 +187,7 @@ try {
     const badCall = await post(call, { "Mcp-Method": "tools/call", "Mcp-Name": "get_alerts" });
     check("no version header: Mcp-Name ≠ body → 400 -32020", isErr(badCall, 400, -32020), `${badCall.status} ${badCall.text}`);
     const unk = await post({ jsonrpc: "2.0", id: 6, method: "tools/list", params: { _meta: META("1900-01-01") } });
-    check("no version header, unknown _meta version → legacy 200", unk.status === 200 && unk.json?.result?.tools?.length === 16 && !("resultType" in unk.json.result), `${unk.status} ${unk.text.slice(0, 150)}`);
+    check("no version header, unknown _meta version → legacy 200", unk.status === 200 && unk.json?.result?.tools?.length === 17 && !("resultType" in unk.json.result), `${unk.status} ${unk.text.slice(0, 150)}`);
   }
   {
     // initialize always selects legacy semantics on a dual-era server, even

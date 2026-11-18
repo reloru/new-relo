@@ -28,8 +28,8 @@ paths:
 - Tool names are written by hand in `llmsTxt()`, `CROSBY_WEATHER_SKILL`,
   `/developers` (both languages) and `README.md`. `test-mcp-server` fails if
   any of them is missing one.
-- The record tools (`src/mcp/history-tools.js`) use the same loaders as their
-  pages.
+- The record tools (`src/mcp/history-tools.js`, `src/mcp/rain-tools.js`) use
+  the same loaders as their pages.
 - Arguments are validated, never clamped (`validateToolArgs()`). There is no
   `Origin` check on `/mcp`: the spec's 403 is for an invalid Origin, and on a
   public, credential-free, read-only server none is invalid.

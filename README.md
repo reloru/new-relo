@@ -101,7 +101,7 @@ Every page is content-negotiated — send `Accept: text/markdown` (or add
   `get_radar` (a live radar image, inline), and the two record tools
   `get_flood_history` (each nearby gauge's historic crests against today's flood
   stages, and its river flood warnings) and `get_warning_history` (NWS warnings
-  that covered Crosby, by type and year).
+  that covered Crosby, by type and year), and `get_rainfall` (measured rain at the Lake Houston dam station: last hour, last 24 hours and recent days).
   Server Card (SEP-2127) at
   [`/mcp/server-card`](https://crosbynews.com/mcp/server-card), listed in the
   AI Catalog at

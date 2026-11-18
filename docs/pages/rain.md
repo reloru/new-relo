@@ -52,6 +52,15 @@ Rain measured by the USGS weather station at the Lake Houston dam (site
 
 D1 failure → 502 naming "the site's rain record".
 
+## MCP
+
+`get_rainfall` (`src/mcp/rain-tools.js`, built on `loadRain`, no arguments)
+returns the same numbers as JSON: the last hour, the last 24 hours, the day so
+far and the last seven days, each window with its reading count against the
+expected count, a `complete` flag and a provisional-reading count, plus
+`latestReading`. Windows end at the latest reading, not the clock. Totals are
+rounded to 0.01 in. A D1 failure is an `isError` result naming "rain record".
+
 ## Dates
 
 `Last-Modified` and sitemap `<lastmod>` are the latest reading's time
@@ -69,5 +78,7 @@ fetcher dropping null and negative amounts, following `next` links, and making
 no request for an empty window; the day boundary; the live block, month row,
 partial first month, wettest day, incomplete marking and fall-back day from
 hand-computed values; both languages, Markdown, sitemap date, the links from
-`/weather` and `/water`; 502 on a D1 failure. `test-record` covers the cron
+`/weather` and `/water`; 502 on a D1 failure. The `get_rainfall` tool's windows,
+rounding, incomplete flags, recent days, empty record and D1-failure result are
+checked against the same seeded readings. `test-record` covers the cron
 step.

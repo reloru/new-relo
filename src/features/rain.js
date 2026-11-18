@@ -86,9 +86,9 @@ export async function loadRain(env) {
     const t = Date.parse(last);
     const todayDay = rainDay(last);
     const [h, d, td] = await Promise.all([
-      rows(env.DB, "SELECT SUM(inches) AS s, COUNT(*) AS n FROM rain_readings WHERE station = ? AND at > ? AND at <= ?", s, new Date(t - 3600e3).toISOString(), last),
-      rows(env.DB, "SELECT SUM(inches) AS s, COUNT(*) AS n FROM rain_readings WHERE station = ? AND at > ? AND at <= ?", s, new Date(t - 86400e3).toISOString(), last),
-      rows(env.DB, "SELECT SUM(inches) AS s, COUNT(*) AS n FROM rain_readings WHERE station = ? AND day = ?", s, todayDay),
+      rows(env.DB, "SELECT SUM(inches) AS s, COUNT(*) AS n, SUM(approval IS NULL OR approval <> 'Approved') AS prov FROM rain_readings WHERE station = ? AND at > ? AND at <= ?", s, new Date(t - 3600e3).toISOString(), last),
+      rows(env.DB, "SELECT SUM(inches) AS s, COUNT(*) AS n, SUM(approval IS NULL OR approval <> 'Approved') AS prov FROM rain_readings WHERE station = ? AND at > ? AND at <= ?", s, new Date(t - 86400e3).toISOString(), last),
+      rows(env.DB, "SELECT SUM(inches) AS s, COUNT(*) AS n, SUM(approval IS NULL OR approval <> 'Approved') AS prov FROM rain_readings WHERE station = ? AND day = ?", s, todayDay),
     ]);
     window = { hour: h[0], day: d[0], today: td[0], todayDay };
   }
