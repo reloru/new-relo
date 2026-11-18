@@ -1426,11 +1426,23 @@ function modernResult(method, result) {
   return out;
 }
 
-// True when a parsed body is a single modern-era message.
-export function isModernMessage(msg) {
+// True when a parsed body (with its request headers) is a single modern-era
+// message. Everything else is served as legacy, which 2026-07-28 allows a
+// dual-era server to do in three cases seen in live traffic:
+//   - `initialize` always selects legacy semantics ("Backward Compatibility":
+//     a dual-era server "selects its behavior from how the client opens").
+//   - A _meta version that is one of MCP_LEGACY_VERSIONS is a legacy request
+//     with extra _meta, which 2025-era _meta permits. Rejecting it with -32022
+//     broke a 2025-06-18 client that stamps every request this way.
+//   - No MCP-Protocol-Version header: a server that supports pre-2025-06-18
+//     clients "MAY treat a request that omits the header as protocol version
+//     2025-03-26" (Streamable HTTP, "Protocol Version Header").
+export function isModernMessage(msg, headers) {
   const meta = msg && typeof msg === "object" && !Array.isArray(msg) && msg.jsonrpc === "2.0" && typeof msg.method === "string" &&
-    msg.params && typeof msg.params === "object" && msg.params._meta;
-  return !!meta && typeof meta === "object" && Object.prototype.hasOwnProperty.call(meta, META_VERSION);
+    msg.method !== "initialize" && msg.params && typeof msg.params === "object" && msg.params._meta;
+  if (!meta || typeof meta !== "object" || !Object.prototype.hasOwnProperty.call(meta, META_VERSION)) return false;
+  if (MCP_LEGACY_VERSIONS.includes(meta[META_VERSION])) return false;
+  return !!headers && headers.get("mcp-protocol-version") !== null;
 }
 
 // Mcp-Name may carry =?base64?…?= (UTF-8). null means malformed.

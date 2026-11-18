@@ -22,11 +22,30 @@ versions 2025-03-26, 2025-06-18 and 2025-11-25) and modern clients
 
 ## Which era a request is
 
-A request is **modern** only when the body is a single JSON-RPC message whose
-`params._meta` has the key `io.modelcontextprotocol/protocolVersion`
-(`isModernMessage()`). Nothing else selects it: in particular not the
-`MCP-Protocol-Version` header, which legacy clients send after `initialize`.
+A request is **modern** only when all of these hold (`isModernMessage()`):
+
+1. the body is a single JSON-RPC message, and its method is not `initialize`;
+2. `params._meta["io.modelcontextprotocol/protocolVersion"]` is present and
+   is **not** one of `MCP_LEGACY_VERSIONS`;
+3. the request has an `MCP-Protocol-Version` header.
+
 Everything else, batches included, takes the legacy path, which is unchanged.
+The header alone never selects the modern path: legacy clients send it after
+`initialize`. Each exclusion is something 2026-07-28 allows a dual-era server,
+and each matches traffic the first 1.9.0 deploy wrongly rejected (2026-11-17):
+
+- `initialize` always selects legacy semantics: a dual-era server "selects
+  its behavior from how the client opens" (Versioning, Backward
+  Compatibility). A client sent `initialize` with a 2026 `_meta` and got 404.
+- A legacy `_meta` version is a legacy request with extra `_meta`, which the
+  2025 revisions permit. A 2025-06-18 client stamps `_meta` and the 2026
+  headers on every request; 231 of its requests got -32022 in about nine hours.
+- No `MCP-Protocol-Version` header: "A server that supports clients
+  implementing protocol versions earlier than `2025-06-18` ... **MAY** treat a
+  request that omits the header as protocol version `2025-03-26`"
+  (Streamable HTTP, Protocol Version Header). The MCP Playground security
+  scanner probes `server/discover` this way, got -32020, and reported the
+  server as having no 2026-07-28 support.
 
 ## Modern requests (2026-07-28)
 
@@ -35,7 +54,7 @@ Checked in this order; the first failure answers:
 | Check | Failure |
 |---|---|
 | `_meta` version is a string | **400**, `-32602` |
-| `MCP-Protocol-Version` header present and equal to the `_meta` version | **400**, `-32020` HeaderMismatch |
+| `MCP-Protocol-Version` header equal to the `_meta` version (its absence already made the request legacy) | **400**, `-32020` HeaderMismatch |
 | `Mcp-Method` header present and equal to `method` | **400**, `-32020` |
 | `Mcp-Name` present and equal to `params.name` (`tools/call`, `prompts/get`) or `params.uri` (`resources/read`), after decoding `=?base64?…?=` | **400**, `-32020` |
 | version is in `MCP_MODERN_VERSIONS` (`2026-07-28`) | **400**, `-32022` UnsupportedProtocolVersion, `data: {supported, requested}`; `supported` is every version, newest first |

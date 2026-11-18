@@ -11,11 +11,13 @@ paths:
 
 - `/mcp` is Streamable HTTP and stateless, published as
   `com.crosbynews/weather`. It is dual-era: `initialize` negotiates only
-  `MCP_LEGACY_VERSIONS` (2025-03-26 through 2025-11-25); a single message
-  whose `params._meta` carries `io.modelcontextprotocol/protocolVersion` is
-  served by `mcpHandleModern()` (2026-07-28). That `_meta` key is the only
-  era signal, never the `MCP-Protocol-Version` header, which legacy clients
-  send too. Legacy response bodies are unchanged (the
+  `MCP_LEGACY_VERSIONS` (2025-03-26 through 2025-11-25). `mcpHandleModern()`
+  (2026-07-28) serves only a single non-`initialize` message whose `_meta`
+  version is not a legacy one and which carries an `MCP-Protocol-Version`
+  header (`isModernMessage()`); everything else is legacy. The header alone
+  is never the signal: legacy clients send it too. Narrowing this list
+  rejects real clients, as the first 1.9.0 deploy did
+  (`docs/endpoints/mcp.md`, "Which era a request is"). Legacy response bodies are unchanged (the
   `MCP-Protocol-Version` response header now reads 2025-11-25);
   `test-mcp-modern` pins both eras.
 - On any change to the tool set, bump `MCP_SERVER_INFO.version` and

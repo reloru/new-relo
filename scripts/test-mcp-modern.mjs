@@ -135,8 +135,6 @@ try {
   const isErr = (r, status, code) => r.status === status && r.json?.error?.code === code;
   {
     const body = { jsonrpc: "2.0", id: 1, method: "tools/list", params: { _meta: META() } };
-    const noHdr = await post(body, { "Mcp-Method": "tools/list" });
-    check("missing MCP-Protocol-Version → 400 -32020", isErr(noHdr, 400, -32020), `${noHdr.status} ${noHdr.text}`);
     const wrong = await post(body, { "MCP-Protocol-Version": "2025-06-18", "Mcp-Method": "tools/list" });
     check("header version ≠ _meta → 400 -32020", isErr(wrong, 400, -32020), `${wrong.status} ${wrong.text}`);
     const noMethod = await post(body, { "MCP-Protocol-Version": "2026-07-28" });
@@ -153,8 +151,41 @@ try {
     const r = await modern("tools/list", {}, { version: "1900-01-01" });
     check("unsupported version → 400 -32022", isErr(r, 400, -32022), `${r.status} ${r.text}`);
     check("-32022 data names supported and requested", JSON.stringify(r.json?.error?.data) === JSON.stringify({ supported: ALL, requested: "1900-01-01" }), JSON.stringify(r.json?.error?.data));
-    const legacyInMeta = await modern("tools/list", {}, { version: "2025-06-18" });
-    check("a legacy version in _meta → 400 -32022", isErr(legacyInMeta, 400, -32022), `${legacyInMeta.status} ${legacyInMeta.text}`);
+  }
+
+  // ---------------- served as legacy, by the spec's allowances ----------------
+  // Each shape was seen in live traffic on 2026-11-17 and was rejected by the
+  // first 1.9.0 deploy, though it worked before it.
+  {
+    // A 2025-06-18 client that stamps _meta and the 2026 headers on every
+    // request, its handshake included.
+    const init = await post(
+      { jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "c", version: "0" }, _meta: META("2025-06-18") } },
+      { "MCP-Protocol-Version": "2025-06-18", "Mcp-Method": "initialize" },
+    );
+    check("initialize with a legacy _meta version → 200, negotiates 2025-06-18", init.status === 200 && init.json?.result?.protocolVersion === "2025-06-18", `${init.status} ${init.text.slice(0, 150)}`);
+    const list = await modern("tools/list", {}, { version: "2025-06-18" });
+    check("tools/list with a legacy _meta version → 200, legacy result", list.status === 200 && list.json?.result?.tools?.length === 16 && !("resultType" in list.json.result), `${list.status} ${list.text.slice(0, 150)}`);
+    const note = await post({ jsonrpc: "2.0", method: "notifications/initialized", params: { _meta: META("2025-06-18") } }, { "MCP-Protocol-Version": "2025-06-18", "Mcp-Method": "notifications/initialized" });
+    check("notifications/initialized with a legacy _meta version → 202", note.status === 202, `${note.status} ${note.text}`);
+  }
+  {
+    // A 2026 _meta but no MCP-Protocol-Version header: the spec lets a server
+    // that supports pre-2025-06-18 clients treat it as 2025-03-26. A scanner
+    // probes server/discover exactly this way.
+    const d = await post({ jsonrpc: "2.0", id: 1, method: "server/discover", params: { _meta: META() } }, { "Mcp-Method": "server/discover" });
+    check("server/discover without the version header → 200 with the discover result", d.status === 200 && JSON.stringify(d.json?.result?.supportedVersions) === JSON.stringify(ALL) && d.json?.result?.resultType === "complete", `${d.status} ${d.text.slice(0, 150)}`);
+    const t = await post({ jsonrpc: "2.0", id: 2, method: "tools/list", params: { _meta: META() } }, { "Mcp-Method": "tools/list" });
+    check("tools/list without the version header → 200, legacy result", t.status === 200 && t.json?.result?.tools?.length === 16 && !("resultType" in t.json.result), `${t.status} ${t.text.slice(0, 150)}`);
+  }
+  {
+    // initialize always selects legacy semantics on a dual-era server, even
+    // carrying a 2026 _meta and headers.
+    const r = await post(
+      { jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-11-25", capabilities: {}, clientInfo: { name: "c", version: "0" }, _meta: META() } },
+      { "MCP-Protocol-Version": "2026-07-28", "Mcp-Method": "initialize" },
+    );
+    check("initialize with a 2026 _meta → 200, legacy handshake", r.status === 200 && r.json?.result?.protocolVersion === "2025-11-25", `${r.status} ${r.text.slice(0, 150)}`);
   }
   {
     const meta = META();
@@ -166,7 +197,7 @@ try {
     const ok = await post({ jsonrpc: "2.0", id: 1, method: "tools/list", params: { _meta: meta2 } }, { "MCP-Protocol-Version": "2026-07-28", "Mcp-Method": "tools/list" });
     check("clientInfo is optional", ok.status === 200 && ok.json?.result?.resultType === "complete", `${ok.status} ${ok.text.slice(0, 120)}`);
   }
-  for (const m of ["ping", "initialize", "logging/setLevel", "no/such"]) {
+  for (const m of ["ping", "logging/setLevel", "no/such"]) {
     const r = await modern(m);
     check(`modern ${m} → 404 -32601`, isErr(r, 404, -32601), `${r.status} ${r.text}`);
   }
