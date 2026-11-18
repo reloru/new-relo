@@ -117,7 +117,7 @@ export function mcpTools() {
       name: "get_current_conditions",
       title: "Current conditions",
       description:
-        "Current weather for Crosby, TX: temperature, feels-like, sky, precip chance, humidity, dew point, UV index, measured air quality (EPA/AirNow, Houston metro area), and sunrise/sunset.",
+        "Current weather for Crosby, TX from the National Weather Service. The `current` block is the NWS hourly forecast period in effect at current.startTime: temperature (°F), sky, probabilityOfPrecipitation, feelsLike, dewpointF, humidityPercent, and wind speed as text in mph. Those are forecast values, not a station observation. `updated` is when this data was refreshed. Also the EPA UV index, a summary of measured air quality (for AQI detail use get_air_quality), and sunrise/sunset. For an AQI-only question, use get_air_quality.",
       inputSchema: { type: "object", properties: {}, additionalProperties: false },
       outputSchema: {
         type: "object",
@@ -132,7 +132,7 @@ export function mcpTools() {
           },
           airQuality: {
             type: ["object", "null"],
-            description: "US AQI. measured:true = EPA/AirNow monitors (Houston metro reporting area incl. Crosby); measured:false = Open-Meteo modeled fallback. Regional, not Crosby-pinpoint either way.",
+            description: "US AQI. measured:true = EPA/AirNow monitors in the Houston-Galveston-Brazoria reporting area (regional, not Crosby-specific); measured:false = Open-Meteo modeled estimate at Crosby's coordinates, not a monitor reading.",
             properties: { usAqi: { type: "integer" }, category: { type: "string" }, dominantPollutant: { type: ["string", "null"] }, measured: { type: "boolean" }, reportingArea: { type: ["string", "null"] } },
           },
           current: { ...nwsPeriod, description: nwsPeriod.description + " Adds dewpointF and humidityPercent." },
@@ -145,7 +145,7 @@ export function mcpTools() {
       name: "get_forecast",
       title: "Forecast",
       description:
-        "Forecast for Crosby, TX from the U.S. National Weather Service. Returns the 7-day day/night forecast, or upcoming hourly periods if `hours` is given (up to 48 — through about two days out).",
+        "NWS forecast for Crosby, TX: the 7-day day/night forecast (temperatures °F, wind in mph), or upcoming hourly periods if `hours` is given (1–48, about two days out). For hazards already in effect, use get_alerts first; for flooding, get_river_levels; for Atlantic systems, get_tropical_outlook.",
       inputSchema: {
         type: "object",
         properties: {
@@ -167,7 +167,7 @@ export function mcpTools() {
     {
       name: "get_alerts",
       title: "Active alerts",
-      description: "Active NWS weather alerts for Crosby, TX. Returns an empty list when none are active.",
+      description: "Active NWS weather alerts for Crosby, TX, each with event, headline, severity and expiry. Call this first for anything happening now. Returns an empty list when none are active. For later periods use get_forecast; for river flooding, get_river_levels; for roads, get_traffic.",
       inputSchema: { type: "object", properties: {}, additionalProperties: false },
       outputSchema: {
         type: "object",
@@ -187,7 +187,7 @@ export function mcpTools() {
       name: "get_tropical_outlook",
       title: "Atlantic tropical outlook",
       description:
-        "Active Atlantic tropical cyclones from the NOAA National Hurricane Center, AND the areas it is watching for development that do not have names yet, with their formation chances. Covers hurricane season (June–November) for Crosby, TX. Returns an explicit all-clear only when there are neither — a quiet CurrentStorms list does not by itself mean a quiet basin.",
+        "Atlantic-basin tropical activity from the NOAA National Hurricane Center: named storms, and the unnamed areas NHC is watching for development, with formation chances. Not specific to Crosby, TX. Refreshed about hourly June–November and about daily the rest of the year. Returns an explicit all-clear only when both lists are empty; an empty `storms` list alone does not mean a quiet basin.",
       inputSchema: { type: "object", properties: {}, additionalProperties: false },
       outputSchema: {
         type: "object",
@@ -294,7 +294,7 @@ export function mcpTools() {
       name: "get_air_quality",
       title: "Air quality (AQI)",
       description:
-        "Current U.S. Air Quality Index for the Houston metro area (the Houston-Galveston-Brazoria reporting area, which includes Crosby, TX). Measured by EPA/AirNow monitors when available (measured:true), with an Open-Meteo modeled fallback (measured:false). Regional, not a Crosby-pinpoint reading.",
+        "Current U.S. Air Quality Index (0–500). When measured:true it is the EPA/AirNow monitor reading for the Houston-Galveston-Brazoria reporting area, which includes Crosby, TX: a regional reading, not Crosby-specific. When measured:false it is an Open-Meteo modeled estimate at Crosby's coordinates, not a monitor reading. Use this for AQI questions; get_current_conditions also carries an AQI summary.",
       inputSchema: { type: "object", properties: {}, additionalProperties: false },
       outputSchema: {
         type: "object",
@@ -393,7 +393,7 @@ export function mcpTools() {
       name: "get_river_levels",
       title: "River & bayou levels",
       description:
-        "Current water levels and NWS flood stages for the rivers and bayous that flood Crosby, TX and northeast Harris County (Cedar Bayou, San Jacinto River, Luce Bayou, and more). Each gauge reports its stage, flow, flood category, and thresholds.",
+        "Current water levels at the NWS gauges near Crosby, TX (Cedar Bayou, San Jacinto River, Luce Bayou, Goose Creek, East Fork San Jacinto). Each gauge reports stage in feet, flow in cfs (often null), its NWS flood category (no_flooding, action, minor, moderate, major, or not_defined), and flood-stage thresholds in feet. Gauges come in a fixed order, not by severity, each with its own validTime. For flooding now use this; for past crests use get_flood_history; for fishing-water conditions use get_fishing.",
       inputSchema: { type: "object", properties: {}, additionalProperties: false },
       outputSchema: {
         type: "object",
@@ -425,7 +425,7 @@ export function mcpTools() {
       name: "get_fishing",
       title: "Fishing conditions",
       description:
-        "Live water conditions for the waters people fish near Crosby, TX — Lake Houston, the San Jacinto River forks, the Trinity River, and nearby bayous — from USGS real-time monitoring. Full stations report temperature, dissolved oxygen, pH, and turbidity; some fished bayous report water level only. A nearby-station reading, not the exact fishing spot, and conditions rather than a guaranteed bite.",
+        "Live USGS water conditions for the waters people fish near Crosby, TX (Lake Houston, the San Jacinto River forks, the Trinity River, and nearby bayous): water temperature in °F, dissolved oxygen in mg/L, pH, and turbidity in FNU. Some fished bayous report gage height in feet only. A nearby-station reading, not the exact fishing spot, and conditions rather than a guaranteed bite. For flood stages, use get_river_levels.",
       inputSchema: { type: "object", properties: {}, additionalProperties: false },
       outputSchema: {
         type: "object",
@@ -1213,7 +1213,7 @@ async function runTool(name, args, env) {
     const payload = apiAir(data);
     const a = payload.airQuality;
     const text = a
-      ? `US AQI ${a.usAqi} (${a.category})${a.dominantPollutant ? `, ${a.dominantPollutant}-driven` : ""} near Crosby, TX — ${a.measured ? `measured by the closest ${a.reportingAgency || "TCEQ/AirNow"} monitors${a.dominantMonitor ? ` (${a.dominantPollutant} from ${a.dominantMonitor})` : ""} in the ${a.reportingArea || "Houston-Galveston-Brazoria"} area` : "modeled (Open-Meteo fallback)"}. ${aqiHealth(a.usAqi, "en")} Details: ${SITE}/air`
+      ? `${a.measured ? "Houston metro reporting area (Houston-Galveston-Brazoria), not a Crosby-specific reading" : "Modeled estimate for Crosby, TX (Open-Meteo), not an EPA/AirNow monitor reading"}: US AQI ${a.usAqi} (${a.category})${a.dominantPollutant ? `, ${a.dominantPollutant}-driven` : ""}${a.measured && a.dominantMonitor ? ` (${a.dominantPollutant} from ${a.dominantMonitor})` : ""}. ${aqiHealth(a.usAqi, "en")} Details: ${SITE}/air`
       : `The air quality reading is not available right now. See ${SITE}/air`;
     return { content: [{ type: "text", text }], structuredContent: payload };
   }
