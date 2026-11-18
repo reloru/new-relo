@@ -16,7 +16,7 @@ Plain-language site summary for LLMs (llmstxt.org).
 | `## Pages` | 20 of the 21 content pages, one line each — `/mcp` is deliberately listed under `## API & agent access` instead, as the endpoint it mostly is |
 | `## Languages` | the `/es` prefix, hreflang pairing, and the explicit note that free-form NWS text and alerts stay in English while the JSON API and MCP server are English-only |
 | `## API & agent access` | the public endpoints, the OpenAPI spec, the MCP endpoint and its 13 tool names, the server card |
-| `## Data policy` | public domain, no auth, no rate limits, attribution string |
+| `## Data policy` | public domain, no auth, no rate limits except `/mcp` (100 requests per 10 s per IP), attribution string |
 | `## Optional` | the spec's skippable-links section: both RSS feeds, `/badge.svg`, `/sitemap.xml`, the api-catalog, security.txt |
 
 The `## Pages` list is every `PAGES` entry in `src/registry.js` (name + its

@@ -18,6 +18,7 @@ versions 2025-03-26, 2025-06-18 and 2025-11-25) and modern clients
 | **Registry** | published as `com.crosbynews/weather`, `remotes: [{streamable-http, https://crosbynews.com/mcp}]` |
 | **Anthropic directory** | ready to submit — checklist and portal fields in `docs/ops/anthropic-directory.md` |
 | **Origin** | not checked, deliberately. 2025-11-25 and 2026-07-28 require a 403 only for an *invalid* `Origin`; for a public, read-only server with no credentials every origin is valid, so nothing is rejected. A strict `Origin` check is also a documented cause of Claude connector `initialize` timeouts |
+| **Rate limit** | one Cloudflare zone rule, not Worker code: `/mcp` is blocked with HTTP 429 (JSON-RPC error `-32000` body) for 10 s after 100 requests in 10 s from one IP in one colo. Anthropic egress `160.79.104.0/21` is exempt through a custom skip rule. `docs/ops/cloudflare-zone.md` |
 | **Tests** | `scripts/test-mcp-server.mjs` (CI step "Check MCP server contract"); `scripts/test-mcp-modern.mjs` (CI step "Check MCP dual-era contract": status codes, headers, both eras through the real Worker) |
 
 ## Which era a request is

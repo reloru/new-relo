@@ -39,7 +39,7 @@ ${ENDPOINTS.filter((e) => e.group === "api").map((e) => `- ${e.name.en}: \`GET $
 
 ## Data policy
 
-Source data is U.S. government public domain (NWS). No authentication required. No rate limits. Attribution: "U.S. National Weather Service".
+Source data is U.S. government public domain (NWS). No authentication required. No rate limits, except the MCP endpoint (/mcp), which allows 100 requests per 10 seconds per IP. Attribution: "U.S. National Weather Service".
 
 ## Optional
 
@@ -209,7 +209,7 @@ MCP server (Streamable HTTP, JSON-RPC):
 
 ## Notes
 
-- Public and unauthenticated; no rate limits.
+- Public and unauthenticated; no rate limits, except /mcp (100 requests per 10 seconds per IP, then HTTP 429).
 - Source data is public domain. Attribute "U.S. National Weather Service".
 `;
 
