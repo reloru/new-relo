@@ -19,8 +19,12 @@ GET /api/mcp-usage?key=<ADMIN_KEY>            → JSON
 GET /api/mcp-usage?key=<ADMIN_KEY>&format=txt → fixed-width table, ≤60 columns
 ```
 
-`format=txt` exists because the only person who reads this reads it in a phone
-terminal. It wraps at nothing narrower than 60 columns.
+`format=txt` exists because the only person who reads this reads it on a phone.
+It is a fixed-width table of at most 60 columns. The response varies on
+`Accept`: a browser (`text/html`) gets the same text in a `<pre>` whose font is
+sized from the widest line to fit the screen, because a `text/plain` page wraps
+at the window edge and breaks every column; anything else (curl, a script) gets
+`text/plain`. `mcpUsageHtml()` in `src/mcp/metrics.js`.
 
 ## Auth
 
@@ -95,7 +99,7 @@ Every recorded name is allow-listed before storage, because `method` and
 storage-growth bug. Tool names outside `mcpTools()` become `(unknown)`; a
 malformed envelope becomes `(invalid)`; error codes outside the five JSON-RPC
 codes become `(other)`; client names are lower-cased, stripped to
-`[a-z0-9._-]`, truncated to 32 characters and capped at 100 distinct values with
+`[a-z0-9._-]`, truncated to 32 characters and capped at 500 distinct values with
 the rest folded into `(other)`. Storage and display are separate: the JSON
 carries every kept name, and `?format=txt` prints all of them too: every tool
 (zero-call tools listed with 0), methods, unimplemented methods and error codes

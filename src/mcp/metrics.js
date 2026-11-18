@@ -23,7 +23,7 @@
 // the request path, and therefore nothing for a mutex to protect.
 
 import { mcpTools } from "./server.js";
-import { centralStamp } from "../lib/format.js";
+import { centralStamp, esc } from "../lib/format.js";
 import { ctDateStr } from "../features/air.js";
 
 // The one durable key, flat alongside `cron_status`.
@@ -59,11 +59,14 @@ const RETAIN_DAYS = 90;
 // caller-controlled, so without a ceiling a loop of unique names grows the
 // record until the put crosses KV's 25 MiB value limit and the metrics stop
 // recording altogether. This is not a storage-cost guard, it is what stops the
-// feature being switched off remotely. At 100 the record measures well under
-// 1% of that limit after a year. Distinct names cost no extra KV WRITES: the
+// feature being switched off remotely. Raised from 100 to 500 on 2026-11-18:
+// a week alone had 217 distinct names, so the lifetime map, which keeps only the
+// largest N, evicted real one-off clients into "(other)" at every fold. Worst
+// case (every map full, 90 days + 12 months + lifetime, ~45 bytes a name) is
+// about 2.3 MB, under 10% of the limit; the normal record is a few KB. Distinct names cost no extra KV WRITES: the
 // flush cadence sets the write count, and a new name only adds ~17 bytes to a
 // value that was being written anyway.
-const MAX_CLIENTS = 100;
+const MAX_CLIENTS = 500;
 
 const OTHER = "(other)";
 const UNKNOWN = "(unknown)";
@@ -862,11 +865,11 @@ export function mcpUsageText(report) {
         .map((name) => ({ name, calls: 0, ms: 0, errors: 0, p95: null, slowest: null })),
     );
     L.push(`${title} (${rows.length})`);
-    L.push(`  ${pad("", 23)}${num("calls", 6)}${num("err", 5)}${num("avg", 7)}${num("p95", 8)}${num("max", 8)}`);
+    L.push(` ${pad("", 23)}${num("calls", 6)}${num("err", 4)}${num("avg", 6)}${num("p95", 7)}${num("max", 7)}`);
     for (const t of rows) {
       const per = t.calls ? Math.round(t.ms / t.calls) : 0;
       L.push(
-        `  ${pad(t.name, 23)}${num(t.calls, 6)}${num(t.errors || 0, 5)}${num(per ? `${per}ms` : "-", 7)}${num(t.p95 || "-", 8)}${num(t.slowest || "-", 8)}`,
+        ` ${pad(t.name, 23)}${num(t.calls, 6)}${num(t.errors || 0, 4)}${num(per ? `${per}ms` : "-", 6)}${num(t.p95 || "-", 7)}${num(t.slowest || "-", 7)}`,
       );
     }
     L.push("");
@@ -881,7 +884,12 @@ export function mcpUsageText(report) {
     ["tool names tried, not found, 7 days", report.unknownTools && report.unknownTools.last7Days],
     ["tool names tried, not found, lifetime", report.unknownTools && report.unknownTools.lifetime],
   ]) {
-    if (!tried || !Object.keys(tried).length) continue;
+    if (!tried || !Object.keys(tried).length) {
+      L.push(title);
+      L.push(`  none since ${MCP_DETAIL_SINCE}`);
+      L.push("");
+      continue;
+    }
     const names = Object.keys(tried).sort((a, b) => tried[b] - tried[a] || (a < b ? -1 : 1));
     L.push(`${title} (${names.length})`);
     for (const k of names) L.push(`  ${pad(k, 40)}${num(tried[k], 7)}`);
@@ -890,16 +898,16 @@ export function mcpUsageText(report) {
 
   // Every method the server recognises, used or not. Notification names are
   // shortened (n/) to stay inside the phone width.
-  const short = (k) => k.replace(/^notifications\//, "n/");
+  const short = (k) => k.replace(/^notifications\//, "n/").replace("acknowledged", "ack");
   const methodBlock = (title, methods, detail) => {
     const names = [...new Set([...METHODS, OTHER, INVALID, ...Object.keys(methods)])];
     names.sort((a, b) => (methods[b] || 0) - (methods[a] || 0) || (a < b ? -1 : 1));
     L.push(`${title} (${names.length})`);
-    L.push(`  ${pad("", 29)}${num("calls", 7)}${num("ok", 6)}${num("notif", 6)}${num("err", 6)}`);
+    L.push(` ${pad("", 25)}${num("calls", 7)}${num("ok", 7)}${num("notif", 6)}${num("err", 5)}`);
     for (const k of names) {
       const o = detail[k] || {};
       L.push(
-        `  ${pad(short(k), 29)}${num(methods[k] || 0, 7)}${num(o.ok || 0, 6)}${num(o.notification || 0, 6)}${num((o.rpc_error || 0) + (o.tool_error || 0), 6)}`,
+        ` ${pad(short(k), 25)}${num(methods[k] || 0, 7)}${num(o.ok || 0, 7)}${num(o.notification || 0, 6)}${num((o.rpc_error || 0) + (o.tool_error || 0), 5)}`,
       );
     }
     L.push("");
@@ -986,4 +994,21 @@ export function mcpUsageText(report) {
   L.push("");
   L.push("No caller identity or request contents are stored.");
   return L.join("\n") + "\n";
+}
+
+// The same text in a browser. A text/plain page wraps at the window edge, which
+// breaks every column on a phone, so the browser gets a <pre> whose font is
+// sized from the widest line to fit the screen exactly. A client that does not
+// ask for HTML (curl, a script) still gets the plain text.
+export function mcpUsageHtml(text) {
+  const cols = Math.max(40, ...text.split("\n").map((l) => l.length));
+  const size = (cols * 0.62).toFixed(1);
+  return (
+    '<!doctype html><html lang="en"><head><meta charset="utf-8">' +
+    '<meta name="viewport" content="width=device-width,initial-scale=1">' +
+    '<meta name="robots" content="noindex"><title>MCP usage</title>' +
+    "<style>html{background:#000;-webkit-text-size-adjust:100%}body{margin:0;padding:12px}" +
+    `pre{margin:0;color:#e6e6e6;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:min(15px,calc((100vw - 24px) / ${size}));line-height:1.35;white-space:pre}</style>` +
+    `</head><body><pre>${esc(text)}</pre></body></html>\n`
+  );
 }
