@@ -577,13 +577,6 @@ console.log("\nrequest path:\n");
   assert("...within a phone terminal", Math.max(...tx.map((l) => l.length)) <= 60, true);
 }
 
-console.log(
-  failures
-    ? `\n${failures} MCP metrics check(s) FAILED\n`
-    : `\nMCP metrics OK — classification, idempotent rollup, bounded cardinality, retention.\n`,
-);
-process.exit(failures ? 1 : 0);
-
 // --- 8. latency percentiles and the client mix ------------------------------
 
 console.log("\nlatency and client mix:\n");
@@ -615,3 +608,10 @@ console.log("\nlatency and client mix:\n");
   assert("errors are tool errors plus rpc errors", t.errors, 3);
   assert("client mix splits by name", report.clientMix.lifetime, { probeLike: 9, other: 2, unnamed: 3 });
 }
+
+console.log(
+  failures
+    ? `\n${failures} MCP metrics check(s) FAILED\n`
+    : `\nMCP metrics OK — classification, idempotent rollup, bounded cardinality, retention.\n`,
+);
+process.exit(failures ? 1 : 0);
