@@ -95,7 +95,7 @@ schemas (2025-03-26 through 2026-07-28, plus the tasks extension) collapse to
 `(other)`, unknown tools to `(unknown)` (and the name tried is kept separately
 in `unknownTools`: charset-narrowed, 40 characters, capped at 50 distinct values
 with the rest in `(other)`), and client names are sanitised, truncated and
-capped at 100 distinct values. Without that, a loop of random
+capped at 500 distinct values. Without that, a loop of random
 method names would grow the record without bound. The method list covers the
 whole spec rather than only what this server implements, so a client asking for
 a capability we lack is visible by name instead of buried in `(other)`.

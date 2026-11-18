@@ -632,6 +632,20 @@ console.log("\nlatency and client mix:\n");
   assert("a name that sanitises to nothing is (other)", classify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "<>" } }, { error: { code: -32602 } }, 1).attempted, "(other)");
 }
 
+// The client cap keeps the busiest 500 names and folds the rest into "(other)".
+{
+  const env = fakeKv();
+  const pending = [];
+  const ctx = { waitUntil: (p) => pending.push(p) };
+  for (let i = 0; i < 700; i++) {
+    mcpRecord(env, ctx, { jsonrpc: "2.0", id: i, method: "initialize", params: { clientInfo: { name: `cl${i}` } } }, { result: {} }, 1);
+  }
+  await Promise.all(pending);
+  const key = [...env.store.keys()].find((k) => k.startsWith(MCP_SHARD_PREFIX));
+  const clients = JSON.parse(env.store.get(key)).days[day()].clients;
+  assert("700 distinct client names are capped at 500 plus (other)", Object.keys(clients).length, 501);
+}
+
 console.log(
   failures
     ? `\n${failures} MCP metrics check(s) FAILED\n`

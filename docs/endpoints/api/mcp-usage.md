@@ -95,7 +95,7 @@ Every recorded name is allow-listed before storage, because `method` and
 storage-growth bug. Tool names outside `mcpTools()` become `(unknown)`; a
 malformed envelope becomes `(invalid)`; error codes outside the five JSON-RPC
 codes become `(other)`; client names are lower-cased, stripped to
-`[a-z0-9._-]`, truncated to 32 characters and capped at 100 distinct values with
+`[a-z0-9._-]`, truncated to 32 characters and capped at 500 distinct values with
 the rest folded into `(other)`. Storage and display are separate: the JSON
 carries every kept name, and `?format=txt` prints all of them too: every tool
 (zero-call tools listed with 0), methods, unimplemented methods and error codes

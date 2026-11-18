@@ -59,11 +59,14 @@ const RETAIN_DAYS = 90;
 // caller-controlled, so without a ceiling a loop of unique names grows the
 // record until the put crosses KV's 25 MiB value limit and the metrics stop
 // recording altogether. This is not a storage-cost guard, it is what stops the
-// feature being switched off remotely. At 100 the record measures well under
-// 1% of that limit after a year. Distinct names cost no extra KV WRITES: the
+// feature being switched off remotely. Raised from 100 to 500 on 2026-11-18:
+// a week alone had 217 distinct names, so the lifetime map, which keeps only the
+// largest N, evicted real one-off clients into "(other)" at every fold. Worst
+// case (every map full, 90 days + 12 months + lifetime, ~45 bytes a name) is
+// about 2.3 MB, under 10% of the limit; the normal record is a few KB. Distinct names cost no extra KV WRITES: the
 // flush cadence sets the write count, and a new name only adds ~17 bytes to a
 // value that was being written anyway.
-const MAX_CLIENTS = 100;
+const MAX_CLIENTS = 500;
 
 const OTHER = "(other)";
 const UNKNOWN = "(unknown)";
