@@ -17,8 +17,10 @@
 // Run: node scripts/test-mcp-metrics.mjs
 
 import { mcpHandle } from "../src/mcp/server.js";
+import { routeRequest } from "../src/router.js";
 import {
   classify,
+  mcpUsageHtml,
   mcpRecord,
   mcpBatchRecorded,
   MCP_UNIMPLEMENTED_METHODS,
@@ -267,8 +269,13 @@ console.log("\ncardinality:\n");
     assert("...and shows every client of the week", wl.filter((l) => /^ {2}wk-\d+ /.test(l)).length, 60);
     assert("...including one that called once", wl.some((l) => l.startsWith("  one-call-today ")), true);
     const tl = mcpUsageText({ ...report, tools: { last7Days: [{ name: "get_forecast", calls: 3, ms: 30 }], lifetime: [] } }).split("\n");
-    assert("every tool is listed, called or not", tl.filter((l) => /^ {2}get_[a-z_]+ /.test(l)).length >= 30, true);
-    assert("...a never-called tool shows 0", tl.some((l) => /^ {2}get_pollen\s+0\s+0\s+-\s+-\s+-$/.test(l)), true);
+    assert("every tool is listed, called or not", tl.filter((l) => /^ get_[a-z_]+ /.test(l)).length >= 30, true);
+    assert("the tried-names section is always present", tl.some((l) => l.startsWith("tool names tried, not found, 7 days")) && tl.some((l) => l.startsWith("  none since ")), true);
+    const html = mcpUsageHtml("a <b>&\n" + "x".repeat(50));
+    assert("the browser page escapes the text", html.includes("a &lt;b&gt;&amp;") && !html.includes("<b>"), true);
+    assert("...sizes the font from the widest line (50 cols * 0.62)", html.includes("/ 31.0))"), true);
+    assert("...and fits the phone width", html.includes("width=device-width"), true);
+    assert("...a never-called tool shows 0", tl.some((l) => /^ get_pollen\s+0\s+0\s+-\s+-\s+-$/.test(l)), true);
     assert("...every method and code is listed, used or not", tl.some((l) => l.startsWith("  resources/subscribe ")) && tl.some((l) => l.startsWith("  -32021 missing client capability")), true);
     const big = mcpUsageText({ ...report, lifetime: { calls: 205539, ok: 145165, notifications: 55557, rpcErrors: 4813, toolErrors: 4 } }).split("\n").find((l) => l.startsWith("lifetime"));
     assert("big lifetime totals keep their columns apart", /205539\s+145165\s+55557/.test(big), true);
@@ -574,8 +581,8 @@ console.log("\nrequest path:\n");
   assert("an unknown tool's rpc error is counted", report.tools.last7Days.find((t) => t.name === "(unknown)").errors, 2);
   assert("methods carry their outcomes", report.methodOutcomes.last7Days["tools/call"], { ok: 3, rpc_error: 2 });
   const tx = mcpUsageText(report).split("\n");
-  assert("the text shows the per-tool row", tx.some((l) => /^ {2}get_forecast\s+2\s+0\s+20ms\s+\u226425ms\s+\u226425ms$/.test(l)), true);
-  assert("...and the per-method row", tx.some((l) => /^ {2}tools\/call\s+5\s+3\s+0\s+2$/.test(l)), true);
+  assert("the text shows the per-tool row", tx.some((l) => /^ get_forecast\s+2\s+0\s+20ms\s+\u226425ms\s+\u226425ms$/.test(l)), true);
+  assert("...and the per-method row", tx.some((l) => /^ tools\/call\s+5\s+3\s+0\s+2$/.test(l)), true);
   assert("the text lists what was tried", tx.some((l) => /^ {2}Get_Forecastx\s+1$/.test(l)) && tx.some((l) => /^ {2}nope\s+1$/.test(l)), true);
   assert("...within a phone terminal", Math.max(...tx.map((l) => l.length)) <= 60, true);
 }
@@ -644,6 +651,21 @@ console.log("\nlatency and client mix:\n");
   const key = [...env.store.keys()].find((k) => k.startsWith(MCP_SHARD_PREFIX));
   const clients = JSON.parse(env.store.get(key)).days[day()].clients;
   assert("700 distinct client names are capped at 500 plus (other)", Object.keys(clients).length, 501);
+}
+
+// The route serves the same report as plain text to a script and as a screen-
+// fitted page to a browser.
+console.log("\nroute content negotiation:\n");
+{
+  const env = { ADMIN_KEY: "k", WEATHER: { get: async () => null, list: async () => ({ keys: [], list_complete: true }) } };
+  const get = (accept) =>
+    routeRequest(new Request("https://crosbynews.com/api/mcp-usage?key=k&format=txt", { headers: { accept } }), env, { waitUntil() {} });
+  const html = await get("text/html,application/xhtml+xml");
+  assert("a browser gets HTML", html.headers.get("content-type"), "text/html; charset=utf-8");
+  assert("...varying on Accept", html.headers.get("vary"), "Accept");
+  assert("...and the page carries the report", (await html.text()).includes("crosbynews MCP usage"), true);
+  const txt = await get("*/*");
+  assert("a script still gets plain text", txt.headers.get("content-type"), "text/plain; charset=utf-8");
 }
 
 console.log(

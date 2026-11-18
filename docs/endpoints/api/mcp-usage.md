@@ -19,8 +19,12 @@ GET /api/mcp-usage?key=<ADMIN_KEY>            → JSON
 GET /api/mcp-usage?key=<ADMIN_KEY>&format=txt → fixed-width table, ≤60 columns
 ```
 
-`format=txt` exists because the only person who reads this reads it in a phone
-terminal. It wraps at nothing narrower than 60 columns.
+`format=txt` exists because the only person who reads this reads it on a phone.
+It is a fixed-width table of at most 60 columns. The response varies on
+`Accept`: a browser (`text/html`) gets the same text in a `<pre>` whose font is
+sized from the widest line to fit the screen, because a `text/plain` page wraps
+at the window edge and breaks every column; anything else (curl, a script) gets
+`text/plain`. `mcpUsageHtml()` in `src/mcp/metrics.js`.
 
 ## Auth
 

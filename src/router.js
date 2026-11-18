@@ -45,7 +45,7 @@ import { loadBurnBan, loadBurnBanPeriods, burnbanHtml, burnbanMarkdown, apiBurnB
 import { burnbanHistoryHtml, burnbanHistoryMarkdown } from "./features/burnban-history.js";
 import { homeHtml, homeMarkdown, renderError } from "./features/home.js";
 import { MCP_CORS, mcpHandle, mcpHandleModern, isModernMessage, mcpJson, rpcError, mcpServerCard, mcpServerCardV1, aiCatalog, mcpInfoHtml, mcpInfoMarkdown } from "./mcp/server.js";
-import { mcpRecord, mcpBatchRecorded, mcpUsageReport, mcpUsageText } from "./mcp/metrics.js";
+import { mcpRecord, mcpBatchRecorded, mcpUsageReport, mcpUsageText, mcpUsageHtml } from "./mcp/metrics.js";
 import { apiCatalog, openApiSpec } from "./api/openapi.js";
 import { healthReport, CRON_STATUS_KV_KEY } from "./api/health.js";
 import { llmsTxt, robotsTxt, sitemapXml, CROSBY_WEATHER_SKILL, agentSkillsIndex } from "./discovery.js";
@@ -383,8 +383,20 @@ export async function routeRequest(request, env, ctx) {
       // Deliberately no access-control-allow-origin: same-origin only, like the
       // other secret-gated routes.
       if (url.searchParams.get("format") === "txt") {
-        return new Response(mcpUsageText(report), {
-          headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "private, no-store" },
+        const text = mcpUsageText(report);
+        // A browser gets the text sized to fit its screen; anything else, the plain text.
+        if ((request.headers.get("accept") || "").includes("text/html")) {
+          return new Response(mcpUsageHtml(text), {
+            headers: {
+              "content-type": "text/html; charset=utf-8",
+              "cache-control": "private, no-store",
+              vary: "Accept",
+              "x-robots-tag": "noindex",
+            },
+          });
+        }
+        return new Response(text, {
+          headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "private, no-store", vary: "Accept" },
         });
       }
       return jsonRes(report);
