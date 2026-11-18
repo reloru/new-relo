@@ -64,11 +64,6 @@ const RETAIN_DAYS = 90;
 // flush cadence sets the write count, and a new name only adds ~17 bytes to a
 // value that was being written anyway.
 const MAX_CLIENTS = 100;
-// How many of them the fixed-width report prints. Storage and display are
-// separate on purpose: a phone terminal cannot use a hundred-line list, but
-// the JSON still carries every kept name.
-const MAX_CLIENTS_SHOWN = 15;
-const MAX_CLIENTS_SHOWN_WEEK = 40;
 
 const OTHER = "(other)";
 const UNKNOWN = "(unknown)";
@@ -727,67 +722,95 @@ export function mcpUsageText(report) {
   if (report.since) L.push(`since ${report.since}`);
   L.push("");
 
-  const tools = report.tools.last7Days.length ? report.tools.last7Days : report.tools.lifetime;
-  L.push(tools === report.tools.last7Days ? "top tools, 7 days" : "top tools, lifetime");
-  if (!tools.length) L.push("  (none yet)");
-  for (const t of tools.slice(0, 15)) {
-    const per = t.calls ? Math.round(t.ms / t.calls) : 0;
-    L.push(`  ${pad(t.name, 26)}${num(t.calls, 7)}${num(per ? `${per}ms` : "-", 9)}`);
-  }
-  L.push("");
+  // Every tool, never truncated: a tool with no calls in the window is listed
+  // with 0 so a dead tool is visible instead of silently absent.
+  const toolBlock = (title, ranked) => {
+    const seen = new Set(ranked.map((t) => t.name));
+    const rows = ranked.concat(
+      mcpTools()
+        .map((t) => t.name)
+        .filter((n) => !seen.has(n))
+        .sort()
+        .map((name) => ({ name, calls: 0, ms: 0 })),
+    );
+    L.push(`${title} (${rows.length})`);
+    for (const t of rows) {
+      const per = t.calls ? Math.round(t.ms / t.calls) : 0;
+      L.push(`  ${pad(t.name, 26)}${num(t.calls, 7)}${num(per ? `${per}ms` : "-", 9)}`);
+    }
+    L.push("");
+  };
+  toolBlock("tools, 7 days", report.tools.last7Days);
+  toolBlock("tools, lifetime", report.tools.lifetime);
 
-  const methods = Object.keys(report.methods.last7Days).length ? report.methods.last7Days : report.methods.lifetime;
-  L.push("methods");
-  if (!Object.keys(methods).length) L.push("  (none yet)");
-  for (const k of Object.keys(methods).sort((a, b) => methods[b] - methods[a])) {
-    L.push(`  ${pad(k, 26)}${num(methods[k], 7)}`);
-  }
+  const methodBlock = (title, methods) => {
+    L.push(title);
+    if (!Object.keys(methods).length) L.push("  (none yet)");
+    for (const k of Object.keys(methods).sort((a, b) => methods[b] - methods[a])) {
+      L.push(`  ${pad(k, 26)}${num(methods[k], 7)}`);
+    }
+    L.push("");
+  };
+  methodBlock("methods, 7 days", report.methods.last7Days);
+  methodBlock("methods, lifetime", report.methods.lifetime);
 
   // Called out separately, not left as a row in the table above: a client
   // asking for a capability this server lacks is the one thing in here that
   // suggests an action, and it reads as ordinary traffic otherwise.
-  const missing = Object.keys(report.unimplementedRequested.lifetime).length
-    ? report.unimplementedRequested.lifetime
-    : null;
-  if (missing) {
-    L.push("");
-    L.push("asked for, NOT implemented here");
+  for (const [title, missing] of [
+    ["asked for, NOT implemented, 7 days", report.unimplementedRequested.last7Days],
+    ["asked for, NOT implemented, lifetime", report.unimplementedRequested.lifetime],
+  ]) {
+    if (!Object.keys(missing).length) continue;
+    L.push(title);
     for (const k of Object.keys(missing).sort((a, b) => missing[b] - missing[a])) {
       L.push(`  ${pad(k, 26)}${num(missing[k], 7)}`);
     }
+    L.push("");
   }
 
-  const codes = Object.keys(report.errorCodes.last7Days).length
-    ? report.errorCodes.last7Days
-    : report.errorCodes.lifetime;
-  if (Object.keys(codes).length) {
-    L.push("");
-    L.push("error codes");
+  for (const [title, codes] of [
+    ["error codes, 7 days", report.errorCodes.last7Days],
+    ["error codes, lifetime", report.errorCodes.lifetime],
+  ]) {
+    if (!Object.keys(codes).length) continue;
+    L.push(title);
     for (const k of Object.keys(codes).sort((a, b) => codes[b] - codes[a])) {
       L.push(`  ${pad(k, 26)}${num(codes[k], 7)}`);
     }
+    L.push("");
   }
 
-  // Lifetime is dominated by monitoring bots, so a client that called once this
-  // week never reaches its top 15. The 7-day list is the one that answers "did
-  // X just connect", so it shows more names (a week's distinct clients are few).
-  const clientBlock = (title, counts, shownMax) => {
+  // Every client the record kept, not a top-N: the record already caps distinct
+  // names at MAX_CLIENTS, so the list is bounded and each name is one short line.
+  const clientBlock = (title, counts) => {
     if (!Object.keys(counts).length) return;
-    L.push("");
     const ranked = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
-    L.push(`${title}${ranked.length > shownMax ? ` (top ${shownMax} of ${ranked.length})` : ""}`);
-    for (const k of ranked.slice(0, shownMax)) {
-      L.push(`  ${pad(k, 26)}${num(counts[k], 7)}`);
-    }
-    if (ranked.length > shownMax) {
-      const rest = ranked.slice(shownMax).reduce((n, k) => n + counts[k], 0);
-      L.push(`  ${pad(`… and ${ranked.length - shownMax} more`, 26)}${num(rest, 7)}`);
-    }
+    L.push(`${title} (${ranked.length})`);
+    for (const k of ranked) L.push(`  ${pad(k, 26)}${num(counts[k], 7)}`);
+    L.push("");
   };
-  clientBlock("clients, 7 days", report.clients.last7Days, MAX_CLIENTS_SHOWN_WEEK);
-  clientBlock("clients, lifetime", report.clients.lifetime, MAX_CLIENTS_SHOWN);
+  clientBlock("clients, 7 days", report.clients.last7Days);
+  clientBlock("clients, lifetime", report.clients.lifetime);
 
-  L.push("");
+  const dayRow = (label, s) =>
+    `${pad(label, 10)}${num(s.calls, 9)}${num(s.ok, 9)}${num(s.notifications, 8)}${num(s.rpcErrors, 8)}${num(s.toolErrors, 8)}`;
+  const header = `${pad("", 10)}${num("calls", 9)}${num("ok", 9)}${num("notif", 8)}${num("rpcerr", 8)}${num("toolerr", 8)}`;
+  const dayKeys = Object.keys(report.days || {});
+  if (dayKeys.length) {
+    L.push(`by day (${dayKeys.length})`);
+    L.push(header);
+    for (const d of dayKeys) L.push(dayRow(d, report.days[d]));
+    L.push("");
+  }
+  const monthKeys = Object.keys(report.months || {});
+  if (monthKeys.length) {
+    L.push(`by month (${monthKeys.length})`);
+    L.push(header);
+    for (const m of monthKeys) L.push(dayRow(m, report.months[m]));
+    L.push("");
+  }
+
   const r = report.rollup;
   L.push(`rollup  ${r.ok === null ? "never run" : r.ok ? "ok" : "FAILED"}${r.at ? `  ${centralStamp(r.at)}` : ""}`);
   if (report.pending.shards) L.push(`        + ${report.pending.calls} call(s) in ${report.pending.shards} live shard(s)`);
