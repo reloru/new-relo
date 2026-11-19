@@ -191,6 +191,9 @@ curl -sI -X PUT "$BASE/weather" | tr -d '\r' | grep -i '^allow:'                
 curl -s -X POST "$BASE/mcp" -H 'content-type: application/json' \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | head -c 60                    # a tools list
 curl -s -o /dev/null -w "%{http_code} POST /es/mcp\n" -X POST "$BASE/es/mcp"          # 404
+# our own session, named so /api/mcp-usage lists it under "our own sessions"
+curl -s -X POST "$BASE/mcp" -H 'content-type: application/json' -H "user-agent: $UA" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"crosbynews-verify","version":"1"}}}' | head -c 60
 ```
 
 A 405 is still a normal response here: it carries the security headers like

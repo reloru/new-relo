@@ -616,7 +616,20 @@ console.log("\nlatency and client mix:\n");
   assert("p95 is the bucket where 95% is reached", t.p95, "\u2264500ms");
   assert("slowest is the highest populated bucket", t.slowest, ">2.5s");
   assert("errors are tool errors plus rpc errors", t.errors, 3);
-  assert("client mix splits by name", report.clientMix.lifetime, { probeLike: 9, other: 2, unnamed: 3 });
+  assert("client mix splits by kind", report.clientMix.lifetime.counts, { ours: 0, scanners: 0, "ai apps": 2, monitors: 5, registries: 4, other: 0, unnamed: 3 });
+  assert("...names the busiest in each kind", report.clientMix.lifetime.examples.monitors, ["glimind-probe"]);
+  const kinds = mcpUsageReport(fakeKv({
+    [MCP_METRICS_KV_KEY]: {
+      v: 1,
+      rolledUpThrough: bucketEndingAgo(30 * 60000),
+      firstSeen: new Date(Date.now() - 86400000).toISOString(),
+      lifetime: oneDay({ clients: { "mcp-security-scanner": 1, "privi-scan": 1, "codex-mcp-client": 1, "mcpbeat": 1, "talaria-catalog": 1, "crosbynews-verify": 4, "clono": 1 } }),
+      months: {}, days: {}, rollup: { at: null, ok: null, shards: 0, error: null },
+    },
+  }));
+  const kc = (await kinds).clientMix.lifetime.counts;
+  assert("scanners, apps, monitors, registries, ours and the rest are told apart", kc, { ours: 4, scanners: 2, "ai apps": 1, monitors: 1, registries: 1, other: 1, unnamed: 0 });
+  assert("our own client is reported by name", (await kinds).ownClients, { "crosbynews-verify": { last7Days: 0, lifetime: 4 } });
 }
 
 // Tried tool names are caller-controlled and the set is open, so it must be
