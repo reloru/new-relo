@@ -20,8 +20,6 @@ on:
         description: 'Print the payload, do not write KV'
         type: boolean
         default: false
-  push:
-    branches: [claude-code/sharp-mendel-aiphbd]
 
 permissions:
   contents: read
@@ -51,7 +49,7 @@ jobs:
           AGE=$(node -e 'try{const u=Date.parse(JSON.parse(require("fs").readFileSync("news.json","utf8")).updated);console.log(Number.isFinite(u)?((Date.now()-u)/36e5).toFixed(1):"unknown")}catch{console.log("unknown")}')
           echo "Snapshot age: $AGE hours"
           if [ "$AGE" != "unknown" ] && node -e "process.exit($AGE < $MAX_AGE_HOURS ? 0 : 1)" \
-             && [ "${{ inputs.force }}" != "true" ] && [ "${{ github.event_name }}" != "push" ]; then
+             && [ "${{ inputs.force }}" != "true" ]; then
             echo "run=false" >> "$GITHUB_OUTPUT"
             echo "Fresh, nothing to do."
           else
@@ -66,5 +64,5 @@ jobs:
       - name: Run fetch-news
         if: steps.age.outputs.run == 'true'
         env:
-          DRY_RUN: ${{ (inputs.dry_run == true || github.event_name == 'push') && '1' || '' }}
+          DRY_RUN: ${{ inputs.dry_run == true && '1' || '' }}
         run: node scripts/fetch-news.mjs

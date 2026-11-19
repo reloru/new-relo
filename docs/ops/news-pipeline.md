@@ -143,6 +143,18 @@ recent news" (never errors). If any Google query still fails after its
 retries, the run aborts WITHOUT writing, so a transient block can't wipe or
 shrink the last good snapshot.
 
+## Fallback when the routine does not run
+
+`.github/workflows/news-fallback.yml` runs `scripts/fetch-news.mjs` from a
+GitHub-hosted runner at 09:17, 15:17 and 21:17 UTC. Each run first reads the
+`news` KV key and exits if `updated` is under 20 hours old, so on a normal day
+it only checks. It covers the routine missing a run (5-hour or weekly Claude
+usage limit, outage) and uses no Claude usage. Verified 2026-11-19: Google
+News answered all five queries from a runner (DRY_RUN produced 8 items).
+Manual run: Actions > News fallback > Run workflow (`force` skips the age
+check, `dry_run` skips the KV write). If Google starts refusing runner IPs the
+run fails visibly and the last snapshot stays.
+
 ## Firing on demand
 
 No laptop needed: the routine has an **API trigger**, so a `POST` to its
