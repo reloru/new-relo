@@ -726,21 +726,47 @@ function rank(obj, day) {
     .sort((a, b) => b.calls - a.calls);
 }
 
-// Client names that read as monitors, scanners and registry crawlers. A name
-// heuristic over self-reported strings, so it is an estimate, and the report
-// says so.
-const PROBE_RE = /probe|scan|check|monitor|health|beat|registry|prober|crawl|bot$|doctor|rank|status|pulse|scoring|clock|catalog|verify|uptime|audit|bench|router|explorer|ping/;
+// Names our own tooling connects with. The only caller identity the record
+// has is the name a client reports at initialize, so this is the only way to
+// tell our traffic from anyone else's. A tool call carries no caller name, so
+// our own tool calls cannot be separated; only our sessions can. Anyone could
+// send this name, so it is a label, not proof.
+export const MCP_OWN_CLIENTS = ["crosbynews-verify"];
+
+// Name-based guess at what kind of caller a client is, first match wins. The
+// names are self-reported strings, so this is an estimate and the report says
+// so. Real AI apps come before the monitor words so "codex-mcp-client" is not
+// read as a monitor.
+const CLIENT_KINDS = [
+  ["scanners", /scan|secur|audit|pentest|vuln|privi/],
+  ["ai apps", /^(claude|chatgpt|openai|codex|cursor|windsurf|vscode|zed|cline|roo|continue|goose|gemini|copilot|perplexity|mcp-remote|inspector|librechat|raycast)/],
+  ["monitors", /probe|health|check|monitor|beat|uptime|ping|pulse|status|doctor|clock|canary|watch|verify|crawl|bot$/],
+  ["registries", /registry|catalog|directory|router|explorer|rank|scor|bench|quality|index|glama|smithery|agentic/],
+];
+const KIND_ORDER = ["ours", "scanners", "ai apps", "monitors", "registries", "other", "unnamed"];
+
+function clientKind(name) {
+  if (name === OTHER) return "unnamed";
+  if (MCP_OWN_CLIENTS.includes(name)) return "ours";
+  for (const [kind, re] of CLIENT_KINDS) if (re.test(name)) return kind;
+  return "other";
+}
 
 // Counts are sessions opened (initialize / server/discover), the only place a
-// client names itself.
+// client names itself. `examples` are the three busiest names in each kind.
 function clientMix(clients) {
-  const mix = { probeLike: 0, other: 0, unnamed: 0 };
+  const counts = Object.fromEntries(KIND_ORDER.map((k) => [k, 0]));
+  const names = {};
   for (const k of Object.keys(clients || {})) {
-    if (k === OTHER) mix.unnamed += clients[k];
-    else if (PROBE_RE.test(k)) mix.probeLike += clients[k];
-    else mix.other += clients[k];
+    const kind = clientKind(k);
+    counts[kind] += clients[k];
+    (names[kind] || (names[kind] = [])).push(k);
   }
-  return mix;
+  const examples = {};
+  for (const kind of Object.keys(names)) {
+    examples[kind] = names[kind].sort((x, y) => clients[y] - clients[x]).slice(0, 3);
+  }
+  return { counts, examples };
 }
 
 // Read the durable record and merge in the shards the cron has not folded yet,
@@ -802,6 +828,9 @@ export async function mcpUsageReport(env) {
     methodOutcomes: { since: MCP_DETAIL_SINCE, last7Days: nest(week.methodOutcomes), lifetime: nest(lifetime.methodOutcomes) },
     unknownTools: { last7Days: week.unknownTools, lifetime: lifetime.unknownTools },
     clientMix: { last7Days: clientMix(week.clients), lifetime: clientMix(lifetime.clients) },
+    ownClients: Object.fromEntries(
+      MCP_OWN_CLIENTS.map((n) => [n, { last7Days: week.clients[n] || 0, lifetime: lifetime.clients[n] || 0 }]),
+    ),
     // Spec requests this server answers -32601 to. Derived rather than stored,
     // so widening METHODS_UNIMPLEMENTED reclassifies history already recorded.
     unimplementedRequested: {
@@ -944,17 +973,34 @@ export function mcpUsageText(report) {
     L.push("");
   }
 
-  // Sessions opened, split by whether the self-reported name looks like a
-  // monitor or scanner.
+  // Who connects: sessions opened, by a guess at the kind of caller from the
+  // name it reports, with the busiest names in each kind (7 days).
   if (report.clientMix) {
     const m7 = report.clientMix.last7Days;
     const ml = report.clientMix.lifetime;
-    L.push("client mix, sessions opened");
-    L.push(`  ${pad("", 18)}${num("7 days", 9)}${num("lifetime", 10)}`);
-    for (const [label, f] of [["probe-like name", "probeLike"], ["other name", "other"], ["(other)", "unnamed"]]) {
-      L.push(`  ${pad(label, 18)}${num(m7[f], 9)}${num(ml[f], 10)}`);
+    L.push("who connects, sessions opened");
+    L.push(` ${pad("", 14)}${num("7 days", 8)}${num("lifetime", 10)}`);
+    for (const kind of KIND_ORDER) {
+      if (!m7.counts[kind] && !ml.counts[kind]) continue;
+      L.push(` ${pad(kind === "unnamed" ? "(other)" : kind, 14)}${num(m7.counts[kind], 8)}${num(ml.counts[kind], 10)}`);
+      const ex = (m7.examples[kind] || []).join(", ");
+      if (ex && kind !== "unnamed") L.push(`   ${ex.length > 46 ? `${ex.slice(0, 45)}\u2026` : ex}`);
     }
-    L.push("  probe-like is a guess from the name.");
+    L.push(" The kind is a guess from the name.");
+    L.push("");
+  }
+
+  // Our own sessions. A tool call carries no caller name, so only sessions
+  // opened by our tooling can be told apart.
+  if (report.ownClients) {
+    L.push("our own sessions (by client name)");
+    L.push(` ${pad("", 24)}${num("7 days", 8)}${num("lifetime", 10)}`);
+    for (const n of Object.keys(report.ownClients)) {
+      L.push(` ${pad(n, 24)}${num(report.ownClients[n].last7Days, 8)}${num(report.ownClients[n].lifetime, 10)}`);
+    }
+    L.push(" Tool calls carry no caller name, so");
+    L.push(" only these sessions can be told apart.");
+    L.push(" claude-code is anyone's, not just ours.");
     L.push("");
   }
 
@@ -989,8 +1035,12 @@ export function mcpUsageText(report) {
   }
 
   const r = report.rollup;
-  L.push(`rollup  ${r.ok === null ? "never run" : r.ok ? "ok" : "FAILED"}${r.at ? `  ${centralStamp(r.at)}` : ""}`);
-  if (report.pending.shards) L.push(`        + ${report.pending.calls} call(s) in ${report.pending.shards} live shard(s)`);
+  L.push(`last fold into the record: ${r.ok === null ? "never run" : r.ok ? "ok" : "FAILED"}`);
+  if (r.at) L.push(`  ${centralStamp(r.at)}`);
+  if (report.pending.shards) {
+    L.push(`not folded yet: ${report.pending.calls} calls in ${report.pending.shards} shards`);
+    L.push("  (already counted in the totals above)");
+  }
   L.push("");
   L.push("No caller identity or request contents are stored.");
   return L.join("\n") + "\n";

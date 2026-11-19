@@ -115,9 +115,16 @@ them like the other counters. The text report shows per tool: calls, errors
 (tool errors plus JSON-RPC errors), average, p95 and max, where p95 and max are
 bucket upper bounds, not exact timings. Every known method (with ok / notif /
 err), every unimplemented method and every error code (with its spec name) is
-listed even at 0. `clientMix` (JSON and text) splits sessions opened by whether
-the self-reported name looks like a monitor or scanner (`PROBE_RE`); it is a
-heuristic over caller-chosen strings, not an identity.
+listed even at 0. `clientMix` (JSON and text) splits sessions opened into
+ours / scanners / ai apps / monitors / registries / other by the self-reported
+name (`CLIENT_KINDS`, first match wins) and lists the three busiest names in
+each; it is a heuristic over caller-chosen strings, not an identity.
+`ownClients` lists the names our own tooling connects with
+(`MCP_OWN_CLIENTS`, currently `crosbynews-verify`, which `/verify-site` sends).
+A tool call carries no caller name, so only sessions opened under those names
+can be told apart; `claude-code` is anyone's. The last lines of the text report
+say when the durable record was last folded and how many calls are still in
+unfolded live shards (already included in the totals).
 
 `unknownTools` records the tool name a client tried when it is not one of ours
 (`tools/call` with an unknown name still counts under `(unknown)`). Unlike the
