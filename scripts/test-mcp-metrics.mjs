@@ -623,12 +623,13 @@ console.log("\nlatency and client mix:\n");
       v: 1,
       rolledUpThrough: bucketEndingAgo(30 * 60000),
       firstSeen: new Date(Date.now() - 86400000).toISOString(),
-      lifetime: oneDay({ clients: { "mcp-security-scanner": 1, "privi-scan": 1, "codex-mcp-client": 1, "mcpbeat": 1, "talaria-catalog": 1, "crosbynews-verify": 4, "clono": 1 } }),
+      lifetime: oneDay({ clients: { "portscan": 1, "vulnhound": 1, "mcp-security-scanner": 1, "privi-scan": 1, "codex-mcp-client": 1, "mcpbeat": 5, "a-probe": 4, "b-probe": 3, "c-probe": 2, "talaria-catalog": 1, "crosbynews-verify": 4, "clono": 1 } }),
       months: {}, days: {}, rollup: { at: null, ok: null, shards: 0, error: null },
     },
   }));
   const kc = (await kinds).clientMix.lifetime.counts;
-  assert("scanners, apps, monitors, registries, ours and the rest are told apart", kc, { ours: 4, scanners: 2, "ai apps": 1, monitors: 1, registries: 1, other: 1, unnamed: 0 });
+  assert("scanners, apps, monitors, registries, ours and the rest are told apart", kc, { ours: 4, scanners: 4, "ai apps": 1, monitors: 14, registries: 1, other: 1, unnamed: 0 });
+  assert("only the three busiest names are listed per kind", (await kinds).clientMix.lifetime.examples.monitors, ["mcpbeat", "a-probe", "b-probe"]);
   assert("our own client is reported by name", (await kinds).ownClients, { "crosbynews-verify": { last7Days: 0, lifetime: 4 } });
 }
 
