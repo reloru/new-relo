@@ -1,0 +1,70 @@
+name: News fallback
+
+# Backup for the Claude routine that refreshes the `news` KV key
+# (docs/ops/news-pipeline.md). The routine only exists to give
+# scripts/fetch-news.mjs an IP address Google News does not block. If the
+# routine does not run (usage limit, outage), this runs the same script from a
+# GitHub runner, but only when the stored snapshot is older than MAX_AGE_HOURS,
+# so on a normal day it checks KV and exits.
+
+on:
+  schedule:
+    - cron: '17 9,15,21 * * *'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Run even if the snapshot is fresh'
+        type: boolean
+        default: false
+      dry_run:
+        description: 'Print the payload, do not write KV'
+        type: boolean
+        default: false
+  push:
+    branches: [claude-code/sharp-mendel-aiphbd]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: news-fallback
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    name: Refresh news if stale
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      MAX_AGE_HOURS: '20'
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Check snapshot age
+        id: age
+        run: |
+          NS=da96de7daed84b69b32778058b374d5f
+          curl -sS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/storage/kv/namespaces/$NS/values/news" -o news.json
+          AGE=$(node -e 'try{const u=Date.parse(JSON.parse(require("fs").readFileSync("news.json","utf8")).updated);console.log(Number.isFinite(u)?((Date.now()-u)/36e5).toFixed(1):"unknown")}catch{console.log("unknown")}')
+          echo "Snapshot age: $AGE hours"
+          if [ "$AGE" != "unknown" ] && node -e "process.exit($AGE < $MAX_AGE_HOURS ? 0 : 1)" \
+             && [ "${{ inputs.force }}" != "true" ] && [ "${{ github.event_name }}" != "push" ]; then
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "Fresh, nothing to do."
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-node@v7
+        if: steps.age.outputs.run == 'true'
+        with:
+          node-version: 22
+
+      - name: Run fetch-news
+        if: steps.age.outputs.run == 'true'
+        env:
+          DRY_RUN: ${{ (inputs.dry_run == true || github.event_name == 'push') && '1' || '' }}
+        run: node scripts/fetch-news.mjs
