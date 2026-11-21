@@ -9,7 +9,8 @@
 //   - the run writes only when EVERY query answered.
 // No network: fetch and sleep are fakes. Run: node scripts/test-fetch-news.mjs
 
-import { fetchFeed, feedGate } from "./fetch-news.mjs";
+import { readFileSync } from "node:fs";
+import { fetchFeed, feedGate, parseGnSignature, parseGnBatch, gnBatchBody, resolveGoogleLink } from "./fetch-news.mjs";
 
 let failures = 0;
 const check = (label, got, want) => {
@@ -67,6 +68,39 @@ check(
 );
 check("one of five refused: no write", feedGate([ok, ok, ok, ok, { ok: false, status: 503 }]).write, false);
 check("all refused: no write, upstream message", feedGate([{ ok: false, status: 429 }, { ok: false, status: 429 }]), { write: false, message: "All news queries failed (upstream failure) — leaving existing KV untouched." });
+
+// --- publisher links (#294) ---------------------------------------------------
+// Fixtures are real: the article-page tag and the batchexecute answer for the
+// ABC13 garage-fire story, captured 2026-11-17.
+console.log("publisher links");
+const fx = (f) => readFileSync(new URL(`./fixtures/google-news/${f}`, import.meta.url), "utf8");
+const ABC13 = "https://abc13.com/post/garage-fire-home-sending-heavy-smoke-crosby-area-neighborhood-skyeye13-shows/20020490/";
+const sig = parseGnSignature(fx("article-tag.html"));
+check("the article page's signature and timestamp", [typeof sig?.sg, /^\d{10}$/.test(sig?.ts ?? "")], ["string", true]);
+check("a page without them (Google's sorry page)", parseGnSignature(SORRY), null);
+check("the batchexecute answer gives the publisher URL", parseGnBatch(fx("batchexecute.txt")), ABC13);
+check("an answer pointing back at Google is refused", parseGnBatch(fx("batchexecute.txt").replace(ABC13, "https://news.google.com/x")), null);
+check("garbage is null", parseGnBatch("<html>sorry</html>"), null);
+check("the request body names the id, timestamp and signature", decodeURIComponent(gnBatchBody("ID1", "1794927877", "SG1")).includes('\\"ID1\\",1794927877,\\"SG1\\"]'), true);
+
+const GN = "https://news.google.com/rss/articles/CBMirgFBVV95cUxP?oc=5";
+const scripted = (steps) => {
+  const calls = [];
+  const fetchImpl = async (url, init) => {
+    calls.push(init?.method || "GET");
+    const [status, body] = steps[Math.min(calls.length - 1, steps.length - 1)];
+    return { ok: status >= 200 && status < 300, status, text: async () => body };
+  };
+  return { fetchImpl, calls };
+};
+const quiet = { sleepImpl: async () => {} };
+let f = scripted([[200, fx("article-tag.html")], [200, fx("batchexecute.txt")]]);
+check("resolves in two requests", [await resolveGoogleLink(GN, { ...quiet, fetchImpl: f.fetchImpl }), f.calls], [ABC13, ["GET", "POST"]]);
+f = scripted([[302, ""], [200, fx("article-tag.html")], [200, fx("batchexecute.txt")]]);
+check("a refused page is retried", [await resolveGoogleLink(GN, { ...quiet, fetchImpl: f.fetchImpl }), f.calls], [ABC13, ["GET", "GET", "POST"]]);
+f = scripted([[200, SORRY]]);
+check("always refused: null after three tries (the Google link stays)", [await resolveGoogleLink(GN, { ...quiet, fetchImpl: f.fetchImpl }), f.calls.length], [null, 3]);
+check("not a Google News link: no request", await resolveGoogleLink("https://abc13.com/x", { ...quiet, fetchImpl: async () => { throw new Error("no"); } }), null);
 
 if (failures) {
   console.error(`\n${failures} check(s) failed`);

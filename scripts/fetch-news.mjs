@@ -293,6 +293,17 @@ async function loadBlocklist() {
 
 // --- Google News fetch with retry -------------------------------------------
 const QUERY_GAP_MS = 1500;
+
+// gnLink -> publisher link, from the stored snapshot. Empty on any failure.
+async function loadResolvedLinks() {
+  try {
+    const r = await fetch(`https://api.cloudflare.com/client/v4/accounts/${ACCOUNT}/storage/kv/namespaces/${NS_ID}/values/${KV_KEY}`, { headers: { authorization: `Bearer ${TOKEN}` } });
+    const prev = r.ok ? await r.json() : null;
+    return new Map((prev?.items ?? []).filter((i) => i?.gnLink && i.link && i.link !== i.gnLink).map((i) => [i.gnLink, i.link]));
+  } catch {
+    return new Map();
+  }
+}
 const defaultSleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // One RSS fetch. Retries 429, 5xx, network errors and 200s that aren't RSS
@@ -318,6 +329,70 @@ async function fetchFeed(url, { fetchImpl = fetch, sleepImpl = defaultSleep, att
     if (!retryable || t === attempts) return { ok: false, status, text: "", tries: t };
     await sleepImpl(baseMs * 2 ** (t - 1) + Math.floor(random() * baseMs));
   }
+}
+
+// --- Publisher links instead of Google News redirects -----------------------
+//
+// Google News gives each item a redirect link (news.google.com/rss/articles/
+// <id>). A reader's tap goes through Google first, from the reader's own IP,
+// and Google sometimes answers with its "automated queries" page instead
+// (#294: most taps from one iPhone on 2026-11-16). The ids are the newer
+// AU_yqL format and do not decode offline, so the routine asks Google once
+// per item, the way Google's own article page does:
+//   1. GET the article page; it carries data-n-a-sg (signature) and
+//      data-n-a-ts (timestamp) for the id.
+//   2. POST them to the batchexecute endpoint ("garturlreq"), which answers
+//      with the publisher URL ("garturlres").
+// Verified from a session container on 2026-11-17 for three live items. Any
+// failure keeps the Google link: a lookup never blocks a news update.
+const GN_LINK_RE = /^https:\/\/news\.google\.com\/rss\/articles\/([A-Za-z0-9_-]+)/;
+const BROWSER_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36";
+function parseGnSignature(html) {
+  const sg = /data-n-a-sg="([^"]+)"/.exec(html)?.[1];
+  const ts = /data-n-a-ts="(\d+)"/.exec(html)?.[1];
+  return sg && ts ? { sg, ts } : null;
+}
+function gnBatchBody(id, ts, sg) {
+  const inner = `["garturlreq",[["X","X",["X","X"],null,null,1,1,"US:en",null,1,null,null,null,null,null,0,1],"X","X",1,[1,1,1],1,1,null,0,0,null,0],"${id}",${ts},"${sg}"]`;
+  return "f.req=" + encodeURIComponent(JSON.stringify([[["Fbv4je", inner, null, "generic"]]]));
+}
+// The publisher URL from a batchexecute answer, or null. Only an http(s) URL
+// off Google's own hosts counts.
+function parseGnBatch(text) {
+  try {
+    const chunk = String(text).split("\n\n")[1];
+    const rows = JSON.parse(chunk);
+    const row = rows.find((r) => Array.isArray(r) && r[0] === "wrb.fr" && r[1] === "Fbv4je");
+    const url = JSON.parse(row[2])?.[1];
+    return typeof url === "string" && /^https?:\/\//i.test(url) && !/^https?:\/\/([^/]+\.)?google\.[a-z.]+\//i.test(url) ? url : null;
+  } catch {
+    return null;
+  }
+}
+// One item's publisher URL, or null. Retries a refusal (429, 5xx, a page
+// without the signature, Google's "sorry" page) twice with backoff.
+async function resolveGoogleLink(link, { fetchImpl = fetch, sleepImpl = defaultSleep, attempts = 3, baseMs = 5000 } = {}) {
+  const id = GN_LINK_RE.exec(link)?.[1];
+  if (!id) return null;
+  for (let t = 1; t <= attempts; t++) {
+    try {
+      const page = await fetchImpl(`https://news.google.com/rss/articles/${id}?hl=en-US&gl=US&ceid=US:en`, { headers: { "User-Agent": BROWSER_UA }, redirect: "manual" });
+      const sig = page.ok ? parseGnSignature(await page.text()) : null;
+      if (sig) {
+        const r = await fetchImpl("https://news.google.com/_/DotsSplashUi/data/batchexecute", {
+          method: "POST",
+          headers: { "User-Agent": BROWSER_UA, "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
+          body: gnBatchBody(id, sig.ts, sig.sg),
+        });
+        const url = r.ok ? parseGnBatch(await r.text()) : null;
+        if (url) return url;
+      }
+    } catch {
+      // network error: retry
+    }
+    if (t < attempts) await sleepImpl(baseMs * 2 ** (t - 1));
+  }
+  return null;
 }
 
 // Write only when every query answered: a partial result silently drops the
@@ -444,6 +519,9 @@ async function main() {
   // owns writes/pruning.
   const blocked = await loadBlocklist();
   const kept = blocked.size ? out.filter((i) => !blocked.has(i.link)) : out;
+  // (Links are still Google's here. After resolution below, a block placed on
+  // a publisher link is matched by the Worker; one placed earlier on a Google
+  // link was matched here.)
   // Keep all community items, but cap incidents low so crime can't dominate the
   // page (this isn't a crime feed) or fill it with one event's many rewrites.
   const community = kept.filter((i) => !i.crime).slice(0, 20);
@@ -464,7 +542,22 @@ async function main() {
     incidents.push(i);
     if (incidents.length >= MAX_INCIDENTS) break;
   }
-  const payload = { updated: new Date().toISOString(), items: [...community, ...incidents].map(({ _rescued, ...item }) => item), source: "google-news-routine" };
+  const chosen = [...community, ...incidents].map(({ _rescued, ...item }) => item);
+  // Publisher links. An item already resolved in the stored snapshot reuses
+  // its link, so each item costs Google two requests once, not every run.
+  const known = await loadResolvedLinks();
+  let resolved = 0, reused = 0, failedLinks = 0;
+  for (const item of chosen) {
+    if (!GN_LINK_RE.test(item.link)) continue;
+    item.gnLink = item.link;
+    const prior = known.get(item.gnLink);
+    if (prior) { item.link = prior; reused++; continue; }
+    const url = await resolveGoogleLink(item.gnLink);
+    if (url) { item.link = url; resolved++; } else failedLinks++;
+    await defaultSleep(QUERY_GAP_MS);
+  }
+  console.log(`Publisher links: ${resolved} resolved, ${reused} reused from the last snapshot, ${failedLinks} left as Google links.`);
+  const payload = { updated: new Date().toISOString(), items: chosen, source: "google-news-routine" };
 
   // Shrink-guard: a partial upstream failure (some Google queries rate-limited,
   // the rest 503) can yield a near-empty result that would silently overwrite a
@@ -516,4 +609,4 @@ async function main() {
 // imported, so the pure helpers above can be unit-tested.
 if (import.meta.url === pathToFileURL(process.argv[1] || "").href) main();
 
-export { fetchFeed, feedGate, areaTier, areaCandidate, hasEventCue, isCrime, crimeFamily, parseEventDate, stalePastEvent, decodeEntities };
+export { fetchFeed, feedGate, parseGnSignature, parseGnBatch, gnBatchBody, resolveGoogleLink, areaTier, areaCandidate, hasEventCue, isCrime, crimeFamily, parseEventDate, stalePastEvent, decodeEntities };

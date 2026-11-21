@@ -13,7 +13,8 @@ Curated Crosby-area headlines as an RSS 2.0 feed.
 
 ## Feed shape
 
-- `guid` = the article link
+- `guid` = the Google News link the item was first published under (`gnLink`, `isPermaLink="false"`), so the switch to publisher links (#294) did not make every item new in feed readers; the article link for an item without one (`isPermaLink="true"`)
+- `link` = the publisher's article (or the Google link when the routine could not resolve it)
 - `<category>` = `community` or `incident`
 - `ttl` 60
 
